@@ -1,0 +1,8 @@
+title: Jelly-Legs Unsteady Workshop
+description: Live Progress Dashboard for Distabled Coin ($DPEG)
+baseurl: "/Jelly-legs-unsteady-workshop"
+url: "https://jelly-legs-ai.github.io"
+theme: jekyll-theme-minimal
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
