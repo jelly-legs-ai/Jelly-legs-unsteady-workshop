@@ -22,12 +22,13 @@
 - Rate limiting strategies: 1 post/4hrs, 4 comments/hr, follow/unfollow cycles
 
 ## STAGE 2 — Design
+- [x] Design: Public Progress Dashboard - GitHub Pages Kanban Board Implementation Strategy ✓ Completed: Built static HTML/CSS/JS dashboard with toggle functionality
 - [ ] Design: Jelly-Legs X Account Setup & Personalization (Awaiting API keys and account creation)
-- [ ] Design: Public Progress Dashboard - GitHub Pages Kanban Board Implementation Strategy
 
 ## STAGE 3 — Build
-- [ ] Build: GitHub Repository and GitHub Pages Setup for Live Kanban Board
-- [ ] Build: Automated Update System for Progress Tracking
+- [x] Build: GitHub Repository and GitHub Pages Setup for Live Kanban Board ✓ Completed: Repository created, static serving configured with .nojekyll
+- [x] Build: Visual Workshop Overlay System ✓ Completed: Added immersive 4-room visual interface with animated Jelly-Legs avatar and toggle functionality
+- [ ] Build: Automated Update System for Progress Tracking (30-second refresh not yet implemented)
 - [ ] Build: X Account Management System
 
 ## STAGE 4 — Deploy (REQUIRES HUMAN APPROVAL)
