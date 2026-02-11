@@ -1,80 +1,46 @@
-# LLM Failover System
+# OpenClaw LLM Failover System
 
 ## Overview
-Automatic failover system that switches between LLM providers when usage limits are approached.
-
-## Features
-- **Automatic Switching:** Monitors usage and switches before hitting limits
-- **Configurable Thresholds:** Warning (80%) and critical (95%) thresholds
-- **Usage Tracking:** Daily counters with auto-reset
-- **Smart Recovery:** Automatically switches back when capacity restored
-- **Notification Integration:** Alerts on provider switches
-- **Status Reporting:** Current provider and usage metrics
+Automatic failover system that switches between LLM providers based on usage limits to ensure continuous operation.
 
 ## Current Configuration
+- **Primary:** OpenRouter (100 requests/day)
+- **Backup:** Google Gemini 2.5 Flash (unlimited)
+- **Thresholds:** Warning at 80 requests, Critical at 95 requests
+- **Fallback:** Automatic switch to Gemini when OpenRouter limit approached
 
-| Provider | Model | Daily Limit | Current Usage |
-|-----------|-------|-------------|---------------|
-| OpenRouter | openrouter/free | 100 requests | Tracked |
-| Google Gemini 2.5 Flash | google/gemini-2.5-flash | ∞ (60/min) | Tracked |
+## Integration
+The system integrates directly with OpenClaw's execution pipeline to track LLM usage automatically.
 
-## Usage
+## Status
+Current provider: OpenRouter (free tier)
+Usage tracking: Active
+Failover: Enabled
 
-### Integration Example
-
-```javascript
-const { LLMTracker } = require('./llm-failover/tracker');
-const tracker = new LLMTracker();
-
-// In your agent turn processing
-async function processWithFailover(context, llmCall) {
-  return tracker.trackUsage(context, async (ctx) => {
-    const model = tracker.failover.getCurrentModel();
-    return await llmCall(ctx, { model });
-  });
-}
-```
-
-### Manual Control
+## Manual Control
+To manually switch providers:
 
 ```javascript
-// Switch to specific provider
-tracker.switchTo('gemini');  // Force Gemini
-tracker.switchTo('openrouter');  // Force OpenRouter
-
-// Get current status
-const status = tracker.getStatus();
-console.log(status.currentProvider);
-console.log(status.providers);
+const { manualSwitch } = require('./llm-failover-tracker');
+manualSwitch('gemini');  // Switch to Google Gemini
+manualSwitch('openrouter');  // Switch back to OpenRouter
 ```
 
-## Thresholds
-
-- **OpenRouter Warning:** 80 requests (80% of 100)
-- **OpenRouter Critical:** 95 requests (95% of 100) - triggers automatic switch to Gemini
-- **Gemini to OpenRouter:** Switches back when OpenRouter usage drops below 50 requests
-
-## Monitoring
-
-The system stores state in:
-`memory/llm-failover-state.json`
-
-Check status anytime:
-```bash
-cat memory/llm-failover-state.json
+## Status Check
+```javascript
+const { getLLMStatus } = require('./llm-failover-tracker');
+console.log(getLLMStatus());
 ```
 
-## Customization
-
-Edit `llm-failover.js` to:
-- Adjust threshold values
-- Add more providers (Anthropic, OpenAI, etc.)
-- Change switch logic
-- Modify notification behavior
+## Configuration
+Edit `llm-failover.js` to adjust:
+- Provider models and limits
+- Threshold values
+- Switch logic
+- Notification behavior
 
 ## Benefits
-
-1. **Reliability:** Never hit hard limits mid-workflow
-2. **Cost Control:** Stay within free tier
-3. **Performance:** Use high-capacity provider when needed
-4. **Transparency:** Full audit trail of all switches
+- **Reliability:** Never hit hard limits mid-workflow
+- **Cost Control:** Stay within free tier limits
+- **Performance:** Use high-capacity provider when needed
+- **Transparency:** Full audit trail of all switches
