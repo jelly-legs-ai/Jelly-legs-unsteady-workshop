@@ -1,1 +1,2 @@
 
+\n## Visual Workshop\n\nThe dashboard features an immersive visual workshop overlay with:\n- **Toggle Button**: Switch between simple Kanban and visual workshop views\n- **4 Themed Rooms**: Research Lab (🔬), Design Studio (✏️), Build Factory (⚙️), Launch Pad (🚀)\n- **Animated Avatar**: 🌚 Jelly-Legs avatar that moves between rooms with bounce animations\n- **Interactive Navigation**: Click any room to move the avatar there\n- **Responsive Design**: Works on mobile and desktop\n\nClick the toggle button (top-right) to switch between views!
