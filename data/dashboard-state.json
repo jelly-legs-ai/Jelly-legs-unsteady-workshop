@@ -1,224 +1,220 @@
 {
   "agents": {
     "jelly-legs": {
-      "id": "jelly-legs",
       "name": "Jelly-Legs",
       "emoji": "🪼",
       "role": "Marketing Commander",
       "color": "#ff3333",
-      "zones": ["all"],
-      "position": { "x": 45, "y": 45 },
-      "status": "working",
-      "currentTask": { "thought": "Building attention, engineering narrative..." }
+      "zones": [
+        "all"
+      ],
+      "id": "jelly-legs",
+      "position": {
+        "x": 49.72090254538493,
+        "y": 41.461993019544906
+      },
+      "currentTask": null,
+      "status": "idle",
+      "lastActivity": null
     },
     "data-diver": {
-      "id": "data-diver",
       "name": "Data-Diver",
       "emoji": "🤿",
       "role": "Research Lead",
       "color": "#3366ff",
-      "zones": ["research"],
-      "position": { "x": 12, "y": 18 },
-      "status": "working",
-      "currentTask": { "thought": "Diving deep into GitHub API patterns..." }
+      "zones": [
+        "research"
+      ],
+      "id": "data-diver",
+      "position": {
+        "x": 36.69721672971451,
+        "y": 38.767449906631356
+      },
+      "currentTask": null,
+      "status": "idle",
+      "lastActivity": null
     },
     "pattern-seeker": {
-      "id": "pattern-seeker",
       "name": "Pattern-Seeker",
       "emoji": "🔮",
       "role": "Trend Analyst",
       "color": "#9933ff",
-      "zones": ["research"],
-      "position": { "x": 18, "y": 20 },
+      "zones": [
+        "research"
+      ],
+      "id": "pattern-seeker",
+      "position": {
+        "x": 39.516049824682426,
+        "y": 57.464731033898566
+      },
+      "currentTask": null,
       "status": "idle",
-      "currentTask": null
+      "lastActivity": null
     },
     "sketch-bot": {
-      "id": "sketch-bot",
       "name": "Sketch-Bot",
       "emoji": "🎨",
       "role": "Design Architect",
       "color": "#ff66cc",
-      "zones": ["design"],
-      "position": { "x": 45, "y": 18 },
-      "status": "working",
-      "currentTask": { "thought": "Crafting pixel art sprites..." }
+      "zones": [
+        "design"
+      ],
+      "id": "sketch-bot",
+      "position": {
+        "x": 57.61968734006054,
+        "y": 36.04554646787884
+      },
+      "currentTask": null,
+      "status": "idle",
+      "lastActivity": null
     },
     "voice-weaver": {
-      "id": "voice-weaver",
       "name": "Voice-Weaver",
       "emoji": "🎭",
       "role": "Brand Voice",
       "color": "#ff9933",
-      "zones": ["design"],
-      "position": { "x": 52, "y": 20 },
+      "zones": [
+        "design"
+      ],
+      "id": "voice-weaver",
+      "position": {
+        "x": 62.85648637476679,
+        "y": 50.3810098127759
+      },
+      "currentTask": null,
       "status": "idle",
-      "currentTask": null
+      "lastActivity": null
     },
     "hook-maker": {
-      "id": "hook-maker",
       "name": "Hook-Maker",
       "emoji": "🪝",
       "role": "Viral Engineer",
       "color": "#ffcc00",
-      "zones": ["design"],
-      "position": { "x": 42, "y": 48 },
+      "zones": [
+        "design"
+      ],
+      "id": "hook-maker",
+      "position": {
+        "x": 54.76868455089485,
+        "y": 52.77189523903981
+      },
+      "currentTask": null,
       "status": "idle",
-      "currentTask": null
+      "lastActivity": null
     },
     "build-bot": {
-      "id": "build-bot",
       "name": "Build-Bot",
       "emoji": "⚙️",
       "role": "System Developer",
       "color": "#33cc33",
-      "zones": ["build"],
-      "position": { "x": 75, "y": 18 },
-      "status": "working",
-      "currentTask": { "thought": "Pipeline flowing, systems connecting..." }
+      "zones": [
+        "build"
+      ],
+      "id": "build-bot",
+      "position": {
+        "x": 54.47780394224323,
+        "y": 53.110608062024426
+      },
+      "currentTask": null,
+      "status": "idle",
+      "lastActivity": null
     },
     "pipe-layer": {
-      "id": "pipe-layer",
       "name": "Pipe-Layer",
       "emoji": "🧩",
       "role": "Pipeline Engineer",
       "color": "#33cccc",
-      "zones": ["build"],
-      "position": { "x": 48, "y": 48 },
+      "zones": [
+        "build"
+      ],
+      "id": "pipe-layer",
+      "position": {
+        "x": 41.179309505795764,
+        "y": 37.089710820995954
+      },
+      "currentTask": null,
       "status": "idle",
-      "currentTask": { "thought": "Coffee break ☕" }
+      "lastActivity": null
     },
     "code-crafter": {
-      "id": "code-crafter",
       "name": "Code-Crafter",
       "emoji": "💻",
       "role": "Implementation",
       "color": "#66ff66",
-      "zones": ["build"],
-      "position": { "x": 72, "y": 22 },
+      "zones": [
+        "build"
+      ],
+      "id": "code-crafter",
+      "position": {
+        "x": 37.484731221578585,
+        "y": 44.832726104380946
+      },
+      "currentTask": null,
       "status": "idle",
-      "currentTask": null
+      "lastActivity": null
     },
     "shield-bot": {
-      "id": "shield-bot",
       "name": "Shield-Bot",
       "emoji": "🛡️",
       "role": "Security Guard",
       "color": "#999999",
-      "zones": ["security"],
-      "position": { "x": 10, "y": 45 },
+      "zones": [
+        "security"
+      ],
+      "id": "shield-bot",
+      "position": {
+        "x": 62.38965127823106,
+        "y": 59.91863502930579
+      },
+      "currentTask": null,
       "status": "idle",
-      "currentTask": { "thought": "Scanning for risk vectors..." }
+      "lastActivity": null
     },
     "map-maker": {
-      "id": "map-maker",
       "name": "Map-Maker",
       "emoji": "🗺️",
       "role": "Strategy Lead",
       "color": "#6666ff",
-      "zones": ["strategy"],
-      "position": { "x": 80, "y": 45 },
-      "status": "working",
-      "currentTask": { "thought": "Planning launch sequence..." }
+      "zones": [
+        "strategy"
+      ],
+      "id": "map-maker",
+      "position": {
+        "x": 40.773734410894114,
+        "y": 36.66588089638114
+      },
+      "currentTask": null,
+      "status": "idle",
+      "lastActivity": null
     },
     "launch-pad": {
-      "id": "launch-pad",
       "name": "Launch-Pad",
       "emoji": "🚀",
       "role": "Deployment Chief",
       "color": "#ffcc00",
-      "zones": ["deploy"],
-      "position": { "x": 48, "y": 78 },
+      "zones": [
+        "deploy"
+      ],
+      "id": "launch-pad",
+      "position": {
+        "x": 54.74270534050733,
+        "y": 51.77027068569822
+      },
+      "currentTask": null,
       "status": "idle",
-      "currentTask": { "thought": "Ready for deploy command!" }
+      "lastActivity": null
     }
   },
-  "tasks": [
-    {
-      "id": "research-1",
-      "type": "issue",
-      "number": 1,
-      "title": "Research: Solana Meme Viral Patterns",
-      "body": "Analyze viral mechanics of successful Solana meme coins",
-      "state": "open",
-      "stage": "research",
-      "agent": "data-diver",
-      "labels": ["research", "analysis"],
-      "url": "#",
-      "createdAt": "2026-02-15T20:00:00Z",
-      "updatedAt": "2026-02-15T21:30:00Z",
-      "thought": "Analyzing community engagement metrics..."
-    },
-    {
-      "id": "design-1",
-      "type": "issue",
-      "number": 2,
-      "title": "Design: Agent Avatar Pixel Art System",
-      "body": "Create 12 unique pixel art avatars for each agent",
-      "state": "open",
-      "stage": "design",
-      "agent": "sketch-bot",
-      "labels": ["design", "ui"],
-      "url": "#",
-      "createdAt": "2026-02-15T20:30:00Z",
-      "updatedAt": "2026-02-15T22:00:00Z",
-      "thought": "Sketching sprite sheets..."
-    },
-    {
-      "id": "build-1",
-      "type": "issue",
-      "number": 3,
-      "title": "Build: GitHub Actions Data Bridge",
-      "body": "Create automated data refresh every 30 seconds",
-      "state": "open",
-      "stage": "build",
-      "agent": "build-bot",
-      "labels": ["build", "automation"],
-      "url": "#",
-      "createdAt": "2026-02-15T21:00:00Z",
-      "updatedAt": "2026-02-15T22:15:00Z",
-      "thought": "Pipeline architecture complete!"
-    },
-    {
-      "id": "build-2",
-      "type": "issue",
-      "number": 4,
-      "title": "Build: Dashboard v2.0 Frontend",
-      "body": "Implement bird's eye factory floor view",
-      "state": "open",
-      "stage": "build",
-      "agent": "code-crafter",
-      "labels": ["build", "frontend"],
-      "url": "#",
-      "createdAt": "2026-02-15T21:30:00Z",
-      "updatedAt": "2026-02-15T22:30:00Z",
-      "thought": "CSS animations running smooth..."
-    },
-    {
-      "id": "strategy-1",
-      "type": "issue",
-      "number": 5,
-      "title": "Strategy: Launch Timeline for $DPEG",
-      "body": "Plan stealth → public transition milestones",
-      "state": "open",
-      "stage": "strategy",
-      "agent": "map-maker",
-      "labels": ["strategy", "planning"],
-      "url": "#",
-      "createdAt": "2026-02-15T21:45:00Z",
-      "updatedAt": "2026-02-15T22:20:00Z",
-      "thought": "Milestone mapping in progress..."
-    }
-  ],
+  "tasks": [],
   "stats": {
-    "totalIssues": 5,
-    "openIssues": 5,
+    "totalIssues": 0,
+    "openIssues": 0,
     "totalPRs": 0,
     "openPRs": 0,
-    "recentCommits": 3,
-    "recentWorkflows": 0,
-    "activeAgents": 5,
-    "lastUpdate": "2026-02-15T22:30:00Z"
+    "recentCommits": 20,
+    "recentWorkflows": 10,
+    "activeAgents": 0,
+    "lastUpdate": "2026-02-16T20:21:21.743Z"
   },
-  "timestamp": "2026-02-15T22:30:00Z"
+  "timestamp": "2026-02-16T20:21:21.743Z"
 }
