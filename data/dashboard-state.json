@@ -10,8 +10,8 @@
       ],
       "id": "jelly-legs",
       "position": {
-        "x": 49.72090254538493,
-        "y": 41.461993019544906
+        "x": 63.963385886475436,
+        "y": 55.655541596534064
       },
       "currentTask": null,
       "status": "idle",
@@ -27,12 +27,27 @@
       ],
       "id": "data-diver",
       "position": {
-        "x": 36.69721672971451,
-        "y": 38.767449906631356
+        "x": 34.883937483228614,
+        "y": 21.81349459068957
       },
-      "currentTask": null,
-      "status": "idle",
-      "lastActivity": null
+      "currentTask": {
+        "id": "issue-1",
+        "type": "issue",
+        "number": 1,
+        "title": "RESEARCH: Analyze top 10 viral Solana meme coins for pattern recognition",
+        "body": "## Objective\nDeep-dive analysis of the most viral Solana meme coins to identify repeatable success patterns.\n\n## Deliverables\n- [ ] List of top 10 viral Solana meme coins (by market cap, social engage",
+        "state": "open",
+        "stage": "research",
+        "agent": "data-diver",
+        "labels": [],
+        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/1",
+        "createdAt": "2026-02-16T20:43:13Z",
+        "updatedAt": "2026-02-16T20:43:13Z",
+        "assignee": null,
+        "thought": "Pattern detection active..."
+      },
+      "status": "working",
+      "lastActivity": "2026-02-16T20:43:13Z"
     },
     "pattern-seeker": {
       "name": "Pattern-Seeker",
@@ -44,8 +59,8 @@
       ],
       "id": "pattern-seeker",
       "position": {
-        "x": 39.516049824682426,
-        "y": 57.464731033898566
+        "x": 40.00752196329455,
+        "y": 41.25186002540849
       },
       "currentTask": null,
       "status": "idle",
@@ -61,8 +76,8 @@
       ],
       "id": "sketch-bot",
       "position": {
-        "x": 57.61968734006054,
-        "y": 36.04554646787884
+        "x": 62.656924222758306,
+        "y": 43.5281818560281
       },
       "currentTask": null,
       "status": "idle",
@@ -78,8 +93,8 @@
       ],
       "id": "voice-weaver",
       "position": {
-        "x": 62.85648637476679,
-        "y": 50.3810098127759
+        "x": 56.17800019578908,
+        "y": 51.17042206315395
       },
       "currentTask": null,
       "status": "idle",
@@ -95,8 +110,8 @@
       ],
       "id": "hook-maker",
       "position": {
-        "x": 54.76868455089485,
-        "y": 52.77189523903981
+        "x": 58.4598798087888,
+        "y": 56.97044358323068
       },
       "currentTask": null,
       "status": "idle",
@@ -112,12 +127,27 @@
       ],
       "id": "build-bot",
       "position": {
-        "x": 54.47780394224323,
-        "y": 53.110608062024426
+        "x": 24.18983308059897,
+        "y": 24.790580027973885
       },
-      "currentTask": null,
-      "status": "idle",
-      "lastActivity": null
+      "currentTask": {
+        "id": "issue-4",
+        "type": "issue",
+        "number": 4,
+        "title": "BUILD: Agent Work Request System - delegate tasks between agents",
+        "body": "## Objective\nAllow agents to create work requests and delegate to other agents.\n\n## Deliverables\n- [ ] \"Request Work\" modal\n- [ ] Select target agent dropdown\n- [ ] Task title/description input\n- [ ] ",
+        "state": "open",
+        "stage": "research",
+        "agent": "build-bot",
+        "labels": [],
+        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/4",
+        "createdAt": "2026-02-16T20:43:15Z",
+        "updatedAt": "2026-02-16T20:43:15Z",
+        "assignee": null,
+        "thought": "Code architecture..."
+      },
+      "status": "working",
+      "lastActivity": "2026-02-16T20:43:15Z"
     },
     "pipe-layer": {
       "name": "Pipe-Layer",
@@ -129,8 +159,8 @@
       ],
       "id": "pipe-layer",
       "position": {
-        "x": 41.179309505795764,
-        "y": 37.089710820995954
+        "x": 38.778023531839864,
+        "y": 58.987389944308106
       },
       "currentTask": null,
       "status": "idle",
@@ -146,12 +176,27 @@
       ],
       "id": "code-crafter",
       "position": {
-        "x": 37.484731221578585,
-        "y": 44.832726104380946
+        "x": 17.086569808074103,
+        "y": 21.63842550272546
       },
-      "currentTask": null,
-      "status": "idle",
-      "lastActivity": null
+      "currentTask": {
+        "id": "issue-3",
+        "type": "issue",
+        "number": 3,
+        "title": "BUILD: Implement zone detail modal - click zones to expand task details",
+        "body": "## Objective\nMake zones clickable so Reggie can see full task breakdown when clicking a room.\n\n## Deliverables\n- [ ] Create zone detail modal/popover\n- [ ] Show all active tasks in that zone\n- [ ] Dis",
+        "state": "open",
+        "stage": "research",
+        "agent": "code-crafter",
+        "labels": [],
+        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/3",
+        "createdAt": "2026-02-16T20:43:14Z",
+        "updatedAt": "2026-02-16T20:43:14Z",
+        "assignee": null,
+        "thought": "Logic weaving..."
+      },
+      "status": "working",
+      "lastActivity": "2026-02-16T20:43:14Z"
     },
     "shield-bot": {
       "name": "Shield-Bot",
@@ -163,8 +208,8 @@
       ],
       "id": "shield-bot",
       "position": {
-        "x": 62.38965127823106,
-        "y": 59.91863502930579
+        "x": 55.69469043149857,
+        "y": 43.55505343394813
       },
       "currentTask": null,
       "status": "idle",
@@ -180,8 +225,8 @@
       ],
       "id": "map-maker",
       "position": {
-        "x": 40.773734410894114,
-        "y": 36.66588089638114
+        "x": 50.42013547276221,
+        "y": 58.651704637390395
       },
       "currentTask": null,
       "status": "idle",
@@ -197,24 +242,89 @@
       ],
       "id": "launch-pad",
       "position": {
-        "x": 54.74270534050733,
-        "y": 51.77027068569822
+        "x": 49.1729248873862,
+        "y": 43.08017505902551
       },
       "currentTask": null,
       "status": "idle",
       "lastActivity": null
     }
   },
-  "tasks": [],
+  "tasks": [
+    {
+      "id": "issue-4",
+      "type": "issue",
+      "number": 4,
+      "title": "BUILD: Agent Work Request System - delegate tasks between agents",
+      "body": "## Objective\nAllow agents to create work requests and delegate to other agents.\n\n## Deliverables\n- [ ] \"Request Work\" modal\n- [ ] Select target agent dropdown\n- [ ] Task title/description input\n- [ ] ",
+      "state": "open",
+      "stage": "research",
+      "agent": "build-bot",
+      "labels": [],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/4",
+      "createdAt": "2026-02-16T20:43:15Z",
+      "updatedAt": "2026-02-16T20:43:15Z",
+      "assignee": null,
+      "thought": "Code architecture..."
+    },
+    {
+      "id": "issue-3",
+      "type": "issue",
+      "number": 3,
+      "title": "BUILD: Implement zone detail modal - click zones to expand task details",
+      "body": "## Objective\nMake zones clickable so Reggie can see full task breakdown when clicking a room.\n\n## Deliverables\n- [ ] Create zone detail modal/popover\n- [ ] Show all active tasks in that zone\n- [ ] Dis",
+      "state": "open",
+      "stage": "research",
+      "agent": "code-crafter",
+      "labels": [],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/3",
+      "createdAt": "2026-02-16T20:43:14Z",
+      "updatedAt": "2026-02-16T20:43:14Z",
+      "assignee": null,
+      "thought": "Logic weaving..."
+    },
+    {
+      "id": "issue-2",
+      "type": "issue",
+      "number": 2,
+      "title": "DESIGN: Create pixel art avatar system for all 12 agents",
+      "body": "## Objective\nReplace emoji placeholders with actual pixel art sprites for each agent.\n\n## Deliverables\n- [ ] Design 12 unique pixel art characters (32x32px each)\n- [ ] Create idle animation frames (2-",
+      "state": "open",
+      "stage": "research",
+      "agent": "data-diver",
+      "labels": [],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/2",
+      "createdAt": "2026-02-16T20:43:14Z",
+      "updatedAt": "2026-02-16T20:43:14Z",
+      "assignee": null,
+      "thought": "Viral mechanics study..."
+    },
+    {
+      "id": "issue-1",
+      "type": "issue",
+      "number": 1,
+      "title": "RESEARCH: Analyze top 10 viral Solana meme coins for pattern recognition",
+      "body": "## Objective\nDeep-dive analysis of the most viral Solana meme coins to identify repeatable success patterns.\n\n## Deliverables\n- [ ] List of top 10 viral Solana meme coins (by market cap, social engage",
+      "state": "open",
+      "stage": "research",
+      "agent": "data-diver",
+      "labels": [],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/1",
+      "createdAt": "2026-02-16T20:43:13Z",
+      "updatedAt": "2026-02-16T20:43:13Z",
+      "assignee": null,
+      "thought": "Pattern detection active..."
+    }
+  ],
   "stats": {
-    "totalIssues": 0,
-    "openIssues": 0,
+    "totalIssues": 4,
+    "openIssues": 4,
     "totalPRs": 0,
     "openPRs": 0,
     "recentCommits": 20,
     "recentWorkflows": 10,
-    "activeAgents": 0,
-    "lastUpdate": "2026-02-16T20:21:21.743Z"
+    "activeAgents": 3,
+    "lastUpdate": "2026-02-16T21:49:03.493Z"
   },
-  "timestamp": "2026-02-16T20:21:21.743Z"
+  "timestamp": "2026-02-16T21:49:03.493Z"
 }
