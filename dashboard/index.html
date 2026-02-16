@@ -478,6 +478,61 @@
                 bottom: 10px;
             }
         }
+
+        /* Zone Detail Modal */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85); display: none; align-items: center;
+            justify-content: center; z-index: 1000; backdrop-filter: blur(5px);
+        }
+        .modal-overlay.visible { display: flex; }
+        .modal { background: var(--bg-card); border: 1px solid var(--primary);
+            border-radius: 16px; width: 90%; max-width: 600px; max-height: 80vh;
+            overflow: hidden; box-shadow: 0 0 60px rgba(255,51,51,0.3);
+        }
+        .modal-header { padding: 20px 25px; border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .modal-header h2 { font-size: 18px; color: var(--primary);
+            text-transform: uppercase; letter-spacing: 2px;
+        }
+        .modal-close { background: none; border: none; color: var(--text-muted);
+            font-size: 24px; cursor: pointer;
+        }
+        .modal-body { padding: 25px; overflow-y: auto; max-height: calc(80vh - 80px); }
+        .zone-task { background: rgba(255,51,51,0.08); border-left: 3px solid var(--primary);
+            border-radius: 8px; padding: 15px; margin-bottom: 12px;
+        }
+        .zone-task-title { font-size: 14px; font-weight: bold; margin-bottom: 8px; }
+        .zone-task-meta { display: flex; gap: 15px; font-size: 12px; color: var(--text-muted); }
+        .zone-task-link { color: var(--primary); text-decoration: none; }
+        .zone-empty { text-align: center; padding: 40px; color: var(--text-muted); }
+        .work-request-btn { position: fixed; bottom: 30px; right: 30px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white; border: none; padding: 15px 25px; border-radius: 30px;
+            font-size: 14px; font-family: inherit; font-weight: bold; cursor: pointer;
+            z-index: 200; box-shadow: 0 4px 20px rgba(255,51,51,0.4);
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        .work-request-btn:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(255,51,51,0.5); }
+        .work-form { display: flex; flex-direction: column; gap: 15px; }
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-group label { font-size: 12px; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            background: rgba(0,0,0,0.5); border: 1px solid var(--border);
+            border-radius: 8px; padding: 12px 15px; color: var(--text);
+            font-family: inherit; font-size: 14px;
+        }
+        .form-group textarea { min-height: 100px; resize: vertical; }
+        .submit-btn { background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white; border: none; padding: 15px; border-radius: 8px; font-size: 14px;
+            font-family: inherit; font-weight: bold; cursor: pointer; text-transform: uppercase;
+        }
+        .form-success { background: rgba(0,255,136,0.1); border: 1px solid #00ff88;
+            border-radius: 8px; padding: 15px; color: #00ff88; text-align: center;
+        }
         
         /* Scrollbar */
         ::-webkit-scrollbar {
@@ -536,7 +591,7 @@
             <svg class="connections-svg" id="connectionsSvg"></svg>
             
             <!-- Zones -->
-            <div class="zone zone-research">
+            <div class="zone zone-research" onclick="openZoneModal('research')">
                 <div class="zone-header">
                     <span class="zone-icon">🔬</span>
                     <span class="zone-title">Research Lab</span>
@@ -544,7 +599,7 @@
                 <div class="zone-content" id="zone-research"></div>
             </div>
             
-            <div class="zone zone-design">
+            <div class="zone zone-design" onclick="openZoneModal('design')">
                 <div class="zone-header">
                     <span class="zone-icon">✏️</span>
                     <span class="zone-title">Design Studio</span>
@@ -552,7 +607,7 @@
                 <div class="zone-content" id="zone-design"></div>
             </div>
             
-            <div class="zone zone-build">
+            <div class="zone zone-build" onclick="openZoneModal('build')">
                 <div class="zone-header">
                     <span class="zone-icon">⚙️</span>
                     <span class="zone-title">Build Factory</span>
@@ -560,7 +615,7 @@
                 <div class="zone-content" id="zone-build"></div>
             </div>
             
-            <div class="zone zone-security">
+            <div class="zone zone-security" onclick="openZoneModal('security')">
                 <div class="zone-header">
                     <span class="zone-icon">🔒</span>
                     <span class="zone-title">Security</span>
@@ -568,7 +623,7 @@
                 <div class="zone-content" id="zone-security"></div>
             </div>
             
-            <div class="zone zone-strategy">
+            <div class="zone zone-strategy" onclick="openZoneModal('strategy')">
                 <div class="zone-header">
                     <span class="zone-icon">📊</span>
                     <span class="zone-title">Strategy</span>
@@ -576,7 +631,7 @@
                 <div class="zone-content" id="zone-strategy"></div>
             </div>
             
-            <div class="zone zone-deploy">
+            <div class="zone zone-deploy" onclick="openZoneModal('deploy')">
                 <div class="zone-header">
                     <span class="zone-icon">🚀</span>
                     <span class="zone-title">Deploy Pad</span>
@@ -621,6 +676,20 @@
             <!-- Kanban columns will be populated here -->
         </div>
     </div>
+
+    <!-- Zone Detail Modal -->
+    <div class="modal-overlay" id="zoneModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="zoneModalTitle">Zone Details</h2>
+                <button class="modal-close" onclick="closeZoneModal()">×</button>
+            </div>
+            <div class="modal-body" id="zoneModalBody"></div>
+        </div>
+    </div>
+
+    <!-- Work Request Button -->
+    <button class="work-request-btn" onclick="openWorkRequestModal()">+ Request Work</button>
 
     <script>
         // Dashboard State
@@ -820,16 +889,76 @@
             }, 3000);
         }
 
-        // Show agent details (placeholder for future modal)
+        // Show agent details
         function showAgentDetails(agent) {
             const task = dashboardState.tasks.find(t => t.agent === agent.id && t.state === 'open');
             const message = task 
-                ? `${agent.name} is working on: "${task.title}"`
-                : `${agent.name} is idle — waiting for assignments`;
-            
-            // Could expand to modal in future
-            console.log('Agent clicked:', agent, message);
+                ? `${agent.name}: ${task.thought || task.title}`
+                : `${agent.name} is idle`;
+            console.log(message);
         }
+
+        // Zone Modal Functions
+        const zoneNames = {
+            'research': '🔬 Research Lab',
+            'design': '✏️ Design Studio',
+            'build': '⚙️ Build Factory',
+            'security': '🔒 Security Zone',
+            'strategy': '📊 Strategy Room',
+            'deploy': '🚀 Deploy Pad',
+            'plaza': '🌳 Social Plaza'
+        };
+        
+        function openZoneModal(zone) {
+            const modal = document.getElementById('zoneModal');
+            const titleEl = document.getElementById('zoneModalTitle');
+            const bodyEl = document.getElementById('zoneModalBody');
+            
+            titleEl.textContent = zoneNames[zone] || zone;
+            
+            const zoneTasks = dashboardState.tasks.filter(t => t.stage === zone && t.state === 'open');
+            
+            if (zoneTasks.length === 0) {
+                bodyEl.innerHTML = '<div class="zone-empty"><p>No active tasks in this zone.</p><p style="margin-top:10px;font-size:12px;">Click "Request Work" to assign a new task!</p></div>';
+            } else {
+                bodyEl.innerHTML = '<div class="zone-tasks">' + zoneTasks.map(task => `
+                    <div class="zone-task">
+                        <div class="zone-task-title">${task.title}</div>
+                        <div class="zone-task-meta">
+                            <span>${dashboardState.agents[task.agent]?.emoji || '🤖'} ${dashboardState.agents[task.agent]?.name || task.agent}</span>
+                            <span>Stage: ${task.stage}</span>
+                            ${task.url ? `<a href="${task.url}" target="_blank" class="zone-task-link">View on GitHub →</a>` : ''}
+                        </div>
+                    </div>
+                `).join('') + '</div>';
+            }
+            
+            modal.classList.add('visible');
+        }
+        
+        function closeZoneModal() {
+            document.getElementById('zoneModal').classList.remove('visible');
+        }
+        
+        // Work Request Functions
+        function openWorkRequestModal() {
+            document.getElementById('workRequestModal').classList.add('visible');
+            document.getElementById('workRequestForm').style.display = 'block';
+            document.getElementById('formSuccess').style.display = 'none';
+        }
+        
+        function closeWorkRequestModal() {
+            document.getElementById('workRequestModal').classList.remove('visible');
+        }
+        
+        // Close modals on overlay click
+        document.getElementById('zoneModal')?.addEventListener('click', function(e) {
+            if (e.target === this) closeZoneModal();
+        });
+        
+        document.getElementById('workRequestModal')?.addEventListener('click', function(e) {
+            if (e.target === this) closeWorkRequestModal();
+        });
 
         // Hide loading screen
         function hideLoadingScreen() {
