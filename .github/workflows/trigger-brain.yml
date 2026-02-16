@@ -1,0 +1,49 @@
+name: 🤖 Trigger Agent Brain
+
+on:
+  issues:
+    types: [opened, labeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Issue number to process'
+        required: false
+
+jobs:
+  trigger-brain:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    
+    steps:
+      - name: Determine issue to process
+        id: determine
+        run: |
+          if [ -n "${{ github.event.inputs.issue_number }}" ]; then
+            echo "issue=${{ github.event.inputs.issue_number }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.issue }}" != "" ]; then
+            echo "issue=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
+          else
+            echo "No issue to process"
+            exit 0
+          fi
+        shell: bash
+
+      - name: Add brain label
+        if: steps.determine.outputs.issue
+        run: |
+          gh issue edit ${{ steps.determine.outputs.issue }} --add-label brain-triggered --repo ${{ github.repository }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create work item for agent brain
+        if: steps.determine.outputs.issue
+        run: |
+          # Create a marker that the brain can pick up
+          echo "Processing issue #${{ steps.determine.outputs.issue }}" >> $GITHUB_STEP_SUMMARY
+          
+      - name: Wait for brain to respond
+        run: |
+          echo "🤖 Brain trigger sent - Agent will process this issue"
+          echo "The autonomous brain will pick up this issue and perform AI work"
