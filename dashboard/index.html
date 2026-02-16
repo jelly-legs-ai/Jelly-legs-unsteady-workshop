@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🪼 Agent Factory v2.0 - Real-Time Dashboard</title>
+    <link rel="stylesheet" href="/theme/dark-red.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --primary: #ff3333;
+            --primary-light: #ff6666;
+            --primary-dark: #cc0000;
+            --bg-dark: #0a0a0a;
+            --bg-card: rgba(26, 26, 26, 0.95);
+            --text: #ffffff;
+            --text-muted: #888888;
+            --border: rgba(255, 51, 51, 0.3);
+        }
+        
+        body {
+            background: var(--bg-dark);
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            color: var(--text);
+        }
+        
+        /* Loading Screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg-dark);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease;
+        }
+        
+        .loading-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .loading-text {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary);
+            text-shadow: 0 0 20px rgba(255, 51, 51, 0.5);
+            margin-bottom: 20px;
+        }
+        
+        .loading-dots {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .loading-dot {
+            width: 12px;
+            height: 12px;
+            background: var(--primary);
+            border-radius: 50%;
+            animation: loadingBounce 1.4s ease-in-out infinite both;
+        }
+        
+        .loading-dot:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dot:nth-child(2) { animation-delay: -0.16s; }
+        
+        @keyframes loadingBounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+        
+        /* Main Container */
+        .factory-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            background: linear-gradient(180deg, #0f0f0f 0%, #1a1a1a 50%, #0f0f0f 100%);
+            overflow: hidden;
+        }
+        
+        /* Grid Floor */
+        .floor {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 50%;
+            background: 
+                linear-gradient(90deg, rgba(255,51,51,0.02) 1px, transparent 1px),
+                linear-gradient(rgba(255,51,51,0.02) 1px, transparent 1px);
+            background-size: 50px 50px;
+            transform: perspective(800px) rotateX(60deg);
+            transform-origin: bottom;
+            pointer-events: none;
+        }
+        
+        /* Header */
+        .header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(180deg, rgba(0,0,0,0.9) 0%, transparent 100%);
+            z-index: 100;
+        }
+        
+        .header-left h1 {
+            font-size: 20px;
+            font-weight: bold;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+        
+        .header-left p {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+        
+        /* Toggle Controls */
+        .view-toggle {
+            display: flex;
+            gap: 10px;
+            background: rgba(0,0,0,0.5);
+            padding: 5px;
+            border-radius: 30px;
+            border: 1px solid var(--border);
+        }
+        
+        .toggle-btn {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-family: inherit;
+            cursor: pointer;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .toggle-btn:hover {
+            color: var(--text);
+        }
+        
+        .toggle-btn.active {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+        }
+        
+        /* Live Indicator */
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            color: #00ff88;
+        }
+        
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: #00ff88;
+            border-radius: 50%;
+            animation: blink 1s ease-in-out infinite;
+            box-shadow: 0 0 10px #00ff88;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
+        /* Stats Panel */
+        .stats-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 15px 20px;
+            font-size: 11px;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            min-width: 180px;
+        }
+        
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 6px;
+        }
+        
+        .stats-row:last-child { margin-bottom: 0; }
+        .stats-label { color: var(--text-muted); }
+        .stats-value { color: var(--primary); font-weight: bold; }
+        
+        /* Zones */
+        .zone {
+            position: absolute;
+            border: 2px solid var(--border);
+            background: var(--bg-card);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        
+        .zone:hover {
+            border-color: rgba(255, 51, 51, 0.6);
+            box-shadow: 0 0 30px rgba(255, 51, 51, 0.2);
+        }
+        
+        .zone-header {
+            padding: 10px 15px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .zone-icon {
+            font-size: 18px;
+        }
+        
+        .zone-title {
+            font-size: 11px;
+            font-weight: bold;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .zone-content {
+            padding: 10px 15px;
+            min-height: 60px;
+        }
+        
+        /* Zone Positions (percent-based for responsiveness) */
+        .zone-research { top: 12%; left: 5%; width: 22%; height: 20%; }
+        .zone-design { top: 12%; left: 39%; width: 22%; height: 20%; }
+        .zone-build { top: 12%; right: 5%; width: 22%; height: 20%; }
+        .zone-security { top: 40%; left: 5%; width: 18%; height: 15%; }
+        .zone-strategy { top: 40%; right: 5%; width: 18%; height: 15%; }
+        .zone-deploy { bottom: 8%; left: 39%; width: 22%; height: 12%; }
+        
+        /* Central Plaza */
+        .central-plaza {
+            position: absolute;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 26%;
+            height: 22%;
+            background: radial-gradient(circle, rgba(255,51,51,0.08) 0%, transparent 70%);
+            border: 2px dashed var(--border);
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .central-plaza .zone-icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+        
+        .central-plaza .zone-title {
+            color: var(--primary-light);
+        }
+        
+        /* Agents */
+        .agent {
+            position: absolute;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 50;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+        }
+        
+        .agent:hover {
+            transform: scale(1.3);
+            z-index: 60;
+        }
+        
+        .agent-avatar {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        .agent:nth-child(2n) .agent-avatar { animation-delay: 0.5s; }
+        .agent:nth-child(3n) .agent-avatar { animation-delay: 1s; }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+        
+        .agent-label {
+            position: absolute;
+            bottom: -22px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 9px;
+            color: var(--text);
+            white-space: nowrap;
+            background: rgba(0,0,0,0.8);
+            padding: 2px 8px;
+            border-radius: 10px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .agent:hover .agent-label {
+            opacity: 1;
+        }
+        
+        /* Speech Bubbles */
+        .speech-bubble {
+            position: absolute;
+            background: var(--bg-card);
+            border: 1px solid var(--primary);
+            border-radius: 12px;
+            padding: 8px 12px;
+            font-size: 10px;
+            color: var(--text);
+            max-width: 160px;
+            min-width: 100px;
+            word-wrap: break-word;
+            opacity: 0;
+            transform: translateY(-10px) scale(0.9);
+            transition: all 0.3s ease;
+            pointer-events: none;
+            z-index: 70;
+            box-shadow: 0 4px 20px rgba(255,51,51,0.3);
+        }
+        
+        .speech-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 6px solid var(--primary);
+        }
+        
+        .speech-bubble.visible {
+            opacity: 1;
+            transform: translateY(-50px) scale(1);
+        }
+        
+        /* Task Cards in Zones */
+        .task-card {
+            background: rgba(255, 51, 51, 0.1);
+            border-left: 3px solid var(--primary);
+            border-radius: 6px;
+            padding: 8px 10px;
+            margin-bottom: 8px;
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .task-card:hover {
+            background: rgba(255, 51, 51, 0.2);
+            transform: translateX(3px);
+        }
+        
+        .task-card.completed {
+            border-left-color: #666;
+            background: rgba(100, 100, 100, 0.1);
+            opacity: 0.6;
+        }
+        
+        .task-title {
+            font-weight: bold;
+            color: var(--text);
+            margin-bottom: 3px;
+        }
+        
+        .task-meta {
+            color: var(--text-muted);
+            font-size: 9px;
+        }
+        
+        /* Connection Lines (SVG overlay) */
+        .connections-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 40;
+        }
+        
+        .connection-line {
+            stroke: rgba(255, 51, 51, 0.3);
+            stroke-width: 1;
+            fill: none;
+            stroke-dasharray: 5, 5;
+            animation: dash 20s linear infinite;
+        }
+        
+        @keyframes dash {
+            to { stroke-dashoffset: -100; }
+        }
+        
+        /* View: Kanban Mode */
+        .kanban-view {
+            display: none;
+            padding: 80px 20px 20px;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        
+        .kanban-board {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .kanban-stage {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            min-width: 280px;
+            max-width: 320px;
+            flex: 1;
+        }
+        
+        .kanban-stage h2 {
+            font-size: 14px;
+            color: var(--primary);
+            margin-bottom: 15px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .zone { font-size: 10px; }
+            .zone-research, .zone-design, .zone-build { width: 28%; }
+        }
+        
+        @media (max-width: 768px) {
+            .factory-view { display: none; }
+            .kanban-view { display: block; }
+            .view-toggle { display: none; }
+            .stats-panel {
+                left: 10px;
+                right: 10px;
+                bottom: 10px;
+            }
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary);
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-text">🪼 Initializing Agent Factory...</div>
+        <div class="loading-dots">
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <h1>Agent Factory v2.0</h1>
+            <p>12-Clawdbot Real-Time Workflow System</p>
+        </div>
+        
+        <div class="view-toggle">
+            <button class="toggle-btn active" onclick="switchView('factory')">🏭 Factory</button>
+            <button class="toggle-btn" onclick="switchView('kanban')">📋 Kanban</button>
+        </div>
+        
+        <div class="live-indicator">
+            <div class="live-dot"></div>
+            <span id="lastUpdate">LIVE</span>
+        </div>
+    </div>
+
+    <!-- Factory View -->
+    <div class="factory-view" id="factoryView">
+        <div class="factory-container">
+            <div class="floor"></div>
+            
+            <!-- SVG for connection lines -->
+            <svg class="connections-svg" id="connectionsSvg"></svg>
+            
+            <!-- Zones -->
+            <div class="zone zone-research">
+                <div class="zone-header">
+                    <span class="zone-icon">🔬</span>
+                    <span class="zone-title">Research Lab</span>
+                </div>
+                <div class="zone-content" id="zone-research"></div>
+            </div>
+            
+            <div class="zone zone-design">
+                <div class="zone-header">
+                    <span class="zone-icon">✏️</span>
+                    <span class="zone-title">Design Studio</span>
+                </div>
+                <div class="zone-content" id="zone-design"></div>
+            </div>
+            
+            <div class="zone zone-build">
+                <div class="zone-header">
+                    <span class="zone-icon">⚙️</span>
+                    <span class="zone-title">Build Factory</span>
+                </div>
+                <div class="zone-content" id="zone-build"></div>
+            </div>
+            
+            <div class="zone zone-security">
+                <div class="zone-header">
+                    <span class="zone-icon">🔒</span>
+                    <span class="zone-title">Security</span>
+                </div>
+                <div class="zone-content" id="zone-security"></div>
+            </div>
+            
+            <div class="zone zone-strategy">
+                <div class="zone-header">
+                    <span class="zone-icon">📊</span>
+                    <span class="zone-title">Strategy</span>
+                </div>
+                <div class="zone-content" id="zone-strategy"></div>
+            </div>
+            
+            <div class="zone zone-deploy">
+                <div class="zone-header">
+                    <span class="zone-icon">🚀</span>
+                    <span class="zone-title">Deploy Pad</span>
+                </div>
+                <div class="zone-content" id="zone-deploy"></div>
+            </div>
+            
+            <!-- Central Plaza -->
+            <div class="central-plaza" id="zone-plaza">
+                <span class="zone-icon">🌳</span>
+                <span class="zone-title">Social Plaza</span>
+            </div>
+            
+            <!-- Agents Container -->
+            <div id="agentsContainer"></div>
+            
+            <!-- Stats Panel -->
+            <div class="stats-panel">
+                <div class="stats-row">
+                    <span class="stats-label">Active Tasks:</span>
+                    <span class="stats-value" id="statTasks">-</span>
+                </div>
+                <div class="stats-row">
+                    <span class="stats-label">Agents Online:</span>
+                    <span class="stats-value" id="statAgents">-</span>
+                </div>
+                <div class="stats-row">
+                    <span class="stats-label">Open Issues:</span>
+                    <span class="stats-value" id="statIssues">-</span>
+                </div>
+                <div class="stats-row">
+                    <span class="stats-label">Last Update:</span>
+                    <span class="stats-value" id="statTime">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kanban View -->
+    <div class="kanban-view" id="kanbanView">
+        <div class="kanban-board" id="kanbanBoard">
+            <!-- Kanban columns will be populated here -->
+        </div>
+    </div>
+
+    <script>
+        // Dashboard State
+        let dashboardState = null;
+        let currentView = 'factory';
+        let speechBubbleInterval = null;
+        let activeBubbles = [];
+
+        // Fetch dashboard data
+        async function loadDashboardData() {
+            try {
+                const response = await fetch('data/dashboard-state.json');
+                if (!response.ok) throw new Error('Failed to fetch dashboard data');
+                dashboardState = await response.json();
+                renderDashboard();
+                hideLoadingScreen();
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+                // Fallback to demo mode if data not available
+                loadDemoData();
+            }
+        }
+
+        // Demo data for when GitHub API isn't connected yet
+        function loadDemoData() {
+            dashboardState = {
+                agents: {
+                    'jelly-legs': { id: 'jelly-legs', name: 'Jelly-Legs', emoji: '🪼', role: 'Marketing Commander', color: '#ff3333', position: { x: 45, y: 45 }, status: 'working', currentTask: null },
+                    'data-diver': { id: 'data-diver', name: 'Data-Diver', emoji: '🤿', role: 'Research Lead', color: '#3366ff', position: { x: 12, y: 18 }, status: 'working', currentTask: null },
+                    'pattern-seeker': { id: 'pattern-seeker', name: 'Pattern-Seeker', emoji: '🔮', role: 'Trend Analyst', color: '#9933ff', position: { x: 18, y: 20 }, status: 'idle', currentTask: null },
+                    'sketch-bot': { id: 'sketch-bot', name: 'Sketch-Bot', emoji: '🎨', role: 'Design Architect', color: '#ff66cc', position: { x: 45, y: 18 }, status: 'working', currentTask: null },
+                    'voice-weaver': { id: 'voice-weaver', name: 'Voice-Weaver', emoji: '🎭', role: 'Brand Voice', color: '#ff9933', position: { x: 52, y: 20 }, status: 'idle', currentTask: null },
+                    'build-bot': { id: 'build-bot', name: 'Build-Bot', emoji: '⚙️', role: 'System Developer', color: '#33cc33', position: { x: 75, y: 18 }, status: 'working', currentTask: null },
+                    'shield-bot': { id: 'shield-bot', name: 'Shield-Bot', emoji: '🛡️', role: 'Security Guard', color: '#999999', position: { x: 10, y: 45 }, status: 'idle', currentTask: null },
+                    'map-maker': { id: 'map-maker', name: 'Map-Maker', emoji: '🗺️', role: 'Strategy Lead', color: '#6666ff', position: { x: 80, y: 45 }, status: 'working', currentTask: null },
+                    'launch-pad': { id: 'launch-pad', name: 'Launch-Pad', emoji: '🚀', role: 'Deployment Chief', color: '#ffcc00', position: { x: 48, y: 78 }, status: 'idle', currentTask: null }
+                },
+                tasks: [
+                    { id: 'demo-1', title: 'Research: Solana Meme Viral Patterns', stage: 'research', agent: 'data-diver', state: 'open', thought: 'Analyzing trends...' },
+                    { id: 'demo-2', title: 'Design: Agent Avatar Sprites', stage: 'design', agent: 'sketch-bot', state: 'open', thought: 'Pixel art rendering...' },
+                    { id: 'demo-3', title: 'Build: GitHub API Bridge', stage: 'build', agent: 'build-bot', state: 'open', thought: 'Pipeline flowing...' },
+                    { id: 'demo-4', title: 'Strategy: Launch Timeline', stage: 'strategy', agent: 'map-maker', state: 'open', thought: 'Planning sequence...' },
+                    { id: 'demo-5', title: 'Security: Risk Assessment', stage: 'security', agent: 'shield-bot', state: 'open', thought: 'Scanning for risks...' }
+                ],
+                stats: { totalIssues: 5, openIssues: 5, activeAgents: 5, lastUpdate: new Date().toISOString() },
+                timestamp: new Date().toISOString()
+            };
+            renderDashboard();
+            hideLoadingScreen();
+        }
+
+        // Render the dashboard
+        function renderDashboard() {
+            if (!dashboardState) return;
+            
+            if (currentView === 'factory') {
+                renderFactoryView();
+            } else {
+                renderKanbanView();
+            }
+            
+            updateStats();
+        }
+
+        // Render Factory View (bird's eye)
+        function renderFactoryView() {
+            const container = document.getElementById('agentsContainer');
+            container.innerHTML = '';
+            
+            // Clear zone contents
+            ['research', 'design', 'build', 'security', 'strategy', 'deploy'].forEach(zone => {
+                document.getElementById(`zone-${zone}`).innerHTML = '';
+            });
+            
+            // Render agents
+            Object.values(dashboardState.agents).forEach(agent => {
+                const agentEl = document.createElement('div');
+                agentEl.className = 'agent';
+                agentEl.style.left = agent.position.x + '%';
+                agentEl.style.top = agent.position.y + '%';
+                agentEl.id = `agent-${agent.id}`;
+                
+                agentEl.innerHTML = `
+                    <span class="agent-avatar">${agent.emoji}</span>
+                    <span class="agent-label">${agent.name}</span>
+                    <div class="speech-bubble" id="bubble-${agent.id}">${agent.currentTask?.thought || 'Idle...'}</div>
+                `;
+                
+                agentEl.onclick = () => showAgentDetails(agent);
+                container.appendChild(agentEl);
+            });
+            
+            // Render tasks in zones
+            dashboardState.tasks.forEach(task => {
+                if (task.state === 'open') {
+                    const zoneEl = document.getElementById(`zone-${task.stage}`);
+                    if (zoneEl) {
+                        const taskEl = document.createElement('div');
+                        taskEl.className = 'task-card';
+                        taskEl.innerHTML = `
+                            <div class="task-title">${task.title.substring(0, 40)}${task.title.length > 40 ? '...' : ''}</div>
+                            <div class="task-meta">${dashboardState.agents[task.agent]?.emoji || '🤖'} ${task.agent.replace('-', ' ')}</div>
+                        `;
+                        zoneEl.appendChild(taskEl);
+                    }
+                }
+            });
+        }
+
+        // Render Kanban View
+        function renderKanbanView() {
+            const board = document.getElementById('kanbanBoard');
+            board.innerHTML = '';
+            
+            const stages = ['research', 'design', 'build', 'security', 'strategy', 'deploy'];
+            const stageNames = {
+                'research': 'Stage 1 — Research',
+                'design': 'Stage 2 — Design',
+                'build': 'Stage 3 — Build',
+                'security': 'Security Review',
+                'strategy': 'Strategy Room',
+                'deploy': 'Stage 4 — Deploy'
+            };
+            
+            stages.forEach(stage => {
+                const stageTasks = dashboardState.tasks.filter(t => t.stage === stage && t.state === 'open');
+                
+                const column = document.createElement('div');
+                column.className = 'kanban-stage';
+                column.innerHTML = `
+                    <h2>${stageNames[stage]}</h2>
+                    ${stageTasks.map(task => `
+                        <div class="task-card" onclick="window.open('${task.url || '#'}', '_blank')">
+                            <div class="task-title">${task.title}</div>
+                            <div class="task-meta">${dashboardState.agents[task.agent]?.emoji || '🤖'} ${dashboardState.agents[task.agent]?.name || task.agent}</div>
+                        </div>
+                    `).join('')}
+                    ${stageTasks.length === 0 ? '<div style="color: #666; text-align: center; padding: 20px;">No active tasks</div>' : ''}
+                `;
+                
+                board.appendChild(column);
+            });
+        }
+
+        // Update statistics
+        function updateStats() {
+            if (!dashboardState?.stats) return;
+            
+            document.getElementById('statTasks').textContent = dashboardState.stats.openIssues || '-';
+            document.getElementById('statAgents').textContent = `${dashboardState.stats.activeAgents || 0}/12`;
+            document.getElementById('statIssues').textContent = dashboardState.stats.openIssues || '-';
+            
+            const updateTime = dashboardState.timestamp ? new Date(dashboardState.timestamp).toLocaleTimeString() : '-';
+            document.getElementById('statTime').textContent = updateTime;
+        }
+
+        // Switch between views
+        function switchView(view) {
+            currentView = view;
+            
+            document.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            if (view === 'factory') {
+                document.getElementById('factoryView').style.display = 'block';
+                document.getElementById('kanbanView').style.display = 'none';
+            } else {
+                document.getElementById('factoryView').style.display = 'none';
+                document.getElementById('kanbanView').style.display = 'block';
+            }
+            
+            renderDashboard();
+        }
+
+        // Show speech bubbles randomly
+        function startSpeechBubbles() {
+            speechBubbleInterval = setInterval(() => {
+                if (!dashboardState?.tasks) return;
+                
+                const activeTasks = dashboardState.tasks.filter(t => t.state === 'open' && t.thought);
+                if (activeTasks.length === 0) return;
+                
+                const randomTask = activeTasks[Math.floor(Math.random() * activeTasks.length)];
+                const bubble = document.getElementById(`bubble-${randomTask.agent}`);
+                
+                if (bubble) {
+                    // Hide all bubbles first
+                    document.querySelectorAll('.speech-bubble').forEach(b => b.classList.remove('visible'));
+                    
+                    bubble.textContent = randomTask.thought;
+                    bubble.classList.add('visible');
+                    
+                    setTimeout(() => {
+                        bubble.classList.remove('visible');
+                    }, 4000);
+                }
+            }, 3000);
+        }
+
+        // Show agent details (placeholder for future modal)
+        function showAgentDetails(agent) {
+            const task = dashboardState.tasks.find(t => t.agent === agent.id && t.state === 'open');
+            const message = task 
+                ? `${agent.name} is working on: "${task.title}"`
+                : `${agent.name} is idle — waiting for assignments`;
+            
+            // Could expand to modal in future
+            console.log('Agent clicked:', agent, message);
+        }
+
+        // Hide loading screen
+        function hideLoadingScreen() {
+            const loading = document.getElementById('loadingScreen');
+            loading.classList.add('hidden');
+            setTimeout(() => loading.style.display = 'none', 500);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDashboardData();
+            startSpeechBubbles();
+            
+            // Auto-refresh every 30 seconds
+            setInterval(loadDashboardData, 30000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "name": "jelly-legs-agent-factory",
+  "version": "2.0.0",
+  "description": "12-Clawdbot Real-Time Workflow Dashboard",
+  "scripts": {
+    "generate-data": "node scripts/generate-dashboard-data.js",
+    "test": "echo \"Tests not implemented yet\""
+  },
+  "dependencies": {
+    "@octokit/rest": "^20.0.2"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop.git"
+  },
+  "author": "Jelly-Legs Clawdbot",
+  "license": "MIT"
+}

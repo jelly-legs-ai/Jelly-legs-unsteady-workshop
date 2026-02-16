@@ -1,0 +1,51 @@
+name: Dashboard Data Refresh
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'  # Every 30 seconds (approximate via GitHub Actions)
+  workflow_dispatch:  # Manual trigger
+  push:
+    branches: [main]
+
+jobs:
+  refresh-dashboard-data:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: read
+      pull-requests: read
+      actions: read
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Install dependencies
+        run: npm install @octokit/rest
+        
+      - name: Fetch GitHub data and generate dashboard state
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: node scripts/generate-dashboard-data.js
+        
+      - name: Check for changes
+        id: verify_diff
+        run: |
+          git add -N data/
+          git diff --name-only --exit-code data/ || echo "changed=true" >> $GITHUB_OUTPUT
+          
+      - name: Commit and push changes
+        if: steps.verify_diff.outputs.changed == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add data/
+          git commit -m "🤖 Auto-update dashboard data - $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          git push
