@@ -10,8 +10,8 @@
       ],
       "id": "jelly-legs",
       "position": {
-        "x": 36.50572792843467,
-        "y": 39.690350636237355
+        "x": 59.578699251103956,
+        "y": 55.37272616737503
       },
       "currentTask": null,
       "status": "idle",
@@ -27,8 +27,8 @@
       ],
       "id": "data-diver",
       "position": {
-        "x": 48.97515608230576,
-        "y": 27.20006091623288
+        "x": 50.54537422816911,
+        "y": 23.221426341874576
       },
       "currentTask": {
         "id": "issue-1",
@@ -48,7 +48,7 @@
         "createdAt": "2026-02-16T20:43:13Z",
         "updatedAt": "2026-02-17T01:27:13Z",
         "assignee": null,
-        "thought": "Market research ongoing..."
+        "thought": "Pattern detection active..."
       },
       "status": "working",
       "lastActivity": "2026-02-17T01:27:13Z"
@@ -63,8 +63,8 @@
       ],
       "id": "pattern-seeker",
       "position": {
-        "x": 37.06202757515275,
-        "y": 53.494509123237606
+        "x": 51.99975707999832,
+        "y": 52.64665741851938
       },
       "currentTask": null,
       "status": "idle",
@@ -80,8 +80,8 @@
       ],
       "id": "sketch-bot",
       "position": {
-        "x": 63.7193072481401,
-        "y": 48.65493465726888
+        "x": 59.3225142291932,
+        "y": 59.24786541899347
       },
       "currentTask": null,
       "status": "idle",
@@ -97,8 +97,8 @@
       ],
       "id": "voice-weaver",
       "position": {
-        "x": 56.204864227221634,
-        "y": 49.54088887872497
+        "x": 56.313310295157926,
+        "y": 55.76090752401282
       },
       "currentTask": null,
       "status": "idle",
@@ -114,8 +114,8 @@
       ],
       "id": "hook-maker",
       "position": {
-        "x": 46.17182790193512,
-        "y": 55.06886310637633
+        "x": 54.14813908995707,
+        "y": 53.10976507273753
       },
       "currentTask": null,
       "status": "idle",
@@ -131,8 +131,8 @@
       ],
       "id": "build-bot",
       "position": {
-        "x": 68.25339968725939,
-        "y": 24.213826906188228
+        "x": 71.25797340698166,
+        "y": 22.61598302447753
       },
       "currentTask": {
         "id": "issue-4",
@@ -151,7 +151,7 @@
         "createdAt": "2026-02-16T20:43:15Z",
         "updatedAt": "2026-02-16T22:53:59Z",
         "assignee": null,
-        "thought": "Automation building..."
+        "thought": "Infrastructure growing..."
       },
       "status": "working",
       "lastActivity": "2026-02-16T22:53:59Z"
@@ -166,8 +166,8 @@
       ],
       "id": "pipe-layer",
       "position": {
-        "x": 36.18510631654258,
-        "y": 58.35175415775106
+        "x": 52.96138149659498,
+        "y": 42.44816759813044
       },
       "currentTask": null,
       "status": "idle",
@@ -183,8 +183,8 @@
       ],
       "id": "code-crafter",
       "position": {
-        "x": 67.71570630144178,
-        "y": 17.002496011132735
+        "x": 73.6124103817792,
+        "y": 25.455605797712394
       },
       "currentTask": {
         "id": "issue-3",
@@ -203,7 +203,7 @@
         "createdAt": "2026-02-16T20:43:14Z",
         "updatedAt": "2026-02-16T23:04:32Z",
         "assignee": null,
-        "thought": "Feature building..."
+        "thought": "Code generation..."
       },
       "status": "working",
       "lastActivity": "2026-02-16T23:04:32Z"
@@ -218,8 +218,8 @@
       ],
       "id": "shield-bot",
       "position": {
-        "x": 37.50661760867274,
-        "y": 41.84809816672084
+        "x": 56.929964079979506,
+        "y": 58.13324182404746
       },
       "currentTask": null,
       "status": "idle",
@@ -235,8 +235,8 @@
       ],
       "id": "map-maker",
       "position": {
-        "x": 48.353106266202374,
-        "y": 37.885571615567365
+        "x": 50.41319547604831,
+        "y": 45.33712931379575
       },
       "currentTask": null,
       "status": "idle",
@@ -252,8 +252,8 @@
       ],
       "id": "launch-pad",
       "position": {
-        "x": 63.73359894348889,
-        "y": 53.84005414693727
+        "x": 49.11438311699406,
+        "y": 57.50474383880033
       },
       "currentTask": null,
       "status": "idle",
@@ -278,7 +278,7 @@
       "createdAt": "2026-02-16T20:43:15Z",
       "updatedAt": "2026-02-16T22:53:59Z",
       "assignee": null,
-      "thought": "Automation building..."
+      "thought": "Infrastructure growing..."
     },
     {
       "id": "issue-3",
@@ -297,7 +297,7 @@
       "createdAt": "2026-02-16T20:43:14Z",
       "updatedAt": "2026-02-16T23:04:32Z",
       "assignee": null,
-      "thought": "Feature building..."
+      "thought": "Code generation..."
     },
     {
       "id": "issue-2",
@@ -316,7 +316,7 @@
       "createdAt": "2026-02-16T20:43:14Z",
       "updatedAt": "2026-02-17T01:28:42Z",
       "assignee": null,
-      "thought": "Market research ongoing..."
+      "thought": "Analyzing trends..."
     },
     {
       "id": "issue-1",
@@ -336,7 +336,7 @@
       "createdAt": "2026-02-16T20:43:13Z",
       "updatedAt": "2026-02-17T01:27:13Z",
       "assignee": null,
-      "thought": "Market research ongoing..."
+      "thought": "Pattern detection active..."
     }
   ],
   "stats": {
@@ -347,7 +347,7 @@
     "recentCommits": 20,
     "recentWorkflows": 10,
     "activeAgents": 3,
-    "lastUpdate": "2026-02-17T18:07:06.934Z"
+    "lastUpdate": "2026-02-17T20:02:11.145Z"
   },
-  "timestamp": "2026-02-17T18:07:06.934Z"
+  "timestamp": "2026-02-17T20:02:11.145Z"
 }
