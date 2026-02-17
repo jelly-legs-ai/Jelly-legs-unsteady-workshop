@@ -10,8 +10,8 @@
       ],
       "id": "jelly-legs",
       "position": {
-        "x": 44.769435437743724,
-        "y": 44.42979536015452
+        "x": 43.46411115613798,
+        "y": 57.754838646390645
       },
       "currentTask": null,
       "status": "idle",
@@ -27,8 +27,8 @@
       ],
       "id": "data-diver",
       "position": {
-        "x": 54.9527491323258,
-        "y": 18.27957255815714
+        "x": 43.683205974416815,
+        "y": 28.341733479770703
       },
       "currentTask": {
         "id": "issue-1",
@@ -63,12 +63,32 @@
       ],
       "id": "pattern-seeker",
       "position": {
-        "x": 61.70171053070639,
-        "y": 38.81731674082651
+        "x": 32.61452002337727,
+        "y": 23.094151380236276
       },
-      "currentTask": null,
-      "status": "idle",
-      "lastActivity": null
+      "currentTask": {
+        "id": "issue-6",
+        "type": "issue",
+        "number": 6,
+        "title": "API rate limits - Utilise multiple cloud models with free tiers in rotation, taking advantage of free daily limits from various different providers by systematically creating fallbacks in jelly's openclaw.json",
+        "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
+        "state": "open",
+        "stage": "research",
+        "agent": "pattern-seeker",
+        "labels": [
+          "enhancement",
+          "research",
+          "strategy",
+          "automation"
+        ],
+        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/6",
+        "createdAt": "2026-02-17T22:06:53Z",
+        "updatedAt": "2026-02-17T22:06:53Z",
+        "assignee": null,
+        "thought": "Pattern recognition..."
+      },
+      "status": "working",
+      "lastActivity": "2026-02-17T22:06:53Z"
     },
     "sketch-bot": {
       "name": "Sketch-Bot",
@@ -80,8 +100,8 @@
       ],
       "id": "sketch-bot",
       "position": {
-        "x": 38.28487937518266,
-        "y": 36.837981233394274
+        "x": 63.23817708956979,
+        "y": 56.694560779092996
       },
       "currentTask": null,
       "status": "idle",
@@ -97,8 +117,8 @@
       ],
       "id": "voice-weaver",
       "position": {
-        "x": 64.04840579079791,
-        "y": 59.036398752040554
+        "x": 56.19020796399356,
+        "y": 54.48637568266961
       },
       "currentTask": null,
       "status": "idle",
@@ -114,8 +134,8 @@
       ],
       "id": "hook-maker",
       "position": {
-        "x": 42.236700896180416,
-        "y": 36.15555450558846
+        "x": 35.422814275559574,
+        "y": 51.48067064609496
       },
       "currentTask": null,
       "status": "idle",
@@ -131,8 +151,8 @@
       ],
       "id": "build-bot",
       "position": {
-        "x": 76.42616425017845,
-        "y": 24.084232467802607
+        "x": 83.26624217058327,
+        "y": 17.84591575346262
       },
       "currentTask": {
         "id": "issue-4",
@@ -151,7 +171,7 @@
         "createdAt": "2026-02-16T20:43:15Z",
         "updatedAt": "2026-02-16T22:53:59Z",
         "assignee": null,
-        "thought": "Code architecture..."
+        "thought": "Infrastructure growing..."
       },
       "status": "working",
       "lastActivity": "2026-02-16T22:53:59Z"
@@ -166,8 +186,8 @@
       ],
       "id": "pipe-layer",
       "position": {
-        "x": 39.3273586451105,
-        "y": 39.88700733906113
+        "x": 49.481187949016494,
+        "y": 50.363353005586255
       },
       "currentTask": null,
       "status": "idle",
@@ -183,8 +203,8 @@
       ],
       "id": "code-crafter",
       "position": {
-        "x": 76.57234552112487,
-        "y": 15.394854475229039
+        "x": 70.05306637311732,
+        "y": 24.73540571412396
       },
       "currentTask": {
         "id": "issue-3",
@@ -203,7 +223,7 @@
         "createdAt": "2026-02-16T20:43:14Z",
         "updatedAt": "2026-02-16T23:04:32Z",
         "assignee": null,
-        "thought": "Implementation coding..."
+        "thought": "Logic weaving..."
       },
       "status": "working",
       "lastActivity": "2026-02-16T23:04:32Z"
@@ -218,8 +238,8 @@
       ],
       "id": "shield-bot",
       "position": {
-        "x": 53.158894894819134,
-        "y": 50.16849406882865
+        "x": 42.52165669541631,
+        "y": 39.98565087346119
       },
       "currentTask": null,
       "status": "idle",
@@ -235,8 +255,8 @@
       ],
       "id": "map-maker",
       "position": {
-        "x": 62.91872359258957,
-        "y": 41.489238784579
+        "x": 50.67335950131221,
+        "y": 48.182435002079515
       },
       "currentTask": null,
       "status": "idle",
@@ -252,8 +272,8 @@
       ],
       "id": "launch-pad",
       "position": {
-        "x": 60.44891163808289,
-        "y": 39.22990825076796
+        "x": 39.276099753293664,
+        "y": 59.48819978470593
       },
       "currentTask": null,
       "status": "idle",
@@ -261,6 +281,27 @@
     }
   },
   "tasks": [
+    {
+      "id": "issue-6",
+      "type": "issue",
+      "number": 6,
+      "title": "API rate limits - Utilise multiple cloud models with free tiers in rotation, taking advantage of free daily limits from various different providers by systematically creating fallbacks in jelly's openclaw.json",
+      "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
+      "state": "open",
+      "stage": "research",
+      "agent": "pattern-seeker",
+      "labels": [
+        "enhancement",
+        "research",
+        "strategy",
+        "automation"
+      ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/6",
+      "createdAt": "2026-02-17T22:06:53Z",
+      "updatedAt": "2026-02-17T22:06:53Z",
+      "assignee": null,
+      "thought": "Pattern recognition..."
+    },
     {
       "id": "issue-4",
       "type": "issue",
@@ -278,7 +319,7 @@
       "createdAt": "2026-02-16T20:43:15Z",
       "updatedAt": "2026-02-16T22:53:59Z",
       "assignee": null,
-      "thought": "Code architecture..."
+      "thought": "Infrastructure growing..."
     },
     {
       "id": "issue-3",
@@ -297,7 +338,7 @@
       "createdAt": "2026-02-16T20:43:14Z",
       "updatedAt": "2026-02-16T23:04:32Z",
       "assignee": null,
-      "thought": "Implementation coding..."
+      "thought": "Logic weaving..."
     },
     {
       "id": "issue-2",
@@ -340,14 +381,14 @@
     }
   ],
   "stats": {
-    "totalIssues": 4,
-    "openIssues": 4,
+    "totalIssues": 5,
+    "openIssues": 5,
     "totalPRs": 0,
     "openPRs": 0,
     "recentCommits": 20,
     "recentWorkflows": 10,
-    "activeAgents": 3,
-    "lastUpdate": "2026-02-17T21:54:28.330Z"
+    "activeAgents": 4,
+    "lastUpdate": "2026-02-17T23:05:22.707Z"
   },
-  "timestamp": "2026-02-17T21:54:28.330Z"
+  "timestamp": "2026-02-17T23:05:22.708Z"
 }
