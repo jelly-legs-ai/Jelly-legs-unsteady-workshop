@@ -10,8 +10,8 @@
       ],
       "id": "jelly-legs",
       "position": {
-        "x": 58.07439799521883,
-        "y": 56.51883392308477
+        "x": 64.56231426028525,
+        "y": 37.290556515640006
       },
       "currentTask": null,
       "status": "idle",
@@ -27,8 +27,8 @@
       ],
       "id": "data-diver",
       "position": {
-        "x": 34.48592396307219,
-        "y": 15.424720882836935
+        "x": 52.759385783240745,
+        "y": 27.034498704196693
       },
       "currentTask": {
         "id": "issue-1",
@@ -48,7 +48,7 @@
         "createdAt": "2026-02-16T20:43:13Z",
         "updatedAt": "2026-02-17T01:27:13Z",
         "assignee": null,
-        "thought": "Diving deep into data..."
+        "thought": "Viral mechanics study..."
       },
       "status": "working",
       "lastActivity": "2026-02-17T01:27:13Z"
@@ -63,12 +63,32 @@
       ],
       "id": "pattern-seeker",
       "position": {
-        "x": 38.542085444937314,
-        "y": 36.75845337834294
+        "x": 19.63259061326765,
+        "y": 25.407554411957967
       },
-      "currentTask": null,
-      "status": "idle",
-      "lastActivity": null
+      "currentTask": {
+        "id": "issue-6",
+        "type": "issue",
+        "number": 6,
+        "title": "API rate limits - Utilise multiple cloud models with free tiers in rotation, taking advantage of free daily limits from various different providers by systematically creating fallbacks in jelly's openclaw.json",
+        "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
+        "state": "open",
+        "stage": "research",
+        "agent": "pattern-seeker",
+        "labels": [
+          "enhancement",
+          "research",
+          "strategy",
+          "automation"
+        ],
+        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/6",
+        "createdAt": "2026-02-17T22:06:53Z",
+        "updatedAt": "2026-02-17T22:06:53Z",
+        "assignee": null,
+        "thought": "Correlation mapping..."
+      },
+      "status": "working",
+      "lastActivity": "2026-02-17T22:06:53Z"
     },
     "sketch-bot": {
       "name": "Sketch-Bot",
@@ -80,8 +100,8 @@
       ],
       "id": "sketch-bot",
       "position": {
-        "x": 64.51055038603772,
-        "y": 42.76505663892457
+        "x": 62.49082342169579,
+        "y": 42.69022430424859
       },
       "currentTask": null,
       "status": "idle",
@@ -97,8 +117,8 @@
       ],
       "id": "voice-weaver",
       "position": {
-        "x": 58.915836107069396,
-        "y": 41.196569615212724
+        "x": 38.67109918236201,
+        "y": 37.21221828013809
       },
       "currentTask": null,
       "status": "idle",
@@ -114,8 +134,8 @@
       ],
       "id": "hook-maker",
       "position": {
-        "x": 37.01159554953931,
-        "y": 44.80311718575795
+        "x": 36.715648276846416,
+        "y": 39.91246034259284
       },
       "currentTask": null,
       "status": "idle",
@@ -131,8 +151,8 @@
       ],
       "id": "build-bot",
       "position": {
-        "x": 81.0262911805655,
-        "y": 16.43053774606266
+        "x": 74.26130125667167,
+        "y": 16.10514939369424
       },
       "currentTask": {
         "id": "issue-4",
@@ -166,8 +186,8 @@
       ],
       "id": "pipe-layer",
       "position": {
-        "x": 35.519214214076214,
-        "y": 41.889085035776866
+        "x": 44.116503581558305,
+        "y": 56.534369927580315
       },
       "currentTask": null,
       "status": "idle",
@@ -183,8 +203,8 @@
       ],
       "id": "code-crafter",
       "position": {
-        "x": 73.36814442627458,
-        "y": 16.952229827472696
+        "x": 74.23077322016695,
+        "y": 27.06951928799888
       },
       "currentTask": {
         "id": "issue-3",
@@ -218,8 +238,8 @@
       ],
       "id": "shield-bot",
       "position": {
-        "x": 54.60277054053621,
-        "y": 59.11801052367686
+        "x": 38.96528697649001,
+        "y": 45.690130309250435
       },
       "currentTask": null,
       "status": "idle",
@@ -235,8 +255,8 @@
       ],
       "id": "map-maker",
       "position": {
-        "x": 51.953448370612634,
-        "y": 52.899584224058486
+        "x": 58.00596309276416,
+        "y": 51.097736520980035
       },
       "currentTask": null,
       "status": "idle",
@@ -252,8 +272,8 @@
       ],
       "id": "launch-pad",
       "position": {
-        "x": 44.33053043433883,
-        "y": 54.273091079198224
+        "x": 41.50182608500354,
+        "y": 38.4300109453362
       },
       "currentTask": null,
       "status": "idle",
@@ -269,7 +289,7 @@
       "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
       "state": "open",
       "stage": "research",
-      "agent": "data-diver",
+      "agent": "pattern-seeker",
       "labels": [
         "enhancement",
         "research",
@@ -280,7 +300,7 @@
       "createdAt": "2026-02-17T22:06:53Z",
       "updatedAt": "2026-02-17T22:06:53Z",
       "assignee": null,
-      "thought": "Diving deep into data..."
+      "thought": "Correlation mapping..."
     },
     {
       "id": "issue-4",
@@ -337,7 +357,7 @@
       "createdAt": "2026-02-16T20:43:14Z",
       "updatedAt": "2026-02-17T01:28:42Z",
       "assignee": null,
-      "thought": "Viral mechanics study..."
+      "thought": "Analyzing trends..."
     },
     {
       "id": "issue-1",
@@ -357,7 +377,7 @@
       "createdAt": "2026-02-16T20:43:13Z",
       "updatedAt": "2026-02-17T01:27:13Z",
       "assignee": null,
-      "thought": "Diving deep into data..."
+      "thought": "Viral mechanics study..."
     }
   ],
   "stats": {
@@ -367,8 +387,8 @@
     "openPRs": 0,
     "recentCommits": 20,
     "recentWorkflows": 10,
-    "activeAgents": 3,
-    "lastUpdate": "2026-02-18T21:58:08.436Z"
+    "activeAgents": 4,
+    "lastUpdate": "2026-02-18T23:05:11.319Z"
   },
-  "timestamp": "2026-02-18T21:58:08.436Z"
+  "timestamp": "2026-02-18T23:05:11.319Z"
 }
