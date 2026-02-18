@@ -10,8 +10,8 @@
       ],
       "id": "jelly-legs",
       "position": {
-        "x": 43.46411115613798,
-        "y": 57.754838646390645
+        "x": 57.37309435773973,
+        "y": 54.76743913991112
       },
       "currentTask": null,
       "status": "idle",
@@ -27,8 +27,8 @@
       ],
       "id": "data-diver",
       "position": {
-        "x": 43.683205974416815,
-        "y": 28.341733479770703
+        "x": 15.188711797073676,
+        "y": 29.883075733675426
       },
       "currentTask": {
         "id": "issue-1",
@@ -63,32 +63,12 @@
       ],
       "id": "pattern-seeker",
       "position": {
-        "x": 32.61452002337727,
-        "y": 23.094151380236276
+        "x": 41.4129214010371,
+        "y": 56.8947206687428
       },
-      "currentTask": {
-        "id": "issue-6",
-        "type": "issue",
-        "number": 6,
-        "title": "API rate limits - Utilise multiple cloud models with free tiers in rotation, taking advantage of free daily limits from various different providers by systematically creating fallbacks in jelly's openclaw.json",
-        "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
-        "state": "open",
-        "stage": "research",
-        "agent": "pattern-seeker",
-        "labels": [
-          "enhancement",
-          "research",
-          "strategy",
-          "automation"
-        ],
-        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/6",
-        "createdAt": "2026-02-17T22:06:53Z",
-        "updatedAt": "2026-02-17T22:06:53Z",
-        "assignee": null,
-        "thought": "Pattern recognition..."
-      },
-      "status": "working",
-      "lastActivity": "2026-02-17T22:06:53Z"
+      "currentTask": null,
+      "status": "idle",
+      "lastActivity": null
     },
     "sketch-bot": {
       "name": "Sketch-Bot",
@@ -100,8 +80,8 @@
       ],
       "id": "sketch-bot",
       "position": {
-        "x": 63.23817708956979,
-        "y": 56.694560779092996
+        "x": 61.89432097541247,
+        "y": 43.16097658670145
       },
       "currentTask": null,
       "status": "idle",
@@ -117,8 +97,8 @@
       ],
       "id": "voice-weaver",
       "position": {
-        "x": 56.19020796399356,
-        "y": 54.48637568266961
+        "x": 37.62636051318898,
+        "y": 57.569902647471864
       },
       "currentTask": null,
       "status": "idle",
@@ -134,8 +114,8 @@
       ],
       "id": "hook-maker",
       "position": {
-        "x": 35.422814275559574,
-        "y": 51.48067064609496
+        "x": 44.71077193962708,
+        "y": 55.403067455348676
       },
       "currentTask": null,
       "status": "idle",
@@ -151,8 +131,8 @@
       ],
       "id": "build-bot",
       "position": {
-        "x": 83.26624217058327,
-        "y": 17.84591575346262
+        "x": 78.50089116949945,
+        "y": 21.75709794816214
       },
       "currentTask": {
         "id": "issue-4",
@@ -171,7 +151,7 @@
         "createdAt": "2026-02-16T20:43:15Z",
         "updatedAt": "2026-02-16T22:53:59Z",
         "assignee": null,
-        "thought": "Infrastructure growing..."
+        "thought": "Automation building..."
       },
       "status": "working",
       "lastActivity": "2026-02-16T22:53:59Z"
@@ -186,8 +166,8 @@
       ],
       "id": "pipe-layer",
       "position": {
-        "x": 49.481187949016494,
-        "y": 50.363353005586255
+        "x": 48.868657338030076,
+        "y": 55.940750318019575
       },
       "currentTask": null,
       "status": "idle",
@@ -203,8 +183,8 @@
       ],
       "id": "code-crafter",
       "position": {
-        "x": 70.05306637311732,
-        "y": 24.73540571412396
+        "x": 71.82698003324123,
+        "y": 21.03153510008643
       },
       "currentTask": {
         "id": "issue-3",
@@ -223,7 +203,7 @@
         "createdAt": "2026-02-16T20:43:14Z",
         "updatedAt": "2026-02-16T23:04:32Z",
         "assignee": null,
-        "thought": "Logic weaving..."
+        "thought": "Implementation coding..."
       },
       "status": "working",
       "lastActivity": "2026-02-16T23:04:32Z"
@@ -238,8 +218,8 @@
       ],
       "id": "shield-bot",
       "position": {
-        "x": 42.52165669541631,
-        "y": 39.98565087346119
+        "x": 55.80587208410519,
+        "y": 40.68418779073889
       },
       "currentTask": null,
       "status": "idle",
@@ -255,8 +235,8 @@
       ],
       "id": "map-maker",
       "position": {
-        "x": 50.67335950131221,
-        "y": 48.182435002079515
+        "x": 59.95605721080956,
+        "y": 41.0325915346744
       },
       "currentTask": null,
       "status": "idle",
@@ -272,8 +252,8 @@
       ],
       "id": "launch-pad",
       "position": {
-        "x": 39.276099753293664,
-        "y": 59.48819978470593
+        "x": 58.828055147066564,
+        "y": 41.83790650902835
       },
       "currentTask": null,
       "status": "idle",
@@ -289,7 +269,7 @@
       "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
       "state": "open",
       "stage": "research",
-      "agent": "pattern-seeker",
+      "agent": "data-diver",
       "labels": [
         "enhancement",
         "research",
@@ -300,7 +280,7 @@
       "createdAt": "2026-02-17T22:06:53Z",
       "updatedAt": "2026-02-17T22:06:53Z",
       "assignee": null,
-      "thought": "Pattern recognition..."
+      "thought": "Market research ongoing..."
     },
     {
       "id": "issue-4",
@@ -319,7 +299,7 @@
       "createdAt": "2026-02-16T20:43:15Z",
       "updatedAt": "2026-02-16T22:53:59Z",
       "assignee": null,
-      "thought": "Infrastructure growing..."
+      "thought": "Automation building..."
     },
     {
       "id": "issue-3",
@@ -338,7 +318,7 @@
       "createdAt": "2026-02-16T20:43:14Z",
       "updatedAt": "2026-02-16T23:04:32Z",
       "assignee": null,
-      "thought": "Logic weaving..."
+      "thought": "Implementation coding..."
     },
     {
       "id": "issue-2",
@@ -357,7 +337,7 @@
       "createdAt": "2026-02-16T20:43:14Z",
       "updatedAt": "2026-02-17T01:28:42Z",
       "assignee": null,
-      "thought": "Analyzing trends..."
+      "thought": "Market research ongoing..."
     },
     {
       "id": "issue-1",
@@ -387,8 +367,8 @@
     "openPRs": 0,
     "recentCommits": 20,
     "recentWorkflows": 10,
-    "activeAgents": 4,
-    "lastUpdate": "2026-02-17T23:05:22.707Z"
+    "activeAgents": 3,
+    "lastUpdate": "2026-02-18T05:13:42.835Z"
   },
-  "timestamp": "2026-02-17T23:05:22.708Z"
+  "timestamp": "2026-02-18T05:13:42.835Z"
 }
