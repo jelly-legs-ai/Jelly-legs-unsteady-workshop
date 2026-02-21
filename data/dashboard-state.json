@@ -10,8 +10,8 @@
       ],
       "id": "jelly-legs",
       "position": {
-        "x": 53.997414938850724,
-        "y": 37.09734921208125
+        "x": 51.764280441126644,
+        "y": 47.50229520710078
       },
       "currentTask": null,
       "status": "idle",
@@ -27,8 +27,8 @@
       ],
       "id": "data-diver",
       "position": {
-        "x": 26.098788319749037,
-        "y": 24.087581637648675
+        "x": 20.55950470389694,
+        "y": 29.771252688139832
       },
       "currentTask": {
         "id": "issue-1",
@@ -46,12 +46,12 @@
         ],
         "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/1",
         "createdAt": "2026-02-16T20:43:13Z",
-        "updatedAt": "2026-02-17T01:27:13Z",
+        "updatedAt": "2026-02-21T23:45:43Z",
         "assignee": null,
         "thought": "Analyzing trends..."
       },
       "status": "working",
-      "lastActivity": "2026-02-17T01:27:13Z"
+      "lastActivity": "2026-02-21T23:45:43Z"
     },
     "pattern-seeker": {
       "name": "Pattern-Seeker",
@@ -63,8 +63,8 @@
       ],
       "id": "pattern-seeker",
       "position": {
-        "x": 42.8650069341668,
-        "y": 57.93328702013732
+        "x": 64.07244299269601,
+        "y": 48.434855798529064
       },
       "currentTask": null,
       "status": "idle",
@@ -80,8 +80,8 @@
       ],
       "id": "sketch-bot",
       "position": {
-        "x": 61.651767343060975,
-        "y": 43.71255491569597
+        "x": 61.79884284497497,
+        "y": 43.62084987435895
       },
       "currentTask": null,
       "status": "idle",
@@ -97,8 +97,8 @@
       ],
       "id": "voice-weaver",
       "position": {
-        "x": 58.35948522750611,
-        "y": 54.955442312735975
+        "x": 52.223684239147616,
+        "y": 45.166182027242606
       },
       "currentTask": null,
       "status": "idle",
@@ -114,8 +114,8 @@
       ],
       "id": "hook-maker",
       "position": {
-        "x": 52.87643877144194,
-        "y": 49.61740957396676
+        "x": 57.17137317852653,
+        "y": 48.76139924117719
       },
       "currentTask": null,
       "status": "idle",
@@ -131,8 +131,8 @@
       ],
       "id": "build-bot",
       "position": {
-        "x": 77.41883177146593,
-        "y": 22.799539367664273
+        "x": 71.68122623456472,
+        "y": 27.346614085933695
       },
       "currentTask": {
         "id": "issue-4",
@@ -149,12 +149,12 @@
         ],
         "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/4",
         "createdAt": "2026-02-16T20:43:15Z",
-        "updatedAt": "2026-02-16T22:53:59Z",
+        "updatedAt": "2026-02-21T23:46:06Z",
         "assignee": null,
         "thought": "Infrastructure growing..."
       },
       "status": "working",
-      "lastActivity": "2026-02-16T22:53:59Z"
+      "lastActivity": "2026-02-21T23:46:06Z"
     },
     "pipe-layer": {
       "name": "Pipe-Layer",
@@ -166,8 +166,8 @@
       ],
       "id": "pipe-layer",
       "position": {
-        "x": 60.38953577068037,
-        "y": 37.62934946624628
+        "x": 63.98954190766607,
+        "y": 43.489952832690896
       },
       "currentTask": null,
       "status": "idle",
@@ -183,8 +183,8 @@
       ],
       "id": "code-crafter",
       "position": {
-        "x": 83.57744499626568,
-        "y": 16.17368081909199
+        "x": 76.28116177312062,
+        "y": 20.910490097052158
       },
       "currentTask": {
         "id": "issue-3",
@@ -201,12 +201,12 @@
         ],
         "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/3",
         "createdAt": "2026-02-16T20:43:14Z",
-        "updatedAt": "2026-02-16T23:04:32Z",
+        "updatedAt": "2026-02-21T23:46:09Z",
         "assignee": null,
         "thought": "Code generation..."
       },
       "status": "working",
-      "lastActivity": "2026-02-16T23:04:32Z"
+      "lastActivity": "2026-02-21T23:46:09Z"
     },
     "shield-bot": {
       "name": "Shield-Bot",
@@ -218,8 +218,8 @@
       ],
       "id": "shield-bot",
       "position": {
-        "x": 43.19871807794627,
-        "y": 38.462977550425826
+        "x": 38.83101282694769,
+        "y": 57.657545428088625
       },
       "currentTask": null,
       "status": "idle",
@@ -235,8 +235,8 @@
       ],
       "id": "map-maker",
       "position": {
-        "x": 37.76518026049534,
-        "y": 55.10968915424512
+        "x": 37.20828361466796,
+        "y": 55.57139622618959
       },
       "currentTask": null,
       "status": "idle",
@@ -252,8 +252,8 @@
       ],
       "id": "launch-pad",
       "position": {
-        "x": 44.55660181077342,
-        "y": 58.58396776395929
+        "x": 45.173109490804265,
+        "y": 55.22950140890312
       },
       "currentTask": null,
       "status": "idle",
@@ -278,7 +278,7 @@
       ],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/6",
       "createdAt": "2026-02-17T22:06:53Z",
-      "updatedAt": "2026-02-17T22:06:53Z",
+      "updatedAt": "2026-02-21T23:45:55Z",
       "assignee": null,
       "thought": "Pattern detection active..."
     },
@@ -297,7 +297,7 @@
       ],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/4",
       "createdAt": "2026-02-16T20:43:15Z",
-      "updatedAt": "2026-02-16T22:53:59Z",
+      "updatedAt": "2026-02-21T23:46:06Z",
       "assignee": null,
       "thought": "Infrastructure growing..."
     },
@@ -316,7 +316,7 @@
       ],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/3",
       "createdAt": "2026-02-16T20:43:14Z",
-      "updatedAt": "2026-02-16T23:04:32Z",
+      "updatedAt": "2026-02-21T23:46:09Z",
       "assignee": null,
       "thought": "Code generation..."
     },
@@ -335,9 +335,9 @@
       ],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/2",
       "createdAt": "2026-02-16T20:43:14Z",
-      "updatedAt": "2026-02-17T01:28:42Z",
+      "updatedAt": "2026-02-21T23:45:42Z",
       "assignee": null,
-      "thought": "Market research ongoing..."
+      "thought": "Diving deep into data..."
     },
     {
       "id": "issue-1",
@@ -355,7 +355,7 @@
       ],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/1",
       "createdAt": "2026-02-16T20:43:13Z",
-      "updatedAt": "2026-02-17T01:27:13Z",
+      "updatedAt": "2026-02-21T23:45:43Z",
       "assignee": null,
       "thought": "Analyzing trends..."
     }
@@ -368,7 +368,7 @@
     "recentCommits": 20,
     "recentWorkflows": 10,
     "activeAgents": 3,
-    "lastUpdate": "2026-02-21T23:34:10.707Z"
+    "lastUpdate": "2026-02-21T23:48:58.749Z"
   },
-  "timestamp": "2026-02-21T23:34:10.708Z"
+  "timestamp": "2026-02-21T23:48:58.749Z"
 }
