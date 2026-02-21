@@ -2,16 +2,18 @@ name: 🤖 Autonomous Agent Team
 
 on:
   schedule:
-    - cron: '*/5 * * * *'  # Every 5 minutes
+    - cron: '*/10 * * * *'  # Every 10 minutes
   workflow_dispatch:  # Manual trigger
   push:
     branches: [main]
     paths:
       - 'scripts/autonomous-team.js'
+      - 'scripts/autonomous-brain.js'
 
 jobs:
   run-autonomous-team:
     runs-on: ubuntu-latest
+    timeout-minutes: 8
     permissions:
       contents: write
       issues: read
