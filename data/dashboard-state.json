@@ -10,8 +10,8 @@
       ],
       "id": "jelly-legs",
       "position": {
-        "x": 38.59029953100738,
-        "y": 55.05641360914214
+        "x": 40.14696709621174,
+        "y": 42.910109712170744
       },
       "currentTask": null,
       "status": "idle",
@@ -27,8 +27,8 @@
       ],
       "id": "data-diver",
       "position": {
-        "x": 58.683150381806115,
-        "y": 29.380804611145976
+        "x": 50.97608796706768,
+        "y": 26.11998864407804
       },
       "currentTask": {
         "id": "issue-1",
@@ -47,7 +47,7 @@
         "createdAt": "2026-02-16T20:43:13Z",
         "updatedAt": "2026-02-22T13:32:43Z",
         "assignee": null,
-        "thought": "Pattern detection active..."
+        "thought": "Analyzing trends..."
       },
       "status": "working",
       "lastActivity": "2026-02-22T13:32:43Z"
@@ -62,32 +62,12 @@
       ],
       "id": "pattern-seeker",
       "position": {
-        "x": 28.287052366406108,
-        "y": 23.17923158114428
+        "x": 49.78509894909293,
+        "y": 41.317977646500715
       },
-      "currentTask": {
-        "id": "issue-7",
-        "type": "issue",
-        "number": 7,
-        "title": "SUBAGENT PERSONAS - development and learning.",
-        "body": "Evaluate and build upon the current system in place regarding our subagent persona system controlled by Jelly the ai bot (the brains behind the ai agent team). learn about the necessary roles and crea",
-        "state": "open",
-        "stage": "research",
-        "agent": "pattern-seeker",
-        "labels": [
-          "documentation",
-          "research",
-          "build",
-          "review"
-        ],
-        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/7",
-        "createdAt": "2026-02-22T14:47:47Z",
-        "updatedAt": "2026-02-22T16:57:55Z",
-        "assignee": "jelly-legs-ai",
-        "thought": "Pattern recognition..."
-      },
-      "status": "working",
-      "lastActivity": "2026-02-22T16:57:55Z"
+      "currentTask": null,
+      "status": "idle",
+      "lastActivity": null
     },
     "sketch-bot": {
       "name": "Sketch-Bot",
@@ -99,8 +79,8 @@
       ],
       "id": "sketch-bot",
       "position": {
-        "x": 37.93002088344274,
-        "y": 49.04168341969243
+        "x": 39.87594517430173,
+        "y": 59.729766185291986
       },
       "currentTask": null,
       "status": "idle",
@@ -116,8 +96,8 @@
       ],
       "id": "voice-weaver",
       "position": {
-        "x": 38.01644287240025,
-        "y": 49.86808376264044
+        "x": 61.29418923640422,
+        "y": 40.5590127328972
       },
       "currentTask": null,
       "status": "idle",
@@ -133,8 +113,8 @@
       ],
       "id": "hook-maker",
       "position": {
-        "x": 49.32685843553145,
-        "y": 22.463564092103358
+        "x": 42.15542259722865,
+        "y": 26.758108594120134
       },
       "currentTask": {
         "id": "issue-6",
@@ -155,7 +135,7 @@
         "createdAt": "2026-02-17T22:06:53Z",
         "updatedAt": "2026-02-22T14:12:51Z",
         "assignee": null,
-        "thought": "Scroll-stopper crafting..."
+        "thought": "Share trigger..."
       },
       "status": "working",
       "lastActivity": "2026-02-22T14:12:51Z"
@@ -170,8 +150,8 @@
       ],
       "id": "build-bot",
       "position": {
-        "x": 70.45795990031597,
-        "y": 15.778028759974553
+        "x": 84.24720560550692,
+        "y": 27.140663166797893
       },
       "currentTask": {
         "id": "issue-4",
@@ -205,12 +185,31 @@
       ],
       "id": "pipe-layer",
       "position": {
-        "x": 35.672513132242784,
-        "y": 38.587613025175216
+        "x": 75.11584214945862,
+        "y": 25.389600985878474
       },
-      "currentTask": null,
-      "status": "idle",
-      "lastActivity": null
+      "currentTask": {
+        "id": "issue-7",
+        "type": "issue",
+        "number": 7,
+        "title": "SUBAGENT PERSONAS - development and learning.",
+        "body": "Evaluate and build upon the current system in place regarding our subagent persona system controlled by Jelly the ai bot (the brains behind the ai agent team). learn about the necessary roles and crea",
+        "state": "open",
+        "stage": "build",
+        "agent": "pipe-layer",
+        "labels": [
+          "documentation",
+          "build",
+          "automation"
+        ],
+        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/7",
+        "createdAt": "2026-02-22T14:47:47Z",
+        "updatedAt": "2026-02-22T17:49:02Z",
+        "assignee": "jelly-legs-ai",
+        "thought": "Automation layer..."
+      },
+      "status": "working",
+      "lastActivity": "2026-02-22T17:49:02Z"
     },
     "code-crafter": {
       "name": "Code-Crafter",
@@ -222,8 +221,8 @@
       ],
       "id": "code-crafter",
       "position": {
-        "x": 74.72539988803744,
-        "y": 24.975169210188938
+        "x": 68.95186903646969,
+        "y": 22.95468988848698
       },
       "currentTask": {
         "id": "issue-3",
@@ -242,7 +241,7 @@
         "createdAt": "2026-02-16T20:43:14Z",
         "updatedAt": "2026-02-22T09:50:27Z",
         "assignee": null,
-        "thought": "Code generation..."
+        "thought": "Implementation coding..."
       },
       "status": "working",
       "lastActivity": "2026-02-22T09:50:27Z"
@@ -257,8 +256,8 @@
       ],
       "id": "shield-bot",
       "position": {
-        "x": 48.19450730692348,
-        "y": 46.893539542672585
+        "x": 47.50523760749371,
+        "y": 51.8180979935353
       },
       "currentTask": null,
       "status": "idle",
@@ -274,8 +273,8 @@
       ],
       "id": "map-maker",
       "position": {
-        "x": 57.81439350847957,
-        "y": 46.492025279268034
+        "x": 43.422295470322325,
+        "y": 47.658811852875594
       },
       "currentTask": null,
       "status": "idle",
@@ -291,8 +290,8 @@
       ],
       "id": "launch-pad",
       "position": {
-        "x": 39.25126758310697,
-        "y": 40.28184594570798
+        "x": 49.351176266085375,
+        "y": 48.312764320479914
       },
       "currentTask": null,
       "status": "idle",
@@ -307,19 +306,18 @@
       "title": "SUBAGENT PERSONAS - development and learning.",
       "body": "Evaluate and build upon the current system in place regarding our subagent persona system controlled by Jelly the ai bot (the brains behind the ai agent team). learn about the necessary roles and crea",
       "state": "open",
-      "stage": "research",
-      "agent": "pattern-seeker",
+      "stage": "build",
+      "agent": "pipe-layer",
       "labels": [
         "documentation",
-        "research",
         "build",
-        "review"
+        "automation"
       ],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/7",
       "createdAt": "2026-02-22T14:47:47Z",
-      "updatedAt": "2026-02-22T16:57:55Z",
+      "updatedAt": "2026-02-22T17:49:02Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Pattern recognition..."
+      "thought": "Automation layer..."
     },
     {
       "id": "issue-6",
@@ -340,7 +338,7 @@
       "createdAt": "2026-02-17T22:06:53Z",
       "updatedAt": "2026-02-22T14:12:51Z",
       "assignee": null,
-      "thought": "Scroll-stopper crafting..."
+      "thought": "Share trigger..."
     },
     {
       "id": "issue-4",
@@ -378,7 +376,7 @@
       "createdAt": "2026-02-16T20:43:14Z",
       "updatedAt": "2026-02-22T09:50:27Z",
       "assignee": null,
-      "thought": "Code generation..."
+      "thought": "Implementation coding..."
     },
     {
       "id": "issue-2",
@@ -397,7 +395,7 @@
       "createdAt": "2026-02-16T20:43:14Z",
       "updatedAt": "2026-02-22T15:25:21Z",
       "assignee": null,
-      "thought": "Viral mechanics study..."
+      "thought": "Pattern detection active..."
     },
     {
       "id": "issue-1",
@@ -416,7 +414,7 @@
       "createdAt": "2026-02-16T20:43:13Z",
       "updatedAt": "2026-02-22T13:32:43Z",
       "assignee": null,
-      "thought": "Pattern detection active..."
+      "thought": "Analyzing trends..."
     }
   ],
   "stats": {
@@ -427,7 +425,7 @@
     "recentCommits": 20,
     "recentWorkflows": 10,
     "activeAgents": 5,
-    "lastUpdate": "2026-02-22T17:01:13.584Z"
+    "lastUpdate": "2026-02-22T17:59:04.758Z"
   },
-  "timestamp": "2026-02-22T17:01:13.585Z"
+  "timestamp": "2026-02-22T17:59:04.759Z"
 }
