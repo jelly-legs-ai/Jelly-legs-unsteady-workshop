@@ -10,8 +10,8 @@
       ],
       "id": "jelly-legs",
       "position": {
-        "x": 51.59809089242399,
-        "y": 51.20465625743674
+        "x": 35.84654189030712,
+        "y": 45.42975574584179
       },
       "currentTask": null,
       "status": "idle",
@@ -27,8 +27,8 @@
       ],
       "id": "data-diver",
       "position": {
-        "x": 29.336515961237627,
-        "y": 18.90251454632294
+        "x": 45.34774580530191,
+        "y": 25.65621544176274
       },
       "currentTask": {
         "id": "issue-1",
@@ -48,7 +48,7 @@
         "createdAt": "2026-02-16T20:43:13Z",
         "updatedAt": "2026-02-22T09:50:30Z",
         "assignee": null,
-        "thought": "Pattern detection active..."
+        "thought": "Analyzing trends..."
       },
       "status": "working",
       "lastActivity": "2026-02-22T09:50:30Z"
@@ -63,12 +63,33 @@
       ],
       "id": "pattern-seeker",
       "position": {
-        "x": 60.73060339141776,
-        "y": 40.931507490021026
+        "x": 29.464944084467536,
+        "y": 15.160744885941487
       },
-      "currentTask": null,
-      "status": "idle",
-      "lastActivity": null
+      "currentTask": {
+        "id": "issue-6",
+        "type": "issue",
+        "number": 6,
+        "title": "API rate limits - Utilise multiple cloud models with free tiers in rotation, taking advantage of free daily limits from various different providers by systematically creating fallbacks in jelly's openclaw.json",
+        "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
+        "state": "open",
+        "stage": "research",
+        "agent": "pattern-seeker",
+        "labels": [
+          "enhancement",
+          "research",
+          "design",
+          "strategy",
+          "automation"
+        ],
+        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/6",
+        "createdAt": "2026-02-17T22:06:53Z",
+        "updatedAt": "2026-02-22T09:50:24Z",
+        "assignee": null,
+        "thought": "Pattern recognition..."
+      },
+      "status": "working",
+      "lastActivity": "2026-02-22T09:50:24Z"
     },
     "sketch-bot": {
       "name": "Sketch-Bot",
@@ -80,8 +101,8 @@
       ],
       "id": "sketch-bot",
       "position": {
-        "x": 36.885753747516226,
-        "y": 41.11313006608199
+        "x": 54.441906639831814,
+        "y": 45.49021422159417
       },
       "currentTask": null,
       "status": "idle",
@@ -97,8 +118,8 @@
       ],
       "id": "voice-weaver",
       "position": {
-        "x": 54.46586561274008,
-        "y": 46.437898660252884
+        "x": 46.93412304881768,
+        "y": 58.69419331798398
       },
       "currentTask": null,
       "status": "idle",
@@ -114,8 +135,8 @@
       ],
       "id": "hook-maker",
       "position": {
-        "x": 46.68749221715818,
-        "y": 55.621519600464296
+        "x": 56.835553084530254,
+        "y": 35.16433383982377
       },
       "currentTask": null,
       "status": "idle",
@@ -131,8 +152,8 @@
       ],
       "id": "build-bot",
       "position": {
-        "x": 68.60977082184088,
-        "y": 24.70149876932984
+        "x": 69.87797384655269,
+        "y": 27.544571602089896
       },
       "currentTask": {
         "id": "issue-4",
@@ -166,8 +187,8 @@
       ],
       "id": "pipe-layer",
       "position": {
-        "x": 36.579272247021805,
-        "y": 44.67390476600306
+        "x": 48.60111931995658,
+        "y": 51.36938757251442
       },
       "currentTask": null,
       "status": "idle",
@@ -183,8 +204,8 @@
       ],
       "id": "code-crafter",
       "position": {
-        "x": 83.31252936332912,
-        "y": 17.95220148083658
+        "x": 82.84696154295527,
+        "y": 25.60818844632503
       },
       "currentTask": {
         "id": "issue-3",
@@ -203,7 +224,7 @@
         "createdAt": "2026-02-16T20:43:14Z",
         "updatedAt": "2026-02-22T09:50:27Z",
         "assignee": null,
-        "thought": "Implementation coding..."
+        "thought": "Logic weaving..."
       },
       "status": "working",
       "lastActivity": "2026-02-22T09:50:27Z"
@@ -218,8 +239,8 @@
       ],
       "id": "shield-bot",
       "position": {
-        "x": 59.040400084991305,
-        "y": 46.36010749128144
+        "x": 61.36383543043119,
+        "y": 43.512535724388975
       },
       "currentTask": null,
       "status": "idle",
@@ -235,8 +256,8 @@
       ],
       "id": "map-maker",
       "position": {
-        "x": 50.30390227046551,
-        "y": 52.83166900699638
+        "x": 37.59648787766917,
+        "y": 59.027957662883395
       },
       "currentTask": null,
       "status": "idle",
@@ -252,8 +273,8 @@
       ],
       "id": "launch-pad",
       "position": {
-        "x": 42.01714895569738,
-        "y": 38.519909566371645
+        "x": 64.45480385067843,
+        "y": 42.78466242945109
       },
       "currentTask": null,
       "status": "idle",
@@ -269,7 +290,7 @@
       "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
       "state": "open",
       "stage": "research",
-      "agent": "data-diver",
+      "agent": "pattern-seeker",
       "labels": [
         "enhancement",
         "research",
@@ -281,7 +302,7 @@
       "createdAt": "2026-02-17T22:06:53Z",
       "updatedAt": "2026-02-22T09:50:24Z",
       "assignee": null,
-      "thought": "Pattern detection active..."
+      "thought": "Pattern recognition..."
     },
     {
       "id": "issue-4",
@@ -319,7 +340,7 @@
       "createdAt": "2026-02-16T20:43:14Z",
       "updatedAt": "2026-02-22T09:50:27Z",
       "assignee": null,
-      "thought": "Implementation coding..."
+      "thought": "Logic weaving..."
     },
     {
       "id": "issue-2",
@@ -358,7 +379,7 @@
       "createdAt": "2026-02-16T20:43:13Z",
       "updatedAt": "2026-02-22T09:50:30Z",
       "assignee": null,
-      "thought": "Pattern detection active..."
+      "thought": "Analyzing trends..."
     }
   ],
   "stats": {
@@ -368,8 +389,8 @@
     "openPRs": 0,
     "recentCommits": 20,
     "recentWorkflows": 10,
-    "activeAgents": 3,
-    "lastUpdate": "2026-02-22T10:56:13.725Z"
+    "activeAgents": 4,
+    "lastUpdate": "2026-02-22T11:44:40.286Z"
   },
-  "timestamp": "2026-02-22T10:56:13.725Z"
+  "timestamp": "2026-02-22T11:44:40.286Z"
 }
