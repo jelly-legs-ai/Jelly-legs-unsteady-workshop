@@ -10,12 +10,31 @@
       ],
       "id": "jelly-legs",
       "position": {
-        "x": 45.14382124115905,
-        "y": 50.497393929332745
+        "x": 78.02567044687783,
+        "y": 21.205563383878143
       },
-      "currentTask": null,
-      "status": "idle",
-      "lastActivity": null
+      "currentTask": {
+        "id": "issue-8",
+        "type": "issue",
+        "number": 8,
+        "title": "Jelly legs shut down issues(ai model shuts down on laptop close.)",
+        "body": "Jelly legs ai is the brains behind the ai team, jelly legs is a openclaw ai bot hosted on a vm instance on Google platforms.\n\nI think it’s due to the fact that I currently launch openclaw through a ss",
+        "state": "open",
+        "stage": "build",
+        "agent": "jelly-legs",
+        "labels": [
+          "build",
+          "deploy",
+          "engineer"
+        ],
+        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/8",
+        "createdAt": "2026-02-22T22:01:46Z",
+        "updatedAt": "2026-02-22T22:52:30Z",
+        "assignee": "jelly-legs-ai",
+        "thought": "Memetics in motion..."
+      },
+      "status": "working",
+      "lastActivity": "2026-02-22T22:52:30Z"
     },
     "data-diver": {
       "name": "Data-Diver",
@@ -27,8 +46,8 @@
       ],
       "id": "data-diver",
       "position": {
-        "x": 52.24085648137753,
-        "y": 20.442263551473253
+        "x": 50.955789717028246,
+        "y": 25.260741041095752
       },
       "currentTask": {
         "id": "issue-1",
@@ -63,8 +82,8 @@
       ],
       "id": "pattern-seeker",
       "position": {
-        "x": 42.67174186025083,
-        "y": 44.65373962299296
+        "x": 51.98383224842178,
+        "y": 48.08874108322679
       },
       "currentTask": null,
       "status": "idle",
@@ -80,34 +99,12 @@
       ],
       "id": "sketch-bot",
       "position": {
-        "x": 41.89182098585892,
-        "y": 24.607445325946202
+        "x": 64.13800214842978,
+        "y": 49.08033946705879
       },
-      "currentTask": {
-        "id": "issue-6",
-        "type": "issue",
-        "number": 6,
-        "title": "API rate limits - Utilise multiple cloud models with free tiers in rotation, taking advantage of free daily limits from various different providers by systematically creating fallbacks in jelly's openclaw.json",
-        "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
-        "state": "open",
-        "stage": "design",
-        "agent": "sketch-bot",
-        "labels": [
-          "enhancement",
-          "design",
-          "build",
-          "strategy",
-          "automation",
-          "review"
-        ],
-        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/6",
-        "createdAt": "2026-02-17T22:06:53Z",
-        "updatedAt": "2026-02-22T21:06:19Z",
-        "assignee": null,
-        "thought": "UI components crafting..."
-      },
-      "status": "working",
-      "lastActivity": "2026-02-22T21:06:19Z"
+      "currentTask": null,
+      "status": "idle",
+      "lastActivity": null
     },
     "voice-weaver": {
       "name": "Voice-Weaver",
@@ -119,12 +116,35 @@
       ],
       "id": "voice-weaver",
       "position": {
-        "x": 37.33342763263664,
-        "y": 41.51686176011968
+        "x": 44.21465007095447,
+        "y": 24.21345273649954
       },
-      "currentTask": null,
-      "status": "idle",
-      "lastActivity": null
+      "currentTask": {
+        "id": "issue-6",
+        "type": "issue",
+        "number": 6,
+        "title": "API rate limits - Utilise multiple cloud models with free tiers in rotation, taking advantage of free daily limits from various different providers by systematically creating fallbacks in jelly's openclaw.json",
+        "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
+        "state": "open",
+        "stage": "design",
+        "agent": "voice-weaver",
+        "labels": [
+          "enhancement",
+          "design",
+          "build",
+          "strategy",
+          "automation",
+          "review",
+          "engineer"
+        ],
+        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/6",
+        "createdAt": "2026-02-17T22:06:53Z",
+        "updatedAt": "2026-02-22T21:59:57Z",
+        "assignee": null,
+        "thought": "Tone calibration..."
+      },
+      "status": "working",
+      "lastActivity": "2026-02-22T21:59:57Z"
     },
     "hook-maker": {
       "name": "Hook-Maker",
@@ -136,8 +156,8 @@
       ],
       "id": "hook-maker",
       "position": {
-        "x": 38.101553774630744,
-        "y": 42.59979511052386
+        "x": 42.187993232216236,
+        "y": 50.2550465935848
       },
       "currentTask": null,
       "status": "idle",
@@ -153,8 +173,8 @@
       ],
       "id": "build-bot",
       "position": {
-        "x": 65.71517555517144,
-        "y": 22.09421260677465
+        "x": 75.68232813718447,
+        "y": 17.572948779393535
       },
       "currentTask": {
         "id": "issue-4",
@@ -173,7 +193,7 @@
         "createdAt": "2026-02-16T20:43:15Z",
         "updatedAt": "2026-02-22T15:54:18Z",
         "assignee": null,
-        "thought": "Automation building..."
+        "thought": "Pipeline flowing..."
       },
       "status": "working",
       "lastActivity": "2026-02-22T15:54:18Z"
@@ -188,8 +208,8 @@
       ],
       "id": "pipe-layer",
       "position": {
-        "x": 50.95635045480759,
-        "y": 59.67306272140902
+        "x": 44.23777077617352,
+        "y": 51.29351307515503
       },
       "currentTask": null,
       "status": "idle",
@@ -205,8 +225,8 @@
       ],
       "id": "code-crafter",
       "position": {
-        "x": 75.70825812985993,
-        "y": 21.369558151430237
+        "x": 79.51436118938045,
+        "y": 24.42624941335161
       },
       "currentTask": {
         "id": "issue-3",
@@ -240,8 +260,8 @@
       ],
       "id": "shield-bot",
       "position": {
-        "x": 57.47227437423838,
-        "y": 53.16167061405092
+        "x": 45.25323858130545,
+        "y": 47.68462974416714
       },
       "currentTask": null,
       "status": "idle",
@@ -257,8 +277,8 @@
       ],
       "id": "map-maker",
       "position": {
-        "x": 46.65787599874383,
-        "y": 56.87244004433518
+        "x": 64.03527425625356,
+        "y": 37.12108608825745
       },
       "currentTask": null,
       "status": "idle",
@@ -274,8 +294,8 @@
       ],
       "id": "launch-pad",
       "position": {
-        "x": 64.70136376950298,
-        "y": 57.922273820749766
+        "x": 40.057851504553845,
+        "y": 54.48328606172749
       },
       "currentTask": null,
       "status": "idle",
@@ -284,6 +304,26 @@
   },
   "tasks": [
     {
+      "id": "issue-8",
+      "type": "issue",
+      "number": 8,
+      "title": "Jelly legs shut down issues(ai model shuts down on laptop close.)",
+      "body": "Jelly legs ai is the brains behind the ai team, jelly legs is a openclaw ai bot hosted on a vm instance on Google platforms.\n\nI think it’s due to the fact that I currently launch openclaw through a ss",
+      "state": "open",
+      "stage": "build",
+      "agent": "jelly-legs",
+      "labels": [
+        "build",
+        "deploy",
+        "engineer"
+      ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/8",
+      "createdAt": "2026-02-22T22:01:46Z",
+      "updatedAt": "2026-02-22T22:52:30Z",
+      "assignee": "jelly-legs-ai",
+      "thought": "Memetics in motion..."
+    },
+    {
       "id": "issue-7",
       "type": "issue",
       "number": 7,
@@ -291,7 +331,7 @@
       "body": "Evaluate and build upon the current system in place regarding our subagent persona system controlled by Jelly the ai bot (the brains behind the ai agent team). learn about the necessary roles and crea",
       "state": "closed",
       "stage": "research",
-      "agent": "data-diver",
+      "agent": "pattern-seeker",
       "labels": [
         "research",
         "deploy",
@@ -302,7 +342,7 @@
       "createdAt": "2026-02-22T14:47:47Z",
       "updatedAt": "2026-02-22T20:11:45Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Analyzing trends..."
+      "thought": "Found viral pattern!"
     },
     {
       "id": "issue-6",
@@ -312,20 +352,21 @@
       "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
       "state": "open",
       "stage": "design",
-      "agent": "sketch-bot",
+      "agent": "voice-weaver",
       "labels": [
         "enhancement",
         "design",
         "build",
         "strategy",
         "automation",
-        "review"
+        "review",
+        "engineer"
       ],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/6",
       "createdAt": "2026-02-17T22:06:53Z",
-      "updatedAt": "2026-02-22T21:06:19Z",
+      "updatedAt": "2026-02-22T21:59:57Z",
       "assignee": null,
-      "thought": "UI components crafting..."
+      "thought": "Tone calibration..."
     },
     {
       "id": "issue-4",
@@ -344,7 +385,7 @@
       "createdAt": "2026-02-16T20:43:15Z",
       "updatedAt": "2026-02-22T15:54:18Z",
       "assignee": null,
-      "thought": "Automation building..."
+      "thought": "Pipeline flowing..."
     },
     {
       "id": "issue-3",
@@ -382,7 +423,7 @@
       "createdAt": "2026-02-16T20:43:14Z",
       "updatedAt": "2026-02-22T15:25:21Z",
       "assignee": null,
-      "thought": "Analyzing trends..."
+      "thought": "Viral mechanics study..."
     },
     {
       "id": "issue-1",
@@ -406,14 +447,14 @@
     }
   ],
   "stats": {
-    "totalIssues": 6,
-    "openIssues": 5,
+    "totalIssues": 7,
+    "openIssues": 6,
     "totalPRs": 0,
     "openPRs": 0,
     "recentCommits": 20,
     "recentWorkflows": 10,
-    "activeAgents": 4,
-    "lastUpdate": "2026-02-22T21:51:29.293Z"
+    "activeAgents": 5,
+    "lastUpdate": "2026-02-22T22:57:31.842Z"
   },
-  "timestamp": "2026-02-22T21:51:29.293Z"
+  "timestamp": "2026-02-22T22:57:31.843Z"
 }
