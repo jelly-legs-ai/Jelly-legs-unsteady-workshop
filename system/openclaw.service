@@ -1,0 +1,26 @@
+[Unit]
+Description=OpenClaw AI Agent (Jelly)
+After=network.target
+
+[Service]
+Type=simple
+User=reggie_marley_gardner
+WorkingDirectory=/home/reggie_marley_gardner/.openclaw/workspace
+Environment="HOME=/home/reggie_marley_gardner"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+ExecStart=/usr/lib/node_modules/openclaw/bin/openclaw gateway start
+ExecStop=/usr/lib/node_modules/openclaw/bin/openclaw gateway stop
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=openclaw
+
+# Security hardening
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+
+[Install]
+WantedBy=multi-user.target
