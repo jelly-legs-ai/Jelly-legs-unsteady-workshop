@@ -10,8 +10,8 @@
       ],
       "id": "jelly-legs",
       "position": {
-        "x": 50.12277769700924,
-        "y": 46.09149694688791
+        "x": 57.28723144265489,
+        "y": 46.936455471837405
       },
       "currentTask": null,
       "status": "idle",
@@ -27,8 +27,8 @@
       ],
       "id": "data-diver",
       "position": {
-        "x": 47.063523931073924,
-        "y": 23.889496449610057
+        "x": 43.04836484665476,
+        "y": 26.686375026827896
       },
       "currentTask": {
         "id": "issue-1",
@@ -48,7 +48,7 @@
         "createdAt": "2026-02-16T20:43:13Z",
         "updatedAt": "2026-02-22T20:56:52Z",
         "assignee": null,
-        "thought": "Diving deep into data..."
+        "thought": "Analyzing trends..."
       },
       "status": "working",
       "lastActivity": "2026-02-22T20:56:52Z"
@@ -63,8 +63,8 @@
       ],
       "id": "pattern-seeker",
       "position": {
-        "x": 31.07768535687553,
-        "y": 20.54559591817428
+        "x": 15.021974744672267,
+        "y": 17.137321629005697
       },
       "currentTask": {
         "id": "issue-9",
@@ -83,7 +83,7 @@
         "createdAt": "2026-02-23T16:56:09Z",
         "updatedAt": "2026-02-23T22:11:56Z",
         "assignee": "jelly-legs-ai",
-        "thought": "Correlation mapping..."
+        "thought": "Signal in the noise..."
       },
       "status": "working",
       "lastActivity": "2026-02-23T22:11:56Z"
@@ -98,8 +98,25 @@
       ],
       "id": "sketch-bot",
       "position": {
-        "x": 48.49009513630652,
-        "y": 16.543368383089934
+        "x": 54.266427164230265,
+        "y": 50.39348398452611
+      },
+      "currentTask": null,
+      "status": "idle",
+      "lastActivity": null
+    },
+    "voice-weaver": {
+      "name": "Voice-Weaver",
+      "emoji": "🎭",
+      "role": "Brand Voice",
+      "color": "#ff9933",
+      "zones": [
+        "design"
+      ],
+      "id": "voice-weaver",
+      "position": {
+        "x": 53.01680236430325,
+        "y": 21.923220099973495
       },
       "currentTask": {
         "id": "issue-6",
@@ -109,7 +126,7 @@
         "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
         "state": "open",
         "stage": "design",
-        "agent": "sketch-bot",
+        "agent": "voice-weaver",
         "labels": [
           "enhancement",
           "design",
@@ -124,27 +141,10 @@
         "createdAt": "2026-02-17T22:06:53Z",
         "updatedAt": "2026-02-23T21:50:44Z",
         "assignee": null,
-        "thought": "Mockup generation..."
+        "thought": "Message resonance..."
       },
       "status": "working",
       "lastActivity": "2026-02-23T21:50:44Z"
-    },
-    "voice-weaver": {
-      "name": "Voice-Weaver",
-      "emoji": "🎭",
-      "role": "Brand Voice",
-      "color": "#ff9933",
-      "zones": [
-        "design"
-      ],
-      "id": "voice-weaver",
-      "position": {
-        "x": 55.16642041868054,
-        "y": 48.86032770021696
-      },
-      "currentTask": null,
-      "status": "idle",
-      "lastActivity": null
     },
     "hook-maker": {
       "name": "Hook-Maker",
@@ -156,8 +156,8 @@
       ],
       "id": "hook-maker",
       "position": {
-        "x": 54.871905563647665,
-        "y": 55.99945530590307
+        "x": 36.77212431559532,
+        "y": 35.6586387699786
       },
       "currentTask": null,
       "status": "idle",
@@ -173,8 +173,8 @@
       ],
       "id": "build-bot",
       "position": {
-        "x": 81.73245348701141,
-        "y": 20.27927283597833
+        "x": 67.62308158164214,
+        "y": 26.505685845208077
       },
       "currentTask": {
         "id": "issue-4",
@@ -193,7 +193,7 @@
         "createdAt": "2026-02-16T20:43:15Z",
         "updatedAt": "2026-02-22T15:54:18Z",
         "assignee": null,
-        "thought": "Infrastructure growing..."
+        "thought": "Automation building..."
       },
       "status": "working",
       "lastActivity": "2026-02-22T15:54:18Z"
@@ -208,8 +208,8 @@
       ],
       "id": "pipe-layer",
       "position": {
-        "x": 57.7110802098885,
-        "y": 53.66212530064994
+        "x": 48.501519881723794,
+        "y": 42.655414858160846
       },
       "currentTask": null,
       "status": "idle",
@@ -225,8 +225,8 @@
       ],
       "id": "code-crafter",
       "position": {
-        "x": 73.36948176808075,
-        "y": 24.36681085192258
+        "x": 77.05840743184399,
+        "y": 16.33089022622098
       },
       "currentTask": {
         "id": "issue-3",
@@ -260,8 +260,8 @@
       ],
       "id": "shield-bot",
       "position": {
-        "x": 35.90869647314186,
-        "y": 41.18609980761459
+        "x": 36.04882782484588,
+        "y": 37.576023388492324
       },
       "currentTask": null,
       "status": "idle",
@@ -277,8 +277,8 @@
       ],
       "id": "map-maker",
       "position": {
-        "x": 48.562083101912876,
-        "y": 40.17845891761461
+        "x": 53.67904861407837,
+        "y": 57.159222978221294
       },
       "currentTask": null,
       "status": "idle",
@@ -294,8 +294,8 @@
       ],
       "id": "launch-pad",
       "position": {
-        "x": 58.643359758220896,
-        "y": 41.304781840723585
+        "x": 50.22816653121086,
+        "y": 43.93709725493695
       },
       "currentTask": null,
       "status": "idle",
@@ -320,7 +320,7 @@
       "createdAt": "2026-02-23T16:56:09Z",
       "updatedAt": "2026-02-23T22:11:56Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Correlation mapping..."
+      "thought": "Signal in the noise..."
     },
     {
       "id": "issue-8",
@@ -339,7 +339,7 @@
       "createdAt": "2026-02-22T22:01:46Z",
       "updatedAt": "2026-02-23T22:10:09Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Building attention..."
+      "thought": "Engineering narrative..."
     },
     {
       "id": "issue-7",
@@ -349,7 +349,7 @@
       "body": "Evaluate and build upon the current system in place regarding our subagent persona system controlled by Jelly the ai bot (the brains behind the ai agent team). learn about the necessary roles and crea",
       "state": "closed",
       "stage": "research",
-      "agent": "data-diver",
+      "agent": "pattern-seeker",
       "labels": [
         "research",
         "deploy",
@@ -360,7 +360,7 @@
       "createdAt": "2026-02-22T14:47:47Z",
       "updatedAt": "2026-02-22T20:11:45Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Diving deep into data..."
+      "thought": "Found viral pattern!"
     },
     {
       "id": "issue-6",
@@ -370,7 +370,7 @@
       "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
       "state": "open",
       "stage": "design",
-      "agent": "sketch-bot",
+      "agent": "voice-weaver",
       "labels": [
         "enhancement",
         "design",
@@ -385,7 +385,7 @@
       "createdAt": "2026-02-17T22:06:53Z",
       "updatedAt": "2026-02-23T21:50:44Z",
       "assignee": null,
-      "thought": "Mockup generation..."
+      "thought": "Message resonance..."
     },
     {
       "id": "issue-4",
@@ -404,7 +404,7 @@
       "createdAt": "2026-02-16T20:43:15Z",
       "updatedAt": "2026-02-22T15:54:18Z",
       "assignee": null,
-      "thought": "Infrastructure growing..."
+      "thought": "Automation building..."
     },
     {
       "id": "issue-3",
@@ -442,7 +442,7 @@
       "createdAt": "2026-02-16T20:43:14Z",
       "updatedAt": "2026-02-22T15:25:21Z",
       "assignee": null,
-      "thought": "Market research ongoing..."
+      "thought": "Diving deep into data..."
     },
     {
       "id": "issue-1",
@@ -462,7 +462,7 @@
       "createdAt": "2026-02-16T20:43:13Z",
       "updatedAt": "2026-02-22T20:56:52Z",
       "assignee": null,
-      "thought": "Diving deep into data..."
+      "thought": "Analyzing trends..."
     }
   ],
   "stats": {
@@ -473,7 +473,7 @@
     "recentCommits": 20,
     "recentWorkflows": 10,
     "activeAgents": 5,
-    "lastUpdate": "2026-02-23T23:22:50.540Z"
+    "lastUpdate": "2026-02-24T00:01:56.464Z"
   },
-  "timestamp": "2026-02-23T23:22:50.540Z"
+  "timestamp": "2026-02-24T00:01:56.464Z"
 }
