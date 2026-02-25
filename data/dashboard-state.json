@@ -10,8 +10,8 @@
       ],
       "id": "jelly-legs",
       "position": {
-        "x": 62.743596879362656,
-        "y": 35.10204938635033
+        "x": 42.83771868632587,
+        "y": 58.83446267401844
       },
       "currentTask": null,
       "status": "idle",
@@ -27,8 +27,8 @@
       ],
       "id": "data-diver",
       "position": {
-        "x": 30.528304981639177,
-        "y": 25.178526191696037
+        "x": 31.58286901844709,
+        "y": 20.19702399760963
       },
       "currentTask": {
         "id": "issue-1",
@@ -46,12 +46,12 @@
         ],
         "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/1",
         "createdAt": "2026-02-16T20:43:13Z",
-        "updatedAt": "2026-02-22T20:56:52Z",
+        "updatedAt": "2026-02-25T06:27:13Z",
         "assignee": null,
-        "thought": "Viral mechanics study..."
+        "thought": "Analyzing trends..."
       },
       "status": "working",
-      "lastActivity": "2026-02-22T20:56:52Z"
+      "lastActivity": "2026-02-25T06:27:13Z"
     },
     "pattern-seeker": {
       "name": "Pattern-Seeker",
@@ -63,8 +63,8 @@
       ],
       "id": "pattern-seeker",
       "position": {
-        "x": 35.366827514929696,
-        "y": 39.69201391808597
+        "x": 53.186893794985885,
+        "y": 54.7917879694318
       },
       "currentTask": null,
       "status": "idle",
@@ -80,12 +80,36 @@
       ],
       "id": "sketch-bot",
       "position": {
-        "x": 37.940620774031856,
-        "y": 59.16768630964731
+        "x": 40.23208457406474,
+        "y": 20.634295925114664
       },
-      "currentTask": null,
-      "status": "idle",
-      "lastActivity": null
+      "currentTask": {
+        "id": "issue-6",
+        "type": "issue",
+        "number": 6,
+        "title": "API rate limits - Utilise multiple cloud models with free tiers in rotation, taking advantage of free daily limits from various different providers by systematically creating fallbacks in jelly's openclaw.json",
+        "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
+        "state": "open",
+        "stage": "design",
+        "agent": "sketch-bot",
+        "labels": [
+          "enhancement",
+          "design",
+          "build",
+          "security",
+          "strategy",
+          "automation",
+          "review",
+          "engineer"
+        ],
+        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/6",
+        "createdAt": "2026-02-17T22:06:53Z",
+        "updatedAt": "2026-02-25T06:04:30Z",
+        "assignee": null,
+        "thought": "UI components crafting..."
+      },
+      "status": "working",
+      "lastActivity": "2026-02-25T06:04:30Z"
     },
     "voice-weaver": {
       "name": "Voice-Weaver",
@@ -97,8 +121,8 @@
       ],
       "id": "voice-weaver",
       "position": {
-        "x": 62.73268941967903,
-        "y": 40.00063347754147
+        "x": 62.43025970775383,
+        "y": 55.65282269935193
       },
       "currentTask": null,
       "status": "idle",
@@ -114,36 +138,12 @@
       ],
       "id": "hook-maker",
       "position": {
-        "x": 50.79115470588408,
-        "y": 16.042638408535375
+        "x": 57.48331138925411,
+        "y": 53.23370705901908
       },
-      "currentTask": {
-        "id": "issue-6",
-        "type": "issue",
-        "number": 6,
-        "title": "API rate limits - Utilise multiple cloud models with free tiers in rotation, taking advantage of free daily limits from various different providers by systematically creating fallbacks in jelly's openclaw.json",
-        "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
-        "state": "open",
-        "stage": "design",
-        "agent": "hook-maker",
-        "labels": [
-          "enhancement",
-          "design",
-          "build",
-          "security",
-          "strategy",
-          "automation",
-          "review",
-          "engineer"
-        ],
-        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/6",
-        "createdAt": "2026-02-17T22:06:53Z",
-        "updatedAt": "2026-02-24T21:11:42Z",
-        "assignee": null,
-        "thought": "Viral hook testing..."
-      },
-      "status": "working",
-      "lastActivity": "2026-02-24T21:11:42Z"
+      "currentTask": null,
+      "status": "idle",
+      "lastActivity": null
     },
     "build-bot": {
       "name": "Build-Bot",
@@ -155,8 +155,8 @@
       ],
       "id": "build-bot",
       "position": {
-        "x": 71.63913681231827,
-        "y": 22.77546600565661
+        "x": 66.18589172376093,
+        "y": 16.047875837932988
       },
       "currentTask": {
         "id": "issue-4",
@@ -173,12 +173,12 @@
         ],
         "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/4",
         "createdAt": "2026-02-16T20:43:15Z",
-        "updatedAt": "2026-02-22T15:54:18Z",
+        "updatedAt": "2026-02-25T06:04:24Z",
         "assignee": null,
-        "thought": "Pipeline flowing..."
+        "thought": "Automation building..."
       },
       "status": "working",
-      "lastActivity": "2026-02-22T15:54:18Z"
+      "lastActivity": "2026-02-25T06:04:24Z"
     },
     "pipe-layer": {
       "name": "Pipe-Layer",
@@ -190,8 +190,8 @@
       ],
       "id": "pipe-layer",
       "position": {
-        "x": 50.049943851513504,
-        "y": 38.81943625120356
+        "x": 38.85767904311612,
+        "y": 46.50108655913144
       },
       "currentTask": null,
       "status": "idle",
@@ -207,8 +207,8 @@
       ],
       "id": "code-crafter",
       "position": {
-        "x": 81.47656073412715,
-        "y": 21.075572797278348
+        "x": 78.19713113604443,
+        "y": 19.64211089117067
       },
       "currentTask": {
         "id": "issue-3",
@@ -225,12 +225,12 @@
         ],
         "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/3",
         "createdAt": "2026-02-16T20:43:14Z",
-        "updatedAt": "2026-02-22T09:50:27Z",
+        "updatedAt": "2026-02-25T06:05:49Z",
         "assignee": null,
-        "thought": "Logic weaving..."
+        "thought": "Feature building..."
       },
       "status": "working",
-      "lastActivity": "2026-02-22T09:50:27Z"
+      "lastActivity": "2026-02-25T06:05:49Z"
     },
     "shield-bot": {
       "name": "Shield-Bot",
@@ -242,8 +242,8 @@
       ],
       "id": "shield-bot",
       "position": {
-        "x": 50.909004918180564,
-        "y": 47.27971201076954
+        "x": 35.52020867795041,
+        "y": 50.8001867415238
       },
       "currentTask": null,
       "status": "idle",
@@ -259,8 +259,8 @@
       ],
       "id": "map-maker",
       "position": {
-        "x": 57.875245417918826,
-        "y": 53.628680709508004
+        "x": 58.20308342952177,
+        "y": 59.72190141061717
       },
       "currentTask": null,
       "status": "idle",
@@ -276,8 +276,8 @@
       ],
       "id": "launch-pad",
       "position": {
-        "x": 39.63060624587145,
-        "y": 46.80968845348535
+        "x": 46.59551627241507,
+        "y": 37.749018417039906
       },
       "currentTask": null,
       "status": "idle",
@@ -300,9 +300,9 @@
       ],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/9",
       "createdAt": "2026-02-23T16:56:09Z",
-      "updatedAt": "2026-02-24T22:50:28Z",
+      "updatedAt": "2026-02-25T06:26:55Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Diving deep into data..."
+      "thought": "Market research ongoing..."
     },
     {
       "id": "issue-8",
@@ -321,7 +321,7 @@
       "createdAt": "2026-02-22T22:01:46Z",
       "updatedAt": "2026-02-23T22:10:09Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Engineering narrative..."
+      "thought": "Community gravity forming..."
     },
     {
       "id": "issue-7",
@@ -331,7 +331,7 @@
       "body": "Evaluate and build upon the current system in place regarding our subagent persona system controlled by Jelly the ai bot (the brains behind the ai agent team). learn about the necessary roles and crea",
       "state": "closed",
       "stage": "research",
-      "agent": "pattern-seeker",
+      "agent": "data-diver",
       "labels": [
         "research",
         "deploy",
@@ -342,7 +342,7 @@
       "createdAt": "2026-02-22T14:47:47Z",
       "updatedAt": "2026-02-22T20:11:45Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Signal in the noise..."
+      "thought": "Analyzing trends..."
     },
     {
       "id": "issue-6",
@@ -352,7 +352,7 @@
       "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
       "state": "open",
       "stage": "design",
-      "agent": "hook-maker",
+      "agent": "sketch-bot",
       "labels": [
         "enhancement",
         "design",
@@ -365,9 +365,9 @@
       ],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/6",
       "createdAt": "2026-02-17T22:06:53Z",
-      "updatedAt": "2026-02-24T21:11:42Z",
+      "updatedAt": "2026-02-25T06:04:30Z",
       "assignee": null,
-      "thought": "Viral hook testing..."
+      "thought": "UI components crafting..."
     },
     {
       "id": "issue-4",
@@ -384,9 +384,9 @@
       ],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/4",
       "createdAt": "2026-02-16T20:43:15Z",
-      "updatedAt": "2026-02-22T15:54:18Z",
+      "updatedAt": "2026-02-25T06:04:24Z",
       "assignee": null,
-      "thought": "Pipeline flowing..."
+      "thought": "Automation building..."
     },
     {
       "id": "issue-3",
@@ -403,9 +403,9 @@
       ],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/3",
       "createdAt": "2026-02-16T20:43:14Z",
-      "updatedAt": "2026-02-22T09:50:27Z",
+      "updatedAt": "2026-02-25T06:05:49Z",
       "assignee": null,
-      "thought": "Logic weaving..."
+      "thought": "Feature building..."
     },
     {
       "id": "issue-2",
@@ -422,9 +422,9 @@
       ],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/2",
       "createdAt": "2026-02-16T20:43:14Z",
-      "updatedAt": "2026-02-22T15:25:21Z",
+      "updatedAt": "2026-02-25T06:27:53Z",
       "assignee": null,
-      "thought": "Viral mechanics study..."
+      "thought": "Market research ongoing..."
     },
     {
       "id": "issue-1",
@@ -442,9 +442,9 @@
       ],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/1",
       "createdAt": "2026-02-16T20:43:13Z",
-      "updatedAt": "2026-02-22T20:56:52Z",
+      "updatedAt": "2026-02-25T06:27:13Z",
       "assignee": null,
-      "thought": "Viral mechanics study..."
+      "thought": "Analyzing trends..."
     }
   ],
   "stats": {
@@ -455,7 +455,7 @@
     "recentCommits": 20,
     "recentWorkflows": 10,
     "activeAgents": 4,
-    "lastUpdate": "2026-02-25T05:14:13.509Z"
+    "lastUpdate": "2026-02-25T08:04:26.546Z"
   },
-  "timestamp": "2026-02-25T05:14:13.509Z"
+  "timestamp": "2026-02-25T08:04:26.547Z"
 }
