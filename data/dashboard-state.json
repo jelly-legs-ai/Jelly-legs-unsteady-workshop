@@ -10,8 +10,8 @@
       ],
       "id": "jelly-legs",
       "position": {
-        "x": 50.833387547484236,
-        "y": 45.81216825946796
+        "x": 57.29257914795858,
+        "y": 42.52750715582615
       },
       "currentTask": null,
       "status": "idle",
@@ -27,8 +27,8 @@
       ],
       "id": "data-diver",
       "position": {
-        "x": 21.806575643872588,
-        "y": 15.456991631472889
+        "x": 17.388412782317037,
+        "y": 16.227989099816906
       },
       "currentTask": {
         "id": "issue-1",
@@ -48,7 +48,7 @@
         "createdAt": "2026-02-16T20:43:13Z",
         "updatedAt": "2026-02-26T18:33:15Z",
         "assignee": null,
-        "thought": "Diving deep into data..."
+        "thought": "Market research ongoing..."
       },
       "status": "working",
       "lastActivity": "2026-02-26T18:33:15Z"
@@ -63,8 +63,8 @@
       ],
       "id": "pattern-seeker",
       "position": {
-        "x": 62.21935649294226,
-        "y": 54.007918764571954
+        "x": 49.29942288044369,
+        "y": 52.6167155916866
       },
       "currentTask": null,
       "status": "idle",
@@ -80,8 +80,8 @@
       ],
       "id": "sketch-bot",
       "position": {
-        "x": 57.51467317467737,
-        "y": 49.24661152298971
+        "x": 49.69703805227024,
+        "y": 57.82929458646202
       },
       "currentTask": null,
       "status": "idle",
@@ -97,25 +97,8 @@
       ],
       "id": "voice-weaver",
       "position": {
-        "x": 50.575751659956495,
-        "y": 56.623664447097774
-      },
-      "currentTask": null,
-      "status": "idle",
-      "lastActivity": null
-    },
-    "hook-maker": {
-      "name": "Hook-Maker",
-      "emoji": "🪝",
-      "role": "Viral Engineer",
-      "color": "#ffcc00",
-      "zones": [
-        "design"
-      ],
-      "id": "hook-maker",
-      "position": {
-        "x": 57.96903073337883,
-        "y": 17.650335587131913
+        "x": 57.96290026290388,
+        "y": 15.833551898122082
       },
       "currentTask": {
         "id": "issue-6",
@@ -125,7 +108,7 @@
         "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
         "state": "open",
         "stage": "design",
-        "agent": "hook-maker",
+        "agent": "voice-weaver",
         "labels": [
           "enhancement",
           "design",
@@ -140,10 +123,27 @@
         "createdAt": "2026-02-17T22:06:53Z",
         "updatedAt": "2026-02-26T18:33:23Z",
         "assignee": null,
-        "thought": "Engagement loop design..."
+        "thought": "Tone calibration..."
       },
       "status": "working",
       "lastActivity": "2026-02-26T18:33:23Z"
+    },
+    "hook-maker": {
+      "name": "Hook-Maker",
+      "emoji": "🪝",
+      "role": "Viral Engineer",
+      "color": "#ffcc00",
+      "zones": [
+        "design"
+      ],
+      "id": "hook-maker",
+      "position": {
+        "x": 51.860349383779806,
+        "y": 43.95469740882321
+      },
+      "currentTask": null,
+      "status": "idle",
+      "lastActivity": null
     },
     "build-bot": {
       "name": "Build-Bot",
@@ -155,8 +155,8 @@
       ],
       "id": "build-bot",
       "position": {
-        "x": 76.82445373741508,
-        "y": 17.41981311126025
+        "x": 83.03555058982101,
+        "y": 24.109744099449387
       },
       "currentTask": {
         "id": "issue-4",
@@ -175,7 +175,7 @@
         "createdAt": "2026-02-16T20:43:15Z",
         "updatedAt": "2026-02-26T18:33:19Z",
         "assignee": null,
-        "thought": "Automation building..."
+        "thought": "Infrastructure growing..."
       },
       "status": "working",
       "lastActivity": "2026-02-26T18:33:19Z"
@@ -190,8 +190,8 @@
       ],
       "id": "pipe-layer",
       "position": {
-        "x": 44.689597814218004,
-        "y": 53.65232518305834
+        "x": 51.430407561222296,
+        "y": 37.25157440015738
       },
       "currentTask": null,
       "status": "idle",
@@ -207,8 +207,8 @@
       ],
       "id": "code-crafter",
       "position": {
-        "x": 75.06320816114176,
-        "y": 22.578919078739446
+        "x": 78.5243373191898,
+        "y": 16.6569500859039
       },
       "currentTask": {
         "id": "issue-3",
@@ -227,7 +227,7 @@
         "createdAt": "2026-02-16T20:43:14Z",
         "updatedAt": "2026-02-26T18:33:18Z",
         "assignee": null,
-        "thought": "Logic weaving..."
+        "thought": "Feature building..."
       },
       "status": "working",
       "lastActivity": "2026-02-26T18:33:18Z"
@@ -242,8 +242,8 @@
       ],
       "id": "shield-bot",
       "position": {
-        "x": 41.35902840405744,
-        "y": 58.25913711936105
+        "x": 36.493585378337684,
+        "y": 54.75061254081999
       },
       "currentTask": null,
       "status": "idle",
@@ -259,8 +259,8 @@
       ],
       "id": "map-maker",
       "position": {
-        "x": 62.45898674583657,
-        "y": 41.96067888322857
+        "x": 54.538256082033485,
+        "y": 54.68011452122346
       },
       "currentTask": null,
       "status": "idle",
@@ -276,8 +276,8 @@
       ],
       "id": "launch-pad",
       "position": {
-        "x": 63.89705904996791,
-        "y": 44.72291475926696
+        "x": 57.73282533646682,
+        "y": 36.76721543985006
       },
       "currentTask": null,
       "status": "idle",
@@ -321,7 +321,7 @@
       "createdAt": "2026-02-22T22:01:46Z",
       "updatedAt": "2026-02-23T22:10:09Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Memetics in motion..."
+      "thought": "Community gravity forming..."
     },
     {
       "id": "issue-7",
@@ -342,7 +342,7 @@
       "createdAt": "2026-02-22T14:47:47Z",
       "updatedAt": "2026-02-22T20:11:45Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Signal in the noise..."
+      "thought": "Pattern recognition..."
     },
     {
       "id": "issue-6",
@@ -352,7 +352,7 @@
       "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
       "state": "open",
       "stage": "design",
-      "agent": "hook-maker",
+      "agent": "voice-weaver",
       "labels": [
         "enhancement",
         "design",
@@ -367,7 +367,7 @@
       "createdAt": "2026-02-17T22:06:53Z",
       "updatedAt": "2026-02-26T18:33:23Z",
       "assignee": null,
-      "thought": "Engagement loop design..."
+      "thought": "Tone calibration..."
     },
     {
       "id": "issue-4",
@@ -386,7 +386,7 @@
       "createdAt": "2026-02-16T20:43:15Z",
       "updatedAt": "2026-02-26T18:33:19Z",
       "assignee": null,
-      "thought": "Automation building..."
+      "thought": "Infrastructure growing..."
     },
     {
       "id": "issue-3",
@@ -405,7 +405,7 @@
       "createdAt": "2026-02-16T20:43:14Z",
       "updatedAt": "2026-02-26T18:33:18Z",
       "assignee": null,
-      "thought": "Logic weaving..."
+      "thought": "Feature building..."
     },
     {
       "id": "issue-2",
@@ -424,7 +424,7 @@
       "createdAt": "2026-02-16T20:43:14Z",
       "updatedAt": "2026-02-26T18:33:16Z",
       "assignee": null,
-      "thought": "Market research ongoing..."
+      "thought": "Viral mechanics study..."
     },
     {
       "id": "issue-1",
@@ -444,7 +444,7 @@
       "createdAt": "2026-02-16T20:43:13Z",
       "updatedAt": "2026-02-26T18:33:15Z",
       "assignee": null,
-      "thought": "Diving deep into data..."
+      "thought": "Market research ongoing..."
     }
   ],
   "stats": {
@@ -455,7 +455,7 @@
     "recentCommits": 20,
     "recentWorkflows": 10,
     "activeAgents": 4,
-    "lastUpdate": "2026-03-01T20:53:36.763Z"
+    "lastUpdate": "2026-03-01T21:44:05.689Z"
   },
-  "timestamp": "2026-03-01T20:53:36.763Z"
+  "timestamp": "2026-03-01T21:44:05.690Z"
 }
