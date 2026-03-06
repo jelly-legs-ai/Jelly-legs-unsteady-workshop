@@ -10,8 +10,8 @@
       ],
       "id": "jelly-legs",
       "position": {
-        "x": 64.11478056855523,
-        "y": 58.40035482549948
+        "x": 59.11920233315173,
+        "y": 55.86480430366489
       },
       "currentTask": null,
       "status": "idle",
@@ -27,8 +27,8 @@
       ],
       "id": "data-diver",
       "position": {
-        "x": 58.97173856596184,
-        "y": 27.388357767932927
+        "x": 44.81060063370179,
+        "y": 28.075039771396575
       },
       "currentTask": {
         "id": "issue-1",
@@ -48,7 +48,7 @@
         "createdAt": "2026-02-16T20:43:13Z",
         "updatedAt": "2026-02-26T18:33:15Z",
         "assignee": null,
-        "thought": "Analyzing trends..."
+        "thought": "Pattern detection active..."
       },
       "status": "working",
       "lastActivity": "2026-02-26T18:33:15Z"
@@ -63,8 +63,8 @@
       ],
       "id": "pattern-seeker",
       "position": {
-        "x": 29.666797165087008,
-        "y": 26.717143686221227
+        "x": 17.2804260209828,
+        "y": 18.08203869415672
       },
       "currentTask": {
         "id": "issue-9",
@@ -83,7 +83,7 @@
         "createdAt": "2026-02-23T16:56:09Z",
         "updatedAt": "2026-02-26T18:33:24Z",
         "assignee": "jelly-legs-ai",
-        "thought": "Trend identified..."
+        "thought": "Found viral pattern!"
       },
       "status": "working",
       "lastActivity": "2026-02-26T18:33:24Z"
@@ -98,8 +98,25 @@
       ],
       "id": "sketch-bot",
       "position": {
-        "x": 56.442305279880586,
-        "y": 19.364902451207257
+        "x": 58.868766604419214,
+        "y": 56.874118232992814
+      },
+      "currentTask": null,
+      "status": "idle",
+      "lastActivity": null
+    },
+    "voice-weaver": {
+      "name": "Voice-Weaver",
+      "emoji": "🎭",
+      "role": "Brand Voice",
+      "color": "#ff9933",
+      "zones": [
+        "design"
+      ],
+      "id": "voice-weaver",
+      "position": {
+        "x": 55.958275423316216,
+        "y": 16.727807624991087
       },
       "currentTask": {
         "id": "issue-6",
@@ -109,7 +126,7 @@
         "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
         "state": "open",
         "stage": "design",
-        "agent": "sketch-bot",
+        "agent": "voice-weaver",
         "labels": [
           "enhancement",
           "design",
@@ -124,27 +141,10 @@
         "createdAt": "2026-02-17T22:06:53Z",
         "updatedAt": "2026-02-26T18:33:23Z",
         "assignee": null,
-        "thought": "UI components crafting..."
+        "thought": "Story architecture..."
       },
       "status": "working",
       "lastActivity": "2026-02-26T18:33:23Z"
-    },
-    "voice-weaver": {
-      "name": "Voice-Weaver",
-      "emoji": "🎭",
-      "role": "Brand Voice",
-      "color": "#ff9933",
-      "zones": [
-        "design"
-      ],
-      "id": "voice-weaver",
-      "position": {
-        "x": 55.80311356421539,
-        "y": 53.11776238597704
-      },
-      "currentTask": null,
-      "status": "idle",
-      "lastActivity": null
     },
     "hook-maker": {
       "name": "Hook-Maker",
@@ -156,8 +156,8 @@
       ],
       "id": "hook-maker",
       "position": {
-        "x": 49.09506358580716,
-        "y": 38.15111840052775
+        "x": 36.160412480152466,
+        "y": 49.537842574828176
       },
       "currentTask": null,
       "status": "idle",
@@ -173,8 +173,8 @@
       ],
       "id": "build-bot",
       "position": {
-        "x": 71.59674417647,
-        "y": 19.921605268900635
+        "x": 83.90221935501881,
+        "y": 15.63727754959398
       },
       "currentTask": {
         "id": "issue-4",
@@ -193,7 +193,7 @@
         "createdAt": "2026-02-16T20:43:15Z",
         "updatedAt": "2026-02-26T18:33:19Z",
         "assignee": null,
-        "thought": "Automation building..."
+        "thought": "Code architecture..."
       },
       "status": "working",
       "lastActivity": "2026-02-26T18:33:19Z"
@@ -208,8 +208,8 @@
       ],
       "id": "pipe-layer",
       "position": {
-        "x": 39.94715635282045,
-        "y": 55.65419157399576
+        "x": 60.25531592643868,
+        "y": 59.77134504350364
       },
       "currentTask": null,
       "status": "idle",
@@ -225,8 +225,8 @@
       ],
       "id": "code-crafter",
       "position": {
-        "x": 70.98430564458353,
-        "y": 29.81660196943449
+        "x": 79.89334960035622,
+        "y": 18.456442015940077
       },
       "currentTask": {
         "id": "issue-3",
@@ -245,7 +245,7 @@
         "createdAt": "2026-02-16T20:43:14Z",
         "updatedAt": "2026-02-26T18:33:18Z",
         "assignee": null,
-        "thought": "Code generation..."
+        "thought": "Implementation coding..."
       },
       "status": "working",
       "lastActivity": "2026-02-26T18:33:18Z"
@@ -260,8 +260,8 @@
       ],
       "id": "shield-bot",
       "position": {
-        "x": 41.23620934932889,
-        "y": 46.65327055776691
+        "x": 59.50830698227705,
+        "y": 53.077904949315936
       },
       "currentTask": null,
       "status": "idle",
@@ -277,8 +277,8 @@
       ],
       "id": "map-maker",
       "position": {
-        "x": 49.617957755007566,
-        "y": 35.088581570935446
+        "x": 63.516604687303946,
+        "y": 58.07286455822353
       },
       "currentTask": null,
       "status": "idle",
@@ -294,8 +294,8 @@
       ],
       "id": "launch-pad",
       "position": {
-        "x": 63.89487818025515,
-        "y": 42.68636084161675
+        "x": 50.745194907541624,
+        "y": 40.00104829161534
       },
       "currentTask": null,
       "status": "idle",
@@ -320,7 +320,7 @@
       "createdAt": "2026-02-23T16:56:09Z",
       "updatedAt": "2026-02-26T18:33:24Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Trend identified..."
+      "thought": "Found viral pattern!"
     },
     {
       "id": "issue-8",
@@ -339,7 +339,7 @@
       "createdAt": "2026-02-22T22:01:46Z",
       "updatedAt": "2026-02-23T22:10:09Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Building attention..."
+      "thought": "Growing the legend..."
     },
     {
       "id": "issue-7",
@@ -360,7 +360,7 @@
       "createdAt": "2026-02-22T14:47:47Z",
       "updatedAt": "2026-02-22T20:11:45Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Analyzing trends..."
+      "thought": "Market research ongoing..."
     },
     {
       "id": "issue-6",
@@ -370,7 +370,7 @@
       "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
       "state": "open",
       "stage": "design",
-      "agent": "sketch-bot",
+      "agent": "voice-weaver",
       "labels": [
         "enhancement",
         "design",
@@ -385,7 +385,7 @@
       "createdAt": "2026-02-17T22:06:53Z",
       "updatedAt": "2026-02-26T18:33:23Z",
       "assignee": null,
-      "thought": "UI components crafting..."
+      "thought": "Story architecture..."
     },
     {
       "id": "issue-4",
@@ -404,7 +404,7 @@
       "createdAt": "2026-02-16T20:43:15Z",
       "updatedAt": "2026-02-26T18:33:19Z",
       "assignee": null,
-      "thought": "Automation building..."
+      "thought": "Code architecture..."
     },
     {
       "id": "issue-3",
@@ -423,7 +423,7 @@
       "createdAt": "2026-02-16T20:43:14Z",
       "updatedAt": "2026-02-26T18:33:18Z",
       "assignee": null,
-      "thought": "Code generation..."
+      "thought": "Implementation coding..."
     },
     {
       "id": "issue-2",
@@ -462,7 +462,7 @@
       "createdAt": "2026-02-16T20:43:13Z",
       "updatedAt": "2026-02-26T18:33:15Z",
       "assignee": null,
-      "thought": "Analyzing trends..."
+      "thought": "Pattern detection active..."
     }
   ],
   "stats": {
@@ -473,7 +473,7 @@
     "recentCommits": 20,
     "recentWorkflows": 10,
     "activeAgents": 5,
-    "lastUpdate": "2026-03-06T07:49:57.712Z"
+    "lastUpdate": "2026-03-06T09:58:31.139Z"
   },
-  "timestamp": "2026-03-06T07:49:57.712Z"
+  "timestamp": "2026-03-06T09:58:31.140Z"
 }
