@@ -10,8 +10,8 @@
       ],
       "id": "jelly-legs",
       "position": {
-        "x": 47.43269910491183,
-        "y": 49.25357259423593
+        "x": 47.50641798135051,
+        "y": 40.569126340211355
       },
       "currentTask": null,
       "status": "idle",
@@ -27,8 +27,8 @@
       ],
       "id": "data-diver",
       "position": {
-        "x": 18.7908859122677,
-        "y": 28.095283792773827
+        "x": 27.246655966098526,
+        "y": 22.10779999756165
       },
       "currentTask": {
         "id": "issue-1",
@@ -48,7 +48,7 @@
         "createdAt": "2026-02-16T20:43:13Z",
         "updatedAt": "2026-02-26T18:33:15Z",
         "assignee": null,
-        "thought": "Market research ongoing..."
+        "thought": "Viral mechanics study..."
       },
       "status": "working",
       "lastActivity": "2026-02-26T18:33:15Z"
@@ -63,8 +63,8 @@
       ],
       "id": "pattern-seeker",
       "position": {
-        "x": 47.02999187671473,
-        "y": 50.03335274940507
+        "x": 59.80163649895102,
+        "y": 59.685100724156726
       },
       "currentTask": null,
       "status": "idle",
@@ -80,36 +80,12 @@
       ],
       "id": "sketch-bot",
       "position": {
-        "x": 52.12595079446317,
-        "y": 29.10981585764263
+        "x": 41.71728880410371,
+        "y": 48.47552030827061
       },
-      "currentTask": {
-        "id": "issue-6",
-        "type": "issue",
-        "number": 6,
-        "title": "API rate limits - Utilise multiple cloud models with free tiers in rotation, taking advantage of free daily limits from various different providers by systematically creating fallbacks in jelly's openclaw.json",
-        "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
-        "state": "open",
-        "stage": "design",
-        "agent": "sketch-bot",
-        "labels": [
-          "enhancement",
-          "design",
-          "build",
-          "security",
-          "strategy",
-          "automation",
-          "review",
-          "engineer"
-        ],
-        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/6",
-        "createdAt": "2026-02-17T22:06:53Z",
-        "updatedAt": "2026-02-26T18:33:23Z",
-        "assignee": null,
-        "thought": "Pixel art rendering..."
-      },
-      "status": "working",
-      "lastActivity": "2026-02-26T18:33:23Z"
+      "currentTask": null,
+      "status": "idle",
+      "lastActivity": null
     },
     "voice-weaver": {
       "name": "Voice-Weaver",
@@ -121,8 +97,8 @@
       ],
       "id": "voice-weaver",
       "position": {
-        "x": 36.57567405899047,
-        "y": 42.19509930428874
+        "x": 47.746117810060895,
+        "y": 36.48627434397398
       },
       "currentTask": null,
       "status": "idle",
@@ -138,12 +114,36 @@
       ],
       "id": "hook-maker",
       "position": {
-        "x": 55.733325316564944,
-        "y": 36.31952153471138
+        "x": 56.61729744925694,
+        "y": 22.767481276116676
       },
-      "currentTask": null,
-      "status": "idle",
-      "lastActivity": null
+      "currentTask": {
+        "id": "issue-6",
+        "type": "issue",
+        "number": 6,
+        "title": "API rate limits - Utilise multiple cloud models with free tiers in rotation, taking advantage of free daily limits from various different providers by systematically creating fallbacks in jelly's openclaw.json",
+        "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
+        "state": "open",
+        "stage": "design",
+        "agent": "hook-maker",
+        "labels": [
+          "enhancement",
+          "design",
+          "build",
+          "security",
+          "strategy",
+          "automation",
+          "review",
+          "engineer"
+        ],
+        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/6",
+        "createdAt": "2026-02-17T22:06:53Z",
+        "updatedAt": "2026-02-26T18:33:23Z",
+        "assignee": null,
+        "thought": "Engagement loop design..."
+      },
+      "status": "working",
+      "lastActivity": "2026-02-26T18:33:23Z"
     },
     "build-bot": {
       "name": "Build-Bot",
@@ -155,8 +155,8 @@
       ],
       "id": "build-bot",
       "position": {
-        "x": 67.24203498907711,
-        "y": 23.40602806499579
+        "x": 73.7275773248083,
+        "y": 17.27822864740824
       },
       "currentTask": {
         "id": "issue-4",
@@ -175,7 +175,7 @@
         "createdAt": "2026-02-16T20:43:15Z",
         "updatedAt": "2026-02-26T18:33:19Z",
         "assignee": null,
-        "thought": "Automation building..."
+        "thought": "Pipeline flowing..."
       },
       "status": "working",
       "lastActivity": "2026-02-26T18:33:19Z"
@@ -190,8 +190,8 @@
       ],
       "id": "pipe-layer",
       "position": {
-        "x": 37.5564653530546,
-        "y": 56.0340330117976
+        "x": 39.58397184906849,
+        "y": 36.277673394779846
       },
       "currentTask": null,
       "status": "idle",
@@ -207,8 +207,8 @@
       ],
       "id": "code-crafter",
       "position": {
-        "x": 67.95613504382618,
-        "y": 27.531003631268433
+        "x": 67.09121034294662,
+        "y": 25.446073377427062
       },
       "currentTask": {
         "id": "issue-3",
@@ -227,7 +227,7 @@
         "createdAt": "2026-02-16T20:43:14Z",
         "updatedAt": "2026-02-26T18:33:18Z",
         "assignee": null,
-        "thought": "Code generation..."
+        "thought": "Implementation coding..."
       },
       "status": "working",
       "lastActivity": "2026-02-26T18:33:18Z"
@@ -242,8 +242,8 @@
       ],
       "id": "shield-bot",
       "position": {
-        "x": 42.29140927358177,
-        "y": 37.96222555560486
+        "x": 42.46716472181939,
+        "y": 44.38529351139708
       },
       "currentTask": null,
       "status": "idle",
@@ -259,8 +259,8 @@
       ],
       "id": "map-maker",
       "position": {
-        "x": 51.29655719953044,
-        "y": 51.692415621012245
+        "x": 48.31283037860502,
+        "y": 59.923065103527705
       },
       "currentTask": null,
       "status": "idle",
@@ -276,8 +276,8 @@
       ],
       "id": "launch-pad",
       "position": {
-        "x": 45.03234310630057,
-        "y": 35.31622345892912
+        "x": 36.20232887006378,
+        "y": 48.95695949467932
       },
       "currentTask": null,
       "status": "idle",
@@ -302,7 +302,7 @@
       "createdAt": "2026-02-23T16:56:09Z",
       "updatedAt": "2026-02-26T18:33:24Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Analyzing trends..."
+      "thought": "Viral mechanics study..."
     },
     {
       "id": "issue-8",
@@ -321,7 +321,7 @@
       "createdAt": "2026-02-22T22:01:46Z",
       "updatedAt": "2026-02-23T22:10:09Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Engineering narrative..."
+      "thought": "Community gravity forming..."
     },
     {
       "id": "issue-7",
@@ -331,7 +331,7 @@
       "body": "Evaluate and build upon the current system in place regarding our subagent persona system controlled by Jelly the ai bot (the brains behind the ai agent team). learn about the necessary roles and crea",
       "state": "closed",
       "stage": "research",
-      "agent": "pattern-seeker",
+      "agent": "data-diver",
       "labels": [
         "research",
         "deploy",
@@ -342,7 +342,7 @@
       "createdAt": "2026-02-22T14:47:47Z",
       "updatedAt": "2026-02-22T20:11:45Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Found viral pattern!"
+      "thought": "Diving deep into data..."
     },
     {
       "id": "issue-6",
@@ -352,7 +352,7 @@
       "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
       "state": "open",
       "stage": "design",
-      "agent": "sketch-bot",
+      "agent": "hook-maker",
       "labels": [
         "enhancement",
         "design",
@@ -367,7 +367,7 @@
       "createdAt": "2026-02-17T22:06:53Z",
       "updatedAt": "2026-02-26T18:33:23Z",
       "assignee": null,
-      "thought": "Pixel art rendering..."
+      "thought": "Engagement loop design..."
     },
     {
       "id": "issue-4",
@@ -386,7 +386,7 @@
       "createdAt": "2026-02-16T20:43:15Z",
       "updatedAt": "2026-02-26T18:33:19Z",
       "assignee": null,
-      "thought": "Automation building..."
+      "thought": "Pipeline flowing..."
     },
     {
       "id": "issue-3",
@@ -405,7 +405,7 @@
       "createdAt": "2026-02-16T20:43:14Z",
       "updatedAt": "2026-02-26T18:33:18Z",
       "assignee": null,
-      "thought": "Code generation..."
+      "thought": "Implementation coding..."
     },
     {
       "id": "issue-2",
@@ -444,7 +444,7 @@
       "createdAt": "2026-02-16T20:43:13Z",
       "updatedAt": "2026-02-26T18:33:15Z",
       "assignee": null,
-      "thought": "Market research ongoing..."
+      "thought": "Viral mechanics study..."
     }
   ],
   "stats": {
@@ -455,7 +455,7 @@
     "recentCommits": 20,
     "recentWorkflows": 10,
     "activeAgents": 4,
-    "lastUpdate": "2026-03-12T22:58:05.798Z"
+    "lastUpdate": "2026-03-12T23:54:19.622Z"
   },
-  "timestamp": "2026-03-12T22:58:05.799Z"
+  "timestamp": "2026-03-12T23:54:19.622Z"
 }
