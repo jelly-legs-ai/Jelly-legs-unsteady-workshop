@@ -10,8 +10,8 @@
       ],
       "id": "jelly-legs",
       "position": {
-        "x": 64.11659129504022,
-        "y": 51.30060860955972
+        "x": 64.67466142113247,
+        "y": 56.374504374850915
       },
       "currentTask": null,
       "status": "idle",
@@ -27,8 +27,8 @@
       ],
       "id": "data-diver",
       "position": {
-        "x": 16.584714155974144,
-        "y": 17.214688524389636
+        "x": 34.31056932351538,
+        "y": 28.07429721684353
       },
       "currentTask": {
         "id": "issue-1",
@@ -48,7 +48,7 @@
         "createdAt": "2026-02-16T20:43:13Z",
         "updatedAt": "2026-02-26T18:33:15Z",
         "assignee": null,
-        "thought": "Viral mechanics study..."
+        "thought": "Market research ongoing..."
       },
       "status": "working",
       "lastActivity": "2026-02-26T18:33:15Z"
@@ -63,8 +63,8 @@
       ],
       "id": "pattern-seeker",
       "position": {
-        "x": 64.57179357103249,
-        "y": 41.60720051075775
+        "x": 60.26195644803853,
+        "y": 52.3102072666671
       },
       "currentTask": null,
       "status": "idle",
@@ -80,25 +80,8 @@
       ],
       "id": "sketch-bot",
       "position": {
-        "x": 40.54886304764346,
-        "y": 54.21552317461085
-      },
-      "currentTask": null,
-      "status": "idle",
-      "lastActivity": null
-    },
-    "voice-weaver": {
-      "name": "Voice-Weaver",
-      "emoji": "🎭",
-      "role": "Brand Voice",
-      "color": "#ff9933",
-      "zones": [
-        "design"
-      ],
-      "id": "voice-weaver",
-      "position": {
-        "x": 43.13958350286243,
-        "y": 24.43624074019143
+        "x": 47.76136165049646,
+        "y": 29.598393146214995
       },
       "currentTask": {
         "id": "issue-6",
@@ -108,7 +91,7 @@
         "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
         "state": "open",
         "stage": "design",
-        "agent": "voice-weaver",
+        "agent": "sketch-bot",
         "labels": [
           "enhancement",
           "design",
@@ -123,10 +106,27 @@
         "createdAt": "2026-02-17T22:06:53Z",
         "updatedAt": "2026-02-26T18:33:23Z",
         "assignee": null,
-        "thought": "Narrative threading..."
+        "thought": "Designing assets..."
       },
       "status": "working",
       "lastActivity": "2026-02-26T18:33:23Z"
+    },
+    "voice-weaver": {
+      "name": "Voice-Weaver",
+      "emoji": "🎭",
+      "role": "Brand Voice",
+      "color": "#ff9933",
+      "zones": [
+        "design"
+      ],
+      "id": "voice-weaver",
+      "position": {
+        "x": 61.10640621834118,
+        "y": 46.18556658517841
+      },
+      "currentTask": null,
+      "status": "idle",
+      "lastActivity": null
     },
     "hook-maker": {
       "name": "Hook-Maker",
@@ -138,8 +138,8 @@
       ],
       "id": "hook-maker",
       "position": {
-        "x": 52.30379618540501,
-        "y": 59.33197139234769
+        "x": 38.51263771356801,
+        "y": 42.68120328233767
       },
       "currentTask": null,
       "status": "idle",
@@ -155,8 +155,8 @@
       ],
       "id": "build-bot",
       "position": {
-        "x": 79.91957623948898,
-        "y": 20.621311237905054
+        "x": 69.64286424406002,
+        "y": 26.21774874667401
       },
       "currentTask": {
         "id": "issue-4",
@@ -175,7 +175,7 @@
         "createdAt": "2026-02-16T20:43:15Z",
         "updatedAt": "2026-02-26T18:33:19Z",
         "assignee": null,
-        "thought": "Automation building..."
+        "thought": "Code architecture..."
       },
       "status": "working",
       "lastActivity": "2026-02-26T18:33:19Z"
@@ -190,8 +190,8 @@
       ],
       "id": "pipe-layer",
       "position": {
-        "x": 51.735877168099876,
-        "y": 55.11280391357609
+        "x": 39.749153879398776,
+        "y": 48.23706824886647
       },
       "currentTask": null,
       "status": "idle",
@@ -207,8 +207,8 @@
       ],
       "id": "code-crafter",
       "position": {
-        "x": 84.70805584831115,
-        "y": 15.66042643236967
+        "x": 67.08770682752085,
+        "y": 18.507615301613065
       },
       "currentTask": {
         "id": "issue-3",
@@ -227,7 +227,7 @@
         "createdAt": "2026-02-16T20:43:14Z",
         "updatedAt": "2026-02-26T18:33:18Z",
         "assignee": null,
-        "thought": "Code generation..."
+        "thought": "Feature building..."
       },
       "status": "working",
       "lastActivity": "2026-02-26T18:33:18Z"
@@ -242,8 +242,8 @@
       ],
       "id": "shield-bot",
       "position": {
-        "x": 41.64833359059182,
-        "y": 41.12668410478072
+        "x": 56.596430295900646,
+        "y": 44.64282417159167
       },
       "currentTask": null,
       "status": "idle",
@@ -259,8 +259,8 @@
       ],
       "id": "map-maker",
       "position": {
-        "x": 40.72046952567821,
-        "y": 50.239550387270455
+        "x": 61.951055215565255,
+        "y": 37.88567127180121
       },
       "currentTask": null,
       "status": "idle",
@@ -276,8 +276,8 @@
       ],
       "id": "launch-pad",
       "position": {
-        "x": 46.410302410553456,
-        "y": 52.638404036450446
+        "x": 36.360462735267994,
+        "y": 54.51568966907659
       },
       "currentTask": null,
       "status": "idle",
@@ -302,7 +302,7 @@
       "createdAt": "2026-02-23T16:56:09Z",
       "updatedAt": "2026-02-26T18:33:24Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Diving deep into data..."
+      "thought": "Analyzing trends..."
     },
     {
       "id": "issue-8",
@@ -321,7 +321,7 @@
       "createdAt": "2026-02-22T22:01:46Z",
       "updatedAt": "2026-02-23T22:10:09Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Building attention..."
+      "thought": "Community gravity forming..."
     },
     {
       "id": "issue-7",
@@ -342,7 +342,7 @@
       "createdAt": "2026-02-22T14:47:47Z",
       "updatedAt": "2026-02-22T20:11:45Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Analyzing trends..."
+      "thought": "Diving deep into data..."
     },
     {
       "id": "issue-6",
@@ -352,7 +352,7 @@
       "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
       "state": "open",
       "stage": "design",
-      "agent": "voice-weaver",
+      "agent": "sketch-bot",
       "labels": [
         "enhancement",
         "design",
@@ -367,7 +367,7 @@
       "createdAt": "2026-02-17T22:06:53Z",
       "updatedAt": "2026-02-26T18:33:23Z",
       "assignee": null,
-      "thought": "Narrative threading..."
+      "thought": "Designing assets..."
     },
     {
       "id": "issue-4",
@@ -386,7 +386,7 @@
       "createdAt": "2026-02-16T20:43:15Z",
       "updatedAt": "2026-02-26T18:33:19Z",
       "assignee": null,
-      "thought": "Automation building..."
+      "thought": "Code architecture..."
     },
     {
       "id": "issue-3",
@@ -405,7 +405,7 @@
       "createdAt": "2026-02-16T20:43:14Z",
       "updatedAt": "2026-02-26T18:33:18Z",
       "assignee": null,
-      "thought": "Code generation..."
+      "thought": "Feature building..."
     },
     {
       "id": "issue-2",
@@ -424,7 +424,7 @@
       "createdAt": "2026-02-16T20:43:14Z",
       "updatedAt": "2026-02-26T18:33:16Z",
       "assignee": null,
-      "thought": "Analyzing trends..."
+      "thought": "Viral mechanics study..."
     },
     {
       "id": "issue-1",
@@ -444,7 +444,7 @@
       "createdAt": "2026-02-16T20:43:13Z",
       "updatedAt": "2026-02-26T18:33:15Z",
       "assignee": null,
-      "thought": "Viral mechanics study..."
+      "thought": "Market research ongoing..."
     }
   ],
   "stats": {
@@ -455,7 +455,7 @@
     "recentCommits": 20,
     "recentWorkflows": 10,
     "activeAgents": 4,
-    "lastUpdate": "2026-03-12T05:07:38.152Z"
+    "lastUpdate": "2026-03-12T07:54:45.415Z"
   },
-  "timestamp": "2026-03-12T05:07:38.152Z"
+  "timestamp": "2026-03-12T07:54:45.415Z"
 }
