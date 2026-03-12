@@ -10,8 +10,8 @@
       ],
       "id": "jelly-legs",
       "position": {
-        "x": 36.85016734864975,
-        "y": 40.99941416306439
+        "x": 53.10216810116663,
+        "y": 37.4921138349238
       },
       "currentTask": null,
       "status": "idle",
@@ -27,8 +27,8 @@
       ],
       "id": "data-diver",
       "position": {
-        "x": 52.81444213006101,
-        "y": 23.568924744665665
+        "x": 25.51625495222831,
+        "y": 19.57878795378
       },
       "currentTask": {
         "id": "issue-1",
@@ -48,7 +48,7 @@
         "createdAt": "2026-02-16T20:43:13Z",
         "updatedAt": "2026-02-26T18:33:15Z",
         "assignee": null,
-        "thought": "Pattern detection active..."
+        "thought": "Analyzing trends..."
       },
       "status": "working",
       "lastActivity": "2026-02-26T18:33:15Z"
@@ -63,30 +63,12 @@
       ],
       "id": "pattern-seeker",
       "position": {
-        "x": 29.989038797954073,
-        "y": 28.340860258099553
+        "x": 39.0045520650266,
+        "y": 53.17375968750132
       },
-      "currentTask": {
-        "id": "issue-9",
-        "type": "issue",
-        "number": 9,
-        "title": "Tool errors in  the openclaw log.",
-        "body": "This is a task for doc. and potential Skiller if required. \n\nWe keep receiving so errors on the log, it's not breaking the system but undoubtably if we can resolve these errors the team should perform",
-        "state": "open",
-        "stage": "research",
-        "agent": "pattern-seeker",
-        "labels": [
-          "bug",
-          "analysis"
-        ],
-        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/9",
-        "createdAt": "2026-02-23T16:56:09Z",
-        "updatedAt": "2026-02-26T18:33:24Z",
-        "assignee": "jelly-legs-ai",
-        "thought": "Correlation mapping..."
-      },
-      "status": "working",
-      "lastActivity": "2026-02-26T18:33:24Z"
+      "currentTask": null,
+      "status": "idle",
+      "lastActivity": null
     },
     "sketch-bot": {
       "name": "Sketch-Bot",
@@ -98,8 +80,8 @@
       ],
       "id": "sketch-bot",
       "position": {
-        "x": 58.941231596943666,
-        "y": 38.018215869608746
+        "x": 44.88613891060662,
+        "y": 49.43136182513029
       },
       "currentTask": null,
       "status": "idle",
@@ -115,25 +97,8 @@
       ],
       "id": "voice-weaver",
       "position": {
-        "x": 45.91521940430845,
-        "y": 37.740145844460464
-      },
-      "currentTask": null,
-      "status": "idle",
-      "lastActivity": null
-    },
-    "hook-maker": {
-      "name": "Hook-Maker",
-      "emoji": "🪝",
-      "role": "Viral Engineer",
-      "color": "#ffcc00",
-      "zones": [
-        "design"
-      ],
-      "id": "hook-maker",
-      "position": {
-        "x": 40.348590066347995,
-        "y": 28.352099030272054
+        "x": 59.98250775376263,
+        "y": 28.06658094983495
       },
       "currentTask": {
         "id": "issue-6",
@@ -143,7 +108,7 @@
         "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
         "state": "open",
         "stage": "design",
-        "agent": "hook-maker",
+        "agent": "voice-weaver",
         "labels": [
           "enhancement",
           "design",
@@ -158,10 +123,27 @@
         "createdAt": "2026-02-17T22:06:53Z",
         "updatedAt": "2026-02-26T18:33:23Z",
         "assignee": null,
-        "thought": "Engagement loop design..."
+        "thought": "Message resonance..."
       },
       "status": "working",
       "lastActivity": "2026-02-26T18:33:23Z"
+    },
+    "hook-maker": {
+      "name": "Hook-Maker",
+      "emoji": "🪝",
+      "role": "Viral Engineer",
+      "color": "#ffcc00",
+      "zones": [
+        "design"
+      ],
+      "id": "hook-maker",
+      "position": {
+        "x": 47.55621896898613,
+        "y": 56.644921338940854
+      },
+      "currentTask": null,
+      "status": "idle",
+      "lastActivity": null
     },
     "build-bot": {
       "name": "Build-Bot",
@@ -173,8 +155,8 @@
       ],
       "id": "build-bot",
       "position": {
-        "x": 66.41565551547805,
-        "y": 17.6080385419894
+        "x": 84.36441720800526,
+        "y": 29.50995481007612
       },
       "currentTask": {
         "id": "issue-4",
@@ -193,7 +175,7 @@
         "createdAt": "2026-02-16T20:43:15Z",
         "updatedAt": "2026-02-26T18:33:19Z",
         "assignee": null,
-        "thought": "Infrastructure growing..."
+        "thought": "Code architecture..."
       },
       "status": "working",
       "lastActivity": "2026-02-26T18:33:19Z"
@@ -208,8 +190,8 @@
       ],
       "id": "pipe-layer",
       "position": {
-        "x": 40.35140779630649,
-        "y": 47.9696503969079
+        "x": 36.598607495301636,
+        "y": 38.95820087935892
       },
       "currentTask": null,
       "status": "idle",
@@ -225,8 +207,8 @@
       ],
       "id": "code-crafter",
       "position": {
-        "x": 79.62288396700126,
-        "y": 26.788880760898312
+        "x": 66.04393758290107,
+        "y": 21.552079240969228
       },
       "currentTask": {
         "id": "issue-3",
@@ -245,7 +227,7 @@
         "createdAt": "2026-02-16T20:43:14Z",
         "updatedAt": "2026-02-26T18:33:18Z",
         "assignee": null,
-        "thought": "Feature building..."
+        "thought": "Function crafting..."
       },
       "status": "working",
       "lastActivity": "2026-02-26T18:33:18Z"
@@ -260,8 +242,8 @@
       ],
       "id": "shield-bot",
       "position": {
-        "x": 56.95220632434684,
-        "y": 57.95728206464359
+        "x": 44.52327323801398,
+        "y": 52.674251022001414
       },
       "currentTask": null,
       "status": "idle",
@@ -277,8 +259,8 @@
       ],
       "id": "map-maker",
       "position": {
-        "x": 52.62708702368454,
-        "y": 38.02762503849097
+        "x": 38.720098650453515,
+        "y": 35.6461044522773
       },
       "currentTask": null,
       "status": "idle",
@@ -294,8 +276,8 @@
       ],
       "id": "launch-pad",
       "position": {
-        "x": 38.60379669349089,
-        "y": 55.202430513715186
+        "x": 45.02208936005757,
+        "y": 40.557848279640346
       },
       "currentTask": null,
       "status": "idle",
@@ -311,7 +293,7 @@
       "body": "This is a task for doc. and potential Skiller if required. \n\nWe keep receiving so errors on the log, it's not breaking the system but undoubtably if we can resolve these errors the team should perform",
       "state": "open",
       "stage": "research",
-      "agent": "pattern-seeker",
+      "agent": "data-diver",
       "labels": [
         "bug",
         "analysis"
@@ -320,7 +302,7 @@
       "createdAt": "2026-02-23T16:56:09Z",
       "updatedAt": "2026-02-26T18:33:24Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Correlation mapping..."
+      "thought": "Viral mechanics study..."
     },
     {
       "id": "issue-8",
@@ -339,7 +321,7 @@
       "createdAt": "2026-02-22T22:01:46Z",
       "updatedAt": "2026-02-23T22:10:09Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Community gravity forming..."
+      "thought": "Growing the legend..."
     },
     {
       "id": "issue-7",
@@ -360,7 +342,7 @@
       "createdAt": "2026-02-22T14:47:47Z",
       "updatedAt": "2026-02-22T20:11:45Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Market research ongoing..."
+      "thought": "Viral mechanics study..."
     },
     {
       "id": "issue-6",
@@ -370,7 +352,7 @@
       "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
       "state": "open",
       "stage": "design",
-      "agent": "hook-maker",
+      "agent": "voice-weaver",
       "labels": [
         "enhancement",
         "design",
@@ -385,7 +367,7 @@
       "createdAt": "2026-02-17T22:06:53Z",
       "updatedAt": "2026-02-26T18:33:23Z",
       "assignee": null,
-      "thought": "Engagement loop design..."
+      "thought": "Message resonance..."
     },
     {
       "id": "issue-4",
@@ -404,7 +386,7 @@
       "createdAt": "2026-02-16T20:43:15Z",
       "updatedAt": "2026-02-26T18:33:19Z",
       "assignee": null,
-      "thought": "Infrastructure growing..."
+      "thought": "Code architecture..."
     },
     {
       "id": "issue-3",
@@ -423,7 +405,7 @@
       "createdAt": "2026-02-16T20:43:14Z",
       "updatedAt": "2026-02-26T18:33:18Z",
       "assignee": null,
-      "thought": "Feature building..."
+      "thought": "Function crafting..."
     },
     {
       "id": "issue-2",
@@ -442,7 +424,7 @@
       "createdAt": "2026-02-16T20:43:14Z",
       "updatedAt": "2026-02-26T18:33:16Z",
       "assignee": null,
-      "thought": "Analyzing trends..."
+      "thought": "Market research ongoing..."
     },
     {
       "id": "issue-1",
@@ -462,7 +444,7 @@
       "createdAt": "2026-02-16T20:43:13Z",
       "updatedAt": "2026-02-26T18:33:15Z",
       "assignee": null,
-      "thought": "Pattern detection active..."
+      "thought": "Analyzing trends..."
     }
   ],
   "stats": {
@@ -472,8 +454,8 @@
     "openPRs": 0,
     "recentCommits": 20,
     "recentWorkflows": 10,
-    "activeAgents": 5,
-    "lastUpdate": "2026-03-12T17:38:36.544Z"
+    "activeAgents": 4,
+    "lastUpdate": "2026-03-12T19:55:21.167Z"
   },
-  "timestamp": "2026-03-12T17:38:36.544Z"
+  "timestamp": "2026-03-12T19:55:21.167Z"
 }
