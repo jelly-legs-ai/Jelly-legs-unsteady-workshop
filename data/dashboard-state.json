@@ -10,8 +10,8 @@
       ],
       "id": "jelly-legs",
       "position": {
-        "x": 41.83728964933169,
-        "y": 50.00026969351356
+        "x": 36.77655930957647,
+        "y": 54.87194602031845
       },
       "currentTask": null,
       "status": "idle",
@@ -27,31 +27,30 @@
       ],
       "id": "data-diver",
       "position": {
-        "x": 27.514338529896747,
-        "y": 17.317459198353795
+        "x": 16.68926195979388,
+        "y": 26.23137899650471
       },
       "currentTask": {
-        "id": "issue-1",
+        "id": "issue-2",
         "type": "issue",
-        "number": 1,
-        "title": "RESEARCH: Analyze top 10 viral Solana meme coins for pattern recognition",
-        "body": "## Objective\nDeep-dive analysis of the most viral Solana meme coins to identify repeatable success patterns.\n\n## Deliverables\n- [ ] List of top 10 viral Solana meme coins (by market cap, social engage",
+        "number": 2,
+        "title": "DESIGN: Create pixel art avatar system for all 12 agents",
+        "body": "## Objective\nReplace emoji placeholders with actual pixel art sprites for each agent.\n\n## Deliverables\n- [ ] Design 12 unique pixel art characters (32x32px each)\n- [ ] Create idle animation frames (2-",
         "state": "open",
-        "stage": "research",
+        "stage": "design",
         "agent": "data-diver",
         "labels": [
-          "research",
           "design",
           "build"
         ],
-        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/1",
-        "createdAt": "2026-02-16T20:43:13Z",
-        "updatedAt": "2026-02-26T18:33:15Z",
+        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/2",
+        "createdAt": "2026-02-16T20:43:14Z",
+        "updatedAt": "2026-02-26T18:33:16Z",
         "assignee": null,
-        "thought": "Viral mechanics study..."
+        "thought": "Market research ongoing..."
       },
       "status": "working",
-      "lastActivity": "2026-02-26T18:33:15Z"
+      "lastActivity": "2026-02-26T18:33:16Z"
     },
     "pattern-seeker": {
       "name": "Pattern-Seeker",
@@ -63,8 +62,8 @@
       ],
       "id": "pattern-seeker",
       "position": {
-        "x": 46.32411445038873,
-        "y": 53.09032557149904
+        "x": 38.820018321204216,
+        "y": 41.83861329676424
       },
       "currentTask": null,
       "status": "idle",
@@ -80,36 +79,12 @@
       ],
       "id": "sketch-bot",
       "position": {
-        "x": 43.05250881753823,
-        "y": 27.075541579824474
+        "x": 59.561362439317925,
+        "y": 44.9693237049761
       },
-      "currentTask": {
-        "id": "issue-6",
-        "type": "issue",
-        "number": 6,
-        "title": "API rate limits - Utilise multiple cloud models with free tiers in rotation, taking advantage of free daily limits from various different providers by systematically creating fallbacks in jelly's openclaw.json",
-        "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
-        "state": "open",
-        "stage": "design",
-        "agent": "sketch-bot",
-        "labels": [
-          "enhancement",
-          "design",
-          "build",
-          "security",
-          "strategy",
-          "automation",
-          "review",
-          "engineer"
-        ],
-        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/6",
-        "createdAt": "2026-02-17T22:06:53Z",
-        "updatedAt": "2026-02-26T18:33:23Z",
-        "assignee": null,
-        "thought": "Designing assets..."
-      },
-      "status": "working",
-      "lastActivity": "2026-02-26T18:33:23Z"
+      "currentTask": null,
+      "status": "idle",
+      "lastActivity": null
     },
     "voice-weaver": {
       "name": "Voice-Weaver",
@@ -121,8 +96,8 @@
       ],
       "id": "voice-weaver",
       "position": {
-        "x": 44.11082259464293,
-        "y": 48.24683134506481
+        "x": 40.778524374647205,
+        "y": 44.23280131326247
       },
       "currentTask": null,
       "status": "idle",
@@ -138,8 +113,8 @@
       ],
       "id": "hook-maker",
       "position": {
-        "x": 49.237200143774025,
-        "y": 53.82208360352358
+        "x": 40.27156089313658,
+        "y": 47.87230236626233
       },
       "currentTask": null,
       "status": "idle",
@@ -155,8 +130,8 @@
       ],
       "id": "build-bot",
       "position": {
-        "x": 82.1441421163361,
-        "y": 28.79126955227362
+        "x": 71.3090801235309,
+        "y": 17.69133388211903
       },
       "currentTask": {
         "id": "issue-4",
@@ -175,7 +150,7 @@
         "createdAt": "2026-02-16T20:43:15Z",
         "updatedAt": "2026-02-26T18:33:19Z",
         "assignee": null,
-        "thought": "Code architecture..."
+        "thought": "System construction..."
       },
       "status": "working",
       "lastActivity": "2026-02-26T18:33:19Z"
@@ -190,8 +165,8 @@
       ],
       "id": "pipe-layer",
       "position": {
-        "x": 58.88810390559264,
-        "y": 47.067068683594115
+        "x": 53.49721030759298,
+        "y": 47.67656742092463
       },
       "currentTask": null,
       "status": "idle",
@@ -207,8 +182,8 @@
       ],
       "id": "code-crafter",
       "position": {
-        "x": 82.82466251806025,
-        "y": 27.993194925111823
+        "x": 72.19528496267529,
+        "y": 24.438642538768697
       },
       "currentTask": {
         "id": "issue-3",
@@ -227,7 +202,7 @@
         "createdAt": "2026-02-16T20:43:14Z",
         "updatedAt": "2026-02-26T18:33:18Z",
         "assignee": null,
-        "thought": "Implementation coding..."
+        "thought": "Feature building..."
       },
       "status": "working",
       "lastActivity": "2026-02-26T18:33:18Z"
@@ -242,8 +217,8 @@
       ],
       "id": "shield-bot",
       "position": {
-        "x": 39.47828098875465,
-        "y": 59.36975243606186
+        "x": 43.72551459092614,
+        "y": 35.049924616248
       },
       "currentTask": null,
       "status": "idle",
@@ -259,8 +234,8 @@
       ],
       "id": "map-maker",
       "position": {
-        "x": 36.462178804618716,
-        "y": 36.44043261177818
+        "x": 39.32777439385911,
+        "y": 59.44261869123859
       },
       "currentTask": null,
       "status": "idle",
@@ -276,8 +251,8 @@
       ],
       "id": "launch-pad",
       "position": {
-        "x": 38.10400639814657,
-        "y": 36.787218532346124
+        "x": 42.07990128744409,
+        "y": 47.4373606578594
       },
       "currentTask": null,
       "status": "idle",
@@ -302,7 +277,7 @@
       "createdAt": "2026-02-23T16:56:09Z",
       "updatedAt": "2026-02-26T18:33:24Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Viral mechanics study..."
+      "thought": "Diving deep into data..."
     },
     {
       "id": "issue-8",
@@ -321,7 +296,7 @@
       "createdAt": "2026-02-22T22:01:46Z",
       "updatedAt": "2026-02-23T22:10:09Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Building attention..."
+      "thought": "Memetics in motion..."
     },
     {
       "id": "issue-7",
@@ -342,7 +317,7 @@
       "createdAt": "2026-02-22T14:47:47Z",
       "updatedAt": "2026-02-22T20:11:45Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Signal in the noise..."
+      "thought": "Correlation mapping..."
     },
     {
       "id": "issue-6",
@@ -350,9 +325,9 @@
       "number": 6,
       "title": "API rate limits - Utilise multiple cloud models with free tiers in rotation, taking advantage of free daily limits from various different providers by systematically creating fallbacks in jelly's openclaw.json",
       "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
-      "state": "open",
+      "state": "closed",
       "stage": "design",
-      "agent": "sketch-bot",
+      "agent": "hook-maker",
       "labels": [
         "enhancement",
         "design",
@@ -365,9 +340,9 @@
       ],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/6",
       "createdAt": "2026-02-17T22:06:53Z",
-      "updatedAt": "2026-02-26T18:33:23Z",
+      "updatedAt": "2026-03-15T18:15:05Z",
       "assignee": null,
-      "thought": "Designing assets..."
+      "thought": "Engagement loop design..."
     },
     {
       "id": "issue-4",
@@ -386,7 +361,7 @@
       "createdAt": "2026-02-16T20:43:15Z",
       "updatedAt": "2026-02-26T18:33:19Z",
       "assignee": null,
-      "thought": "Code architecture..."
+      "thought": "System construction..."
     },
     {
       "id": "issue-3",
@@ -405,7 +380,7 @@
       "createdAt": "2026-02-16T20:43:14Z",
       "updatedAt": "2026-02-26T18:33:18Z",
       "assignee": null,
-      "thought": "Implementation coding..."
+      "thought": "Feature building..."
     },
     {
       "id": "issue-2",
@@ -424,7 +399,7 @@
       "createdAt": "2026-02-16T20:43:14Z",
       "updatedAt": "2026-02-26T18:33:16Z",
       "assignee": null,
-      "thought": "Analyzing trends..."
+      "thought": "Market research ongoing..."
     },
     {
       "id": "issue-1",
@@ -432,7 +407,7 @@
       "number": 1,
       "title": "RESEARCH: Analyze top 10 viral Solana meme coins for pattern recognition",
       "body": "## Objective\nDeep-dive analysis of the most viral Solana meme coins to identify repeatable success patterns.\n\n## Deliverables\n- [ ] List of top 10 viral Solana meme coins (by market cap, social engage",
-      "state": "open",
+      "state": "closed",
       "stage": "research",
       "agent": "data-diver",
       "labels": [
@@ -442,20 +417,20 @@
       ],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/1",
       "createdAt": "2026-02-16T20:43:13Z",
-      "updatedAt": "2026-02-26T18:33:15Z",
+      "updatedAt": "2026-03-15T18:16:06Z",
       "assignee": null,
-      "thought": "Viral mechanics study..."
+      "thought": "Diving deep into data..."
     }
   ],
   "stats": {
     "totalIssues": 8,
-    "openIssues": 6,
+    "openIssues": 4,
     "totalPRs": 0,
     "openPRs": 0,
     "recentCommits": 20,
     "recentWorkflows": 10,
-    "activeAgents": 4,
-    "lastUpdate": "2026-03-15T18:14:15.122Z"
+    "activeAgents": 3,
+    "lastUpdate": "2026-03-15T18:16:09.053Z"
   },
-  "timestamp": "2026-03-15T18:14:15.123Z"
+  "timestamp": "2026-03-15T18:16:09.053Z"
 }
