@@ -465,7 +465,6 @@ async function doResearchWork(issue, agent) {
 }
 
 async function doDesignWork(issue, agent) {
-  const designFile = `design/issue-${issue.number}-spec.md`;
   const title = issue.title;
   const body = issue.body || '';
   
