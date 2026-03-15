@@ -3,13 +3,14 @@ name: Auto Merge PRs
 on:
   pull_request:
     types: [opened, synchronize]
-  check_suite:
+  workflow_run:
+    workflows: ["AI Team - Real Work"]
     types: [completed]
+  workflow_dispatch:
 
 jobs:
   auto-merge:
     runs-on: ubuntu-latest
-    if: github.event.pull_request.user.login == 'jelly-legs-ai' || contains(github.event.pull_request.title, '🤖') || contains(github.event.pull_request.title, 'Agent')
     permissions:
       contents: write
       pull-requests: write
@@ -17,18 +18,30 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
         
-      - name: Auto-merge if checks pass
+      - name: Auto-merge eligible PRs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PR_NUMBER=${{ github.event.pull_request.number }}
-          echo "Checking PR #$PR_NUMBER"
+          echo "Checking for mergeable PRs..."
           
-          # Wait for checks to complete
-          sleep 30
-          
-          # Check if PR is mergeable
-          gh pr view $PR_NUMBER --json mergeStateStatus,mergeable --jq '.mergeStateStatus' | grep -q "CLEAN" && \
-          gh pr merge $PR_NUMBER --squash --delete-branch --auto || \
-          echo "PR not ready for merge yet"
+          # Find open PRs from jelly-legs-ai or with agent emoji in title
+          gh pr list --repo ${{ github.repository }} --state open --json number,title,author,mergeStateStatus,statusCheckRollup --jq '.[] | select(.author.login == "jelly-legs-ai" or (.title | contains("🔬") or contains("🎨") or contains("💻") or contains("👁️") or contains("⚙️") or contains("🛡️") or contains("🚀"))) | {number: .number, title: .title, status: .mergeStateStatus, checks: .statusCheckRollup.state}' | jq -c '.' | while read pr; do
+            NUMBER=$(echo $pr | jq -r '.number')
+            TITLE=$(echo $pr | jq -r '.title')
+            STATUS=$(echo $pr | jq -r '.status')
+            CHECKS=$(echo $pr | jq -r '.checks')
+            
+            echo "PR #$NUMBER: $TITLE"
+            echo "  Merge status: $STATUS, Checks: $CHECKS"
+            
+            # Merge if clean and checks pass (or no checks required)
+            if [ "$STATUS" = "CLEAN" ] && ([ "$CHECKS" = "SUCCESS" ] || [ "$CHECKS" = "null" ]); then
+              echo "  → Auto-merging PR #$NUMBER"
+              gh pr merge $NUMBER --squash --delete-branch --repo ${{ github.repository }} || echo "  → Merge failed, may need manual review"
+            else
+              echo "  → Not ready for merge (status: $STATUS, checks: $CHECKS)"
+            fi
+          done
