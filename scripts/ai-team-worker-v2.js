@@ -247,23 +247,73 @@ async function doRealWork(issue, agentId) {
   console.log(`   Title: ${issue.title}`);
   console.log(`   Directive: ${agent.directive}`);
   
-  // Create branch
-  exec(`git checkout -b ${branchName}`);
+  // Check if branch exists and delete it (fresh start after merge)
+  console.log(`   Checking for existing branch: ${branchName}`);
+  exec(`git branch -D ${branchName} 2>/dev/null || true`);
+  exec(`git push origin --delete ${branchName} 2>/dev/null || true`);
+  
+  // Ensure we're on main and pull latest
+  exec('git checkout main');
+  exec('git pull origin main');
+  
+  // Create fresh branch
+  const branchResult = exec(`git checkout -b ${branchName}`);
+  if (!branchResult) {
+    console.error(`   ❌ Failed to create branch ${branchName}`);
+    return { status: 'failed', agent: agentId, error: 'Branch creation failed' };
+  }
+  console.log(`   ✅ Created branch: ${branchName}`);
   
   // DO ACTUAL WORK based on agent type
   const workResult = await executeAgentWork(issue, agent, agentId);
   
+  // Check if any files were created
+  const status = exec('git status --porcelain');
+  if (!status || status.trim() === '') {
+    console.log(`   ⚠️ No changes to commit for Issue #${issue.number}`);
+    // Still create PR comment and handoff
+    const progressComment = createProgressComment(agent, workResult);
+    exec(`curl -s -X POST -H "Authorization: token ${process.env.GITHUB_TOKEN}" \
+      -H "Accept: application/vnd.github.v3+json" \
+      https://api.github.com/repos/${REPO}/issues/${issue.number}/comments \
+      -d '{"body":"${progressComment}"}'`);
+    
+    if (agent.handoff) {
+      exec(`curl -s -X POST -H "Authorization: token ${process.env.GITHUB_TOKEN}" \
+        -H "Accept: application/vnd.github.v3+json" \
+        https://api.github.com/repos/${REPO}/issues/${issue.number}/labels \
+        -d '{"labels":["${agent.handoff.label}"]}'`);
+    }
+    return { status: 'completed', agent: agentId, work: workResult };
+  }
+  
   // Commit the real work
   exec('git add -A');
-  exec(`git commit -m "${agent.emoji} ${agent.name}: ${workResult.summary} (Issue #${issue.number})"`);
-  exec(`git push origin ${branchName}`);
+  const commitResult = exec(`git commit -m "${agent.emoji} ${agent.name}: ${workResult.summary} (Issue #${issue.number})"`);
+  if (!commitResult) {
+    console.error(`   ❌ Failed to commit changes`);
+    return { status: 'failed', agent: agentId, error: 'Commit failed' };
+  }
+  
+  const pushResult = exec(`git push origin ${branchName}`);
+  if (!pushResult) {
+    console.error(`   ❌ Failed to push branch ${branchName}`);
+    return { status: 'failed', agent: agentId, error: 'Push failed' };
+  }
+  console.log(`   ✅ Pushed branch: ${branchName}`);
   
   // Create PR
   const prBody = createPRBody(issue, agent, workResult);
-  exec(`curl -s -X POST -H "Authorization: token ${process.env.GITHUB_TOKEN}" \
+  const prResult = exec(`curl -s -X POST -H "Authorization: token ${process.env.GITHUB_TOKEN}" \
     -H "Accept: application/vnd.github.v3+json" \
     https://api.github.com/repos/${REPO}/pulls \
     -d '{"title":"${agent.emoji} ${workResult.summary}","body":"${prBody}","head":"${branchName}","base":"main"}'`);
+  
+  if (prResult) {
+    console.log(`   ✅ Created PR for Issue #${issue.number}`);
+  } else {
+    console.error(`   ❌ Failed to create PR`);
+  }
   
   // Update issue with progress and handoff
   const progressComment = createProgressComment(agent, workResult);
