@@ -1,0 +1,50 @@
+name: AI Team - Real Work
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'  # Every 15 minutes (more time for real work)
+  workflow_dispatch:
+
+jobs:
+  real-work:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          
+      - name: Setup Git
+        run: |
+          git config --local user.email "jelly-legs@autonomous.ai"
+          git config --local user.name "Jelly-Legs AI"
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Install dependencies
+        run: npm install
+        
+      - name: Run AI Team Worker v2 (Real Work)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/ai-team-worker-v2.js
+        
+      - name: Auto-merge eligible PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Find PRs created by Jelly-Legs AI that are passing checks
+          gh pr list --repo ${{ github.repository }} --author "github-actions[bot]" --state open --json number,title,statusCheckRollup | jq -r '.[] | select(.statusCheckRollup.state == "SUCCESS") | .number' | while read pr; do
+            echo "Auto-merging PR #$pr"
+            gh pr merge $pr --squash --delete-branch --repo ${{ github.repository }}
+          done
+        continue-on-error: true
