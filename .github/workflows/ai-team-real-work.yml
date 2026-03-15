@@ -2,7 +2,7 @@ name: AI Team - Real Work
 
 on:
   schedule:
-    - cron: '*/15 * * * *'  # Every 15 minutes (more time for real work)
+    - cron: '*/5 * * * *'  # Every 5 minutes
   workflow_dispatch:
 
 jobs:

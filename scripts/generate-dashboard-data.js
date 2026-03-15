@@ -296,23 +296,41 @@ function processData({ issues, pullRequests, commits, workflows }) {
 
 async function main() {
   console.log('🤖 Generating dashboard data...');
+  console.log(`   Time: ${new Date().toISOString()}`);
+  console.log(`   Repo: ${owner}/${repo}`);
   
   const githubData = await fetchGitHubData();
+  
+  // Log what we fetched
+  console.log(`   Fetched: ${githubData.issues.length} issues, ${githubData.pullRequests.length} PRs, ${githubData.commits.length} commits, ${githubData.workflows.length} workflows`);
+  
   const dashboardState = processData(githubData);
   
   // Ensure data directory exists
   const dataDir = path.join(__dirname, '..', 'data');
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
+    console.log(`   Created data directory: ${dataDir}`);
   }
   
   // Write dashboard state
   const outputPath = path.join(dataDir, 'dashboard-state.json');
   fs.writeFileSync(outputPath, JSON.stringify(dashboardState, null, 2));
   
-  console.log(`✅ Dashboard state saved to ${outputPath}`);
-  console.log(`📊 Stats: ${dashboardState.stats.openIssues} open issues, ${dashboardState.stats.activeAgents} active agents`);
+  // Verify file was written
+  const stats = fs.statSync(outputPath);
+  console.log(`✅ Dashboard state saved: ${outputPath} (${stats.size} bytes)`);
+  console.log(`📊 Stats: ${dashboardState.stats.openIssues} open issues, ${dashboardState.stats.openPRs} open PRs, ${dashboardState.stats.activeAgents} active agents`);
   console.log(`🕐 Timestamp: ${dashboardState.timestamp}`);
+  
+  // List active tasks
+  const activeTasks = dashboardState.tasks.filter(t => t.state === 'open').slice(0, 5);
+  if (activeTasks.length > 0) {
+    console.log(`\n📋 Active Tasks:`);
+    activeTasks.forEach(t => {
+      console.log(`   #${t.number}: ${t.title.substring(0, 50)}... [${t.stage}]`);
+    });
+  }
 }
 
 main().catch(console.error);
