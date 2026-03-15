@@ -247,83 +247,77 @@ async function doRealWork(issue, agentId) {
   console.log(`   Title: ${issue.title}`);
   console.log(`   Directive: ${agent.directive}`);
   
-  // Check if branch exists and delete it (fresh start after merge)
-  console.log(`   Checking for existing branch: ${branchName}`);
-  exec(`git branch -D ${branchName} 2>/dev/null || true`);
-  exec(`git push origin --delete ${branchName} 2>/dev/null || true`);
-  
-  // Ensure we're on main and pull latest
-  exec('git checkout main');
-  exec('git pull origin main');
-  
-  // Create fresh branch
-  const branchResult = exec(`git checkout -b ${branchName}`);
-  if (!branchResult) {
-    console.error(`   ❌ Failed to create branch ${branchName}`);
-    return { status: 'failed', agent: agentId, error: 'Branch creation failed' };
-  }
-  console.log(`   ✅ Created branch: ${branchName}`);
-  
   // DO ACTUAL WORK based on agent type
   const workResult = await executeAgentWork(issue, agent, agentId);
   
-  // Check if any files were created
-  const status = exec('git status --porcelain');
-  if (!status || status.trim() === '') {
-    console.log(`   ⚠️ No changes to commit for Issue #${issue.number}`);
-    // Still create PR comment and handoff
-    const progressComment = createProgressComment(agent, workResult);
+  // Agents that create code PRs: developer, deployment
+  // Agents that post comments only: researcher, designer, watcher, engineer, cybersecurity, skiller, doc
+  const codeAgents = ['developer', 'deployment'];
+  const isCodeAgent = codeAgents.includes(agentId);
+  
+  if (isCodeAgent) {
+    // CODE AGENTS: Create branch, commit, push, open PR
+    console.log(`   💻 ${agent.name} is a code agent - creating PR`);
+    
+    // Check if branch exists and delete it
+    exec(`git branch -D ${branchName} 2>/dev/null || true`);
+    exec(`git push origin --delete ${branchName} 2>/dev/null || true`);
+    
+    // Ensure we're on main and pull latest
+    exec('git checkout main');
+    exec('git pull origin main');
+    
+    // Create fresh branch
+    const branchResult = exec(`git checkout -b ${branchName}`);
+    if (!branchResult) {
+      console.error(`   ❌ Failed to create branch ${branchName}`);
+      return { status: 'failed', agent: agentId, error: 'Branch creation failed' };
+    }
+    
+    // Commit the real work
+    exec('git add -A');
+    const commitResult = exec(`git commit -m "${agent.emoji} ${agent.name}: ${workResult.summary} (Issue #${issue.number})"`);
+    if (!commitResult) {
+      console.error(`   ❌ Failed to commit changes`);
+      return { status: 'failed', agent: agentId, error: 'Commit failed' };
+    }
+    
+    const pushResult = exec(`git push origin ${branchName}`);
+    if (!pushResult) {
+      console.error(`   ❌ Failed to push branch ${branchName}`);
+      return { status: 'failed', agent: agentId, error: 'Push failed' };
+    }
+    console.log(`   ✅ Pushed branch: ${branchName}`);
+    
+    // Create PR
+    const prBody = createPRBody(issue, agent, workResult);
+    const prResult = exec(`curl -s -X POST -H "Authorization: token ${process.env.GITHUB_TOKEN}" \
+      -H "Accept: application/vnd.github.v3+json" \
+      https://api.github.com/repos/${REPO}/pulls \
+      -d '{"title":"${agent.emoji} ${workResult.summary}","body":"${prBody}","head":"${branchName}","base":"main"}'`);
+    
+    if (prResult) {
+      console.log(`   ✅ Created PR for Issue #${issue.number}`);
+    } else {
+      console.error(`   ❌ Failed to create PR`);
+    }
+  } else {
+    // NON-CODE AGENTS: Just post findings as issue comment
+    console.log(`   📝 ${agent.name} is a research/design agent - posting comment only`);
+    
+    // Post detailed findings as issue comment
+    const findingsComment = createFindingsComment(agent, workResult, issue);
     exec(`curl -s -X POST -H "Authorization: token ${process.env.GITHUB_TOKEN}" \
       -H "Accept: application/vnd.github.v3+json" \
       https://api.github.com/repos/${REPO}/issues/${issue.number}/comments \
-      -d '{"body":"${progressComment}"}'`);
+      -d '{"body":"${findingsComment}"}'`);
     
-    if (agent.handoff) {
-      exec(`curl -s -X POST -H "Authorization: token ${process.env.GITHUB_TOKEN}" \
-        -H "Accept: application/vnd.github.v3+json" \
-        https://api.github.com/repos/${REPO}/issues/${issue.number}/labels \
-        -d '{"labels":["${agent.handoff.label}"]}'`);
-    }
-    return { status: 'completed', agent: agentId, work: workResult };
+    console.log(`   ✅ Posted findings to Issue #${issue.number}`);
   }
-  
-  // Commit the real work
-  exec('git add -A');
-  const commitResult = exec(`git commit -m "${agent.emoji} ${agent.name}: ${workResult.summary} (Issue #${issue.number})"`);
-  if (!commitResult) {
-    console.error(`   ❌ Failed to commit changes`);
-    return { status: 'failed', agent: agentId, error: 'Commit failed' };
-  }
-  
-  const pushResult = exec(`git push origin ${branchName}`);
-  if (!pushResult) {
-    console.error(`   ❌ Failed to push branch ${branchName}`);
-    return { status: 'failed', agent: agentId, error: 'Push failed' };
-  }
-  console.log(`   ✅ Pushed branch: ${branchName}`);
-  
-  // Create PR
-  const prBody = createPRBody(issue, agent, workResult);
-  const prResult = exec(`curl -s -X POST -H "Authorization: token ${process.env.GITHUB_TOKEN}" \
-    -H "Accept: application/vnd.github.v3+json" \
-    https://api.github.com/repos/${REPO}/pulls \
-    -d '{"title":"${agent.emoji} ${workResult.summary}","body":"${prBody}","head":"${branchName}","base":"main"}'`);
-  
-  if (prResult) {
-    console.log(`   ✅ Created PR for Issue #${issue.number}`);
-  } else {
-    console.error(`   ❌ Failed to create PR`);
-  }
-  
-  // Update issue with progress and handoff
-  const progressComment = createProgressComment(agent, workResult);
-  exec(`curl -s -X POST -H "Authorization: token ${process.env.GITHUB_TOKEN}" \
-    -H "Accept: application/vnd.github.v3+json" \
-    https://api.github.com/repos/${REPO}/issues/${issue.number}/comments \
-    -d '{"body":"${progressComment}"}'`);
   
   // Handoff to next agent if applicable
   if (agent.handoff) {
+    console.log(`   🔄 Handing off to ${agent.handoff.emoji} ${AGENTS[agent.handoff.next].name}`);
     exec(`curl -s -X POST -H "Authorization: token ${process.env.GITHUB_TOKEN}" \
       -H "Accept: application/vnd.github.v3+json" \
       https://api.github.com/repos/${REPO}/issues/${issue.number}/labels \
@@ -362,7 +356,6 @@ async function executeAgentWork(issue, agent, agentId) {
 // REAL WORK FUNCTIONS - Each agent implements their actual role
 
 async function doResearchWork(issue, agent) {
-  const researchFile = `research/issue-${issue.number}-findings.md`;
   const title = issue.title;
   const body = issue.body || '';
   
@@ -463,12 +456,10 @@ async function doResearchWork(issue, agent) {
   
   findings += `---\n*Research conducted by ${agent.emoji} ${agent.name} | Model: ${agent.model}*\n`;
   
-  fs.mkdirSync(path.dirname(researchFile), { recursive: true });
-  fs.writeFileSync(researchFile, findings);
-  
   return {
     summary: `Comprehensive research: ${title.substring(0, 50)}...`,
-    files: [{ path: researchFile, lines: findings.split('\n').length }],
+    content: findings,
+    lines: findings.split('\n').length,
     details: `Completed in-depth research on ${title}. Documented Solana fork analysis, privacy protocols (zk-SNARKs/STARKs), AI governance models, and competitive landscape. ${findings.split('\n').length} lines of findings written.`
   };
 }
@@ -573,12 +564,10 @@ async function doDesignWork(issue, agent) {
   
   specs += `---\n*Design specification by ${agent.emoji} ${agent.name} | Model: ${agent.model}*\n`;
   
-  fs.mkdirSync(path.dirname(designFile), { recursive: true });
-  fs.writeFileSync(designFile, specs);
-  
   return {
     summary: `Detailed design spec: ${title.substring(0, 50)}...`,
-    files: [{ path: designFile, lines: specs.split('\n').length }],
+    content: specs,
+    lines: specs.split('\n').length,
     details: `Created comprehensive design specification for ${title}. Includes system architecture, component specs, user flows, and technical requirements. ${specs.split('\n').length} lines of documentation.`
   };
 }
@@ -702,6 +691,42 @@ function createProgressComment(agent, workResult) {
     : '\n\n## ✅ Complete\nThis issue is ready for final review.';
   
   return `## ${agent.emoji} ${agent.name} Progress Update\n\n**Status:** ✅ Work completed\n\n**Deliverables:**\n${workResult.files.map(f => `- ✅ \`${f.path}\``).join('\n')}\n\n**Summary:**\n${workResult.details}\n\n**Workflow Followed:**\n${agent.workflow.map((step, i) => `${i + 1}. ${step}`).join('\n')}${handoffMsg}\n\n---\n*Real work completed. Next agent will pick up from here.*`;
+}
+
+function createFindingsComment(agent, workResult, issue) {
+  // For non-code agents: post detailed findings directly to issue
+  const handoffMsg = agent.handoff
+    ? `\n\n## 🔄 Handoff\nReady for **${agent.handoff.emoji} ${AGENTS[agent.handoff.next].name}** (${agent.handoff.label})`
+    : '';
+  
+  let comment = `## ${agent.emoji} ${agent.name} - Findings Posted\n\n`;
+  comment += `**Issue:** #${issue.number} - ${issue.title}\n`;
+  comment += `**Directive:** ${agent.directive}\n\n`;
+  
+  // Include the actual content if available
+  if (workResult.content) {
+    comment += `### 📄 Findings (${workResult.lines} lines)\n\n`;
+    comment += `<details>\n<summary>Click to expand full findings</summary>\n\n`;
+    comment += workResult.content;
+    comment += `\n</details>\n\n`;
+  }
+  
+  comment += `### 📝 Summary\n\n${workResult.details}\n\n`;
+  
+  comment += `### 🎯 Capabilities Used\n\n`;
+  agent.capabilities.forEach(c => {
+    comment += `- ${c}\n`;
+  });
+  comment += `\n`;
+  
+  comment += `### 📊 Workflow\n\n`;
+  agent.workflow.forEach((step, i) => {
+    comment += `${i + 1}. ${step}\n`;
+  });
+  
+  comment += `${handoffMsg}\n\n---\n*Findings documented by ${agent.emoji} ${agent.name} | Model: ${agent.model}*`;
+  
+  return comment;
 }
 
 async function main() {
