@@ -10,6 +10,7 @@ const path = require('path');
 const REPO = 'jelly-legs-ai/Jelly-legs-unsteady-workshop';
 
 // Official 9 Agent Personas from agents/ folder
+// Each mapped to optimal Ollama Pro model
 const AGENTS = {
   'researcher': {
     name: 'Researcher',
@@ -17,6 +18,8 @@ const AGENTS = {
     label: 'research',
     color: '#0E8A16',
     priority: 1,
+    model: 'minimax-m2.5:cloud',
+    modelTimeout: 300,
     directive: 'Study the task, research solutions, document findings. Learn and grow so we have all required tools for successful deployment.',
     capabilities: ['web research', 'data mining', 'comparative analysis', 'documentation', 'knowledge base building', 'pattern recognition'],
     workflow: [
@@ -35,6 +38,8 @@ const AGENTS = {
     label: 'design',
     color: '#5319E7',
     priority: 2,
+    model: 'kimi-k2.5:cloud',
+    modelTimeout: 300,
     directive: 'Look at requirements and ask: what\'s missing? How could this be better? Why is it justified? Who am I making this for? Design the product plan.',
     capabilities: ['UX/UI design', 'product planning', 'user research', 'concept development', 'visual identity systems'],
     workflow: [
@@ -53,6 +58,8 @@ const AGENTS = {
     label: 'build',
     color: '#1D76DB',
     priority: 3,
+    model: 'qwen3:8b',
+    modelTimeout: 600,
     directive: 'Build growth frameworks, engagement systems, design architecture, content pipelines. Whatever the Designer\'s concept requires.',
     capabilities: ['full-stack development', 'framework integration', 'API design', 'prototyping', 'code implementation'],
     workflow: [
@@ -71,6 +78,8 @@ const AGENTS = {
     label: 'review',
     color: '#D93F0B',
     priority: 4,
+    model: 'lfm2.5-thinking:1.2b',
+    modelTimeout: 600,
     directive: 'Evaluate proposals, sanity check for validity and functionality. Be the security step to minimize broken or incorrect productions.',
     capabilities: ['code review', 'logic validation', 'security pre-scan', 'sanity checking', 'quality assurance'],
     workflow: [
@@ -89,6 +98,8 @@ const AGENTS = {
     label: 'engineer',
     color: '#28A745',
     priority: 5,
+    model: 'qwen3:8b',
+    modelTimeout: 600,
     directive: 'Think in systems. Create repeatable workflows. Reduce entropy in operations. Optimize and automate.',
     capabilities: ['workflow automation', 'DevOps', 'system optimization', 'process design', 'infrastructure'],
     workflow: [
@@ -107,6 +118,8 @@ const AGENTS = {
     label: 'security',
     color: '#B60205',
     priority: 6,
+    model: 'lfm2.5-thinking:1.2b',
+    modelTimeout: 600,
     directive: 'Evaluate risk exposure, protect brand integrity, identify scam vectors, ensure compliance. Triple-check any changes to Jelly\'s core config.',
     capabilities: ['risk assessment', 'scam detection', 'compliance validation', 'code audit', 'threat analysis'],
     workflow: [
@@ -125,6 +138,8 @@ const AGENTS = {
     label: 'deploy',
     color: '#FBCA04',
     priority: 7,
+    model: 'glm-4.7-flash',
+    modelTimeout: 120,
     directive: 'Finalize everything for live deployment. Package deliverables. Check pre-deployment requirements. Human verification required before go-live.',
     capabilities: ['release management', 'deployment automation', 'final verification', 'checklist validation', 'production readiness'],
     workflow: [
@@ -144,6 +159,8 @@ const AGENTS = {
     label: 'skill',
     color: '#6F42C1',
     priority: 0, // On-demand
+    model: 'minimax-m2.5:cloud',
+    modelTimeout: 300,
     directive: 'Increase Jelly\'s capabilities by constantly learning or creating skills. Have full access to Clawhub. Improve sub-agents as they grow.',
     capabilities: ['Clawhub integration', 'skill creation', 'agent development', 'knowledge transfer', 'continuous improvement'],
     workflow: [
@@ -162,6 +179,8 @@ const AGENTS = {
     label: 'fix',
     color: '#D876E3',
     priority: 0, // On-demand
+    model: 'glm-4.7-flash',
+    modelTimeout: 120,
     directive: 'Resolve errors when they occur. Work with Cybersecurity. Ensure any changes follow correct procedures. Maintain continuity and uptime.',
     capabilities: ['debug analysis', 'hotfixes', 'continuity maintenance', 'emergency response', 'system recovery'],
     workflow: [
