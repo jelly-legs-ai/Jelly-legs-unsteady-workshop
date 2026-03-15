@@ -551,6 +551,445 @@
         ::-webkit-scrollbar-thumb:hover {
             background: var(--primary);
         }
+
+        /* Zone Detail Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .modal-overlay.visible {
+            display: flex;
+            opacity: 1;
+        }
+        
+        .modal {
+            background: var(--bg-card);
+            border: 1px solid var(--primary);
+            border-radius: 16px;
+            width: 90%;
+            max-width: 650px;
+            max-height: 85vh;
+            overflow: hidden;
+            box-shadow: 0 0 60px rgba(255, 51, 51, 0.3);
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+        
+        .modal-overlay.visible .modal {
+            transform: scale(1);
+        }
+        
+        .modal-header {
+            padding: 20px 25px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, rgba(255, 51, 51, 0.1), transparent);
+        }
+        
+        .modal-header h2 {
+            font-size: 18px;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin: 0;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 28px;
+            cursor: pointer;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        
+        .modal-close:hover {
+            background: rgba(255, 51, 51, 0.2);
+            color: var(--primary);
+        }
+        
+        .modal-body {
+            padding: 25px;
+            overflow-y: auto;
+            max-height: calc(85vh - 80px);
+        }
+        
+        /* Zone Info Section */
+        .zone-info {
+            margin-bottom: 25px;
+        }
+        
+        .zone-description {
+            color: var(--text-muted);
+            font-size: 13px;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        
+        .zone-agents h4 {
+            font-size: 11px;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+        
+        .agent-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .agent-chip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--primary);
+            border-radius: 20px;
+            padding: 8px 14px;
+            font-size: 12px;
+        }
+        
+        .agent-chip .agent-emoji {
+            font-size: 16px;
+        }
+        
+        .agent-chip .agent-name {
+            color: var(--text);
+            font-weight: 500;
+        }
+        
+        .agent-chip .agent-status {
+            font-size: 9px;
+            text-transform: uppercase;
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-left: 4px;
+        }
+        
+        .agent-chip .agent-status.working {
+            background: rgba(0, 255, 136, 0.2);
+            color: #00ff88;
+        }
+        
+        .agent-chip .agent-status.idle {
+            background: rgba(136, 136, 136, 0.2);
+            color: #888;
+        }
+        
+        /* Zone Tasks Section */
+        .zone-tasks-section h4 {
+            font-size: 11px;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .zone-tasks-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .zone-task-card {
+            background: rgba(255, 51, 51, 0.05);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--primary);
+            border-radius: 10px;
+            padding: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .zone-task-card:hover {
+            background: rgba(255, 51, 51, 0.1);
+            border-color: var(--primary);
+            transform: translateX(3px);
+        }
+        
+        .zone-task-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        
+        .zone-task-status {
+            font-size: 10px;
+        }
+        
+        .zone-task-status.status-open {
+            color: #00ff88;
+        }
+        
+        .zone-task-status.status-in_progress {
+            color: var(--primary);
+        }
+        
+        .zone-task-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+        }
+        
+        .zone-task-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .zone-task-meta {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 11px;
+            flex-wrap: wrap;
+        }
+        
+        .zone-task-agent {
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .zone-task-time {
+            color: var(--text-muted);
+        }
+        
+        .zone-task-link {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+        
+        .zone-task-link:hover {
+            color: var(--primary-light);
+            text-decoration: underline;
+        }
+        
+        /* Empty State */
+        .zone-empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+        }
+        
+        .zone-empty-state .empty-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+        
+        .zone-empty-state p {
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .zone-empty-state .empty-hint {
+            font-size: 12px;
+            opacity: 0.7;
+        }
+        
+        /* Modal Actions */
+        .modal-actions {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: center;
+        }
+        
+        .btn-create-work {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 25px;
+            font-size: 13px;
+            font-family: inherit;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(255, 51, 51, 0.3);
+        }
+        
+        .btn-create-work:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(255, 51, 51, 0.5);
+        }
+        
+        .btn-create-work span {
+            font-size: 18px;
+            line-height: 1;
+        }
+        
+        /* Work Request Modal */
+        .work-form {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .form-group label {
+            font-size: 11px;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 15px;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .submit-btn {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            font-weight: 600;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+        
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(255, 51, 51, 0.4);
+        }
+        
+        .form-success {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid #00ff88;
+            border-radius: 10px;
+            padding: 30px;
+            color: #00ff88;
+            text-align: center;
+        }
+        
+        .form-success .success-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        
+        .form-success h3 {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        
+        .form-success p {
+            font-size: 13px;
+            opacity: 0.8;
+        }
+        
+        /* Floating Work Request Button */
+        .work-request-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            padding: 16px 28px;
+            border-radius: 30px;
+            font-size: 13px;
+            font-family: inherit;
+            font-weight: 600;
+            cursor: pointer;
+            z-index: 200;
+            box-shadow: 0 4px 20px rgba(255, 51, 51, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .work-request-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(255, 51, 51, 0.5);
+        }
+        
+        .work-request-btn::before {
+            content: '+';
+            font-size: 20px;
+            line-height: 1;
+        }
     </style>
 </head>
 <body>
@@ -688,8 +1127,63 @@
         </div>
     </div>
 
-    <!-- Work Request Button -->
-    <button class="work-request-btn" onclick="openWorkRequestModal()">+ Request Work</button>
+    <!-- Work Request Modal -->
+    <div class="modal-overlay" id="workRequestModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>📝 Create Work Request</h2>
+                <button class="modal-close" onclick="closeWorkRequestModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="workRequestForm" class="work-form" onsubmit="return submitWorkRequest(event)">
+                    <div class="form-group">
+                        <label for="workTitle">Task Title</label>
+                        <input type="text" id="workTitle" name="title" placeholder="Enter task title..." required>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="workZone">Zone</label>
+                            <select id="workZone" name="zone" required>
+                                <option value="">Select zone...</option>
+                                <option value="research">🔬 Research Lab</option>
+                                <option value="design">✏️ Design Studio</option>
+                                <option value="build">⚙️ Build Factory</option>
+                                <option value="security">🔒 Security Zone</option>
+                                <option value="strategy">📊 Strategy Room</option>
+                                <option value="deploy">🚀 Deploy Pad</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="workPriority">Priority</label>
+                            <select id="workPriority" name="priority" required>
+                                <option value="low">🟢 Low</option>
+                                <option value="medium" selected>🟡 Medium</option>
+                                <option value="high">🔴 High</option>
+                                <option value="urgent">⚡ Urgent</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="workDescription">Description</label>
+                        <textarea id="workDescription" name="description" placeholder="Describe the work to be done..." required></textarea>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn">Create Work Request</button>
+                </form>
+                
+                <div id="formSuccess" class="form-success" style="display: none;">
+                    <div class="success-icon">✅</div>
+                    <h3>Work Request Created!</h3>
+                    <p>Your request has been submitted and will be assigned to an available agent.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Work Request Button -->
+    <button class="work-request-btn" onclick="openWorkRequestModal()">Request Work</button>
 
     <script>
         // Dashboard State

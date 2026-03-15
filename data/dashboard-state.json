@@ -35,7 +35,7 @@
         "type": "issue",
         "number": 2,
         "title": "DESIGN: Create pixel art avatar system for all 12 agents",
-        "body": "## Objective\nReplace emoji placeholders with actual pixel art sprites for each agent.\n\n## Deliverables\n- [ ] Design 12 unique pixel art characters (32x32px each)\n- [ ] Create idle animation frames (2-",
+        "body": "## Objective\nReplace emoji placeholders with actual pixel art sprites for each agent.\n\n## Deliverables\n- [ ] Design 12 unique pixel art characters (32x32px each)\n- [ ] Create idle animation frames (2-3 frames per agent)\n- [ ] Export spritesheet with all characters\n- [ ] Implement pixel-perfect positioning in dashboard\n- [ ] Add walking/pathing animations\n\n## Assigned Agent\n?? Sketch-Bot\n\n## Stage\n**design**\n\n## Style Guidelines\n- Retro 8-bit aesthetic\n- Each agent has distinct color palette\n- Consistent shadow/highlights\n- Optional: accessories that reflect role (e.g., Data-Diver has scuba mask)\n\n## Success Criteria\nDashboard displays pixel art instead of emojis, animations work smoothly",
         "state": "open",
         "stage": "design",
         "agent": "data-diver",
@@ -70,7 +70,7 @@
         "type": "issue",
         "number": 9,
         "title": "Tool errors in  the openclaw log.",
-        "body": "This is a task for doc. and potential Skiller if required. \n\nWe keep receiving so errors on the log, it's not breaking the system but undoubtably if we can resolve these errors the team should perform",
+        "body": "This is a task for doc. and potential Skiller if required. \n\nWe keep receiving so errors on the log, it's not breaking the system but undoubtably if we can resolve these errors the team should perform better, here's a section of the log containing the errors:\n\n16:42:20 [gateway] log file: /tmp/openclaw/openclaw-2026-02-23.log\n16:42:20 [browser/service] Browser control service ready (profiles=2)\n16:42:20 [delivery-recovery] Found 14 pending delivery entries - starting recovery\n16:42:20 [delivery-recovery] Recovery time budget exceeded - 14 entries deferred to next restart\n16:42:20 [delivery-recovery] Delivery recovery complete: 0 recovered, 0 failed, 0 skipped (max retries)\n16:42:20 [gateway] update available (latest): v2026.2.22-2 (current v2026.2.14). Run: openclaw update\n16:44:13 [agent/embedded] read tool called without path: toolCallId= functions.read:1 argsType=object\n16:44:13 [agent/embedded] read tool called without path: toolCallId= functions.read:2 argsType=object\n16:44:13 [agent/embedded] read tool called without path: toolCallId= functions.read:3 argsType=object\n16:47:20 [agent/embedded] embedded run timeout: runId=1067869f-5e05-452e-95f7-166b78d39d5f sessionId=1067869f-5e05-452e-95f7-166b78d39d5f timeoutMs=300000\n16:48:37 [agent/embedded] read tool called without path: toolCallId= functions.read:1 argsType=object\n16:49:07 [agent/embedded] read tool called without path: toolCallId= functions.read:1 argsType=object\n16:49:43 [agent/embedded] read tool called without path: toolCallId=  functions.read:4 argsType=object\n16:49:43 [agent/embedded] read tool called without path: toolCallId=  functions.read:5 argsType=object\n16:49:43 [tools] read failed: ENOENT: no such file or directory, access '/home/reggie_marley_gardner/.openclaw/workspace/memory/2026-02-23.md'\n16:51:26 [agent/embedded] read tool called without path: toolCallId= functions.read:8 argsType=object\n16:52:18 [agent/embedded] read tool called without path: toolCallId=  functions.read:10 argsType=object\n16:52:18 [agent/embedded] read tool called without path: toolCallId=  functions.read:11 argsType=object\n16:52:18 [agent/embedded] read tool called without path: toolCallId=  functions.read:12 argsType=object",
         "state": "open",
         "stage": "research",
         "agent": "pattern-seeker",
@@ -156,7 +156,7 @@
         "type": "issue",
         "number": 4,
         "title": "BUILD: Agent Work Request System - delegate tasks between agents",
-        "body": "## Objective\nAllow agents to create work requests and delegate to other agents.\n\n## Deliverables\n- [ ] \"Request Work\" modal\n- [ ] Select target agent dropdown\n- [ ] Task title/description input\n- [ ] ",
+        "body": "## Objective\nAllow agents to create work requests and delegate to other agents.\n\n## Deliverables\n- [ ] \"Request Work\" modal\n- [ ] Select target agent dropdown\n- [ ] Task title/description input\n- [ ] Priority selector (P0-P3)\n- [ ] Auto-create GitHub issue when submitted\n- [ ] Notify requesting agent when accepted\n- [ ] Show work request history\n\n## Assigned Agent\n?? Build-Bot\n\n## Stage\n**build**",
         "state": "open",
         "stage": "build",
         "agent": "build-bot",
@@ -168,7 +168,7 @@
         "createdAt": "2026-02-16T20:43:15Z",
         "updatedAt": "2026-02-26T18:33:19Z",
         "assignee": null,
-        "thought": "Code architecture..."
+        "thought": "System construction..."
       },
       "status": "working",
       "lastActivity": "2026-02-26T18:33:19Z"
@@ -208,7 +208,7 @@
         "type": "issue",
         "number": 3,
         "title": "BUILD: Implement zone detail modal - click zones to expand task details",
-        "body": "## Objective\nMake zones clickable so Reggie can see full task breakdown when clicking a room.\n\n## Deliverables\n- [ ] Create zone detail modal/popover\n- [ ] Show all active tasks in that zone\n- [ ] Dis",
+        "body": "## Objective\nMake zones clickable so Reggie can see full task breakdown when clicking a room.\n\n## Deliverables\n- [ ] Create zone detail modal/popover\n- [ ] Show all active tasks in that zone\n- [ ] Display agent assignments\n- [ ] Show task descriptions, status, timestamps\n- [ ] Add \"Create Work Request\" button\n- [ ] Close modal on click outside\n\n## Assigned Agent\n?? Code-Crafter\n\n## Stage\n**build**",
         "state": "open",
         "stage": "build",
         "agent": "code-crafter",
@@ -283,7 +283,7 @@
       "type": "issue",
       "number": 9,
       "title": "Tool errors in  the openclaw log.",
-      "body": "This is a task for doc. and potential Skiller if required. \n\nWe keep receiving so errors on the log, it's not breaking the system but undoubtably if we can resolve these errors the team should perform",
+      "body": "This is a task for doc. and potential Skiller if required. \n\nWe keep receiving so errors on the log, it's not breaking the system but undoubtably if we can resolve these errors the team should perform better, here's a section of the log containing the errors:\n\n16:42:20 [gateway] log file: /tmp/openclaw/openclaw-2026-02-23.log\n16:42:20 [browser/service] Browser control service ready (profiles=2)\n16:42:20 [delivery-recovery] Found 14 pending delivery entries - starting recovery\n16:42:20 [delivery-recovery] Recovery time budget exceeded - 14 entries deferred to next restart\n16:42:20 [delivery-recovery] Delivery recovery complete: 0 recovered, 0 failed, 0 skipped (max retries)\n16:42:20 [gateway] update available (latest): v2026.2.22-2 (current v2026.2.14). Run: openclaw update\n16:44:13 [agent/embedded] read tool called without path: toolCallId= functions.read:1 argsType=object\n16:44:13 [agent/embedded] read tool called without path: toolCallId= functions.read:2 argsType=object\n16:44:13 [agent/embedded] read tool called without path: toolCallId= functions.read:3 argsType=object\n16:47:20 [agent/embedded] embedded run timeout: runId=1067869f-5e05-452e-95f7-166b78d39d5f sessionId=1067869f-5e05-452e-95f7-166b78d39d5f timeoutMs=300000\n16:48:37 [agent/embedded] read tool called without path: toolCallId= functions.read:1 argsType=object\n16:49:07 [agent/embedded] read tool called without path: toolCallId= functions.read:1 argsType=object\n16:49:43 [agent/embedded] read tool called without path: toolCallId=  functions.read:4 argsType=object\n16:49:43 [agent/embedded] read tool called without path: toolCallId=  functions.read:5 argsType=object\n16:49:43 [tools] read failed: ENOENT: no such file or directory, access '/home/reggie_marley_gardner/.openclaw/workspace/memory/2026-02-23.md'\n16:51:26 [agent/embedded] read tool called without path: toolCallId= functions.read:8 argsType=object\n16:52:18 [agent/embedded] read tool called without path: toolCallId=  functions.read:10 argsType=object\n16:52:18 [agent/embedded] read tool called without path: toolCallId=  functions.read:11 argsType=object\n16:52:18 [agent/embedded] read tool called without path: toolCallId=  functions.read:12 argsType=object",
       "state": "open",
       "stage": "research",
       "agent": "pattern-seeker",
@@ -302,7 +302,7 @@
       "type": "issue",
       "number": 8,
       "title": "Jelly legs shut down issues(ai model shuts down on laptop close.)",
-      "body": "Jelly legs ai is the brains behind the ai team, jelly legs is a openclaw ai bot hosted on a vm instance on Google platforms.\n\nI think it’s due to the fact that I currently launch openclaw through a ss",
+      "body": "Jelly legs ai is the brains behind the ai team, jelly legs is a openclaw ai bot hosted on a vm instance on Google platforms.\n\nI think it's due to the fact that I currently launch openclaw through a ssh session on my laptop, when I close the laptop lid the ssh session is terminated and the openclaw process is killed.\n\n## Potential Solutions\n- [ ] Run openclaw as a systemd service\n- [ ] Use tmux/screen to keep session alive\n- [ ] Configure auto-restart on crash\n- [ ] Add health check endpoint\n\n## Assigned Agent\n?? Shield-Bot\n\n## Stage\n**security**",
       "state": "closed",
       "stage": "security",
       "agent": "jelly-legs",
@@ -321,7 +321,7 @@
       "type": "issue",
       "number": 7,
       "title": "SUBAGENT PERSONAS - development and learning.",
-      "body": "Evaluate and build upon the current system in place regarding our subagent persona system controlled by Jelly the ai bot (the brains behind the ai agent team). learn about the necessary roles and crea",
+      "body": "Evaluate and build upon the current system in place regarding our subagent persona system controlled by Jelly the ai bot (the brains behind the ai agent team). learn about the necessary roles and create a system that allows for the creation of new subagents with unique personas.\n\n## Deliverables\n- [ ] Document current persona system\n- [ ] Define persona template structure\n- [ ] Create persona creation workflow\n- [ ] Build persona validation system\n- [ ] Test with 3 new experimental personas\n\n## Assigned Agent\n?? Data-Diver\n\n## Stage\n**research**",
       "state": "closed",
       "stage": "research",
       "agent": "data-diver",
@@ -342,10 +342,10 @@
       "type": "issue",
       "number": 6,
       "title": "API rate limits - Utilise multiple cloud models with free tiers in rotation, taking advantage of free daily limits from various different providers by systematically creating fallbacks in jelly's openclaw.json",
-      "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe obj",
+      "body": "We have a critical problem we are currently facing, The ai gent Jelly the brains behind the team is hitting a constant rate limit due to the high cost in credits to run the intense workflows.\n\nThe objective is to create a system that allows for the rotation of multiple cloud models with free tiers, taking advantage of free daily limits from various different providers by systematically creating fallbacks in jelly's openclaw.json.\n\n## Deliverables\n- [ ] Research free tier providers (OpenRouter, Together, etc.)\n- [ ] Map rate limits per provider\n- [ ] Create rotation logic\n- [ ] Update openclaw.json with fallback chain\n- [ ] Test failover under load\n\n## Assigned Agent\n?? Pipe-Layer\n\n## Stage\n**build**",
       "state": "closed",
       "stage": "design",
-      "agent": "sketch-bot",
+      "agent": "hook-maker",
       "labels": [
         "enhancement",
         "design",
@@ -367,7 +367,7 @@
       "type": "issue",
       "number": 4,
       "title": "BUILD: Agent Work Request System - delegate tasks between agents",
-      "body": "## Objective\nAllow agents to create work requests and delegate to other agents.\n\n## Deliverables\n- [ ] \"Request Work\" modal\n- [ ] Select target agent dropdown\n- [ ] Task title/description input\n- [ ] ",
+      "body": "## Objective\nAllow agents to create work requests and delegate to other agents.\n\n## Deliverables\n- [ ] \"Request Work\" modal\n- [ ] Select target agent dropdown\n- [ ] Task title/description input\n- [ ] Priority selector (P0-P3)\n- [ ] Auto-create GitHub issue when submitted\n- [ ] Notify requesting agent when accepted\n- [ ] Show work request history\n\n## Assigned Agent\n?? Build-Bot\n\n## Stage\n**build**",
       "state": "open",
       "stage": "build",
       "agent": "build-bot",
@@ -379,14 +379,14 @@
       "createdAt": "2026-02-16T20:43:15Z",
       "updatedAt": "2026-02-26T18:33:19Z",
       "assignee": null,
-      "thought": "Code architecture..."
+      "thought": "System construction..."
     },
     {
       "id": "issue-3",
       "type": "issue",
       "number": 3,
       "title": "BUILD: Implement zone detail modal - click zones to expand task details",
-      "body": "## Objective\nMake zones clickable so Reggie can see full task breakdown when clicking a room.\n\n## Deliverables\n- [ ] Create zone detail modal/popover\n- [ ] Show all active tasks in that zone\n- [ ] Dis",
+      "body": "## Objective\nMake zones clickable so Reggie can see full task breakdown when clicking a room.\n\n## Deliverables\n- [ ] Create zone detail modal/popover\n- [ ] Show all active tasks in that zone\n- [ ] Display agent assignments\n- [ ] Show task descriptions, status, timestamps\n- [ ] Add \"Create Work Request\" button\n- [ ] Close modal on click outside\n\n## Assigned Agent\n?? Code-Crafter\n\n## Stage\n**build**",
       "state": "open",
       "stage": "build",
       "agent": "code-crafter",
@@ -405,7 +405,7 @@
       "type": "issue",
       "number": 2,
       "title": "DESIGN: Create pixel art avatar system for all 12 agents",
-      "body": "## Objective\nReplace emoji placeholders with actual pixel art sprites for each agent.\n\n## Deliverables\n- [ ] Design 12 unique pixel art characters (32x32px each)\n- [ ] Create idle animation frames (2-",
+      "body": "## Objective\nReplace emoji placeholders with actual pixel art sprites for each agent.\n\n## Deliverables\n- [ ] Design 12 unique pixel art characters (32x32px each)\n- [ ] Create idle animation frames (2-3 frames per agent)\n- [ ] Export spritesheet with all characters\n- [ ] Implement pixel-perfect positioning in dashboard\n- [ ] Add walking/pathing animations\n\n## Assigned Agent\n?? Sketch-Bot\n\n## Stage\n**design**\n\n## Style Guidelines\n- Retro 8-bit aesthetic\n- Each agent has distinct color palette\n- Consistent shadow/highlights\n- Optional: accessories that reflect role (e.g., Data-Diver has scuba mask)\n\n## Success Criteria\nDashboard displays pixel art instead of emojis, animations work smoothly",
       "state": "open",
       "stage": "design",
       "agent": "data-diver",
@@ -424,7 +424,7 @@
       "type": "issue",
       "number": 1,
       "title": "RESEARCH: Analyze top 10 viral Solana meme coins for pattern recognition",
-      "body": "## Objective\nDeep-dive analysis of the most viral Solana meme coins to identify repeatable success patterns.\n\n## Deliverables\n- [ ] List of top 10 viral Solana meme coins (by market cap, social engage",
+      "body": "## Objective\nDeep-dive analysis of the most viral Solana meme coins to identify repeatable success patterns.\n\n## Deliverables\n- [ ] List of top 10 viral Solana meme coins (by market cap, social engagement)\n- [ ] Pattern analysis: What made each coin viral?\n- [ ] Common success factors across all 10\n- [ ] Actionable insights for future launches\n- [ ] Visual report with charts/graphs\n\n## Assigned Agent\n?? Data-Diver\n\n## Stage\n**research**\n\n## Data Sources\n- DexScreener API\n- Birdeye API\n- Twitter/X engagement metrics\n- Telegram community size\n\n## Success Criteria\nComprehensive report identifying 5+ repeatable viral patterns",
       "state": "closed",
       "stage": "research",
       "agent": "data-diver",
@@ -437,7 +437,7 @@
       "createdAt": "2026-02-16T20:43:13Z",
       "updatedAt": "2026-03-15T18:16:06Z",
       "assignee": null,
-      "thought": "Viral mechanics study..."
+      "thought": "Diving deep into data..."
     }
   ],
   "stats": {
@@ -448,7 +448,7 @@
     "recentCommits": 20,
     "recentWorkflows": 10,
     "activeAgents": 4,
-    "lastUpdate": "2026-03-15T18:31:40.273Z"
+    "lastUpdate": "2026-03-15T18:31:40.274Z"
   },
   "timestamp": "2026-03-15T18:31:40.274Z"
 }
