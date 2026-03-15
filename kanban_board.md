@@ -25,9 +25,9 @@
   - Agent: 🔮 Pattern-Seeker
   - Deliverable: Issues API, PR tracking, workflow runs integration
 
-- [ ] **Research: Pixel art sprite generation techniques**
+- [x] **Research: Pixel art sprite generation techniques** ✓ Complete
   - Agent: 🔮 Pattern-Seeker
-  - Status: 🔵 Not Started
+  - Status: Research documented in skills.md
 
 ---
 
