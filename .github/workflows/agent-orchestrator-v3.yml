@@ -1,0 +1,39 @@
+name: 🤖 AI Team Orchestrator v3
+
+on:
+  schedule:
+    - cron: '*/7 * * * *'  # Every 7 minutes
+  workflow_dispatch:
+
+jobs:
+  orchestrate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Install dependencies
+        run: npm install @octokit/rest
+        
+      - name: Run AI Team Orchestrator v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          OPENCLAW_URL: ${{ secrets.OPENCLAW_URL || 'http://localhost:3000' }}
+        run: node scripts/orchestrator-v3.js
+        
+      - name: Log completion
+        run: echo "✅ Orchestrator cycle complete"
