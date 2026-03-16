@@ -1,0 +1,23 @@
+[package]
+name = "aether-poh"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+rust-version.workspace = true
+description = "Proof of History implementation for AETHER"
+
+[dependencies]
+aether-core = { path = "../aether-core" }
+solana-poh = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+sha2 = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio-test = "0.4"
