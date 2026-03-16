@@ -1,0 +1,23 @@
+[package]
+name = "aether-ai-lanes"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+rust-version.workspace = true
+description = "AI-powered transaction priority lanes for AETHER"
+
+[dependencies]
+aether-core = { path = "../aether-core" }
+burn = { workspace = true }
+ndarray = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio-test = "0.4"
