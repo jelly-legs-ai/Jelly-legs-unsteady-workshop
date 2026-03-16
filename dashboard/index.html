@@ -1048,26 +1048,34 @@
                 container.appendChild(agentEl);
             });
             
-            // Zones with click handlers
+            // Zones with click handlers and ARIA attributes
             const zones = ['research', 'design', 'build', 'security', 'strategy', 'deploy'];
             zones.forEach(zone => {
                 const zoneEl = document.querySelector(`.zone-${zone}`);
                 if (zoneEl) {
+                    // Add accessibility attributes
                     zoneEl.setAttribute('tabindex', '0');
                     zoneEl.setAttribute('role', 'button');
-                    zoneEl.setAttribute('aria-label', `Open ${zoneNames[zone]} details`);
+                    zoneEl.setAttribute('aria-label', `Open ${zoneNames[zone]} details. ${zoneDescriptions[zone]}`);
+
+                    // Keyboard support
                     zoneEl.addEventListener('keydown', (e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
                             openZoneModal(zone);
                         }
                     });
-                    
-                    // Render tasks in this zone
-                    const zoneTasks = dashboardState.tasks.filter(t => t.stage === zone && (t.state === 'open' || t.state === 'in_progress'));
+
+                    // Clear existing content
                     const zoneContentEl = document.getElementById(`zone-${zone}`);
+                    if (zoneContentEl) {
+                        zoneContentEl.innerHTML = '';
+                    }
+
+                    // Render tasks in this zone
+                    const zoneTasks = dashboardState.tasks.filter(t => t.stage === zone && (t.state === 'open' || t.state === 'in_progress' || t.state === 'in-progress'));
                     if (zoneContentEl && zoneTasks.length > 0) {
-                        zoneTasks.forEach(task => {
+                        zoneTasks.slice(0, 3).forEach(task => { // Show max 3 tasks in zone preview
                             const taskEl = document.createElement('div');
                             taskEl.className = 'task-card';
                             taskEl.innerHTML = `
@@ -1076,6 +1084,14 @@
                             `;
                             zoneContentEl.appendChild(taskEl);
                         });
+
+                        // Show count if more tasks exist
+                        if (zoneTasks.length > 3) {
+                            const moreEl = document.createElement('div');
+                            moreEl.style.cssText = 'text-align: center; font-size: 10px; color: var(--text-muted); margin-top: 5px;';
+                            moreEl.textContent = `+${zoneTasks.length - 3} more...`;
+                            zoneContentEl.appendChild(moreEl);
+                        }
                     }
                 }
             });
@@ -1190,7 +1206,17 @@
             'deploy': '🚀 Deploy Pad',
             'plaza': '🌳 Social Plaza'
         };
-        
+
+        const zoneDescriptions = {
+            'research': 'Deep-dive analysis and trend discovery zone',
+            'design': 'Creative hub for visual and UX development',
+            'build': 'Code factory where ideas become reality',
+            'security': 'Risk assessment and protection protocols',
+            'strategy': 'Planning and roadmap development center',
+            'deploy': 'Launch preparation and release management',
+            'plaza': 'Team collaboration and social space'
+        };
+
         // Zone icons mapping
         const zoneIcons = {
             'research': '🔬',
@@ -1201,101 +1227,161 @@
             'deploy': '🚀',
             'plaza': '🌳'
         };
-        
+
+        // Current zone being viewed
+        let currentZone = null;
+
         // Get status class and label
         function getTaskStatus(task) {
-            if (task.state === 'closed' || task.completed) {
+            if (task.state === 'closed' || task.completed || task.state === 'completed') {
                 return { class: 'completed', label: 'Completed' };
             }
-            if (task.state === 'in_progress' || task.status === 'in-progress') {
+            if (task.state === 'in_progress' || task.status === 'in-progress' || task.state === 'in-progress') {
                 return { class: 'in-progress', label: 'In Progress' };
             }
             return { class: 'open', label: 'Open' };
         }
-        
+
         function openZoneModal(zone) {
+            currentZone = zone;
             const modal = document.getElementById('zoneModal');
             const titleEl = document.getElementById('zoneModalTitle');
             const bodyEl = document.getElementById('zoneModalBody');
-            
-            // Set title with icon
+
+            // Set title with icon and ARIA
             const icon = zoneIcons[zone] || '📋';
             titleEl.innerHTML = `<span aria-hidden="true">${icon}</span> ${zoneNames[zone] || zone}`;
-            
-            // Get tasks for this zone (including tasks assigned to agents in this zone)
-            const zoneAgents = Object.values(dashboardState.agents).filter(a => a.zones?.includes(zone) || a.zones?.includes('all'));
-            const zoneAgentIds = zoneAgents.map(a => a.id);
-            
-            const zoneTasks = dashboardState.tasks.filter(t => 
-                (t.stage === zone || zoneAgentIds.includes(t.agent)) && 
-                (t.state === 'open' || t.state === 'in_progress')
-            );
-            
+            modal.setAttribute('aria-label', `${zoneNames[zone] || zone} Details`);
+
+            // Get all tasks for this zone
+            const zoneTasks = dashboardState.tasks.filter(t => t.stage === zone);
+            const openTasks = zoneTasks.filter(t => t.state === 'open');
+            const inProgressTasks = zoneTasks.filter(t => t.state === 'in-progress' || t.state === 'in_progress');
+            const completedTasks = zoneTasks.filter(t => t.state === 'completed' || t.state === 'closed');
+
+            // Get active agents in this zone
+            const activeAgents = [...new Set(zoneTasks.map(t => t.agent).filter(Boolean))];
+            const agentDetails = activeAgents.map(agentId => dashboardState.agents[agentId]).filter(Boolean);
+
             // Calculate zone stats
             const totalTasks = zoneTasks.length;
-            const inProgressTasks = zoneTasks.filter(t => t.state === 'in_progress' || t.status === 'in-progress').length;
-            const completedTasks = zoneTasks.filter(t => t.state === 'closed' || t.completed).length;
-            
-            if (zoneTasks.length === 0) {
-                bodyEl.innerHTML = `
-                    <div class="zone-empty">
-                        <div class="zone-empty-icon">${zoneIcons[zone] || '📋'}</div>
-                        <p>No active tasks in this zone.</p>
-                        <p style="margin-top:10px;font-size:12px;">Click "Request Work" to assign a new task!</p>
-                    </div>
-                `;
-            } else {
-                bodyEl.innerHTML = `
-                    <div class="zone-stats" role="region" aria-label="Zone statistics">
-                        <div class="zone-stat">
-                            <div class="zone-stat-value">${totalTasks}</div>
-                            <div class="zone-stat-label">Total Tasks</div>
+
+            // Build modal content
+            let html = '';
+
+            // Zone stats section
+            html += '<div class="zone-stats" role="region" aria-label="Zone statistics">';
+            html += `<div class="zone-stat"><div class="zone-stat-value">${totalTasks}</div><div class="zone-stat-label">Total Tasks</div></div>`;
+            html += `<div class="zone-stat"><div class="zone-stat-value">${openTasks.length}</div><div class="zone-stat-label">Open</div></div>`;
+            html += `<div class="zone-stat"><div class="zone-stat-value">${inProgressTasks.length}</div><div class="zone-stat-label">In Progress</div></div>`;
+            html += `<div class="zone-stat"><div class="zone-stat-value">${activeAgents.length}</div><div class="zone-stat-label">Active Agents</div></div>`;
+            html += '</div>';
+
+            // Zone description
+            html += `<p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px; padding: 10px; background: rgba(255,51,51,0.05); border-radius: 8px; border-left: 3px solid var(--primary);">${zoneDescriptions[zone] || 'Task management zone'}</p>`;
+
+            // Agent assignments section
+            if (agentDetails.length > 0) {
+                html += '<div class="zone-task-list-title">👥 Assigned Agents</div>';
+                html += '<div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px;">';
+                agentDetails.forEach(agent => {
+                    const agentTasks = zoneTasks.filter(t => t.agent === agent.id).length;
+                    html += `
+                        <div style="display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 20px; border: 1px solid var(--border);">
+                            <span style="font-size: 18px;">${agent.emoji}</span>
+                            <span style="font-size: 12px; font-weight: bold;">${agent.name}</span>
+                            <span style="font-size: 10px; color: var(--text-muted); background: rgba(255,51,51,0.2); padding: 2px 6px; border-radius: 10px;">${agentTasks} task${agentTasks !== 1 ? 's' : ''}</span>
                         </div>
-                        <div class="zone-stat">
-                            <div class="zone-stat-value">${inProgressTasks}</div>
-                            <div class="zone-stat-label">In Progress</div>
-                        </div>
-                        <div class="zone-stat">
-                            <div class="zone-stat-value">${zoneAgents.length}</div>
-                            <div class="zone-stat-label">Agents</div>
-                        </div>
-                    </div>
-                    <div class="zone-task-list-title">Task Breakdown</div>
-                    <div class="zone-tasks" role="list">
-                        ${zoneTasks.map(task => {
-                            const agent = dashboardState.agents[task.agent];
-                            const status = getTaskStatus(task);
-                            return `
-                                <div class="zone-task" role="listitem" tabindex="0" aria-label="Task: ${task.title}">
-                                    <div class="zone-task-header">
-                                        <div class="zone-task-title">${task.title}</div>
-                                        <span class="task-status ${status.class}" aria-label="Status: ${status.label}">${status.label}</span>
-                                    </div>
-                                    <div class="zone-task-meta">
-                                        <span class="agent-badge">
-                                            <span class="agent-badge-emoji" aria-hidden="true">${agent?.emoji || '🤖'}</span>
-                                            <span class="agent-badge-name">${agent?.name || task.agent}</span>
-                                        </span>
-                                        <span>Stage: ${task.stage}</span>
-                                        ${task.labels?.length ? `<span>Labels: ${task.labels.join(', ')}</span>` : ''}
-                                        ${task.url ? `<a href="${task.url}" target="_blank" class="zone-task-link" aria-label="View task on GitHub">View on GitHub →</a>` : ''}
-                                    </div>
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                `;
+                    `;
+                });
+                html += '</div>';
             }
-            
+
+            if (zoneTasks.length === 0) {
+                html += '<div class="zone-empty"><div class="zone-empty-icon">📭</div><p>No tasks in this zone.</p><p style="margin-top:10px;font-size:12px;">Click "Request Work" to assign a new task!</p></div>';
+            } else {
+                // In Progress Tasks
+                if (inProgressTasks.length > 0) {
+                    html += '<div class="zone-task-list-title">🔄 In Progress</div>';
+                    html += '<div class="zone-task-list">';
+                    html += inProgressTasks.map(task => renderTaskCard(task)).join('');
+                    html += '</div>';
+                }
+
+                // Open Tasks
+                if (openTasks.length > 0) {
+                    html += '<div class="zone-task-list-title">📋 Open Tasks</div>';
+                    html += '<div class="zone-task-list">';
+                    html += openTasks.map(task => renderTaskCard(task)).join('');
+                    html += '</div>';
+                }
+
+                // Completed Tasks (collapsible)
+                if (completedTasks.length > 0) {
+                    html += `<div class="zone-task-list-title" style="cursor: pointer; user-select: none;" onclick="toggleCompletedTasks(this)" tabindex="0" role="button" aria-expanded="false" aria-label="Toggle completed tasks">✅ Completed (${completedTasks.length}) <span style="font-size: 10px; color: var(--text-muted);">[click to show]</span></div>`;
+                    html += '<div class="zone-task-list completed-tasks" style="display: none; opacity: 0.7;">';
+                    html += completedTasks.map(task => renderTaskCard(task, true)).join('');
+                    html += '</div>';
+                }
+            }
+
+            bodyEl.innerHTML = html;
+
+            // Show modal with animation
             modal.classList.add('visible');
-            
-            // Focus trap for accessibility
-            const closeBtn = modal.querySelector('.modal-close');
-            setTimeout(() => closeBtn?.focus(), 100);
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+
+            // Focus management for accessibility
+            setTimeout(() => {
+                const closeBtn = modal.querySelector('.modal-close');
+                if (closeBtn) closeBtn.focus();
+            }, 100);
         }
-        
+
+        function renderTaskCard(task, isCompleted = false) {
+            const agent = dashboardState.agents[task.agent];
+            const status = getTaskStatus(task);
+
+            return `
+                <div class="zone-task ${isCompleted ? 'completed' : ''}" data-task-id="${task.id}" role="listitem" tabindex="0" aria-label="Task: ${task.title}, Status: ${status.label}">
+                    <div class="zone-task-header">
+                        <div class="zone-task-title">${task.title}</div>
+                        <span class="task-status ${status.class}">${status.label}</span>
+                    </div>
+                    <div class="zone-task-meta">
+                        <span class="agent-badge" title="Assigned to: ${agent?.name || task.agent}">
+                            <span class="agent-badge-emoji" aria-hidden="true">${agent?.emoji || '🤖'}</span>
+                            <span class="agent-badge-name">${agent?.name || task.agent}</span>
+                        </span>
+                        ${task.priority ? `<span>⚡ ${task.priority}</span>` : ''}
+                        ${task.dueDate ? `<span>📅 ${new Date(task.dueDate).toLocaleDateString()}</span>` : ''}
+                        ${task.labels?.length ? `<span>🏷️ ${task.labels.join(', ')}</span>` : ''}
+                    </div>
+                    ${task.thought ? `<div style="margin-top: 10px; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 6px; font-size: 11px; color: var(--text-muted); font-style: italic;">💭 "${task.thought}"</div>` : ''}
+                    ${task.url ? `<div style="margin-top: 10px;"><a href="${task.url}" target="_blank" class="zone-task-link" rel="noopener noreferrer" aria-label="View ${task.title} on GitHub">🔗 View on GitHub →</a></div>` : ''}
+                </div>
+            `;
+        }
+
+        function toggleCompletedTasks(header) {
+            const list = header.nextElementSibling;
+            const span = header.querySelector('span');
+            if (list.style.display === 'none') {
+                list.style.display = 'block';
+                span.textContent = '[click to hide]';
+                header.setAttribute('aria-expanded', 'true');
+            } else {
+                list.style.display = 'none';
+                span.textContent = '[click to show]';
+                header.setAttribute('aria-expanded', 'false');
+            }
+        }
+
         function closeZoneModal() {
-            document.getElementById('zoneModal').classList.remove('visible');
+            const modal = document.getElementById('zoneModal');
+            modal.classList.remove('visible');
+            document.body.style.overflow = ''; // Restore background scrolling
+            currentZone = null;
         }
         
         // Work Request Functions
@@ -1313,16 +1399,27 @@
         document.getElementById('zoneModal')?.addEventListener('click', function(e) {
             if (e.target === this) closeZoneModal();
         });
-        
+
         document.getElementById('workRequestModal')?.addEventListener('click', function(e) {
             if (e.target === this) closeWorkRequestModal();
         });
-        
-        // Keyboard accessibility - Escape to close modals
+
+        // Keyboard accessibility - Escape to close modals, Enter/Space for task cards
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 closeZoneModal();
                 closeWorkRequestModal();
+            }
+        });
+
+        // Add keyboard support for zone task list items
+        document.addEventListener('keydown', function(e) {
+            if (e.target.classList.contains('zone-task') && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                const link = e.target.querySelector('.zone-task-link');
+                if (link) {
+                    window.open(link.href, '_blank');
+                }
             }
         });
 
