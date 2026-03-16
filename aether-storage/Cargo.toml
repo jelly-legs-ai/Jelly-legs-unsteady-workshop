@@ -1,0 +1,22 @@
+[package]
+name = "aether-storage"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+rust-version.workspace = true
+description = "Storage layer for AETHER blockchain"
+
+[dependencies]
+aether-core = { path = "../aether-core" }
+solana-ledger = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio-test = "0.4"
