@@ -218,11 +218,18 @@
             border-radius: 12px;
             backdrop-filter: blur(10px);
             transition: all 0.3s ease;
+            cursor: pointer;
         }
         
         .zone:hover {
             border-color: rgba(255, 51, 51, 0.6);
             box-shadow: 0 0 30px rgba(255, 51, 51, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .zone:focus {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
         }
         
         .zone-header {
@@ -479,34 +486,254 @@
             }
         }
 
-        /* Zone Detail Modal */
+        /* Zone Detail Modal - Enhanced */
         .modal-overlay {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0,0,0,0.85); display: none; align-items: center;
             justify-content: center; z-index: 1000; backdrop-filter: blur(5px);
+            opacity: 0;
+            transition: opacity 0.3s ease;
         }
-        .modal-overlay.visible { display: flex; }
-        .modal { background: var(--bg-card); border: 1px solid var(--primary);
-            border-radius: 16px; width: 90%; max-width: 600px; max-height: 80vh;
-            overflow: hidden; box-shadow: 0 0 60px rgba(255,51,51,0.3);
+        .modal-overlay.visible { 
+            display: flex; 
+            opacity: 1;
         }
-        .modal-header { padding: 20px 25px; border-bottom: 1px solid var(--border);
-            display: flex; justify-content: space-between; align-items: center;
+        .modal { 
+            background: var(--bg-card); 
+            border: 1px solid var(--primary);
+            border-radius: 16px; 
+            width: 90%; 
+            max-width: 600px; 
+            max-height: 80vh;
+            overflow: hidden; 
+            box-shadow: 0 0 60px rgba(255,51,51,0.3);
+            transform: scale(0.9) translateY(20px);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-        .modal-header h2 { font-size: 18px; color: var(--primary);
-            text-transform: uppercase; letter-spacing: 2px;
+        .modal-overlay.visible .modal {
+            transform: scale(1) translateY(0);
         }
-        .modal-close { background: none; border: none; color: var(--text-muted);
-            font-size: 24px; cursor: pointer;
+        .modal-header { 
+            padding: 20px 25px; 
+            border-bottom: 1px solid var(--border);
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            background: linear-gradient(135deg, rgba(255,51,51,0.1) 0%, transparent 100%);
         }
-        .modal-body { padding: 25px; overflow-y: auto; max-height: calc(80vh - 80px); }
-        .zone-task { background: rgba(255,51,51,0.08); border-left: 3px solid var(--primary);
-            border-radius: 8px; padding: 15px; margin-bottom: 12px;
+        .modal-header h2 { 
+            font-size: 18px; 
+            color: var(--primary);
+            text-transform: uppercase; 
+            letter-spacing: 2px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
-        .zone-task-title { font-size: 14px; font-weight: bold; margin-bottom: 8px; }
-        .zone-task-meta { display: flex; gap: 15px; font-size: 12px; color: var(--text-muted); }
-        .zone-task-link { color: var(--primary); text-decoration: none; }
-        .zone-empty { text-align: center; padding: 40px; color: var(--text-muted); }
+        .modal-close { 
+            background: none; 
+            border: none; 
+            color: var(--text-muted);
+            font-size: 28px; 
+            cursor: pointer;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+        .modal-close:hover {
+            background: rgba(255,51,51,0.2);
+            color: var(--primary);
+        }
+        .modal-close:focus {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
+        }
+        .modal-body { 
+            padding: 25px; 
+            overflow-y: auto; 
+            max-height: calc(80vh - 80px); 
+        }
+        .zone-stats {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .zone-stat {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 10px 15px;
+            flex: 1;
+            min-width: 100px;
+            text-align: center;
+        }
+        .zone-stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+        .zone-stat-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .zone-task { 
+            background: rgba(255,51,51,0.08); 
+            border-left: 3px solid var(--primary);
+            border-radius: 8px; 
+            padding: 15px; 
+            margin-bottom: 12px;
+            transition: all 0.2s ease;
+        }
+        .zone-task:hover {
+            background: rgba(255,51,51,0.15);
+            transform: translateX(4px);
+        }
+        .zone-task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        .zone-task-title { 
+            font-size: 14px; 
+            font-weight: bold; 
+            margin-bottom: 8px; 
+            flex: 1;
+            padding-right: 10px;
+        }
+        .task-status {
+            font-size: 10px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        .task-status.open {
+            background: rgba(255,51,51,0.2);
+            color: var(--primary-light);
+        }
+        .task-status.in-progress {
+            background: rgba(255,204,0,0.2);
+            color: #ffcc00;
+        }
+        .task-status.completed {
+            background: rgba(0,255,136,0.2);
+            color: #00ff88;
+        }
+        .zone-task-meta { 
+            display: flex; 
+            gap: 15px; 
+            font-size: 12px; 
+            color: var(--text-muted); 
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .agent-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(0,0,0,0.3);
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+        .agent-badge-emoji {
+            font-size: 14px;
+        }
+        .agent-badge-name {
+            color: var(--text);
+        }
+        .zone-task-link { 
+            color: var(--primary); 
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+        .zone-task-link:hover {
+            color: var(--primary-light);
+            text-decoration: underline;
+        }
+        .zone-empty { 
+            text-align: center; 
+            padding: 40px; 
+            color: var(--text-muted); 
+        }
+        .zone-empty-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+        .zone-task-list-title {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        /* Mobile Responsive Modal */
+        @media (max-width: 600px) {
+            .modal {
+                width: 95%;
+                max-height: 85vh;
+                margin: 10px;
+            }
+            .modal-header {
+                padding: 15px 20px;
+            }
+            .modal-header h2 {
+                font-size: 14px;
+            }
+            .modal-body {
+                padding: 15px;
+            }
+            .zone-task {
+                padding: 12px;
+            }
+            .zone-task-header {
+                flex-direction: column;
+                gap: 8px;
+            }
+            .task-status {
+                align-self: flex-start;
+            }
+            .zone-stats {
+                gap: 10px;
+            }
+            .zone-stat {
+                padding: 8px 10px;
+                min-width: 70px;
+            }
+            .zone-stat-value {
+                font-size: 18px;
+            }
+        }
+
+        /* Zone clickable cursor indicator */
+        .zone {
+            cursor: pointer;
+        }
+        .zone::after {
+            content: '👆 Click for details';
+            position: absolute;
+            bottom: 5px;
+            right: 10px;
+            font-size: 9px;
+            color: var(--text-muted);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .zone:hover::after {
+            opacity: 1;
+        }
         .work-request-btn { position: fixed; bottom: 30px; right: 30px;
             background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white; border: none; padding: 15px 25px; border-radius: 30px;
@@ -678,13 +905,52 @@
     </div>
 
     <!-- Zone Detail Modal -->
-    <div class="modal-overlay" id="zoneModal">
+    <div class="modal-overlay" id="zoneModal" role="dialog" aria-modal="true" aria-labelledby="zoneModalTitle">
         <div class="modal">
             <div class="modal-header">
                 <h2 id="zoneModalTitle">Zone Details</h2>
-                <button class="modal-close" onclick="closeZoneModal()">×</button>
+                <button class="modal-close" onclick="closeZoneModal()" aria-label="Close modal">×</button>
             </div>
             <div class="modal-body" id="zoneModalBody"></div>
+        </div>
+    </div>
+
+    <!-- Work Request Modal -->
+    <div class="modal-overlay" id="workRequestModal" role="dialog" aria-modal="true" aria-labelledby="workRequestTitle">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="workRequestTitle">📝 Request Work</h2>
+                <button class="modal-close" onclick="closeWorkRequestModal()" aria-label="Close modal">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="workRequestForm">
+                    <div class="work-form">
+                        <div class="form-group">
+                            <label for="workTitle">Task Title</label>
+                            <input type="text" id="workTitle" placeholder="Enter task title..." required>
+                        </div>
+                        <div class="form-group">
+                            <label for="workStage">Stage</label>
+                            <select id="workStage">
+                                <option value="research">🔬 Research</option>
+                                <option value="design">✏️ Design</option>
+                                <option value="build">⚙️ Build</option>
+                                <option value="security">🔒 Security</option>
+                                <option value="strategy">📊 Strategy</option>
+                                <option value="deploy">🚀 Deploy</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="workDescription">Description</label>
+                            <textarea id="workDescription" placeholder="Describe the task..."></textarea>
+                        </div>
+                        <button class="submit-btn" onclick="submitWorkRequest()">Submit Request</button>
+                    </div>
+                </div>
+                <div id="formSuccess" class="form-success" style="display:none;">
+                    ✅ Work request submitted successfully!
+                </div>
+            </div>
         </div>
     </div>
 
@@ -782,18 +1048,34 @@
                 container.appendChild(agentEl);
             });
             
-            // Render tasks in zones
-            dashboardState.tasks.forEach(task => {
-                if (task.state === 'open') {
-                    const zoneEl = document.getElementById(`zone-${task.stage}`);
-                    if (zoneEl) {
-                        const taskEl = document.createElement('div');
-                        taskEl.className = 'task-card';
-                        taskEl.innerHTML = `
-                            <div class="task-title">${task.title.substring(0, 40)}${task.title.length > 40 ? '...' : ''}</div>
-                            <div class="task-meta">${dashboardState.agents[task.agent]?.emoji || '🤖'} ${task.agent.replace('-', ' ')}</div>
-                        `;
-                        zoneEl.appendChild(taskEl);
+            // Zones with click handlers
+            const zones = ['research', 'design', 'build', 'security', 'strategy', 'deploy'];
+            zones.forEach(zone => {
+                const zoneEl = document.querySelector(`.zone-${zone}`);
+                if (zoneEl) {
+                    zoneEl.setAttribute('tabindex', '0');
+                    zoneEl.setAttribute('role', 'button');
+                    zoneEl.setAttribute('aria-label', `Open ${zoneNames[zone]} details`);
+                    zoneEl.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            openZoneModal(zone);
+                        }
+                    });
+                    
+                    // Render tasks in this zone
+                    const zoneTasks = dashboardState.tasks.filter(t => t.stage === zone && (t.state === 'open' || t.state === 'in_progress'));
+                    const zoneContentEl = document.getElementById(`zone-${zone}`);
+                    if (zoneContentEl && zoneTasks.length > 0) {
+                        zoneTasks.forEach(task => {
+                            const taskEl = document.createElement('div');
+                            taskEl.className = 'task-card';
+                            taskEl.innerHTML = `
+                                <div class="task-title">${task.title.substring(0, 40)}${task.title.length > 40 ? '...' : ''}</div>
+                                <div class="task-meta">${dashboardState.agents[task.agent]?.emoji || '🤖'} ${task.agent.replace('-', ' ')}</div>
+                            `;
+                            zoneContentEl.appendChild(taskEl);
+                        });
                     }
                 }
             });
@@ -909,31 +1191,107 @@
             'plaza': '🌳 Social Plaza'
         };
         
+        // Zone icons mapping
+        const zoneIcons = {
+            'research': '🔬',
+            'design': '✏️',
+            'build': '⚙️',
+            'security': '🔒',
+            'strategy': '📊',
+            'deploy': '🚀',
+            'plaza': '🌳'
+        };
+        
+        // Get status class and label
+        function getTaskStatus(task) {
+            if (task.state === 'closed' || task.completed) {
+                return { class: 'completed', label: 'Completed' };
+            }
+            if (task.state === 'in_progress' || task.status === 'in-progress') {
+                return { class: 'in-progress', label: 'In Progress' };
+            }
+            return { class: 'open', label: 'Open' };
+        }
+        
         function openZoneModal(zone) {
             const modal = document.getElementById('zoneModal');
             const titleEl = document.getElementById('zoneModalTitle');
             const bodyEl = document.getElementById('zoneModalBody');
             
-            titleEl.textContent = zoneNames[zone] || zone;
+            // Set title with icon
+            const icon = zoneIcons[zone] || '📋';
+            titleEl.innerHTML = `<span aria-hidden="true">${icon}</span> ${zoneNames[zone] || zone}`;
             
-            const zoneTasks = dashboardState.tasks.filter(t => t.stage === zone && t.state === 'open');
+            // Get tasks for this zone (including tasks assigned to agents in this zone)
+            const zoneAgents = Object.values(dashboardState.agents).filter(a => a.zones?.includes(zone) || a.zones?.includes('all'));
+            const zoneAgentIds = zoneAgents.map(a => a.id);
+            
+            const zoneTasks = dashboardState.tasks.filter(t => 
+                (t.stage === zone || zoneAgentIds.includes(t.agent)) && 
+                (t.state === 'open' || t.state === 'in_progress')
+            );
+            
+            // Calculate zone stats
+            const totalTasks = zoneTasks.length;
+            const inProgressTasks = zoneTasks.filter(t => t.state === 'in_progress' || t.status === 'in-progress').length;
+            const completedTasks = zoneTasks.filter(t => t.state === 'closed' || t.completed).length;
             
             if (zoneTasks.length === 0) {
-                bodyEl.innerHTML = '<div class="zone-empty"><p>No active tasks in this zone.</p><p style="margin-top:10px;font-size:12px;">Click "Request Work" to assign a new task!</p></div>';
+                bodyEl.innerHTML = `
+                    <div class="zone-empty">
+                        <div class="zone-empty-icon">${zoneIcons[zone] || '📋'}</div>
+                        <p>No active tasks in this zone.</p>
+                        <p style="margin-top:10px;font-size:12px;">Click "Request Work" to assign a new task!</p>
+                    </div>
+                `;
             } else {
-                bodyEl.innerHTML = '<div class="zone-tasks">' + zoneTasks.map(task => `
-                    <div class="zone-task">
-                        <div class="zone-task-title">${task.title}</div>
-                        <div class="zone-task-meta">
-                            <span>${dashboardState.agents[task.agent]?.emoji || '🤖'} ${dashboardState.agents[task.agent]?.name || task.agent}</span>
-                            <span>Stage: ${task.stage}</span>
-                            ${task.url ? `<a href="${task.url}" target="_blank" class="zone-task-link">View on GitHub →</a>` : ''}
+                bodyEl.innerHTML = `
+                    <div class="zone-stats" role="region" aria-label="Zone statistics">
+                        <div class="zone-stat">
+                            <div class="zone-stat-value">${totalTasks}</div>
+                            <div class="zone-stat-label">Total Tasks</div>
+                        </div>
+                        <div class="zone-stat">
+                            <div class="zone-stat-value">${inProgressTasks}</div>
+                            <div class="zone-stat-label">In Progress</div>
+                        </div>
+                        <div class="zone-stat">
+                            <div class="zone-stat-value">${zoneAgents.length}</div>
+                            <div class="zone-stat-label">Agents</div>
                         </div>
                     </div>
-                `).join('') + '</div>';
+                    <div class="zone-task-list-title">Task Breakdown</div>
+                    <div class="zone-tasks" role="list">
+                        ${zoneTasks.map(task => {
+                            const agent = dashboardState.agents[task.agent];
+                            const status = getTaskStatus(task);
+                            return `
+                                <div class="zone-task" role="listitem" tabindex="0" aria-label="Task: ${task.title}">
+                                    <div class="zone-task-header">
+                                        <div class="zone-task-title">${task.title}</div>
+                                        <span class="task-status ${status.class}" aria-label="Status: ${status.label}">${status.label}</span>
+                                    </div>
+                                    <div class="zone-task-meta">
+                                        <span class="agent-badge">
+                                            <span class="agent-badge-emoji" aria-hidden="true">${agent?.emoji || '🤖'}</span>
+                                            <span class="agent-badge-name">${agent?.name || task.agent}</span>
+                                        </span>
+                                        <span>Stage: ${task.stage}</span>
+                                        ${task.labels?.length ? `<span>Labels: ${task.labels.join(', ')}</span>` : ''}
+                                        ${task.url ? `<a href="${task.url}" target="_blank" class="zone-task-link" aria-label="View task on GitHub">View on GitHub →</a>` : ''}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
             }
             
             modal.classList.add('visible');
+            
+            // Focus trap for accessibility
+            const closeBtn = modal.querySelector('.modal-close');
+            setTimeout(() => closeBtn?.focus(), 100);
         }
         
         function closeZoneModal() {
@@ -958,6 +1316,14 @@
         
         document.getElementById('workRequestModal')?.addEventListener('click', function(e) {
             if (e.target === this) closeWorkRequestModal();
+        });
+        
+        // Keyboard accessibility - Escape to close modals
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeZoneModal();
+                closeWorkRequestModal();
+            }
         });
 
         // Hide loading screen
