@@ -510,7 +510,7 @@ async function doDesignWork(issue, agent) {
     specs += `- **Agent Registration:** Stake 10,000 AETH + identity verification\n`;
     specs += `- **Voting Power:** Human (60%) + AI Agents (40%) weighted\n`;
     specs += `- **Proposal Threshold:** 100,000 AETH to submit\n`;
-    specs += `- **Voting Period:** 3 days for standard, 24h for emergency\n\n';
+    specs += `- **Voting Period:** 3 days for standard, 24h for emergency\n\n`;
     
     specs += `## 4. User Flows\n\n`;
     specs += `### 4.1 Transaction Flow (Private)\n`;
