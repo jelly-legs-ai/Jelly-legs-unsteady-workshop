@@ -10,8 +10,8 @@
       ],
       "id": "jelly-legs",
       "position": {
-        "x": 55.62944010426091,
-        "y": 35.857104346804796
+        "x": 46.17420582084216,
+        "y": 52.53089413169341
       },
       "currentTask": null,
       "status": "idle",
@@ -27,8 +27,8 @@
       ],
       "id": "data-diver",
       "position": {
-        "x": 53.004403400551,
-        "y": 17.986302871277132
+        "x": 24.57458874502526,
+        "y": 15.195530874371075
       },
       "currentTask": {
         "id": "issue-2",
@@ -42,17 +42,16 @@
         "labels": [
           "design",
           "build",
-          "in-progress",
           "sketch-bot"
         ],
         "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/2",
         "createdAt": "2026-02-16T20:43:14Z",
-        "updatedAt": "2026-03-15T18:59:08Z",
+        "updatedAt": "2026-03-16T19:25:34Z",
         "assignee": null,
-        "thought": "Diving deep into data..."
+        "thought": "Analyzing trends..."
       },
       "status": "working",
-      "lastActivity": "2026-03-15T18:59:08Z"
+      "lastActivity": "2026-03-16T19:25:34Z"
     },
     "pattern-seeker": {
       "name": "Pattern-Seeker",
@@ -64,32 +63,12 @@
       ],
       "id": "pattern-seeker",
       "position": {
-        "x": 15.844687505599842,
-        "y": 28.43341803283433
+        "x": 53.16503126434801,
+        "y": 59.29204993624101
       },
-      "currentTask": {
-        "id": "issue-9",
-        "type": "issue",
-        "number": 9,
-        "title": "Tool errors in  the openclaw log.",
-        "body": "This is a task for doc. and potential Skiller if required. \n\nWe keep receiving so errors on the log, it's not breaking the system but undoubtably if we can resolve these errors the team should perform",
-        "state": "open",
-        "stage": "research",
-        "agent": "pattern-seeker",
-        "labels": [
-          "bug",
-          "analysis",
-          "code-crafter",
-          "in-progress"
-        ],
-        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/9",
-        "createdAt": "2026-02-23T16:56:09Z",
-        "updatedAt": "2026-03-15T18:59:05Z",
-        "assignee": "jelly-legs-ai",
-        "thought": "Trend identified..."
-      },
-      "status": "working",
-      "lastActivity": "2026-03-15T18:59:05Z"
+      "currentTask": null,
+      "status": "idle",
+      "lastActivity": null
     },
     "sketch-bot": {
       "name": "Sketch-Bot",
@@ -101,8 +80,8 @@
       ],
       "id": "sketch-bot",
       "position": {
-        "x": 47.192354903434456,
-        "y": 52.78053114372726
+        "x": 52.098699614870554,
+        "y": 35.714717601347786
       },
       "currentTask": null,
       "status": "idle",
@@ -118,8 +97,8 @@
       ],
       "id": "voice-weaver",
       "position": {
-        "x": 48.31205255589971,
-        "y": 57.971156759917946
+        "x": 43.88500284510325,
+        "y": 44.25115070110448
       },
       "currentTask": null,
       "status": "idle",
@@ -135,8 +114,8 @@
       ],
       "id": "hook-maker",
       "position": {
-        "x": 61.073500880115475,
-        "y": 42.64110530113923
+        "x": 35.39709956438125,
+        "y": 37.60174953711328
       },
       "currentTask": null,
       "status": "idle",
@@ -152,8 +131,8 @@
       ],
       "id": "build-bot",
       "position": {
-        "x": 67.7917997910389,
-        "y": 25.15532211047438
+        "x": 69.19055503228238,
+        "y": 21.250378976134577
       },
       "currentTask": {
         "id": "issue-4",
@@ -174,7 +153,7 @@
         "createdAt": "2026-02-16T20:43:15Z",
         "updatedAt": "2026-03-15T18:59:06Z",
         "assignee": null,
-        "thought": "System construction..."
+        "thought": "Pipeline flowing..."
       },
       "status": "working",
       "lastActivity": "2026-03-15T18:59:06Z"
@@ -189,8 +168,8 @@
       ],
       "id": "pipe-layer",
       "position": {
-        "x": 53.976582945532925,
-        "y": 57.251117036207624
+        "x": 62.90495046971034,
+        "y": 44.688937379072414
       },
       "currentTask": null,
       "status": "idle",
@@ -206,8 +185,8 @@
       ],
       "id": "code-crafter",
       "position": {
-        "x": 81.46656886625514,
-        "y": 17.579650486156005
+        "x": 84.24619074387249,
+        "y": 27.240538486755938
       },
       "currentTask": {
         "id": "issue-3",
@@ -243,8 +222,8 @@
       ],
       "id": "shield-bot",
       "position": {
-        "x": 56.357226199300115,
-        "y": 45.83512889212387
+        "x": 40.606024396737226,
+        "y": 59.12384758019661
       },
       "currentTask": null,
       "status": "idle",
@@ -260,8 +239,8 @@
       ],
       "id": "map-maker",
       "position": {
-        "x": 52.17729314710672,
-        "y": 37.46440141180611
+        "x": 51.80843237434423,
+        "y": 49.80945031869493
       },
       "currentTask": null,
       "status": "idle",
@@ -277,8 +256,8 @@
       ],
       "id": "launch-pad",
       "position": {
-        "x": 77.90746732263597,
-        "y": 18.204239383175107
+        "x": 41.09353960326346,
+        "y": 56.93082055071491
       },
       "currentTask": null,
       "status": "idle",
@@ -294,13 +273,13 @@
       "body": "## Changes\\n\\n- New orchestrator that spawns OpenClaw sessions with correct models\\n- Researcher ? minimax-m2.5:cloud\\n- Designer ? kimi-k2.5:cloud\\n- Developer ? qwen3:8b\\n- etc.\\n\\nEach agent produc",
       "state": "closed",
       "stage": "research",
-      "agent": "map-maker",
+      "agent": "pipe-layer",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/15",
       "createdAt": "2026-03-16T17:49:57Z",
       "updatedAt": "2026-03-16T17:50:06Z",
       "assignee": null,
-      "thought": "Milestone mapping..."
+      "thought": "Workflow connecting..."
     },
     {
       "id": "issue-14",
@@ -316,7 +295,7 @@
       "createdAt": "2026-03-15T21:48:38Z",
       "updatedAt": "2026-03-15T22:02:51Z",
       "assignee": null,
-      "thought": "Guardrail checking..."
+      "thought": "Safety protocols..."
     },
     {
       "id": "issue-13",
@@ -326,13 +305,13 @@
       "body": "## ?? ?? Designer - Real Work Completed\n\n**Issue:** #11 - EPIC: Project AETHER - Solana-Forked Blockchain for AI Technology\n**Directive:** Look at requirements and ask: what's missing? How could this ",
       "state": "closed",
       "stage": "research",
-      "agent": "hook-maker",
+      "agent": "pipe-layer",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/13",
       "createdAt": "2026-03-15T21:43:50Z",
       "updatedAt": "2026-03-15T22:02:33Z",
       "assignee": null,
-      "thought": "Share trigger..."
+      "thought": "Data pipeline active..."
     },
     {
       "id": "issue-12",
@@ -342,13 +321,13 @@
       "body": "## ?? ?? Researcher - Real Work Completed\n\n**Issue:** #11 - EPIC: Project AETHER - Solana-Forked Blockchain for AI Technology\n**Directive:** Study the task, research solutions, document findings. Lear",
       "state": "closed",
       "stage": "research",
-      "agent": "build-bot",
+      "agent": "code-crafter",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/12",
       "createdAt": "2026-03-15T20:17:51Z",
       "updatedAt": "2026-03-15T20:34:05Z",
       "assignee": null,
-      "thought": "Pipeline flowing..."
+      "thought": "Code generation..."
     },
     {
       "id": "issue-11",
@@ -358,12 +337,11 @@
       "body": "## Overview\n\n**Mission:** Develop a cutting-edge Solana-forked blockchain purpose-built for AI technology integration.\n\n**Status:** ?? CRITICAL PRIORITY - All other development paused\n\n**Location:** e",
       "state": "open",
       "stage": "research",
-      "agent": "pattern-seeker",
+      "agent": "data-diver",
       "labels": [
         "research",
         "design",
         "build",
-        "in-progress",
         "blockchain",
         "solana",
         "epic",
@@ -375,9 +353,9 @@
       ],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/11",
       "createdAt": "2026-03-15T20:08:49Z",
-      "updatedAt": "2026-03-15T21:49:01Z",
+      "updatedAt": "2026-03-16T19:22:15Z",
       "assignee": null,
-      "thought": "Correlation mapping..."
+      "thought": "Pattern detection active..."
     },
     {
       "id": "issue-10",
@@ -387,13 +365,13 @@
       "body": "## Summary\n\nThis PR implements:\n- ? Zone Detail Modal (Issue #3)\n- ? Agent Work Request System (Issue #4)\n- ?? Pixel Art Generation Script (Issue #2 - partial)\n\n## Changes\n\n### Zone Detail Modal\n- Cli",
       "state": "open",
       "stage": "research",
-      "agent": "pattern-seeker",
+      "agent": "data-diver",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/10",
       "createdAt": "2026-03-15T18:35:41Z",
       "updatedAt": "2026-03-15T18:39:26Z",
       "assignee": null,
-      "thought": "Signal in the noise..."
+      "thought": "Pattern detection active..."
     },
     {
       "id": "issue-9",
@@ -403,7 +381,7 @@
       "body": "This is a task for doc. and potential Skiller if required. \n\nWe keep receiving so errors on the log, it's not breaking the system but undoubtably if we can resolve these errors the team should perform",
       "state": "open",
       "stage": "research",
-      "agent": "pattern-seeker",
+      "agent": "data-diver",
       "labels": [
         "bug",
         "analysis",
@@ -414,7 +392,7 @@
       "createdAt": "2026-02-23T16:56:09Z",
       "updatedAt": "2026-03-15T18:59:05Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Trend identified..."
+      "thought": "Diving deep into data..."
     },
     {
       "id": "issue-8",
@@ -433,7 +411,7 @@
       "createdAt": "2026-02-22T22:01:46Z",
       "updatedAt": "2026-02-23T22:10:09Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Building attention..."
+      "thought": "Community gravity forming..."
     },
     {
       "id": "issue-7",
@@ -454,7 +432,7 @@
       "createdAt": "2026-02-22T14:47:47Z",
       "updatedAt": "2026-02-22T20:11:45Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Correlation mapping..."
+      "thought": "Pattern recognition..."
     },
     {
       "id": "issue-6",
@@ -479,7 +457,7 @@
       "createdAt": "2026-02-17T22:06:53Z",
       "updatedAt": "2026-03-15T18:15:05Z",
       "assignee": null,
-      "thought": "Designing assets..."
+      "thought": "Pixel art rendering..."
     },
     {
       "id": "issue-4",
@@ -500,7 +478,7 @@
       "createdAt": "2026-02-16T20:43:15Z",
       "updatedAt": "2026-03-15T18:59:06Z",
       "assignee": null,
-      "thought": "System construction..."
+      "thought": "Pipeline flowing..."
     },
     {
       "id": "issue-3",
@@ -535,14 +513,13 @@
       "labels": [
         "design",
         "build",
-        "in-progress",
         "sketch-bot"
       ],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/2",
       "createdAt": "2026-02-16T20:43:14Z",
-      "updatedAt": "2026-03-15T18:59:08Z",
+      "updatedAt": "2026-03-16T19:25:34Z",
       "assignee": null,
-      "thought": "Diving deep into data..."
+      "thought": "Analyzing trends..."
     },
     {
       "id": "issue-1",
@@ -562,7 +539,7 @@
       "createdAt": "2026-02-16T20:43:13Z",
       "updatedAt": "2026-03-15T18:16:06Z",
       "assignee": null,
-      "thought": "Market research ongoing..."
+      "thought": "Pattern detection active..."
     },
     {
       "id": "pr-15",
@@ -588,13 +565,13 @@
       "body": "## ?? ?? Designer Agent - Enhanced Design Specification\n\n**Issue:** #11 - Project AETHER\n\nThis is an enhanced design specification with comprehensive technical details:\n\n- 5-layer system architecture ",
       "state": "closed",
       "stage": "deploy",
-      "agent": "map-maker",
+      "agent": "pattern-seeker",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/14",
       "createdAt": "2026-03-15T21:48:38Z",
       "updatedAt": "2026-03-15T22:02:51Z",
       "draft": false,
-      "thought": "Launch sequence..."
+      "thought": "Found viral pattern!"
     },
     {
       "id": "pr-13",
@@ -604,13 +581,13 @@
       "body": "## ?? ?? Designer - Real Work Completed\n\n**Issue:** #11 - EPIC: Project AETHER - Solana-Forked Blockchain for AI Technology\n**Directive:** Look at requirements and ask: what's missing? How could this ",
       "state": "closed",
       "stage": "deploy",
-      "agent": "build-bot",
+      "agent": "data-diver",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/13",
       "createdAt": "2026-03-15T21:43:50Z",
       "updatedAt": "2026-03-15T22:02:33Z",
       "draft": false,
-      "thought": "Automation building..."
+      "thought": "Diving deep into data..."
     },
     {
       "id": "pr-12",
@@ -620,13 +597,13 @@
       "body": "## ?? ?? Researcher - Real Work Completed\n\n**Issue:** #11 - EPIC: Project AETHER - Solana-Forked Blockchain for AI Technology\n**Directive:** Study the task, research solutions, document findings. Lear",
       "state": "closed",
       "stage": "deploy",
-      "agent": "shield-bot",
+      "agent": "data-diver",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/12",
       "createdAt": "2026-03-15T20:17:51Z",
       "updatedAt": "2026-03-15T20:34:05Z",
       "draft": false,
-      "thought": "Guardrail checking..."
+      "thought": "Diving deep into data..."
     },
     {
       "id": "pr-10",
@@ -636,13 +613,13 @@
       "body": "## Summary\n\nThis PR implements:\n- ? Zone Detail Modal (Issue #3)\n- ? Agent Work Request System (Issue #4)\n- ?? Pixel Art Generation Script (Issue #2 - partial)\n\n## Changes\n\n### Zone Detail Modal\n- Cli",
       "state": "open",
       "stage": "build",
-      "agent": "launch-pad",
+      "agent": "data-diver",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/10",
       "createdAt": "2026-03-15T18:35:41Z",
       "updatedAt": "2026-03-15T18:39:26Z",
       "draft": false,
-      "thought": "Release sequence..."
+      "thought": "Analyzing trends..."
     }
   ],
   "stats": {
@@ -652,8 +629,8 @@
     "openPRs": 1,
     "recentCommits": 20,
     "recentWorkflows": 10,
-    "activeAgents": 4,
-    "lastUpdate": "2026-03-16T18:55:38.518Z"
+    "activeAgents": 3,
+    "lastUpdate": "2026-03-16T19:29:51.118Z"
   },
-  "timestamp": "2026-03-16T18:55:38.518Z"
+  "timestamp": "2026-03-16T19:29:51.118Z"
 }
