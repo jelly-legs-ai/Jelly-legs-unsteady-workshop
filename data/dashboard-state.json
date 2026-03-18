@@ -10,8 +10,8 @@
       ],
       "id": "jelly-legs",
       "position": {
-        "x": 39.62938739179829,
-        "y": 54.34077092430862
+        "x": 59.55687331243004,
+        "y": 39.19897677925811
       },
       "currentTask": null,
       "status": "idle",
@@ -27,8 +27,8 @@
       ],
       "id": "data-diver",
       "position": {
-        "x": 16.073827559134998,
-        "y": 16.374022118432958
+        "x": 29.01376552945753,
+        "y": 27.397800009027208
       },
       "currentTask": {
         "id": "issue-2",
@@ -49,7 +49,7 @@
         "createdAt": "2026-02-16T20:43:14Z",
         "updatedAt": "2026-03-16T19:38:34Z",
         "assignee": null,
-        "thought": "Analyzing trends..."
+        "thought": "Diving deep into data..."
       },
       "status": "working",
       "lastActivity": "2026-03-16T19:38:34Z"
@@ -64,8 +64,8 @@
       ],
       "id": "pattern-seeker",
       "position": {
-        "x": 38.360221475071306,
-        "y": 43.839012139526574
+        "x": 54.73604005684987,
+        "y": 58.65435522245281
       },
       "currentTask": null,
       "status": "idle",
@@ -81,8 +81,8 @@
       ],
       "id": "sketch-bot",
       "position": {
-        "x": 53.41019221421322,
-        "y": 55.433542396060176
+        "x": 62.984490533671284,
+        "y": 41.14627639321883
       },
       "currentTask": null,
       "status": "idle",
@@ -98,27 +98,12 @@
       ],
       "id": "voice-weaver",
       "position": {
-        "x": 29.124157362923068,
-        "y": 21.738290351117847
+        "x": 36.46095941252465,
+        "y": 50.90261627353648
       },
-      "currentTask": {
-        "id": "issue-16",
-        "type": "issue",
-        "number": 16,
-        "title": "feat(dashboard): Implement zone detail modal with task details (Issue #3)",
-        "body": "## Summary\nImplements Issue #3: BUILD: Implement zone detail modal - click zones to expand task details\n\n## Changes Made\n- Added click handlers to zone elements\n- Created modal component with smooth o",
-        "state": "open",
-        "stage": "research",
-        "agent": "voice-weaver",
-        "labels": [],
-        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/16",
-        "createdAt": "2026-03-16T19:58:49Z",
-        "updatedAt": "2026-03-16T20:01:24Z",
-        "assignee": null,
-        "thought": "Message resonance..."
-      },
-      "status": "working",
-      "lastActivity": "2026-03-16T20:01:24Z"
+      "currentTask": null,
+      "status": "idle",
+      "lastActivity": null
     },
     "hook-maker": {
       "name": "Hook-Maker",
@@ -130,27 +115,12 @@
       ],
       "id": "hook-maker",
       "position": {
-        "x": 24.534181931666602,
-        "y": 28.14183874928902
+        "x": 59.5509689924341,
+        "y": 52.58258872851637
       },
-      "currentTask": {
-        "id": "issue-10",
-        "type": "issue",
-        "number": 10,
-        "title": "?? Agent Work: Zone Modal + Work Request System",
-        "body": "## Summary\n\nThis PR implements:\n- ? Zone Detail Modal (Issue #3)\n- ? Agent Work Request System (Issue #4)\n- ?? Pixel Art Generation Script (Issue #2 - partial)\n\n## Changes\n\n### Zone Detail Modal\n- Cli",
-        "state": "open",
-        "stage": "research",
-        "agent": "hook-maker",
-        "labels": [],
-        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/10",
-        "createdAt": "2026-03-15T18:35:41Z",
-        "updatedAt": "2026-03-15T18:39:26Z",
-        "assignee": null,
-        "thought": "Share trigger..."
-      },
-      "status": "working",
-      "lastActivity": "2026-03-15T18:39:26Z"
+      "currentTask": null,
+      "status": "idle",
+      "lastActivity": null
     },
     "build-bot": {
       "name": "Build-Bot",
@@ -162,8 +132,8 @@
       ],
       "id": "build-bot",
       "position": {
-        "x": 81.97560134379745,
-        "y": 21.460707201133424
+        "x": 34.38778785646926,
+        "y": 24.214101108176664
       },
       "currentTask": {
         "id": "issue-4",
@@ -184,7 +154,7 @@
         "createdAt": "2026-02-16T20:43:15Z",
         "updatedAt": "2026-03-15T18:59:06Z",
         "assignee": null,
-        "thought": "Automation building..."
+        "thought": "Pipeline flowing..."
       },
       "status": "working",
       "lastActivity": "2026-03-15T18:59:06Z"
@@ -199,8 +169,8 @@
       ],
       "id": "pipe-layer",
       "position": {
-        "x": 78.76684434004541,
-        "y": 22.510629359306233
+        "x": 53.85919727652567,
+        "y": 46.516703016322126
       },
       "currentTask": null,
       "status": "idle",
@@ -216,8 +186,8 @@
       ],
       "id": "code-crafter",
       "position": {
-        "x": 82.57364467630555,
-        "y": 24.33564483800488
+        "x": 78.26805231003071,
+        "y": 24.653328310096043
       },
       "currentTask": {
         "id": "issue-3",
@@ -238,7 +208,7 @@
         "createdAt": "2026-02-16T20:43:14Z",
         "updatedAt": "2026-03-16T22:00:31Z",
         "assignee": null,
-        "thought": "Code generation..."
+        "thought": "Function crafting..."
       },
       "status": "working",
       "lastActivity": "2026-03-16T22:00:31Z"
@@ -253,8 +223,8 @@
       ],
       "id": "shield-bot",
       "position": {
-        "x": 58.07397746368612,
-        "y": 38.38868639677293
+        "x": 46.09510896342301,
+        "y": 54.026154940285345
       },
       "currentTask": null,
       "status": "idle",
@@ -270,8 +240,8 @@
       ],
       "id": "map-maker",
       "position": {
-        "x": 40.79408946199373,
-        "y": 40.81432329835019
+        "x": 50.65293586705754,
+        "y": 58.69511041192081
       },
       "currentTask": null,
       "status": "idle",
@@ -287,8 +257,8 @@
       ],
       "id": "launch-pad",
       "position": {
-        "x": 44.72352746884245,
-        "y": 46.51015574352326
+        "x": 45.663830681787935,
+        "y": 35.21441501718753
       },
       "currentTask": null,
       "status": "idle",
@@ -304,13 +274,13 @@
       "body": "## Summary\n\nThis PR sets up the initial project structure for the AETHER blockchain fork from Agave (Solana's Rust core).\n\n## Changes\n\n- Created 5-layer modular architecture:\n  - `aether-core`: Core t",
       "state": "closed",
       "stage": "research",
-      "agent": "pipe-layer",
+      "agent": "sketch-bot",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/17",
       "createdAt": "2026-03-16T21:46:47Z",
       "updatedAt": "2026-03-16T21:55:45Z",
       "assignee": null,
-      "thought": "Data pipeline active..."
+      "thought": "Mockup generation..."
     },
     {
       "id": "issue-16",
@@ -320,13 +290,13 @@
       "body": "## Summary\nImplements Issue #3: BUILD: Implement zone detail modal - click zones to expand task details\n\n## Changes Made\n- Added click handlers to zone elements\n- Created modal component with smooth o",
       "state": "open",
       "stage": "research",
-      "agent": "voice-weaver",
+      "agent": "data-diver",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/16",
       "createdAt": "2026-03-16T19:58:49Z",
       "updatedAt": "2026-03-16T20:01:24Z",
       "assignee": null,
-      "thought": "Message resonance..."
+      "thought": "Pattern detection active..."
     },
     {
       "id": "issue-15",
@@ -336,13 +306,13 @@
       "body": "## Changes\\n\\n- New orchestrator that spawns OpenClaw sessions with correct models\\n- Researcher ? minimax-m2.5:cloud\\n- Designer ? kimi-k2.5:cloud\\n- Developer ? qwen3:8b\\n- etc.\\n\\nEach agent produc",
       "state": "closed",
       "stage": "research",
-      "agent": "pattern-seeker",
+      "agent": "data-diver",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/15",
       "createdAt": "2026-03-16T17:49:57Z",
       "updatedAt": "2026-03-16T17:50:06Z",
       "assignee": null,
-      "thought": "Pattern recognition..."
+      "thought": "Analyzing trends..."
     },
     {
       "id": "issue-14",
@@ -352,13 +322,13 @@
       "body": "## ?? ?? Designer Agent - Enhanced Design Specification\n\n**Issue:** #11 - Project AETHER\n\nThis is an enhanced design specification with comprehensive technical details:\n\n- 5-layer system architecture ",
       "state": "closed",
       "stage": "research",
-      "agent": "data-diver",
+      "agent": "map-maker",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/14",
       "createdAt": "2026-03-15T21:48:38Z",
       "updatedAt": "2026-03-15T22:02:51Z",
       "assignee": null,
-      "thought": "Pattern detection active..."
+      "thought": "Roadmap drawing..."
     },
     {
       "id": "issue-13",
@@ -368,13 +338,13 @@
       "body": "## ?? ?? Designer - Real Work Completed\n\n**Issue:** #11 - EPIC: Project AETHER - Solana-Forked Blockchain for AI Technology\n**Directive:** Look at requirements and ask: what's missing? How could this ",
       "state": "closed",
       "stage": "research",
-      "agent": "shield-bot",
+      "agent": "data-diver",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/13",
       "createdAt": "2026-03-15T21:43:50Z",
       "updatedAt": "2026-03-15T22:02:33Z",
       "assignee": null,
-      "thought": "Security scanning..."
+      "thought": "Pattern detection active..."
     },
     {
       "id": "issue-12",
@@ -384,13 +354,13 @@
       "body": "## ?? ?? Researcher - Real Work Completed\n\n**Issue:** #11 - EPIC: Project AETHER - Solana-Forked Blockchain for AI Technology\n**Directive:** Study the task, research solutions, document findings. Lear",
       "state": "closed",
       "stage": "research",
-      "agent": "shield-bot",
+      "agent": "launch-pad",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/12",
       "createdAt": "2026-03-15T20:17:51Z",
       "updatedAt": "2026-03-15T20:34:05Z",
       "assignee": null,
-      "thought": "Safety protocols..."
+      "thought": "Deployment prepared..."
     },
     {
       "id": "issue-11",
@@ -419,7 +389,7 @@
       "createdAt": "2026-03-15T20:08:49Z",
       "updatedAt": "2026-03-16T21:56:52Z",
       "assignee": null,
-      "thought": "Pattern detection active..."
+      "thought": "Analyzing trends..."
     },
     {
       "id": "issue-10",
@@ -429,13 +399,13 @@
       "body": "## Summary\n\nThis PR implements:\n- ? Zone Detail Modal (Issue #3)\n- ? Agent Work Request System (Issue #4)\n- ?? Pixel Art Generation Script (Issue #2 - partial)\n\n## Changes\n\n### Zone Detail Modal\n- Cli",
       "state": "open",
       "stage": "research",
-      "agent": "hook-maker",
+      "agent": "build-bot",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/10",
       "createdAt": "2026-03-15T18:35:41Z",
       "updatedAt": "2026-03-15T18:39:26Z",
       "assignee": null,
-      "thought": "Share trigger..."
+      "thought": "Infrastructure growing..."
     },
     {
       "id": "issue-9",
@@ -445,7 +415,7 @@
       "body": "This is a task for doc. and potential Skiller if required. \n\nWe keep receiving so errors on the log, it's not breaking the system but undoubtably if we can resolve these errors the team should perform",
       "state": "closed",
       "stage": "research",
-      "agent": "pattern-seeker",
+      "agent": "data-diver",
       "labels": [
         "bug",
         "analysis",
@@ -456,7 +426,7 @@
       "createdAt": "2026-02-23T16:56:09Z",
       "updatedAt": "2026-03-16T20:45:14Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Trend identified..."
+      "thought": "Market research ongoing..."
     },
     {
       "id": "issue-8",
@@ -485,7 +455,7 @@
       "body": "Evaluate and build upon the current system in place regarding our subagent persona system controlled by Jelly the ai bot (the brains behind the ai agent team). learn about the necessary roles and crea",
       "state": "closed",
       "stage": "research",
-      "agent": "data-diver",
+      "agent": "pattern-seeker",
       "labels": [
         "research",
         "deploy",
@@ -496,7 +466,7 @@
       "createdAt": "2026-02-22T14:47:47Z",
       "updatedAt": "2026-02-22T20:11:45Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Viral mechanics study..."
+      "thought": "Signal in the noise..."
     },
     {
       "id": "issue-6",
@@ -521,7 +491,7 @@
       "createdAt": "2026-02-17T22:06:53Z",
       "updatedAt": "2026-03-15T18:15:05Z",
       "assignee": null,
-      "thought": "Engagement loop design..."
+      "thought": "Scroll-stopper crafting..."
     },
     {
       "id": "issue-4",
@@ -542,7 +512,7 @@
       "createdAt": "2026-02-16T20:43:15Z",
       "updatedAt": "2026-03-15T18:59:06Z",
       "assignee": null,
-      "thought": "Automation building..."
+      "thought": "Pipeline flowing..."
     },
     {
       "id": "issue-3",
@@ -563,7 +533,7 @@
       "createdAt": "2026-02-16T20:43:14Z",
       "updatedAt": "2026-03-16T22:00:31Z",
       "assignee": null,
-      "thought": "Code generation..."
+      "thought": "Function crafting..."
     },
     {
       "id": "issue-2",
@@ -584,7 +554,7 @@
       "createdAt": "2026-02-16T20:43:14Z",
       "updatedAt": "2026-03-16T19:38:34Z",
       "assignee": null,
-      "thought": "Analyzing trends..."
+      "thought": "Diving deep into data..."
     },
     {
       "id": "issue-1",
@@ -614,13 +584,13 @@
       "body": "## Summary\n\nThis PR sets up the initial project structure for the AETHER blockchain fork from Agave (Solana's Rust core).\n\n## Changes\n\n- Created 5-layer modular architecture:\n  - `aether-core`: Core t",
       "state": "closed",
       "stage": "deploy",
-      "agent": "pattern-seeker",
+      "agent": "shield-bot",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/17",
       "createdAt": "2026-03-16T21:46:47Z",
       "updatedAt": "2026-03-16T21:55:45Z",
       "draft": false,
-      "thought": "Pattern recognition..."
+      "thought": "Security scanning..."
     },
     {
       "id": "pr-16",
@@ -636,7 +606,7 @@
       "createdAt": "2026-03-16T19:58:49Z",
       "updatedAt": "2026-03-16T20:01:24Z",
       "draft": false,
-      "thought": "Infrastructure growing..."
+      "thought": "Automation building..."
     },
     {
       "id": "pr-15",
@@ -646,13 +616,13 @@
       "body": "## Changes\\n\\n- New orchestrator that spawns OpenClaw sessions with correct models\\n- Researcher ? minimax-m2.5:cloud\\n- Designer ? kimi-k2.5:cloud\\n- Developer ? qwen3:8b\\n- etc.\\n\\nEach agent produc",
       "state": "closed",
       "stage": "deploy",
-      "agent": "shield-bot",
+      "agent": "build-bot",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/15",
       "createdAt": "2026-03-16T17:49:57Z",
       "updatedAt": "2026-03-16T17:50:06Z",
       "draft": false,
-      "thought": "Guardrail checking..."
+      "thought": "System construction..."
     },
     {
       "id": "pr-14",
@@ -668,7 +638,7 @@
       "createdAt": "2026-03-15T21:48:38Z",
       "updatedAt": "2026-03-15T22:02:51Z",
       "draft": false,
-      "thought": "Function crafting..."
+      "thought": "Code generation..."
     },
     {
       "id": "pr-13",
@@ -678,13 +648,13 @@
       "body": "## ?? ?? Designer - Real Work Completed\n\n**Issue:** #11 - EPIC: Project AETHER - Solana-Forked Blockchain for AI Technology\n**Directive:** Look at requirements and ask: what's missing? How could this ",
       "state": "closed",
       "stage": "deploy",
-      "agent": "build-bot",
+      "agent": "sketch-bot",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/13",
       "createdAt": "2026-03-15T21:43:50Z",
       "updatedAt": "2026-03-15T22:02:33Z",
       "draft": false,
-      "thought": "Infrastructure growing..."
+      "thought": "UI components crafting..."
     },
     {
       "id": "pr-12",
@@ -694,13 +664,13 @@
       "body": "## ?? ?? Researcher - Real Work Completed\n\n**Issue:** #11 - EPIC: Project AETHER - Solana-Forked Blockchain for AI Technology\n**Directive:** Study the task, research solutions, document findings. Lear",
       "state": "closed",
       "stage": "deploy",
-      "agent": "pattern-seeker",
+      "agent": "code-crafter",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/12",
       "createdAt": "2026-03-15T20:17:51Z",
       "updatedAt": "2026-03-15T20:34:05Z",
       "draft": false,
-      "thought": "Correlation mapping..."
+      "thought": "Logic weaving..."
     },
     {
       "id": "pr-10",
@@ -710,13 +680,13 @@
       "body": "## Summary\n\nThis PR implements:\n- ? Zone Detail Modal (Issue #3)\n- ? Agent Work Request System (Issue #4)\n- ?? Pixel Art Generation Script (Issue #2 - partial)\n\n## Changes\n\n### Zone Detail Modal\n- Cli",
       "state": "open",
       "stage": "build",
-      "agent": "pipe-layer",
+      "agent": "build-bot",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/10",
       "createdAt": "2026-03-15T18:35:41Z",
       "updatedAt": "2026-03-15T18:39:26Z",
       "draft": false,
-      "thought": "Workflow connecting..."
+      "thought": "Automation building..."
     }
   ],
   "stats": {
@@ -726,8 +696,8 @@
     "openPRs": 2,
     "recentCommits": 20,
     "recentWorkflows": 10,
-    "activeAgents": 5,
-    "lastUpdate": "2026-03-18T21:22:26.669Z"
+    "activeAgents": 3,
+    "lastUpdate": "2026-03-18T21:56:57.152Z"
   },
-  "timestamp": "2026-03-18T21:22:26.670Z"
+  "timestamp": "2026-03-18T21:56:57.152Z"
 }
