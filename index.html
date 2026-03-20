@@ -522,12 +522,33 @@
                             <div class="zone-task-desc">${task.body ? task.body.substring(0, 200) + (task.body.length > 200 ? '...' : '') : 'No description provided.'}</div>
                             <div class="zone-task-actions">
                                 ${task.url ? `<a href="${task.url}" target="_blank" class="zone-task-btn">🔗 View on GitHub</a>` : ''}
-                                <button class="zone-task-btn primary" onclick="openWorkRequestModal('${task.agent}')">📋 Create Work Request</button>
+                                <button class="zone-task-btn primary" onclick="openWorkRequestModal('${task.agent}', '${currentZone}')">📋 Create Work Request</button>
                             </div>
                             ${labels.length > 0 ? `<div class="labels-container">${labels.map(l => `<span class="label ${l}">${l}</span>`).join('')}</div>` : ''}
                         </div>
                     `;
                 }).join('');
+            }
+            
+            // Add "Create Work Request for Zone" button at the bottom
+            const zoneConfig = {
+                'research': { icon: '🤿', name: 'Research Lab' },
+                'design': { icon: '🎨', name: 'Design Studio' },
+                'build': { icon: '⚙️', name: 'Build Factory' },
+                'security': { icon: '🛡️', name: 'Security Zone' },
+                'strategy': { icon: '🗺️', name: 'Strategy Room' },
+                'deploy': { icon: '🚀', name: 'Deploy Pad' }
+            };
+            const config = zoneConfig[currentZone];
+            if (config) {
+                const createBtnHtml = `
+                    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255, 51, 51, 0.2); text-align: center;">
+                        <button class="zone-task-btn primary" onclick="openWorkRequestModal(null, '${currentZone}')" style="font-size: 14px; padding: 12px 24px;">
+                            ➕ Create Work Request for ${config.icon} ${config.name}
+                        </button>
+                    </div>
+                `;
+                taskListEl.insertAdjacentHTML('beforeend', createBtnHtml);
             }
         }
 
@@ -536,9 +557,10 @@
         }
 
         // WORK REQUEST MODAL FUNCTIONS
-        function openWorkRequestModal(preselectedAgent = null) {
+        function openWorkRequestModal(preselectedAgent = null, preselectedZone = null) {
             const modal = document.getElementById('workRequestModal');
             const agentSelect = document.getElementById('targetAgent');
+            const zoneSelect = document.getElementById('taskZone');
             
             // Populate agent dropdown
             agentSelect.innerHTML = '<option value="">Select an agent...</option>';
@@ -556,6 +578,11 @@
             document.getElementById('workRequestForm').style.display = 'flex';
             document.getElementById('formSuccess').style.display = 'none';
             document.getElementById('workRequestForm').reset();
+            
+            // Pre-select zone if provided
+            if (preselectedZone) {
+                zoneSelect.value = preselectedZone;
+            }
             
             modal.classList.add('visible');
         }
