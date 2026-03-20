@@ -195,10 +195,10 @@
                         <div class="form-group">
                             <label>Priority <span>*</span></label>
                             <select id="taskPriority" required>
-                                <option value="low">🟢 Low</option>
-                                <option value="medium" selected>🟡 Medium</option>
-                                <option value="high">🔴 High</option>
-                                <option value="critical">🚨 Critical</option>
+                                <option value="p3-low">🟢 P3 Low</option>
+                                <option value="p2-normal" selected>🟡 P2 Normal</option>
+                                <option value="p1-high">🔴 P1 High</option>
+                                <option value="p0-critical">🚨 P0 Critical</option>
                             </select>
                         </div>
                     </div>
@@ -209,12 +209,12 @@
                     <div class="form-group">
                         <label>Zone/Stage <span>*</span></label>
                         <select id="taskZone" required>
-                            <option value="research">🤿 Research Lab</option>
-                            <option value="design">🎨 Design Studio</option>
-                            <option value="build" selected>⚙️ Build Factory</option>
-                            <option value="security">🛡️ Security Zone</option>
-                            <option value="strategy">🗺️ Strategy Room</option>
-                            <option value="deploy">🚀 Deploy Pad</option>
+                            <option value="research">🤿 Research</option>
+                            <option value="design">🎨 Design</option>
+                            <option value="build" selected>⚙️ Build</option>
+                            <option value="security">🛡️ Security</option>
+                            <option value="strategy">🗺️ Strategy</option>
+                            <option value="deploy">🚀 Deploy</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -245,7 +245,13 @@
         <span>Request Work</span>
     </button>
 
+    <script src="dashboard-config.js"></script>
     <script>
+        // GitHub Token from environment
+        window.GITHUB_TOKEN = (typeof process !== 'undefined' && process.env?.GITHUB_TOKEN) || 
+                               window.DASHBOARD_CONFIG?.GITHUB_TOKEN ||
+                               window.localStorage?.getItem('github_token') || '';
+        
         // Dashboard State
         let dashboardState = null;
         let currentView = 'kanban';
@@ -561,6 +567,8 @@
         function resetWorkRequestForm() {
             document.getElementById('workRequestForm').style.display = 'flex';
             document.getElementById('formSuccess').style.display = 'none';
+            document.getElementById('formSuccess').style.borderColor = '#00ff88';
+            document.getElementById('formSuccess').style.background = 'rgba(0,255,136,0.1)';
             document.getElementById('workRequestForm').reset();
         }
 
@@ -582,56 +590,91 @@
             
             const agent = dashboardState.agents[targetAgent];
             
+            // Build labels array - include 'build', agent label, priority, zone, and custom labels
+            const labels = ['build'];
+            if (taskLabels) {
+                labels.push(...taskLabels.split(',').map(l => l.trim()).filter(l => l));
+            }
+            
+            // Format priority label based on selection
+            const priorityLabel = taskPriority; // e.g., 'p0-critical', 'p1-high', etc.
+            labels.push(priorityLabel);
+            
+            // Add zone label
+            labels.push(taskZone);
+            
+            // Add agent label
+            labels.push(`agent-${targetAgent}`);
+            
             try {
-                // Try to create via GitHub API (requires token)
-                const token = localStorage.getItem('githubToken') || '';
-                if (token) {
-                    const response = await fetch('https://api.github.com/repos/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues', {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `token ${token}`,
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/vnd.github.v3+json'
-                        },
-                        body: JSON.stringify({
-                            title: `[${taskZone.toUpperCase()}] ${taskTitle}`,
-                            body: `## Work Request\n\n**Assigned to:** ${targetAgent}\n**Priority:** ${taskPriority}\n**Zone:** ${taskZone}\n\n${taskDescription}\n\n---\n*Created via Jelly-Legs Dashboard*`,
-                            labels: [...taskLabels.split(',').map(l => l.trim()).filter(l => l), taskZone, taskPriority]
-                        })
-                    });
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        document.getElementById('successMessage').textContent = `Issue #${data.number} created successfully and assigned to ${agent.name}!`;
-                    } else {
-                        throw new Error('GitHub API request failed');
-                    }
-                } else {
-                    // No token - show fallback message
-                    throw new Error('No GitHub token');
-                }
-            } catch (error) {
-                // Fallback: Show success with local creation
-                document.getElementById('successMessage').textContent = `Work request for "${taskTitle}" queued for ${agent ? agent.name : targetAgent}. It will be synced when GitHub API is connected.`;
+                // Use config or environment variable for GitHub token
+                const token = window.DASHBOARD_CONFIG?.GITHUB_TOKEN || window.GITHUB_TOKEN;
+                const repo = window.DASHBOARD_CONFIG?.GITHUB_REPO || 'jelly-legs-ai/Jelly-legs-unsteady-workshop';
                 
-                // Add to local state (demo purposes)
+                if (!token) {
+                    throw new Error('GitHub token not available. Please configure dashboard-config.js or set GITHUB_TOKEN environment variable.');
+                }
+                
+                const response = await fetch(`https://api.github.com/repos/${repo}/issues`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Accept': 'application/vnd.github.v3+json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        title: `[AGENT] Request: ${taskTitle}`,
+                        body: `## Work Request
+
+**Target Agent:** ${targetAgent}
+**Zone/Stage:** ${taskZone}
+**Priority:** ${taskPriority}
+
+### Description
+${taskDescription}
+
+---
+*Created via Jelly-Legs Dashboard Work Request System*`,
+                        labels: labels
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({});
+                    throw new Error(errorData.message || `GitHub API error: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                document.getElementById('successMessage').innerHTML = `Issue <strong>#${data.number}</strong> created successfully and assigned to <strong>${agent ? agent.name : targetAgent}</strong>!<br><a href="${data.html_url}" target="_blank" style="color: #00ff88;">View on GitHub →</a>`;
+                
+                // Add to local state
                 const newTask = {
-                    id: `issue-${Date.now()}`,
+                    id: `issue-${data.number}`,
                     type: 'issue',
-                    number: dashboardState.tasks.length + 1,
-                    title: taskTitle,
+                    number: data.number,
+                    title: data.title,
                     stage: taskZone,
                     agent: targetAgent,
                     state: 'open',
                     body: taskDescription,
-                    createdAt: new Date().toISOString(),
-                    labels: [...taskLabels.split(',').map(l => l.trim()).filter(l => l), taskZone, taskPriority]
+                    createdAt: data.created_at,
+                    updatedAt: data.created_at,
+                    labels: labels,
+                    url: data.html_url
                 };
                 dashboardState.tasks.push(newTask);
                 renderDashboard();
+                
+            } catch (error) {
+                // Show error message
+                document.getElementById('successMessage').innerHTML = `<span style="color: #ff6666;">❌ Failed to create issue:</span> ${error.message}
+                    <br><br>
+                    <button class="zone-task-btn" onclick="closeWorkRequestModal(); openWorkRequestModal('${targetAgent}')" style="margin-top: 10px;"><span>🔄 Try Again</span></button>`;
+                document.getElementById('formSuccess').style.borderColor = '#ff6666';
+                document.getElementById('formSuccess').style.background = 'rgba(255,102,102,0.1)';
             }
             
-            // Show success
+            // Show success/error
             document.getElementById('workRequestForm').style.display = 'none';
             document.getElementById('formSuccess').style.display = 'block';
             submitBtn.disabled = false;
