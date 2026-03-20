@@ -572,7 +572,7 @@
             document.getElementById('workRequestForm').reset();
         }
 
-        // Handle work request form submission
+        // Handle work request form submission (Sprint 1: UI only, console.log placeholder)
         document.getElementById('workRequestForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -590,91 +590,70 @@
             
             const agent = dashboardState.agents[targetAgent];
             
-            // Build labels array - include 'build', agent label, priority, zone, and custom labels
+            // Build labels array
             const labels = ['build'];
             if (taskLabels) {
                 labels.push(...taskLabels.split(',').map(l => l.trim()).filter(l => l));
             }
-            
-            // Format priority label based on selection
-            const priorityLabel = taskPriority; // e.g., 'p0-critical', 'p1-high', etc.
-            labels.push(priorityLabel);
-            
-            // Add zone label
+            labels.push(taskPriority);
             labels.push(taskZone);
-            
-            // Add agent label
             labels.push(`agent-${targetAgent}`);
             
-            try {
-                // Use config or environment variable for GitHub token
-                const token = window.DASHBOARD_CONFIG?.GITHUB_TOKEN || window.GITHUB_TOKEN;
-                const repo = window.DASHBOARD_CONFIG?.GITHUB_REPO || 'jelly-legs-ai/Jelly-legs-unsteady-workshop';
-                
-                if (!token) {
-                    throw new Error('GitHub token not available. Please configure dashboard-config.js or set GITHUB_TOKEN environment variable.');
-                }
-                
-                const response = await fetch(`https://api.github.com/repos/${repo}/issues`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `token ${token}`,
-                        'Accept': 'application/vnd.github.v3+json',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        title: `[AGENT] Request: ${taskTitle}`,
-                        body: `## Work Request
-
-**Target Agent:** ${targetAgent}
-**Zone/Stage:** ${taskZone}
-**Priority:** ${taskPriority}
-
-### Description
-${taskDescription}
-
----
-*Created via Jelly-Legs Dashboard Work Request System*`,
-                        labels: labels
-                    })
-                });
-                
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({});
-                    throw new Error(errorData.message || `GitHub API error: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                document.getElementById('successMessage').innerHTML = `Issue <strong>#${data.number}</strong> created successfully and assigned to <strong>${agent ? agent.name : targetAgent}</strong>!<br><a href="${data.html_url}" target="_blank" style="color: #00ff88;">View on GitHub →</a>`;
-                
-                // Add to local state
-                const newTask = {
-                    id: `issue-${data.number}`,
-                    type: 'issue',
-                    number: data.number,
-                    title: data.title,
-                    stage: taskZone,
-                    agent: targetAgent,
-                    state: 'open',
-                    body: taskDescription,
-                    createdAt: data.created_at,
-                    updatedAt: data.created_at,
-                    labels: labels,
-                    url: data.html_url
-                };
-                dashboardState.tasks.push(newTask);
-                renderDashboard();
-                
-            } catch (error) {
-                // Show error message
-                document.getElementById('successMessage').innerHTML = `<span style="color: #ff6666;">❌ Failed to create issue:</span> ${error.message}
-                    <br><br>
-                    <button class="zone-task-btn" onclick="closeWorkRequestModal(); openWorkRequestModal('${targetAgent}')" style="margin-top: 10px;"><span>🔄 Try Again</span></button>`;
-                document.getElementById('formSuccess').style.borderColor = '#ff6666';
-                document.getElementById('formSuccess').style.background = 'rgba(255,102,102,0.1)';
-            }
+            // SPRINT 1: Console.log the form data (placeholder for API call)
+            const formData = {
+                title: `[AGENT] Request: ${taskTitle}`,
+                targetAgent: targetAgent,
+                agentName: agent ? agent.name : targetAgent,
+                agentEmoji: agent ? agent.emoji : '🤖',
+                zone: taskZone,
+                priority: taskPriority,
+                description: taskDescription,
+                labels: labels,
+                timestamp: new Date().toISOString()
+            };
             
-            // Show success/error
+            console.log('📝 Work Request Form Data (Sprint 1 - API call placeholder):', formData);
+            
+            // Simulate API delay
+            await new Promise(resolve => setTimeout(resolve, 800));
+            
+            // Show success message
+            const tempIssueNumber = Math.floor(Math.random() * 1000) + 100;
+            document.getElementById('successMessage').innerHTML = `
+                <div style="margin-bottom: 10px;">📋 Work Request Preview</div>
+                <div style="text-align: left; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; font-size: 12px; margin: 10px 0;">
+                    <strong>Title:</strong> ${formData.title}<br>
+                    <strong>Agent:</strong> ${formData.agentEmoji} ${formData.agentName}<br>
+                    <strong>Zone:</strong> ${taskZone}<br>
+                    <strong>Priority:</strong> ${taskPriority}<br>
+                    <strong>Labels:</strong> ${labels.join(', ')}<br>
+                    <strong>Description:</strong> ${taskDescription.substring(0, 100)}${taskDescription.length > 100 ? '...' : ''}
+                </div>
+                <div style="color: #00ff88; font-size: 11px;">
+                    ✅ Sprint 1: Form data logged to console<br>
+                    🔜 Sprint 2: GitHub API integration
+                </div>
+            `;
+            
+            // Add to local state for visual feedback
+            const newTask = {
+                id: `issue-${tempIssueNumber}`,
+                type: 'issue',
+                number: tempIssueNumber,
+                title: formData.title,
+                stage: taskZone,
+                agent: targetAgent,
+                state: 'open',
+                body: taskDescription,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                labels: labels,
+                url: '#'
+            };
+            dashboardState.tasks.push(newTask);
+            renderDashboard();
+            
+            // Show success
             document.getElementById('workRequestForm').style.display = 'none';
             document.getElementById('formSuccess').style.display = 'block';
             submitBtn.disabled = false;
