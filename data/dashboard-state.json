@@ -10,8 +10,8 @@
       ],
       "id": "jelly-legs",
       "position": {
-        "x": 25.712024396153087,
-        "y": 25.324804272709322
+        "x": 33.04918800827697,
+        "y": 28.615786907403205
       },
       "currentTask": {
         "id": "issue-18",
@@ -27,7 +27,7 @@
         "createdAt": "2026-03-20T16:48:51Z",
         "updatedAt": "2026-03-20T16:49:37Z",
         "assignee": null,
-        "thought": "Memetics in motion..."
+        "thought": "Growing the legend..."
       },
       "status": "working",
       "lastActivity": "2026-03-20T16:49:37Z"
@@ -42,8 +42,8 @@
       ],
       "id": "data-diver",
       "position": {
-        "x": 27.0538774448077,
-        "y": 18.87379898028661
+        "x": 16.846184961259517,
+        "y": 16.141712531032915
       },
       "currentTask": {
         "id": "issue-11",
@@ -87,8 +87,8 @@
       ],
       "id": "pattern-seeker",
       "position": {
-        "x": 51.41374348118681,
-        "y": 57.562745691094406
+        "x": 66.9328644534195,
+        "y": 16.346850003405844
       },
       "currentTask": null,
       "status": "idle",
@@ -104,8 +104,8 @@
       ],
       "id": "sketch-bot",
       "position": {
-        "x": 40.26613216729936,
-        "y": 57.44424277663225
+        "x": 35.3624596074688,
+        "y": 51.330828364242166
       },
       "currentTask": null,
       "status": "idle",
@@ -121,27 +121,12 @@
       ],
       "id": "voice-weaver",
       "position": {
-        "x": 23.83528880961123,
-        "y": 25.061629857797364
+        "x": 59.55493852929557,
+        "y": 38.46337954708465
       },
-      "currentTask": {
-        "id": "issue-16",
-        "type": "issue",
-        "number": 16,
-        "title": "feat(dashboard): Implement zone detail modal with task details (Issue #3)",
-        "body": "## Summary\nImplements Issue #3: BUILD: Implement zone detail modal - click zones to expand task details\n\n## Changes Made\n- Added click handlers to zone elements\n- Created modal component with smooth o",
-        "state": "open",
-        "stage": "research",
-        "agent": "voice-weaver",
-        "labels": [],
-        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/16",
-        "createdAt": "2026-03-16T19:58:49Z",
-        "updatedAt": "2026-03-16T20:01:24Z",
-        "assignee": null,
-        "thought": "Tone calibration..."
-      },
-      "status": "working",
-      "lastActivity": "2026-03-16T20:01:24Z"
+      "currentTask": null,
+      "status": "idle",
+      "lastActivity": null
     },
     "hook-maker": {
       "name": "Hook-Maker",
@@ -153,8 +138,8 @@
       ],
       "id": "hook-maker",
       "position": {
-        "x": 52.75118936582208,
-        "y": 42.0597662186231
+        "x": 60.29505900788567,
+        "y": 38.51663772799802
       },
       "currentTask": null,
       "status": "idle",
@@ -170,13 +155,13 @@
       ],
       "id": "build-bot",
       "position": {
-        "x": 72.76705202048738,
-        "y": 19.214729234654236
+        "x": 71.31465825284626,
+        "y": 28.666586365123322
       },
       "currentTask": {
-        "id": "issue-23",
+        "id": "issue-20",
         "type": "issue",
-        "number": 23,
+        "number": 20,
         "title": "BUILD: Create pixel art avatar system for all 12 agents - Implementation",
         "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
         "state": "open",
@@ -187,14 +172,14 @@
           "code-crafter",
           "in-progress"
         ],
-        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/23",
-        "createdAt": "2026-03-20T19:43:31Z",
-        "updatedAt": "2026-03-20T19:43:31Z",
+        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/20",
+        "createdAt": "2026-03-20T19:33:27Z",
+        "updatedAt": "2026-03-20T19:40:02Z",
         "assignee": null,
-        "thought": "Pipeline flowing..."
+        "thought": "Automation building..."
       },
       "status": "working",
-      "lastActivity": "2026-03-20T19:43:31Z"
+      "lastActivity": "2026-03-20T19:40:02Z"
     },
     "pipe-layer": {
       "name": "Pipe-Layer",
@@ -206,8 +191,8 @@
       ],
       "id": "pipe-layer",
       "position": {
-        "x": 72.23048560356645,
-        "y": 21.377417685304753
+        "x": 71.04163041810297,
+        "y": 17.648657327794382
       },
       "currentTask": {
         "id": "issue-21",
@@ -227,7 +212,7 @@
         "createdAt": "2026-03-20T19:38:25Z",
         "updatedAt": "2026-03-20T19:38:25Z",
         "assignee": null,
-        "thought": "Automation layer..."
+        "thought": "System bridge building..."
       },
       "status": "working",
       "lastActivity": "2026-03-20T19:38:25Z"
@@ -242,13 +227,13 @@
       ],
       "id": "code-crafter",
       "position": {
-        "x": 83.38621105112702,
-        "y": 17.424131661239453
+        "x": 74.0529062180485,
+        "y": 15.810267312932659
       },
       "currentTask": {
-        "id": "issue-20",
+        "id": "issue-27",
         "type": "issue",
-        "number": 20,
+        "number": 27,
         "title": "BUILD: Create pixel art avatar system for all 12 agents - Implementation",
         "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
         "state": "open",
@@ -259,14 +244,14 @@
           "code-crafter",
           "in-progress"
         ],
-        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/20",
-        "createdAt": "2026-03-20T19:33:27Z",
-        "updatedAt": "2026-03-20T19:40:02Z",
+        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/27",
+        "createdAt": "2026-03-20T19:53:26Z",
+        "updatedAt": "2026-03-20T19:53:26Z",
         "assignee": null,
         "thought": "Feature building..."
       },
       "status": "working",
-      "lastActivity": "2026-03-20T19:40:02Z"
+      "lastActivity": "2026-03-20T19:53:26Z"
     },
     "shield-bot": {
       "name": "Shield-Bot",
@@ -278,8 +263,8 @@
       ],
       "id": "shield-bot",
       "position": {
-        "x": 24.379306524781917,
-        "y": 51.512938520338686
+        "x": 29.91992265396852,
+        "y": 52.137600544081714
       },
       "currentTask": {
         "id": "issue-24",
@@ -299,7 +284,7 @@
         "createdAt": "2026-03-20T19:48:28Z",
         "updatedAt": "2026-03-20T19:48:28Z",
         "assignee": null,
-        "thought": "Guardrail checking..."
+        "thought": "Safety protocols..."
       },
       "status": "working",
       "lastActivity": "2026-03-20T19:48:28Z"
@@ -314,8 +299,8 @@
       ],
       "id": "map-maker",
       "position": {
-        "x": 57.19387266090864,
-        "y": 42.91061639989614
+        "x": 45.760987660041145,
+        "y": 49.64521389427806
       },
       "currentTask": null,
       "status": "idle",
@@ -331,8 +316,8 @@
       ],
       "id": "launch-pad",
       "position": {
-        "x": 63.33785694603605,
-        "y": 52.45897850588287
+        "x": 45.47186467056906,
+        "y": 51.36859303355341
       },
       "currentTask": null,
       "status": "idle",
@@ -340,6 +325,426 @@
     }
   },
   "tasks": [
+    {
+      "id": "issue-84",
+      "type": "issue",
+      "number": 84,
+      "title": "BUILD: Create pixel art avatar system for all 12 agents - Implementation",
+      "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
+      "state": "open",
+      "stage": "build",
+      "agent": "pipe-layer",
+      "labels": [
+        "build",
+        "code-crafter",
+        "in-progress"
+      ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/84",
+      "createdAt": "2026-03-21T19:33:24Z",
+      "updatedAt": "2026-03-21T19:33:24Z",
+      "assignee": null,
+      "thought": "Automation layer..."
+    },
+    {
+      "id": "issue-83",
+      "type": "issue",
+      "number": 83,
+      "title": "REVIEW: Implement zone detail modal - click zones to expand task details - Code Review & QA",
+      "body": "## Review Phase\n\n**Previous Build:** #3\n**Pull Request:** See previous issue for details.\n\n### Review Tasks\n- [ ] Code review\n- [ ] Security scan\n- [ ] QA testing\n- [ ] Performance benchmarks\n- [ ] Do",
+      "state": "open",
+      "stage": "security",
+      "agent": "shield-bot",
+      "labels": [
+        "review",
+        "in-progress",
+        "watcher"
+      ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/83",
+      "createdAt": "2026-03-21T19:33:23Z",
+      "updatedAt": "2026-03-21T19:33:23Z",
+      "assignee": null,
+      "thought": "Risk assessment..."
+    },
+    {
+      "id": "issue-82",
+      "type": "issue",
+      "number": 82,
+      "title": "REVIEW: Agent Work Request System - delegate tasks between agents - Code Review & QA",
+      "body": "## Review Phase\n\n**Previous Build:** #4\n**Pull Request:** See previous issue for details.\n\n### Review Tasks\n- [ ] Code review\n- [ ] Security scan\n- [ ] QA testing\n- [ ] Performance benchmarks\n- [ ] Do",
+      "state": "open",
+      "stage": "security",
+      "agent": "shield-bot",
+      "labels": [
+        "review",
+        "in-progress",
+        "watcher"
+      ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/82",
+      "createdAt": "2026-03-21T19:33:22Z",
+      "updatedAt": "2026-03-21T19:33:22Z",
+      "assignee": null,
+      "thought": "Risk assessment..."
+    },
+    {
+      "id": "issue-81",
+      "type": "issue",
+      "number": 81,
+      "title": "BUILD: Create pixel art avatar system for all 12 agents - Implementation",
+      "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
+      "state": "open",
+      "stage": "build",
+      "agent": "pipe-layer",
+      "labels": [
+        "build",
+        "code-crafter",
+        "in-progress"
+      ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/81",
+      "createdAt": "2026-03-21T19:29:18Z",
+      "updatedAt": "2026-03-21T19:29:18Z",
+      "assignee": null,
+      "thought": "Integration flowing..."
+    },
+    {
+      "id": "issue-80",
+      "type": "issue",
+      "number": 80,
+      "title": "REVIEW: Implement zone detail modal - click zones to expand task details - Code Review & QA",
+      "body": "## Review Phase\n\n**Previous Build:** #3\n**Pull Request:** See previous issue for details.\n\n### Review Tasks\n- [ ] Code review\n- [ ] Security scan\n- [ ] QA testing\n- [ ] Performance benchmarks\n- [ ] Do",
+      "state": "open",
+      "stage": "security",
+      "agent": "shield-bot",
+      "labels": [
+        "review",
+        "in-progress",
+        "watcher"
+      ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/80",
+      "createdAt": "2026-03-21T19:29:17Z",
+      "updatedAt": "2026-03-21T19:29:17Z",
+      "assignee": null,
+      "thought": "Security scanning..."
+    },
+    {
+      "id": "issue-79",
+      "type": "issue",
+      "number": 79,
+      "title": "REVIEW: Agent Work Request System - delegate tasks between agents - Code Review & QA",
+      "body": "## Review Phase\n\n**Previous Build:** #4\n**Pull Request:** See previous issue for details.\n\n### Review Tasks\n- [ ] Code review\n- [ ] Security scan\n- [ ] QA testing\n- [ ] Performance benchmarks\n- [ ] Do",
+      "state": "open",
+      "stage": "security",
+      "agent": "shield-bot",
+      "labels": [
+        "review",
+        "in-progress",
+        "watcher"
+      ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/79",
+      "createdAt": "2026-03-21T19:29:16Z",
+      "updatedAt": "2026-03-21T19:29:16Z",
+      "assignee": null,
+      "thought": "Security scanning..."
+    },
+    {
+      "id": "issue-78",
+      "type": "issue",
+      "number": 78,
+      "title": "BUILD: Create pixel art avatar system for all 12 agents - Implementation",
+      "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
+      "state": "open",
+      "stage": "build",
+      "agent": "code-crafter",
+      "labels": [
+        "build",
+        "code-crafter",
+        "in-progress"
+      ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/78",
+      "createdAt": "2026-03-21T19:23:25Z",
+      "updatedAt": "2026-03-21T19:23:25Z",
+      "assignee": null,
+      "thought": "Logic weaving..."
+    },
+    {
+      "id": "issue-77",
+      "type": "issue",
+      "number": 77,
+      "title": "REVIEW: Implement zone detail modal - click zones to expand task details - Code Review & QA",
+      "body": "## Review Phase\n\n**Previous Build:** #3\n**Pull Request:** See previous issue for details.\n\n### Review Tasks\n- [ ] Code review\n- [ ] Security scan\n- [ ] QA testing\n- [ ] Performance benchmarks\n- [ ] Do",
+      "state": "open",
+      "stage": "security",
+      "agent": "shield-bot",
+      "labels": [
+        "review",
+        "in-progress",
+        "watcher"
+      ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/77",
+      "createdAt": "2026-03-21T19:23:24Z",
+      "updatedAt": "2026-03-21T19:23:24Z",
+      "assignee": null,
+      "thought": "Risk assessment..."
+    },
+    {
+      "id": "issue-76",
+      "type": "issue",
+      "number": 76,
+      "title": "REVIEW: Agent Work Request System - delegate tasks between agents - Code Review & QA",
+      "body": "## Review Phase\n\n**Previous Build:** #4\n**Pull Request:** See previous issue for details.\n\n### Review Tasks\n- [ ] Code review\n- [ ] Security scan\n- [ ] QA testing\n- [ ] Performance benchmarks\n- [ ] Do",
+      "state": "open",
+      "stage": "security",
+      "agent": "shield-bot",
+      "labels": [
+        "review",
+        "in-progress",
+        "watcher"
+      ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/76",
+      "createdAt": "2026-03-21T19:23:23Z",
+      "updatedAt": "2026-03-21T19:23:23Z",
+      "assignee": null,
+      "thought": "Security scanning..."
+    },
+    {
+      "id": "issue-75",
+      "type": "issue",
+      "number": 75,
+      "title": "BUILD: Create pixel art avatar system for all 12 agents - Implementation",
+      "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
+      "state": "open",
+      "stage": "build",
+      "agent": "pipe-layer",
+      "labels": [
+        "build",
+        "code-crafter",
+        "in-progress"
+      ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/75",
+      "createdAt": "2026-03-21T19:18:26Z",
+      "updatedAt": "2026-03-21T19:18:26Z",
+      "assignee": null,
+      "thought": "Automation layer..."
+    },
+    {
+      "id": "issue-74",
+      "type": "issue",
+      "number": 74,
+      "title": "REVIEW: Implement zone detail modal - click zones to expand task details - Code Review & QA",
+      "body": "## Review Phase\n\n**Previous Build:** #3\n**Pull Request:** See previous issue for details.\n\n### Review Tasks\n- [ ] Code review\n- [ ] Security scan\n- [ ] QA testing\n- [ ] Performance benchmarks\n- [ ] Do",
+      "state": "open",
+      "stage": "security",
+      "agent": "shield-bot",
+      "labels": [
+        "review",
+        "in-progress",
+        "watcher"
+      ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/74",
+      "createdAt": "2026-03-21T19:18:25Z",
+      "updatedAt": "2026-03-21T19:18:25Z",
+      "assignee": null,
+      "thought": "Threat detection..."
+    },
+    {
+      "id": "issue-73",
+      "type": "issue",
+      "number": 73,
+      "title": "REVIEW: Agent Work Request System - delegate tasks between agents - Code Review & QA",
+      "body": "## Review Phase\n\n**Previous Build:** #4\n**Pull Request:** See previous issue for details.\n\n### Review Tasks\n- [ ] Code review\n- [ ] Security scan\n- [ ] QA testing\n- [ ] Performance benchmarks\n- [ ] Do",
+      "state": "open",
+      "stage": "security",
+      "agent": "shield-bot",
+      "labels": [
+        "review",
+        "in-progress",
+        "watcher"
+      ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/73",
+      "createdAt": "2026-03-21T19:18:24Z",
+      "updatedAt": "2026-03-21T19:18:24Z",
+      "assignee": null,
+      "thought": "Safety protocols..."
+    },
+    {
+      "id": "issue-72",
+      "type": "issue",
+      "number": 72,
+      "title": "BUILD: Create pixel art avatar system for all 12 agents - Implementation",
+      "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
+      "state": "open",
+      "stage": "build",
+      "agent": "pipe-layer",
+      "labels": [
+        "build",
+        "code-crafter",
+        "in-progress"
+      ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/72",
+      "createdAt": "2026-03-21T19:13:25Z",
+      "updatedAt": "2026-03-21T19:13:25Z",
+      "assignee": null,
+      "thought": "Data pipeline active..."
+    },
+    {
+      "id": "issue-71",
+      "type": "issue",
+      "number": 71,
+      "title": "REVIEW: Implement zone detail modal - click zones to expand task details - Code Review & QA",
+      "body": "## Review Phase\n\n**Previous Build:** #3\n**Pull Request:** See previous issue for details.\n\n### Review Tasks\n- [ ] Code review\n- [ ] Security scan\n- [ ] QA testing\n- [ ] Performance benchmarks\n- [ ] Do",
+      "state": "open",
+      "stage": "security",
+      "agent": "shield-bot",
+      "labels": [
+        "review",
+        "in-progress",
+        "watcher"
+      ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/71",
+      "createdAt": "2026-03-21T19:13:24Z",
+      "updatedAt": "2026-03-21T19:13:24Z",
+      "assignee": null,
+      "thought": "Guardrail checking..."
+    },
+    {
+      "id": "issue-70",
+      "type": "issue",
+      "number": 70,
+      "title": "REVIEW: Agent Work Request System - delegate tasks between agents - Code Review & QA",
+      "body": "## Review Phase\n\n**Previous Build:** #4\n**Pull Request:** See previous issue for details.\n\n### Review Tasks\n- [ ] Code review\n- [ ] Security scan\n- [ ] QA testing\n- [ ] Performance benchmarks\n- [ ] Do",
+      "state": "open",
+      "stage": "security",
+      "agent": "shield-bot",
+      "labels": [
+        "review",
+        "in-progress",
+        "watcher"
+      ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/70",
+      "createdAt": "2026-03-21T19:13:23Z",
+      "updatedAt": "2026-03-21T19:13:23Z",
+      "assignee": null,
+      "thought": "Risk assessment..."
+    },
+    {
+      "id": "issue-69",
+      "type": "issue",
+      "number": 69,
+      "title": "BUILD: Create pixel art avatar system for all 12 agents - Implementation",
+      "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
+      "state": "open",
+      "stage": "build",
+      "agent": "code-crafter",
+      "labels": [
+        "build",
+        "code-crafter",
+        "in-progress"
+      ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/69",
+      "createdAt": "2026-03-21T19:08:28Z",
+      "updatedAt": "2026-03-21T19:08:28Z",
+      "assignee": null,
+      "thought": "Function crafting..."
+    },
+    {
+      "id": "issue-68",
+      "type": "issue",
+      "number": 68,
+      "title": "REVIEW: Implement zone detail modal - click zones to expand task details - Code Review & QA",
+      "body": "## Review Phase\n\n**Previous Build:** #3\n**Pull Request:** See previous issue for details.\n\n### Review Tasks\n- [ ] Code review\n- [ ] Security scan\n- [ ] QA testing\n- [ ] Performance benchmarks\n- [ ] Do",
+      "state": "open",
+      "stage": "security",
+      "agent": "shield-bot",
+      "labels": [
+        "review",
+        "in-progress",
+        "watcher"
+      ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/68",
+      "createdAt": "2026-03-21T19:08:27Z",
+      "updatedAt": "2026-03-21T19:08:27Z",
+      "assignee": null,
+      "thought": "Security scanning..."
+    },
+    {
+      "id": "issue-67",
+      "type": "issue",
+      "number": 67,
+      "title": "REVIEW: Agent Work Request System - delegate tasks between agents - Code Review & QA",
+      "body": "## Review Phase\n\n**Previous Build:** #4\n**Pull Request:** See previous issue for details.\n\n### Review Tasks\n- [ ] Code review\n- [ ] Security scan\n- [ ] QA testing\n- [ ] Performance benchmarks\n- [ ] Do",
+      "state": "open",
+      "stage": "security",
+      "agent": "shield-bot",
+      "labels": [
+        "review",
+        "in-progress",
+        "watcher"
+      ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/67",
+      "createdAt": "2026-03-21T19:08:25Z",
+      "updatedAt": "2026-03-21T19:08:25Z",
+      "assignee": null,
+      "thought": "Safety protocols..."
+    },
+    {
+      "id": "issue-66",
+      "type": "issue",
+      "number": 66,
+      "title": "BUILD: Create pixel art avatar system for all 12 agents - Implementation",
+      "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
+      "state": "open",
+      "stage": "build",
+      "agent": "build-bot",
+      "labels": [
+        "build",
+        "code-crafter",
+        "in-progress"
+      ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/66",
+      "createdAt": "2026-03-21T19:08:04Z",
+      "updatedAt": "2026-03-21T19:08:04Z",
+      "assignee": null,
+      "thought": "Automation building..."
+    },
+    {
+      "id": "issue-65",
+      "type": "issue",
+      "number": 65,
+      "title": "REVIEW: Implement zone detail modal - click zones to expand task details - Code Review & QA",
+      "body": "## Review Phase\n\n**Previous Build:** #3\n**Pull Request:** See previous issue for details.\n\n### Review Tasks\n- [ ] Code review\n- [ ] Security scan\n- [ ] QA testing\n- [ ] Performance benchmarks\n- [ ] Do",
+      "state": "open",
+      "stage": "security",
+      "agent": "shield-bot",
+      "labels": [
+        "review",
+        "in-progress",
+        "watcher"
+      ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/65",
+      "createdAt": "2026-03-21T19:08:03Z",
+      "updatedAt": "2026-03-21T19:08:03Z",
+      "assignee": null,
+      "thought": "Security scanning..."
+    },
+    {
+      "id": "issue-64",
+      "type": "issue",
+      "number": 64,
+      "title": "REVIEW: Agent Work Request System - delegate tasks between agents - Code Review & QA",
+      "body": "## Review Phase\n\n**Previous Build:** #4\n**Pull Request:** See previous issue for details.\n\n### Review Tasks\n- [ ] Code review\n- [ ] Security scan\n- [ ] QA testing\n- [ ] Performance benchmarks\n- [ ] Do",
+      "state": "open",
+      "stage": "security",
+      "agent": "shield-bot",
+      "labels": [
+        "review",
+        "in-progress",
+        "watcher"
+      ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/64",
+      "createdAt": "2026-03-21T19:08:02Z",
+      "updatedAt": "2026-03-21T19:08:02Z",
+      "assignee": null,
+      "thought": "Guardrail checking..."
+    },
     {
       "id": "issue-63",
       "type": "issue",
@@ -358,7 +763,7 @@
       "createdAt": "2026-03-20T23:07:18Z",
       "updatedAt": "2026-03-20T23:07:18Z",
       "assignee": null,
-      "thought": "Function crafting..."
+      "thought": "Feature building..."
     },
     {
       "id": "issue-62",
@@ -378,7 +783,7 @@
       "createdAt": "2026-03-20T23:07:16Z",
       "updatedAt": "2026-03-20T23:07:16Z",
       "assignee": null,
-      "thought": "Risk assessment..."
+      "thought": "Safety protocols..."
     },
     {
       "id": "issue-61",
@@ -408,7 +813,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "open",
       "stage": "build",
-      "agent": "pipe-layer",
+      "agent": "build-bot",
       "labels": [
         "build",
         "code-crafter",
@@ -418,7 +823,7 @@
       "createdAt": "2026-03-20T20:53:27Z",
       "updatedAt": "2026-03-20T20:53:27Z",
       "assignee": null,
-      "thought": "Data pipeline active..."
+      "thought": "Infrastructure growing..."
     },
     {
       "id": "issue-59",
@@ -438,7 +843,7 @@
       "createdAt": "2026-03-20T20:53:26Z",
       "updatedAt": "2026-03-20T20:53:26Z",
       "assignee": null,
-      "thought": "Security scanning..."
+      "thought": "Risk assessment..."
     },
     {
       "id": "issue-58",
@@ -458,7 +863,7 @@
       "createdAt": "2026-03-20T20:53:24Z",
       "updatedAt": "2026-03-20T20:53:24Z",
       "assignee": null,
-      "thought": "Risk assessment..."
+      "thought": "Security scanning..."
     },
     {
       "id": "issue-57",
@@ -468,7 +873,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "open",
       "stage": "build",
-      "agent": "pipe-layer",
+      "agent": "build-bot",
       "labels": [
         "build",
         "code-crafter",
@@ -478,7 +883,7 @@
       "createdAt": "2026-03-20T20:48:26Z",
       "updatedAt": "2026-03-20T20:48:26Z",
       "assignee": null,
-      "thought": "Automation layer..."
+      "thought": "Code architecture..."
     },
     {
       "id": "issue-56",
@@ -498,7 +903,7 @@
       "createdAt": "2026-03-20T20:48:25Z",
       "updatedAt": "2026-03-20T20:48:25Z",
       "assignee": null,
-      "thought": "Security scanning..."
+      "thought": "Threat detection..."
     },
     {
       "id": "issue-55",
@@ -518,7 +923,7 @@
       "createdAt": "2026-03-20T20:48:24Z",
       "updatedAt": "2026-03-20T20:48:24Z",
       "assignee": null,
-      "thought": "Risk assessment..."
+      "thought": "Security scanning..."
     },
     {
       "id": "issue-54",
@@ -528,7 +933,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "open",
       "stage": "build",
-      "agent": "build-bot",
+      "agent": "code-crafter",
       "labels": [
         "build",
         "code-crafter",
@@ -538,7 +943,7 @@
       "createdAt": "2026-03-20T20:43:27Z",
       "updatedAt": "2026-03-20T20:43:27Z",
       "assignee": null,
-      "thought": "Infrastructure growing..."
+      "thought": "Code generation..."
     },
     {
       "id": "issue-53",
@@ -558,7 +963,7 @@
       "createdAt": "2026-03-20T20:43:26Z",
       "updatedAt": "2026-03-20T20:43:26Z",
       "assignee": null,
-      "thought": "Risk assessment..."
+      "thought": "Safety protocols..."
     },
     {
       "id": "issue-52",
@@ -578,7 +983,7 @@
       "createdAt": "2026-03-20T20:43:25Z",
       "updatedAt": "2026-03-20T20:43:25Z",
       "assignee": null,
-      "thought": "Guardrail checking..."
+      "thought": "Safety protocols..."
     },
     {
       "id": "issue-51",
@@ -598,7 +1003,7 @@
       "createdAt": "2026-03-20T20:38:27Z",
       "updatedAt": "2026-03-20T20:38:27Z",
       "assignee": null,
-      "thought": "Code generation..."
+      "thought": "Function crafting..."
     },
     {
       "id": "issue-50",
@@ -618,7 +1023,7 @@
       "createdAt": "2026-03-20T20:38:26Z",
       "updatedAt": "2026-03-20T20:38:26Z",
       "assignee": null,
-      "thought": "Safety protocols..."
+      "thought": "Risk assessment..."
     },
     {
       "id": "issue-49",
@@ -638,7 +1043,7 @@
       "createdAt": "2026-03-20T20:38:25Z",
       "updatedAt": "2026-03-20T20:38:25Z",
       "assignee": null,
-      "thought": "Guardrail checking..."
+      "thought": "Safety protocols..."
     },
     {
       "id": "issue-48",
@@ -658,7 +1063,7 @@
       "createdAt": "2026-03-20T20:33:27Z",
       "updatedAt": "2026-03-20T20:33:27Z",
       "assignee": null,
-      "thought": "Infrastructure growing..."
+      "thought": "System construction..."
     },
     {
       "id": "issue-47",
@@ -678,7 +1083,7 @@
       "createdAt": "2026-03-20T20:33:26Z",
       "updatedAt": "2026-03-20T20:33:26Z",
       "assignee": null,
-      "thought": "Risk assessment..."
+      "thought": "Guardrail checking..."
     },
     {
       "id": "issue-46",
@@ -698,7 +1103,7 @@
       "createdAt": "2026-03-20T20:33:25Z",
       "updatedAt": "2026-03-20T20:33:25Z",
       "assignee": null,
-      "thought": "Safety protocols..."
+      "thought": "Guardrail checking..."
     },
     {
       "id": "issue-45",
@@ -708,7 +1113,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "open",
       "stage": "build",
-      "agent": "pipe-layer",
+      "agent": "code-crafter",
       "labels": [
         "build",
         "code-crafter",
@@ -718,7 +1123,7 @@
       "createdAt": "2026-03-20T20:28:27Z",
       "updatedAt": "2026-03-20T20:28:27Z",
       "assignee": null,
-      "thought": "Data pipeline active..."
+      "thought": "Code generation..."
     },
     {
       "id": "issue-44",
@@ -738,7 +1143,7 @@
       "createdAt": "2026-03-20T20:28:26Z",
       "updatedAt": "2026-03-20T20:28:26Z",
       "assignee": null,
-      "thought": "Safety protocols..."
+      "thought": "Threat detection..."
     },
     {
       "id": "issue-43",
@@ -758,7 +1163,7 @@
       "createdAt": "2026-03-20T20:28:25Z",
       "updatedAt": "2026-03-20T20:28:25Z",
       "assignee": null,
-      "thought": "Security scanning..."
+      "thought": "Safety protocols..."
     },
     {
       "id": "issue-42",
@@ -828,7 +1233,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "open",
       "stage": "build",
-      "agent": "pipe-layer",
+      "agent": "build-bot",
       "labels": [
         "build",
         "code-crafter",
@@ -838,7 +1243,7 @@
       "createdAt": "2026-03-20T20:18:28Z",
       "updatedAt": "2026-03-20T20:18:28Z",
       "assignee": null,
-      "thought": "Automation layer..."
+      "thought": "Automation building..."
     },
     {
       "id": "issue-38",
@@ -858,7 +1263,7 @@
       "createdAt": "2026-03-20T20:18:26Z",
       "updatedAt": "2026-03-20T20:18:26Z",
       "assignee": null,
-      "thought": "Safety protocols..."
+      "thought": "Threat detection..."
     },
     {
       "id": "issue-37",
@@ -878,7 +1283,7 @@
       "createdAt": "2026-03-20T20:18:24Z",
       "updatedAt": "2026-03-20T20:18:24Z",
       "assignee": null,
-      "thought": "Safety protocols..."
+      "thought": "Security scanning..."
     },
     {
       "id": "issue-36",
@@ -898,7 +1303,7 @@
       "createdAt": "2026-03-20T20:08:29Z",
       "updatedAt": "2026-03-20T20:08:29Z",
       "assignee": null,
-      "thought": "Automation building..."
+      "thought": "System construction..."
     },
     {
       "id": "issue-35",
@@ -918,7 +1323,7 @@
       "createdAt": "2026-03-20T20:08:27Z",
       "updatedAt": "2026-03-20T20:08:27Z",
       "assignee": null,
-      "thought": "Security scanning..."
+      "thought": "Safety protocols..."
     },
     {
       "id": "issue-34",
@@ -938,7 +1343,7 @@
       "createdAt": "2026-03-20T20:08:25Z",
       "updatedAt": "2026-03-20T20:08:25Z",
       "assignee": null,
-      "thought": "Threat detection..."
+      "thought": "Guardrail checking..."
     },
     {
       "id": "issue-33",
@@ -948,7 +1353,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "open",
       "stage": "build",
-      "agent": "build-bot",
+      "agent": "pipe-layer",
       "labels": [
         "build",
         "code-crafter",
@@ -958,7 +1363,7 @@
       "createdAt": "2026-03-20T20:03:32Z",
       "updatedAt": "2026-03-20T20:03:32Z",
       "assignee": null,
-      "thought": "System construction..."
+      "thought": "System bridge building..."
     },
     {
       "id": "issue-32",
@@ -978,7 +1383,7 @@
       "createdAt": "2026-03-20T20:03:30Z",
       "updatedAt": "2026-03-20T20:03:30Z",
       "assignee": null,
-      "thought": "Threat detection..."
+      "thought": "Security scanning..."
     },
     {
       "id": "issue-31",
@@ -998,7 +1403,7 @@
       "createdAt": "2026-03-20T20:03:29Z",
       "updatedAt": "2026-03-20T20:03:29Z",
       "assignee": null,
-      "thought": "Risk assessment..."
+      "thought": "Safety protocols..."
     },
     {
       "id": "issue-30",
@@ -1008,7 +1413,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "open",
       "stage": "build",
-      "agent": "build-bot",
+      "agent": "code-crafter",
       "labels": [
         "build",
         "code-crafter",
@@ -1018,7 +1423,7 @@
       "createdAt": "2026-03-20T19:58:28Z",
       "updatedAt": "2026-03-20T19:58:28Z",
       "assignee": null,
-      "thought": "Automation building..."
+      "thought": "Implementation coding..."
     },
     {
       "id": "issue-29",
@@ -1038,7 +1443,7 @@
       "createdAt": "2026-03-20T19:58:27Z",
       "updatedAt": "2026-03-20T19:58:27Z",
       "assignee": null,
-      "thought": "Security scanning..."
+      "thought": "Risk assessment..."
     },
     {
       "id": "issue-28",
@@ -1058,7 +1463,7 @@
       "createdAt": "2026-03-20T19:58:25Z",
       "updatedAt": "2026-03-20T19:58:25Z",
       "assignee": null,
-      "thought": "Risk assessment..."
+      "thought": "Safety protocols..."
     },
     {
       "id": "issue-27",
@@ -1068,7 +1473,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "open",
       "stage": "build",
-      "agent": "build-bot",
+      "agent": "code-crafter",
       "labels": [
         "build",
         "code-crafter",
@@ -1078,7 +1483,7 @@
       "createdAt": "2026-03-20T19:53:26Z",
       "updatedAt": "2026-03-20T19:53:26Z",
       "assignee": null,
-      "thought": "Automation building..."
+      "thought": "Feature building..."
     },
     {
       "id": "issue-26",
@@ -1098,7 +1503,7 @@
       "createdAt": "2026-03-20T19:53:24Z",
       "updatedAt": "2026-03-20T19:53:24Z",
       "assignee": null,
-      "thought": "Guardrail checking..."
+      "thought": "Safety protocols..."
     },
     {
       "id": "issue-25",
@@ -1108,7 +1513,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "open",
       "stage": "build",
-      "agent": "code-crafter",
+      "agent": "pipe-layer",
       "labels": [
         "build",
         "code-crafter",
@@ -1118,7 +1523,7 @@
       "createdAt": "2026-03-20T19:48:29Z",
       "updatedAt": "2026-03-20T19:48:29Z",
       "assignee": null,
-      "thought": "Code generation..."
+      "thought": "System bridge building..."
     },
     {
       "id": "issue-24",
@@ -1138,7 +1543,7 @@
       "createdAt": "2026-03-20T19:48:28Z",
       "updatedAt": "2026-03-20T19:48:28Z",
       "assignee": null,
-      "thought": "Guardrail checking..."
+      "thought": "Safety protocols..."
     },
     {
       "id": "issue-23",
@@ -1148,7 +1553,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "open",
       "stage": "build",
-      "agent": "build-bot",
+      "agent": "pipe-layer",
       "labels": [
         "build",
         "code-crafter",
@@ -1158,7 +1563,7 @@
       "createdAt": "2026-03-20T19:43:31Z",
       "updatedAt": "2026-03-20T19:43:31Z",
       "assignee": null,
-      "thought": "Pipeline flowing..."
+      "thought": "Data pipeline active..."
     },
     {
       "id": "issue-22",
@@ -1168,13 +1573,13 @@
       "body": "## Summary\n\nThis PR implements the zone detail modal feature for Issue #3, allowing users to click on workshop zones/rooms to see full task breakdown.\n\n## Changes Made\n\n### Zone Detail Modal Enhanceme",
       "state": "closed",
       "stage": "research",
-      "agent": "voice-weaver",
+      "agent": "build-bot",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/22",
       "createdAt": "2026-03-20T19:43:21Z",
       "updatedAt": "2026-03-20T19:43:44Z",
       "assignee": null,
-      "thought": "Message resonance..."
+      "thought": "System construction..."
     },
     {
       "id": "issue-21",
@@ -1194,7 +1599,7 @@
       "createdAt": "2026-03-20T19:38:25Z",
       "updatedAt": "2026-03-20T19:38:25Z",
       "assignee": null,
-      "thought": "Automation layer..."
+      "thought": "System bridge building..."
     },
     {
       "id": "issue-20",
@@ -1204,7 +1609,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "open",
       "stage": "build",
-      "agent": "code-crafter",
+      "agent": "build-bot",
       "labels": [
         "build",
         "code-crafter",
@@ -1214,7 +1619,7 @@
       "createdAt": "2026-03-20T19:33:27Z",
       "updatedAt": "2026-03-20T19:40:02Z",
       "assignee": null,
-      "thought": "Feature building..."
+      "thought": "Automation building..."
     },
     {
       "id": "issue-19",
@@ -1224,13 +1629,13 @@
       "body": "- Replace console.log with actual GitHub API call to create issues\r\n- POST to GitHub API with proper title format: [WORK REQUEST] {title}\r\n- Body includes: requesting agent, target agent, priority, zo",
       "state": "closed",
       "stage": "research",
-      "agent": "map-maker",
+      "agent": "build-bot",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/19",
       "createdAt": "2026-03-20T17:44:28Z",
       "updatedAt": "2026-03-20T17:44:40Z",
       "assignee": null,
-      "thought": "Launch sequence..."
+      "thought": "Infrastructure growing..."
     },
     {
       "id": "issue-18",
@@ -1246,7 +1651,7 @@
       "createdAt": "2026-03-20T16:48:51Z",
       "updatedAt": "2026-03-20T16:49:37Z",
       "assignee": null,
-      "thought": "Memetics in motion..."
+      "thought": "Growing the legend..."
     },
     {
       "id": "issue-17",
@@ -1272,13 +1677,13 @@
       "body": "## Summary\nImplements Issue #3: BUILD: Implement zone detail modal - click zones to expand task details\n\n## Changes Made\n- Added click handlers to zone elements\n- Created modal component with smooth o",
       "state": "open",
       "stage": "research",
-      "agent": "voice-weaver",
+      "agent": "data-diver",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/16",
       "createdAt": "2026-03-16T19:58:49Z",
       "updatedAt": "2026-03-16T20:01:24Z",
       "assignee": null,
-      "thought": "Tone calibration..."
+      "thought": "Diving deep into data..."
     },
     {
       "id": "issue-15",
@@ -1288,13 +1693,13 @@
       "body": "## Changes\\n\\n- New orchestrator that spawns OpenClaw sessions with correct models\\n- Researcher ? minimax-m2.5:cloud\\n- Designer ? kimi-k2.5:cloud\\n- Developer ? qwen3:8b\\n- etc.\\n\\nEach agent produc",
       "state": "closed",
       "stage": "research",
-      "agent": "sketch-bot",
+      "agent": "voice-weaver",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/15",
       "createdAt": "2026-03-16T17:49:57Z",
       "updatedAt": "2026-03-16T17:50:06Z",
       "assignee": null,
-      "thought": "UI components crafting..."
+      "thought": "Narrative threading..."
     },
     {
       "id": "issue-14",
@@ -1304,13 +1709,13 @@
       "body": "## ?? ?? Designer Agent - Enhanced Design Specification\n\n**Issue:** #11 - Project AETHER\n\nThis is an enhanced design specification with comprehensive technical details:\n\n- 5-layer system architecture ",
       "state": "closed",
       "stage": "research",
-      "agent": "pattern-seeker",
+      "agent": "build-bot",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/14",
       "createdAt": "2026-03-15T21:48:38Z",
       "updatedAt": "2026-03-15T22:02:51Z",
       "assignee": null,
-      "thought": "Found viral pattern!"
+      "thought": "Code architecture..."
     },
     {
       "id": "issue-13",
@@ -1326,7 +1731,7 @@
       "createdAt": "2026-03-15T21:43:50Z",
       "updatedAt": "2026-03-15T22:02:33Z",
       "assignee": null,
-      "thought": "Code architecture..."
+      "thought": "Infrastructure growing..."
     },
     {
       "id": "issue-12",
@@ -1336,13 +1741,13 @@
       "body": "## ?? ?? Researcher - Real Work Completed\n\n**Issue:** #11 - EPIC: Project AETHER - Solana-Forked Blockchain for AI Technology\n**Directive:** Study the task, research solutions, document findings. Lear",
       "state": "closed",
       "stage": "research",
-      "agent": "sketch-bot",
+      "agent": "pipe-layer",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/12",
       "createdAt": "2026-03-15T20:17:51Z",
       "updatedAt": "2026-03-15T20:34:05Z",
       "assignee": null,
-      "thought": "Pixel art rendering..."
+      "thought": "Data pipeline active..."
     },
     {
       "id": "issue-11",
@@ -1381,13 +1786,13 @@
       "body": "## Summary\n\nThis PR implements:\n- ? Zone Detail Modal (Issue #3)\n- ? Agent Work Request System (Issue #4)\n- ?? Pixel Art Generation Script (Issue #2 - partial)\n\n## Changes\n\n### Zone Detail Modal\n- Cli",
       "state": "closed",
       "stage": "research",
-      "agent": "data-diver",
+      "agent": "voice-weaver",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/10",
       "createdAt": "2026-03-15T18:35:41Z",
       "updatedAt": "2026-03-20T19:54:41Z",
       "assignee": null,
-      "thought": "Pattern detection active..."
+      "thought": "Crafting brand voice..."
     },
     {
       "id": "issue-9",
@@ -1408,7 +1813,7 @@
       "createdAt": "2026-02-23T16:56:09Z",
       "updatedAt": "2026-03-16T20:45:14Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Market research ongoing..."
+      "thought": "Pattern detection active..."
     },
     {
       "id": "issue-8",
@@ -1427,7 +1832,7 @@
       "createdAt": "2026-02-22T22:01:46Z",
       "updatedAt": "2026-02-23T22:10:09Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Community gravity forming..."
+      "thought": "Memetics in motion..."
     },
     {
       "id": "issue-7",
@@ -1448,7 +1853,7 @@
       "createdAt": "2026-02-22T14:47:47Z",
       "updatedAt": "2026-02-22T20:11:45Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Analyzing trends..."
+      "thought": "Pattern detection active..."
     },
     {
       "id": "issue-6",
@@ -1491,9 +1896,9 @@
       ],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/4",
       "createdAt": "2026-02-16T20:43:15Z",
-      "updatedAt": "2026-03-20T23:07:16Z",
+      "updatedAt": "2026-03-21T19:33:23Z",
       "assignee": null,
-      "thought": "Infrastructure growing..."
+      "thought": "Pipeline flowing..."
     },
     {
       "id": "issue-3",
@@ -1513,9 +1918,9 @@
       ],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/3",
       "createdAt": "2026-02-16T20:43:14Z",
-      "updatedAt": "2026-03-20T23:07:17Z",
+      "updatedAt": "2026-03-21T19:33:24Z",
       "assignee": null,
-      "thought": "Logic weaving..."
+      "thought": "Implementation coding..."
     },
     {
       "id": "issue-2",
@@ -1534,9 +1939,9 @@
       ],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/2",
       "createdAt": "2026-02-16T20:43:14Z",
-      "updatedAt": "2026-03-20T23:07:18Z",
+      "updatedAt": "2026-03-21T19:33:25Z",
       "assignee": null,
-      "thought": "Viral mechanics study..."
+      "thought": "Diving deep into data..."
     },
     {
       "id": "issue-1",
@@ -1556,7 +1961,7 @@
       "createdAt": "2026-02-16T20:43:13Z",
       "updatedAt": "2026-03-15T18:16:06Z",
       "assignee": null,
-      "thought": "Market research ongoing..."
+      "thought": "Viral mechanics study..."
     },
     {
       "id": "pr-22",
@@ -1566,13 +1971,13 @@
       "body": "## Summary\n\nThis PR implements the zone detail modal feature for Issue #3, allowing users to click on workshop zones/rooms to see full task breakdown.\n\n## Changes Made\n\n### Zone Detail Modal Enhanceme",
       "state": "closed",
       "stage": "deploy",
-      "agent": "launch-pad",
+      "agent": "data-diver",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/22",
       "createdAt": "2026-03-20T19:43:21Z",
       "updatedAt": "2026-03-20T19:43:44Z",
       "draft": false,
-      "thought": "Ready for deploy!"
+      "thought": "Diving deep into data..."
     },
     {
       "id": "pr-19",
@@ -1582,13 +1987,13 @@
       "body": "- Replace console.log with actual GitHub API call to create issues\r\n- POST to GitHub API with proper title format: [WORK REQUEST] {title}\r\n- Body includes: requesting agent, target agent, priority, zo",
       "state": "closed",
       "stage": "deploy",
-      "agent": "launch-pad",
+      "agent": "jelly-legs",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/19",
       "createdAt": "2026-03-20T17:44:28Z",
       "updatedAt": "2026-03-20T17:44:40Z",
       "draft": false,
-      "thought": "Release sequence..."
+      "thought": "Community gravity forming..."
     },
     {
       "id": "pr-18",
@@ -1604,7 +2009,7 @@
       "createdAt": "2026-03-20T16:48:51Z",
       "updatedAt": "2026-03-20T16:49:37Z",
       "draft": false,
-      "thought": "Community gravity forming..."
+      "thought": "Memetics in motion..."
     },
     {
       "id": "pr-17",
@@ -1614,13 +2019,13 @@
       "body": "## Summary\n\nThis PR sets up the initial project structure for the AETHER blockchain fork from Agave (Solana's Rust core).\n\n## Changes\n\n- Created 5-layer modular architecture:\n  - `aether-core`: Core t",
       "state": "closed",
       "stage": "deploy",
-      "agent": "code-crafter",
+      "agent": "build-bot",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/17",
       "createdAt": "2026-03-16T21:46:47Z",
       "updatedAt": "2026-03-16T21:55:45Z",
       "draft": false,
-      "thought": "Logic weaving..."
+      "thought": "Pipeline flowing..."
     },
     {
       "id": "pr-16",
@@ -1630,13 +2035,13 @@
       "body": "## Summary\nImplements Issue #3: BUILD: Implement zone detail modal - click zones to expand task details\n\n## Changes Made\n- Added click handlers to zone elements\n- Created modal component with smooth o",
       "state": "open",
       "stage": "build",
-      "agent": "voice-weaver",
+      "agent": "pattern-seeker",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/16",
       "createdAt": "2026-03-16T19:58:49Z",
       "updatedAt": "2026-03-16T20:01:24Z",
       "draft": false,
-      "thought": "Crafting brand voice..."
+      "thought": "Signal in the noise..."
     },
     {
       "id": "pr-15",
@@ -1646,13 +2051,13 @@
       "body": "## Changes\\n\\n- New orchestrator that spawns OpenClaw sessions with correct models\\n- Researcher ? minimax-m2.5:cloud\\n- Designer ? kimi-k2.5:cloud\\n- Developer ? qwen3:8b\\n- etc.\\n\\nEach agent produc",
       "state": "closed",
       "stage": "deploy",
-      "agent": "build-bot",
+      "agent": "code-crafter",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/15",
       "createdAt": "2026-03-16T17:49:57Z",
       "updatedAt": "2026-03-16T17:50:06Z",
       "draft": false,
-      "thought": "Pipeline flowing..."
+      "thought": "Function crafting..."
     },
     {
       "id": "pr-14",
@@ -1662,13 +2067,13 @@
       "body": "## ?? ?? Designer Agent - Enhanced Design Specification\n\n**Issue:** #11 - Project AETHER\n\nThis is an enhanced design specification with comprehensive technical details:\n\n- 5-layer system architecture ",
       "state": "closed",
       "stage": "deploy",
-      "agent": "pipe-layer",
+      "agent": "map-maker",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/14",
       "createdAt": "2026-03-15T21:48:38Z",
       "updatedAt": "2026-03-15T22:02:51Z",
       "draft": false,
-      "thought": "Data pipeline active..."
+      "thought": "Milestone mapping..."
     },
     {
       "id": "pr-13",
@@ -1684,7 +2089,7 @@
       "createdAt": "2026-03-15T21:43:50Z",
       "updatedAt": "2026-03-15T22:02:33Z",
       "draft": false,
-      "thought": "Ready for deploy!"
+      "thought": "Go-live pending..."
     },
     {
       "id": "pr-12",
@@ -1694,13 +2099,13 @@
       "body": "## ?? ?? Researcher - Real Work Completed\n\n**Issue:** #11 - EPIC: Project AETHER - Solana-Forked Blockchain for AI Technology\n**Directive:** Study the task, research solutions, document findings. Lear",
       "state": "closed",
       "stage": "deploy",
-      "agent": "data-diver",
+      "agent": "voice-weaver",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/12",
       "createdAt": "2026-03-15T20:17:51Z",
       "updatedAt": "2026-03-15T20:34:05Z",
       "draft": false,
-      "thought": "Analyzing trends..."
+      "thought": "Crafting brand voice..."
     },
     {
       "id": "pr-10",
@@ -1710,24 +2115,24 @@
       "body": "## Summary\n\nThis PR implements:\n- ? Zone Detail Modal (Issue #3)\n- ? Agent Work Request System (Issue #4)\n- ?? Pixel Art Generation Script (Issue #2 - partial)\n\n## Changes\n\n### Zone Detail Modal\n- Cli",
       "state": "closed",
       "stage": "deploy",
-      "agent": "jelly-legs",
+      "agent": "data-diver",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/10",
       "createdAt": "2026-03-15T18:35:41Z",
       "updatedAt": "2026-03-20T19:54:41Z",
       "draft": false,
-      "thought": "Engineering narrative..."
+      "thought": "Viral mechanics study..."
     }
   ],
   "stats": {
-    "totalIssues": 62,
-    "openIssues": 46,
+    "totalIssues": 83,
+    "openIssues": 67,
     "totalPRs": 10,
     "openPRs": 2,
     "recentCommits": 20,
     "recentWorkflows": 10,
-    "activeAgents": 7,
-    "lastUpdate": "2026-03-21T19:02:46.273Z"
+    "activeAgents": 6,
+    "lastUpdate": "2026-03-21T19:34:28.058Z"
   },
-  "timestamp": "2026-03-21T19:02:46.273Z"
+  "timestamp": "2026-03-21T19:34:28.059Z"
 }
