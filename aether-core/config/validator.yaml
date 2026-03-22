@@ -1,0 +1,276 @@
+# ============================================================
+# AETHER VALIDATOR NODE CONFIGURATION
+# Testnet Settings - Project AETHER
+# ============================================================
+# This file configures a validator node for the AETHER
+# mobile-mining blockchain. Edit values as needed for your
+# deployment environment.
+# ============================================================
+
+# ----------------------------------------------------------
+# P2P NETWORKING
+# Handles peer-to-peer communication between nodes
+# ----------------------------------------------------------
+p2p:
+  # Port for incoming P2P connections from other nodes
+  # Default: 26656 (standard Tendermint/CometBFT P2P port)
+  port: 26656
+
+  # List of seed nodes for initial peer discovery
+  # New nodes use these to find other peers on the network
+  # Format: node_id@ip:port
+  seeds:
+    - "aether-seed-1.testnet.aether.network:26656"
+    - "aether-seed-2.testnet.aether.network:26656"
+    - "10.0.1.100:26656"  # Local testnet seed
+
+  # Maximum number of inbound peer connections
+  # Set based on your bandwidth and security requirements
+  max_inbound_peers: 40
+
+  # Maximum number of outbound peer connections
+  outbound_peer_count: 10
+
+  # Enable peer exchange protocol for dynamic peer discovery
+  peer_exchange: true
+
+  # Connection timeout for establishing P2P connections (seconds)
+  connection_timeout: 10
+
+# ----------------------------------------------------------
+# RPC SERVER
+# JSON-RPC API for client applications and wallet integrations
+# ----------------------------------------------------------
+rpc:
+  # Port for RPC server to listen on
+  # Default: 26657 (standard Tendermint/CometBFT RPC port)
+  port: 26657
+
+  # Enable RPC server
+  enabled: true
+
+  # Allowed CORS origins for cross-origin requests
+  # Use ["*"] for development only; restrict in production
+  cors_allowed_origins:
+    - "*"
+
+  # Allowed CORS methods
+  cors_allowed_methods:
+    - "GET"
+    - "POST"
+    - "OPTIONS"
+
+  # Allowed CORS headers
+  cors_allowed_headers:
+    - "Content-Type"
+    - "Authorization"
+    - "X-Requested-With"
+
+  # Maximum number of concurrent RPC subscriptions
+  # Affects WebSocket connections for tx/receipt subscriptions
+  max_open_connections: 100
+
+  # Enable unsafe RPC endpoints (e.g., /unsafe_*)
+  # DANGEROUS: Never enable on public nodes
+  unsafe: false
+
+  # RPC request timeout (seconds)
+  timeout: 30
+
+# ----------------------------------------------------------
+# CONSENSUS SETTINGS
+# Block production and validation parameters
+# ----------------------------------------------------------
+consensus:
+  # Minimum number of active validators required for consensus
+  # Network will pause block production if fewer validators are online
+  min_validators: 4
+
+  # Target block time in milliseconds
+  # Lower = faster transactions, higher = more finality time
+  # 1000ms = 1 second block time
+  block_time_ms: 2000
+
+  # Maximum block size in bytes
+  # Adjust based on expected transaction volume
+  max_block_size_bytes: 10485760  # 10 MB
+
+  # Number of blocks after which a transaction is considered final
+  # With 4+ validators and 2s blocks, 3 confirmations = ~6 seconds
+  blocks_for_finality: 3
+
+  # Enable state sync for fast node initialization
+  state_sync_enabled: true
+
+  # Snapshot interval for state sync (number of blocks)
+  snapshot_interval: 1000
+
+  # Evidence age in blocks (after this, evidence is rejected)
+  max_age_num_blocks: 100000
+
+  # Evidence age in nanoseconds
+  max_age_duration: "172800000000000ns"  # 48 hours
+
+  # Dumping mode for data management
+  pruning: "default"  # Options: default, nothing, everything
+
+  # Target size of the archive in number of blocks (when pruning is on)
+  retain_blocks: 10000
+
+# ----------------------------------------------------------
+# ZK PROVING (Groth16 Zero-Knowledge Proofs)
+# Mobile mining verification using zkSNARKs
+# ----------------------------------------------------------
+zk_proving:
+  # Enable Groth16 proof generation and verification
+  enabled: true
+
+  # Proving mode: "full" (generate proofs) or "verify_only"
+  mode: "full"
+
+  # Key directory for Groth16 proving/verification keys
+  key_path: "./zk/keys"
+
+  # Circuit configuration for mobile mining verification
+  circuit:
+    # Number of constraints in the circuit
+    # Higher = more expressive, slower proving
+    constraints: 1000000
+
+    # Primary input size (public inputs: account, mining hash, nonce)
+    primary_input_size: 64
+
+    # Auxiliary input size (private inputs: solution, salt)
+    auxiliary_input_size: 128
+
+  # Prover settings
+  prover:
+    # Number of parallel prover workers
+    # Match to CPU cores for optimal performance
+    workers: 4
+
+    # Maximum memory per prover in GB
+    max_memory_gb: 16
+
+    # Prove timeout in seconds
+    timeout_seconds: 300
+
+    # Enable proof caching to avoid re-proving identical states
+    cache_enabled: true
+
+    # Cache TTL in seconds
+    cache_ttl_seconds: 3600
+
+  # Verification settings
+  verification:
+    # Number of verification iterations for soundness
+    # Higher = more secure but slower verification
+    verification_iterations: 100
+
+    # Enable batch verification for multiple proofs
+    batch_verification: true
+
+    # Maximum batch size for batch verification
+    max_batch_size: 50
+
+    # Verification timeout in milliseconds
+    timeout_ms: 5000
+
+  # Groth16 proving curve
+  # "bn128" = BN128 (BLS12-381) curve, widely supported
+  curve: "bn128"
+
+  # Powers of Tau ceremony settings
+  powers_of_tau:
+    # Trusted setup phase contribution URL
+    ceremony_url: "https://setup.ceremony.testnet.aether.network"
+
+    # Expected contribution index
+    contribution_index: 42
+
+    # Download trusted setup file if not present
+    auto_download: true
+
+# ----------------------------------------------------------
+# VALIDATOR IDENTITY
+# Node's unique identifier and staking configuration
+# ----------------------------------------------------------
+validator:
+  # Validator's tendermint/CometBFT node ID (base64)
+  node_id: "YOUR_NODE_ID_HERE"
+
+  # Validator's wallet address (bech32 format)
+  wallet_address: "aether1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+  # Validator's public key for consensus (base64)
+  consensus_pubkey: "YOUR_CONSENSUS_PUBKEY_HERE"
+
+  # Validator display name in the block explorer
+  moniker: "your-validator-name"
+
+  # Minimum stake required to be an active validator
+  min_self_stake: "1000000"  # 1 AETHER
+
+  # Self-delegation amount
+  self_delegation: "5000000"  # 5 AETHER
+
+  # Commission rate (0.0 to 1.0)
+  commission_rate: "0.05"  # 5%
+
+  # Maximum commission rate allowed
+  commission_max_rate: "0.20"  # 20%
+
+  # Maximum commission change rate per day
+  commission_max_change_rate: "0.01"  # 1%
+
+# ----------------------------------------------------------
+# MONITORING & LOGGING
+# Observability and debugging settings
+# ----------------------------------------------------------
+monitoring:
+  # Enable Prometheus metrics endpoint
+  prometheus_enabled: true
+
+  # Port for Prometheus metrics
+  prometheus_port: 26660
+
+  # Enable local logging
+  logging_enabled: true
+
+  # Log level: debug, info, warn, error
+  log_level: "info"
+
+  # Log format: json or plain
+  log_format: "json"
+
+  # Path to log file (empty = stdout only)
+  log_file: "./logs/validator.log"
+
+  # Enable pprof profiling server
+  pprof_enabled: false
+
+  # Pprof server port
+  pprof_port: 6060
+
+# ----------------------------------------------------------
+# MOBILE MINING INTEGRATION
+# Settings specific to mobile device mining
+# ----------------------------------------------------------
+mobile_mining:
+  # Enable mobile mining verification
+  enabled: true
+
+  # Minimum hash rate requirement (H/s) for mobile miners
+  min_hash_rate: 1000
+
+  # Maximum accepted share difficulty
+  share_difficulty: "0.0001"
+
+  # Reward multiplier for mobile-mined shares
+  mobile_reward_multiplier: 1.5
+
+  # Heartbeat interval for mobile miners (seconds)
+  heartbeat_interval: 60
+
+  # Mobile miner connection timeout (seconds)
+  connection_timeout: 30
