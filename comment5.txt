@@ -1,0 +1,43 @@
+## 🛡️ SECURITY REVIEW: Project AETHER — Comment 5/5
+
+### RECOMMENDATIONS & REMEDIATION ROADMAP
+
+#### P0 — Fix Immediately (Before Any Production Deployment)
+
+1. **Implement real signature verification** — Current stub allows anyone to forge proofs
+2. **Add server-side proof verification** — Never trust client-submitted work hashes
+3. **Fix reentrancy in compute_token.sol** — Apply Checks-Effects-Interactions pattern
+4. **Fix double-burn bug in aeth_token.sol** — Ensure sufficient balance before both burns
+5. **Add slippage protection to sell_compute()** — Prevent front-running attacks
+
+#### P1 — Fix Before Mainnet
+
+6. **Implement network-wide rate limiting** — Per-instance limits are bypassable
+7. **Replace IP-based detection** — Use device attestation, hardware security modules
+8. **Add server-side timestamps** — Never trust device-provided time for trust scores
+9. **Add per-tx minting caps** — Limit damage from compromised admin keys
+10. **Fix emulator detection** — Use hardware-backed attestation instead of fingerprint strings
+
+#### P2 — Post-Launch Improvements
+
+11. **Implement ZK proofs for computation verification** — Prove actual AI work was done
+12. **Move to fixed-point arithmetic** — Eliminate floating-point in financial calculations
+13. **Implement challenge consumption tracking** — Prevent proof replay attacks
+14. **Add economic anomaly detection** — ML-based detection of unusual reward patterns
+
+#### Suggested Audit Firms
+
+- **Trail of Bits** — DeFi and smart contract security specialists
+- **OpenZeppelin** — Well-known for ERC20 and token contract audits
+- **Consensys Diligence** — Ethereum ecosystem security experts
+- **Runtime Verification** — Formal verification for critical contracts
+
+#### Bug Bounty Program Setup
+
+Recommend establishing a bug bounty via **Immunefi** (industry standard for web3):
+- Critical: $50,000+ USD
+- High: $10,000 - $25,000 USD
+- Medium: $1,000 - $5,000 USD
+- Low: $100 - $500 USD
+
+Focus rewards on: signature forgery, proof faking, reentrancy, token supply manipulation.

@@ -1,0 +1,30 @@
+## 🛡️ SECURITY REVIEW: Project AETHER — Comment 4/5
+
+### MEDIUM FINDINGS (P2) — Additional Vulnerabilities
+
+**11. proof_engine.rs — Difficulty Adjustment Sybil Attack**
+
+```rust
+if i % 1_000_000 == 0 {
+    if difficulty > current_diff + 4 {
+        self.difficulty.fetch_add(1, Ordering::SeqCst);
+    }
+}
+```
+An attacker with many sybil devices can submit easy proofs (low hash quality) to artificially lower network difficulty, then switch to real high-powered devices to mine at advantage.
+
+**12. compute_token.sol — No Maximum Mint per Transaction**
+
+authorizedMinters can mint up to MAX_SUPPLY in a single transaction. No per-tx cap. If owner key is compromised, entire supply minted instantly. Add: `require(amount <= MAX_MINT_PER_TX, "Exceeds per-tx cap");`
+
+**13. reward.rs — Floating Point Precision Issues**
+
+Trust score uses `f64` throughout. Financial calculations with floating point can cause rounding errors and inconsistent reward calculations across platforms. Use fixed-point arithmetic (e.g., Rust's `u64` with basis points) for monetary values.
+
+**14. proof_engine.rs — Challenge Reuse Prevention Missing**
+
+Challenge IDs are stored but never checked against for reuse. A device can potentially replay an old valid proof if the challenge hasn't been purged from the state. Need explicit challenge consumption tracking.
+
+**15. general — No On-Chain Proof Verification**
+
+All proof verification happens off-chain. This means the blockchain has no way to independently validate that rewards were earned honestly. A compromised validator could approve fake proofs. Consider ZK proofs (e.g., Groth16, PLONK) for cryptographic proof of actual computation.

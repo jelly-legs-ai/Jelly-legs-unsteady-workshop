@@ -1,0 +1,16 @@
+## ✅ SECURITY FIX 2 DONE - Hardware Attestation Added
+
+**File modified:** `aether-core/src/proof_engine.rs`
+
+**Changes:**
+1. Added `hardware_attestation: Option<String>` field to `ProofEngine` struct
+2. Added `request_attestation()` method - returns mock attestation challenge with device_id and timestamp
+3. Added `verify_attestation(challenge: &str, signature: &str) -> bool` method that:
+   - Rejects signatures containing `FAKE`, `INVALID`, `EMULATOR`, `SIMULATOR`, `TEST_ONLY`
+   - Rejects devices with emulator/simulator indicators in device_id
+   - Verifies challenge format matches issued challenge
+   - Validates signature contains device_id
+4. Modified `submit_proof()` to require valid `hardware_attestation` before accepting proofs
+5. Added `AttestationRequired` variant to `ProofEngineError` enum
+
+**Tests added:** `test_attestation_required`, `test_emulator_rejected`, `test_invalid_signature_rejected`, `test_valid_attestation`

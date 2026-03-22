@@ -1,0 +1,30 @@
+## Summary
+
+This PR implements the zone detail modal feature for Issue #3, allowing users to click on workshop zones/rooms to see full task breakdown.
+
+## Changes Made
+
+### Zone Detail Modal Enhancement
+- Clickable workshop zones - clicking a room opens the detail modal
+- Shows all active tasks in that zone with filtering (All/Open/Closed/PRs)
+- Displays agent assignments with emoji icons
+- Shows task descriptions, status, and timestamps
+- Create Work Request buttons pre-fill the correct zone
+- Added zone-specific Create Work Request button at bottom of modal
+- Close modal on click outside
+
+### Technical Implementation
+- Enhanced renderZoneContent() to pass zone context to work request modal
+- Updated openWorkRequestModal() to accept optional preselectedZone parameter
+- Added Create Work Request button in zone modal footer
+- Maintains existing dark theme styling
+
+## Testing
+- Click any workshop room in Visual Workshop view
+- Verify modal opens with correct zone name and icon
+- Check task filtering works (All/Open/Closed/PRs tabs)
+- Verify Create Work Request button pre-fills zone
+- Confirm modal closes on overlay click or Escape key
+
+## Related Issue
+Closes #3

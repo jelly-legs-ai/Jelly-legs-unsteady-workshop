@@ -1,0 +1,1729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🪼 Agent Factory v2.0 - Real-Time Dashboard</title>
+    <link rel="stylesheet" href="/theme/dark-red.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --primary: #ff3333;
+            --primary-light: #ff6666;
+            --primary-dark: #cc0000;
+            --bg-dark: #0a0a0a;
+            --bg-card: rgba(26, 26, 26, 0.95);
+            --text: #ffffff;
+            --text-muted: #888888;
+            --border: rgba(255, 51, 51, 0.3);
+        }
+        
+        body {
+            background: var(--bg-dark);
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            color: var(--text);
+        }
+        
+        /* Loading Screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg-dark);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease;
+        }
+        
+        .loading-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .loading-text {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary);
+            text-shadow: 0 0 20px rgba(255, 51, 51, 0.5);
+            margin-bottom: 20px;
+        }
+        
+        .loading-dots {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .loading-dot {
+            width: 12px;
+            height: 12px;
+            background: var(--primary);
+            border-radius: 50%;
+            animation: loadingBounce 1.4s ease-in-out infinite both;
+        }
+        
+        .loading-dot:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dot:nth-child(2) { animation-delay: -0.16s; }
+        
+        @keyframes loadingBounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+        
+        /* Main Container */
+        .factory-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            background: linear-gradient(180deg, #0f0f0f 0%, #1a1a1a 50%, #0f0f0f 100%);
+            overflow: hidden;
+        }
+        
+        /* Grid Floor */
+        .floor {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 50%;
+            background: 
+                linear-gradient(90deg, rgba(255,51,51,0.02) 1px, transparent 1px),
+                linear-gradient(rgba(255,51,51,0.02) 1px, transparent 1px);
+            background-size: 50px 50px;
+            transform: perspective(800px) rotateX(60deg);
+            transform-origin: bottom;
+            pointer-events: none;
+        }
+        
+        /* Header */
+        .header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(180deg, rgba(0,0,0,0.9) 0%, transparent 100%);
+            z-index: 100;
+        }
+        
+        .header-left h1 {
+            font-size: 20px;
+            font-weight: bold;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+        
+        .header-left p {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+        
+        /* Toggle Controls */
+        .view-toggle {
+            display: flex;
+            gap: 10px;
+            background: rgba(0,0,0,0.5);
+            padding: 5px;
+            border-radius: 30px;
+            border: 1px solid var(--border);
+        }
+        
+        .toggle-btn {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-family: inherit;
+            cursor: pointer;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .toggle-btn:hover {
+            color: var(--text);
+        }
+        
+        .toggle-btn.active {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+        }
+        
+        /* Live Indicator */
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            color: #00ff88;
+        }
+        
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: #00ff88;
+            border-radius: 50%;
+            animation: blink 1s ease-in-out infinite;
+            box-shadow: 0 0 10px #00ff88;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
+        /* Stats Panel */
+        .stats-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 15px 20px;
+            font-size: 11px;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            min-width: 180px;
+        }
+        
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 6px;
+        }
+        
+        .stats-row:last-child { margin-bottom: 0; }
+        .stats-label { color: var(--text-muted); }
+        .stats-value { color: var(--primary); font-weight: bold; }
+        
+        /* Zones */
+        .zone {
+            position: absolute;
+            border: 2px solid var(--border);
+            background: var(--bg-card);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        
+        .zone:hover {
+            border-color: rgba(255, 51, 51, 0.6);
+            box-shadow: 0 0 30px rgba(255, 51, 51, 0.2);
+        }
+        
+        .zone-header {
+            padding: 10px 15px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .zone-icon {
+            font-size: 18px;
+        }
+        
+        .zone-title {
+            font-size: 11px;
+            font-weight: bold;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .zone-content {
+            padding: 10px 15px;
+            min-height: 60px;
+        }
+        
+        /* Zone Positions (percent-based for responsiveness) */
+        .zone-research { top: 12%; left: 5%; width: 22%; height: 20%; }
+        .zone-design { top: 12%; left: 39%; width: 22%; height: 20%; }
+        .zone-build { top: 12%; right: 5%; width: 22%; height: 20%; }
+        .zone-security { top: 40%; left: 5%; width: 18%; height: 15%; }
+        .zone-strategy { top: 40%; right: 5%; width: 18%; height: 15%; }
+        .zone-deploy { bottom: 8%; left: 39%; width: 22%; height: 12%; }
+        
+        /* Central Plaza */
+        .central-plaza {
+            position: absolute;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 26%;
+            height: 22%;
+            background: radial-gradient(circle, rgba(255,51,51,0.08) 0%, transparent 70%);
+            border: 2px dashed var(--border);
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .central-plaza .zone-icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+        
+        .central-plaza .zone-title {
+            color: var(--primary-light);
+        }
+        
+        /* Agents */
+        .agent {
+            position: absolute;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 50;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+        }
+        
+        .agent:hover {
+            transform: scale(1.3);
+            z-index: 60;
+        }
+        
+        .agent-avatar {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        .agent:nth-child(2n) .agent-avatar { animation-delay: 0.5s; }
+        .agent:nth-child(3n) .agent-avatar { animation-delay: 1s; }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+        
+        .agent-label {
+            position: absolute;
+            bottom: -22px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 9px;
+            color: var(--text);
+            white-space: nowrap;
+            background: rgba(0,0,0,0.8);
+            padding: 2px 8px;
+            border-radius: 10px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .agent:hover .agent-label {
+            opacity: 1;
+        }
+        
+        /* Speech Bubbles */
+        .speech-bubble {
+            position: absolute;
+            background: var(--bg-card);
+            border: 1px solid var(--primary);
+            border-radius: 12px;
+            padding: 8px 12px;
+            font-size: 10px;
+            color: var(--text);
+            max-width: 160px;
+            min-width: 100px;
+            word-wrap: break-word;
+            opacity: 0;
+            transform: translateY(-10px) scale(0.9);
+            transition: all 0.3s ease;
+            pointer-events: none;
+            z-index: 70;
+            box-shadow: 0 4px 20px rgba(255,51,51,0.3);
+        }
+        
+        .speech-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 6px solid var(--primary);
+        }
+        
+        .speech-bubble.visible {
+            opacity: 1;
+            transform: translateY(-50px) scale(1);
+        }
+        
+        /* Task Cards in Zones */
+        .task-card {
+            background: rgba(255, 51, 51, 0.1);
+            border-left: 3px solid var(--primary);
+            border-radius: 6px;
+            padding: 8px 10px;
+            margin-bottom: 8px;
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .task-card:hover {
+            background: rgba(255, 51, 51, 0.2);
+            transform: translateX(3px);
+        }
+        
+        .task-card.completed {
+            border-left-color: #666;
+            background: rgba(100, 100, 100, 0.1);
+            opacity: 0.6;
+        }
+        
+        .task-title {
+            font-weight: bold;
+            color: var(--text);
+            margin-bottom: 3px;
+        }
+        
+        .task-meta {
+            color: var(--text-muted);
+            font-size: 9px;
+        }
+        
+        /* Connection Lines (SVG overlay) */
+        .connections-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 40;
+        }
+        
+        .connection-line {
+            stroke: rgba(255, 51, 51, 0.3);
+            stroke-width: 1;
+            fill: none;
+            stroke-dasharray: 5, 5;
+            animation: dash 20s linear infinite;
+        }
+        
+        @keyframes dash {
+            to { stroke-dashoffset: -100; }
+        }
+        
+        /* View: Kanban Mode */
+        .kanban-view {
+            display: none;
+            padding: 80px 20px 20px;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        
+        .kanban-board {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .kanban-stage {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            min-width: 280px;
+            max-width: 320px;
+            flex: 1;
+        }
+        
+        .kanban-stage h2 {
+            font-size: 14px;
+            color: var(--primary);
+            margin-bottom: 15px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .zone { font-size: 10px; }
+            .zone-research, .zone-design, .zone-build { width: 28%; }
+        }
+        
+        @media (max-width: 768px) {
+            .factory-view { display: none; }
+            .kanban-view { display: block; }
+            .view-toggle { display: none; }
+            .stats-panel {
+                left: 10px;
+                right: 10px;
+                bottom: 10px;
+            }
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .modal-overlay.visible {
+            display: flex;
+            opacity: 1;
+        }
+        
+        .modal {
+            background: var(--bg-card);
+            border: 1px solid var(--primary);
+            border-radius: 16px;
+            width: 90%;
+            max-width: 650px;
+            max-height: 85vh;
+            overflow: hidden;
+            box-shadow: 0 0 60px rgba(255, 51, 51, 0.3);
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+        
+        .modal-overlay.visible .modal {
+            transform: scale(1);
+        }
+        
+        .modal-header {
+            padding: 20px 25px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, rgba(255, 51, 51, 0.1), transparent);
+        }
+        
+        .modal-header h2 {
+            font-size: 18px;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin: 0;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 28px;
+            cursor: pointer;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        
+        .modal-close:hover {
+            background: rgba(255, 51, 51, 0.2);
+            color: var(--primary);
+        }
+        
+        .modal-body {
+            padding: 25px;
+            overflow-y: auto;
+            max-height: calc(85vh - 80px);
+        }
+        
+        /* Zone Modal Styles */
+        .zone-info {
+            margin-bottom: 25px;
+        }
+        
+        .zone-agents h4 {
+            font-size: 11px;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+        
+        .agent-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .agent-chip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--primary);
+            border-radius: 20px;
+            padding: 8px 14px;
+            font-size: 12px;
+        }
+        
+        .agent-chip .agent-emoji {
+            font-size: 16px;
+        }
+        
+        .agent-chip .agent-name {
+            color: var(--text);
+            font-weight: 500;
+        }
+        
+        .agent-chip .agent-status {
+            font-size: 9px;
+            text-transform: uppercase;
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-left: 4px;
+        }
+        
+        .agent-chip .agent-status.working {
+            background: rgba(0, 255, 136, 0.2);
+            color: #00ff88;
+        }
+        
+        .agent-chip .agent-status.idle {
+            background: rgba(136, 136, 136, 0.2);
+            color: #888;
+        }
+        
+        .zone-tasks-section h4 {
+            font-size: 11px;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .zone-tasks-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .zone-task-card {
+            background: rgba(255, 51, 51, 0.05);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--primary);
+            border-radius: 10px;
+            padding: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .zone-task-card:hover {
+            background: rgba(255, 51, 51, 0.1);
+            border-color: var(--primary);
+            transform: translateX(3px);
+        }
+        
+        .zone-task-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        
+        .zone-task-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+        }
+        
+        .zone-task-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+        
+        .zone-task-meta {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 11px;
+            flex-wrap: wrap;
+        }
+        
+        .zone-task-agent {
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .zone-task-link {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+        
+        .zone-task-link:hover {
+            color: var(--primary-light);
+            text-decoration: underline;
+        }
+        
+        .zone-empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+        }
+        
+        .zone-empty-state .empty-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+        
+        .modal-actions {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: center;
+        }
+        
+        .btn-create-work {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 25px;
+            font-size: 13px;
+            font-family: inherit;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(255, 51, 51, 0.3);
+        }
+        
+        .btn-create-work:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(255, 51, 51, 0.5);
+        }
+        
+        /* Work Request Modal Form Styles */
+        .work-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .form-group label {
+            font-size: 11px;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .form-group label .required {
+            color: var(--primary);
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 15px;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 10px rgba(255, 51, 51, 0.2);
+        }
+        
+        .form-group select option {
+            background: var(--bg-dark);
+            color: var(--text);
+        }
+        
+        .form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .submit-btn {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            font-weight: 600;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .submit-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(255, 51, 51, 0.4);
+        }
+        
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .form-success {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid #00ff88;
+            border-radius: 10px;
+            padding: 30px;
+            color: #00ff88;
+            text-align: center;
+        }
+        
+        .form-success .success-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        
+        .form-success h3 {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        
+        .form-success p {
+            font-size: 13px;
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+        
+        .form-success a {
+            color: #00ff88;
+            text-decoration: underline;
+        }
+        
+        .form-success .btn-secondary {
+            background: transparent;
+            border: 1px solid #00ff88;
+            color: #00ff88;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 12px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .form-success .btn-secondary:hover {
+            background: rgba(0, 255, 136, 0.1);
+        }
+        
+        .form-error {
+            background: rgba(255, 102, 102, 0.1);
+            border: 1px solid #ff6666;
+            border-radius: 10px;
+            padding: 20px;
+            color: #ff6666;
+            text-align: center;
+            margin-top: 15px;
+        }
+        
+        /* Spinner */
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid transparent;
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Floating Work Request Button */
+        .work-request-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            padding: 16px 28px;
+            border-radius: 30px;
+            font-size: 13px;
+            font-family: inherit;
+            font-weight: 600;
+            cursor: pointer;
+            z-index: 200;
+            box-shadow: 0 4px 20px rgba(255, 51, 51, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .work-request-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(255, 51, 51, 0.5);
+        }
+        
+        .work-request-btn::before {
+            content: '+';
+            font-size: 20px;
+            line-height: 1;
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary);
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-text">🪼 Initializing Agent Factory...</div>
+        <div class="loading-dots">
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <h1>Agent Factory v2.0</h1>
+            <p>12-Clawdbot Real-Time Workflow System</p>
+        </div>
+        
+        <div class="view-toggle">
+            <button class="toggle-btn active" onclick="switchView('factory')">🏭 Factory</button>
+            <button class="toggle-btn" onclick="switchView('kanban')">📋 Kanban</button>
+        </div>
+        
+        <div class="live-indicator">
+            <div class="live-dot"></div>
+            <span id="lastUpdate">LIVE</span>
+        </div>
+    </div>
+
+    <!-- Factory View -->
+    <div class="factory-view" id="factoryView">
+        <div class="factory-container">
+            <div class="floor"></div>
+            
+            <!-- SVG for connection lines -->
+            <svg class="connections-svg" id="connectionsSvg"></svg>
+            
+            <!-- Zones -->
+            <div class="zone zone-research" onclick="openZoneModal('research')">
+                <div class="zone-header">
+                    <span class="zone-icon">🔬</span>
+                    <span class="zone-title">Research Lab</span>
+                </div>
+                <div class="zone-content" id="zone-research"></div>
+            </div>
+            
+            <div class="zone zone-design" onclick="openZoneModal('design')">
+                <div class="zone-header">
+                    <span class="zone-icon">✏️</span>
+                    <span class="zone-title">Design Studio</span>
+                </div>
+                <div class="zone-content" id="zone-design"></div>
+            </div>
+            
+            <div class="zone zone-build" onclick="openZoneModal('build')">
+                <div class="zone-header">
+                    <span class="zone-icon">⚙️</span>
+                    <span class="zone-title">Build Factory</span>
+                </div>
+                <div class="zone-content" id="zone-build"></div>
+            </div>
+            
+            <div class="zone zone-security" onclick="openZoneModal('security')">
+                <div class="zone-header">
+                    <span class="zone-icon">🔒</span>
+                    <span class="zone-title">Security</span>
+                </div>
+                <div class="zone-content" id="zone-security"></div>
+            </div>
+            
+            <div class="zone zone-strategy" onclick="openZoneModal('strategy')">
+                <div class="zone-header">
+                    <span class="zone-icon">📊</span>
+                    <span class="zone-title">Strategy</span>
+                </div>
+                <div class="zone-content" id="zone-strategy"></div>
+            </div>
+            
+            <div class="zone zone-deploy" onclick="openZoneModal('deploy')">
+                <div class="zone-header">
+                    <span class="zone-icon">🚀</span>
+                    <span class="zone-title">Deploy Pad</span>
+                </div>
+                <div class="zone-content" id="zone-deploy"></div>
+            </div>
+            
+            <!-- Central Plaza -->
+            <div class="central-plaza" id="zone-plaza">
+                <span class="zone-icon">🌳</span>
+                <span class="zone-title">Social Plaza</span>
+            </div>
+            
+            <!-- Agents Container -->
+            <div id="agentsContainer"></div>
+            
+            <!-- Stats Panel -->
+            <div class="stats-panel">
+                <div class="stats-row">
+                    <span class="stats-label">Active Tasks:</span>
+                    <span class="stats-value" id="statTasks">-</span>
+                </div>
+                <div class="stats-row">
+                    <span class="stats-label">Agents Online:</span>
+                    <span class="stats-value" id="statAgents">-</span>
+                </div>
+                <div class="stats-row">
+                    <span class="stats-label">Open Issues:</span>
+                    <span class="stats-value" id="statIssues">-</span>
+                </div>
+                <div class="stats-row">
+                    <span class="stats-label">Last Update:</span>
+                    <span class="stats-value" id="statTime">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kanban View -->
+    <div class="kanban-view" id="kanbanView">
+        <div class="kanban-board" id="kanbanBoard">
+            <!-- Kanban columns will be populated here -->
+        </div>
+    </div>
+
+    <!-- Zone Detail Modal -->
+    <div class="modal-overlay" id="zoneModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="zoneModalTitle">Zone Details</h2>
+                <button class="modal-close" onclick="closeZoneModal()">×</button>
+            </div>
+            <div class="modal-body" id="zoneModalBody"></div>
+        </div>
+    </div>
+
+    <!-- Work Request Modal -->
+    <div class="modal-overlay" id="workRequestModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>📝 Create Work Request</h2>
+                <button class="modal-close" onclick="closeWorkRequestModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="workRequestForm" class="work-form">
+                    <div class="form-group">
+                        <label for="workAgent">Target Agent <span class="required">*</span></label>
+                        <select id="workAgent" name="agent" required>
+                            <option value="">Select an agent...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="workTitle">Task Title <span class="required">*</span></label>
+                        <input type="text" id="workTitle" name="title" placeholder="e.g., Implement GitHub API integration" required>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="workZone">Zone/Stage <span class="required">*</span></label>
+                            <select id="workZone" name="zone" required>
+                                <option value="">Select zone...</option>
+                                <option value="research">🤿 Research</option>
+                                <option value="design">🎨 Design</option>
+                                <option value="build">⚙️ Build</option>
+                                <option value="security">🛡️ Security</option>
+                                <option value="strategy">🗺️ Strategy</option>
+                                <option value="deploy">🚀 Deploy</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="workPriority">Priority <span class="required">*</span></label>
+                            <select id="workPriority" name="priority" required>
+                                <option value="p3-low">🟢 P3 Low</option>
+                                <option value="p2-normal" selected>🟡 P2 Normal</option>
+                                <option value="p1-high">🔴 P1 High</option>
+                                <option value="p0-critical">🚨 P0 Critical</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="workDescription">Description <span class="required">*</span></label>
+                        <textarea id="workDescription" name="description" placeholder="Describe the task in detail. Include acceptance criteria, context, and any relevant links." required></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="workLabels">Labels (comma-separated)</label>
+                        <input type="text" id="workLabels" name="labels" placeholder="e.g., enhancement, urgent, build">
+                    </div>
+                    
+                    <button type="submit" class="submit-btn" id="submitWorkBtn">
+                        <span>🚀 Create Work Request</span>
+                    </button>
+                </form>
+                
+                <div id="formSuccess" class="form-success" style="display: none;">
+                    <div class="success-icon">✅</div>
+                    <h3>Work Request Created!</h3>
+                    <p id="successMessage">Your task has been assigned to the agent.</p>
+                    <button class="btn-secondary" onclick="resetWorkRequestForm()">Create Another</button>
+                </div>
+                
+                <div id="formError" class="form-error" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Work Request Button -->
+    <button class="work-request-btn" onclick="openWorkRequestModal()">Request Work</button>
+
+    <script src="dashboard-config.js"></script>
+    <script>
+        // Dashboard State
+        let dashboardState = null;
+        let currentView = 'factory';
+        let speechBubbleInterval = null;
+
+        // GitHub configuration
+        const GITHUB_CONFIG = {
+            repo: window.DASHBOARD_CONFIG?.GITHUB_REPO || 'jelly-legs-ai/Jelly-legs-unsteady-workshop',
+            token: window.DASHBOARD_CONFIG?.GITHUB_TOKEN || '',
+            apiBase: 'https://api.github.com'
+        };
+
+        // Zone names mapping
+        const zoneNames = {
+            'research': '🔬 Research Lab',
+            'design': '✏️ Design Studio',
+            'build': '⚙️ Build Factory',
+            'security': '🔒 Security Zone',
+            'strategy': '📊 Strategy Room',
+            'deploy': '🚀 Deploy Pad',
+            'plaza': '🌳 Social Plaza'
+        };
+
+        // Zone icons mapping
+        const zoneIcons = {
+            'research': '🤿',
+            'design': '🎨',
+            'build': '⚙️',
+            'security': '🛡️',
+            'strategy': '🗺️',
+            'deploy': '🚀'
+        };
+
+        // Fetch dashboard data
+        async function loadDashboardData() {
+            try {
+                const response = await fetch('data/dashboard-state.json');
+                if (!response.ok) throw new Error('Failed to fetch dashboard data');
+                dashboardState = await response.json();
+                renderDashboard();
+                hideLoadingScreen();
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+                loadDemoData();
+            }
+        }
+
+        // Demo data for fallback
+        function loadDemoData() {
+            dashboardState = {
+                agents: {
+                    'jelly-legs': { id: 'jelly-legs', name: 'Jelly-Legs', emoji: '🪼', role: 'Marketing Commander', color: '#ff3333', position: { x: 45, y: 45 }, status: 'working', currentTask: null },
+                    'data-diver': { id: 'data-diver', name: 'Data-Diver', emoji: '🤿', role: 'Research Lead', color: '#3366ff', position: { x: 12, y: 18 }, status: 'working', currentTask: null },
+                    'pattern-seeker': { id: 'pattern-seeker', name: 'Pattern-Seeker', emoji: '🔮', role: 'Trend Analyst', color: '#9933ff', position: { x: 18, y: 20 }, status: 'idle', currentTask: null },
+                    'sketch-bot': { id: 'sketch-bot', name: 'Sketch-Bot', emoji: '🎨', role: 'Design Architect', color: '#ff66cc', position: { x: 45, y: 18 }, status: 'working', currentTask: null },
+                    'voice-weaver': { id: 'voice-weaver', name: 'Voice-Weaver', emoji: '🎭', role: 'Brand Voice', color: '#ff9933', position: { x: 52, y: 20 }, status: 'idle', currentTask: null },
+                    'hook-maker': { id: 'hook-maker', name: 'Hook-Maker', emoji: '🪝', role: 'Viral Engineer', color: '#ffcc00', position: { x: 38, y: 22 }, status: 'idle', currentTask: null },
+                    'build-bot': { id: 'build-bot', name: 'Build-Bot', emoji: '⚙️', role: 'System Developer', color: '#33cc33', position: { x: 75, y: 18 }, status: 'working', currentTask: null },
+                    'pipe-layer': { id: 'pipe-layer', name: 'Pipe-Layer', emoji: '🧩', role: 'Pipeline Engineer', color: '#33cccc', position: { x: 82, y: 22 }, status: 'idle', currentTask: null },
+                    'code-crafter': { id: 'code-crafter', name: 'Code-Crafter', emoji: '💻', role: 'Implementation', color: '#66ff66', position: { x: 88, y: 18 }, status: 'working', currentTask: null },
+                    'shield-bot': { id: 'shield-bot', name: 'Shield-Bot', emoji: '🛡️', role: 'Security Guard', color: '#999999', position: { x: 10, y: 45 }, status: 'idle', currentTask: null },
+                    'map-maker': { id: 'map-maker', name: 'Map-Maker', emoji: '🗺️', role: 'Strategy Lead', color: '#6666ff', position: { x: 80, y: 45 }, status: 'working', currentTask: null },
+                    'launch-pad': { id: 'launch-pad', name: 'Launch-Pad', emoji: '🚀', role: 'Deployment Chief', color: '#ffcc00', position: { x: 48, y: 78 }, status: 'idle', currentTask: null }
+                },
+                tasks: [
+                    { id: 'demo-1', type: 'issue', number: 1, title: 'Research: Solana Meme Viral Patterns', stage: 'research', agent: 'data-diver', state: 'open', body: 'Analyzing viral patterns in Solana meme coins.', createdAt: new Date().toISOString(), labels: ['research'] },
+                    { id: 'demo-2', type: 'issue', number: 2, title: 'Design: Agent Avatar Sprites', stage: 'design', agent: 'sketch-bot', state: 'open', body: 'Create pixel art sprites for all 12 agents.', createdAt: new Date().toISOString(), labels: ['design', 'build'] },
+                    { id: 'demo-3', type: 'issue', number: 3, title: 'Build: GitHub API Bridge', stage: 'build', agent: 'build-bot', state: 'open', body: 'Implement API integration for GitHub.', createdAt: new Date().toISOString(), labels: ['build'] },
+                    { id: 'demo-4', type: 'issue', number: 4, title: 'Strategy: Launch Timeline', stage: 'strategy', agent: 'map-maker', state: 'open', body: 'Plan launch sequence and timeline.', createdAt: new Date().toISOString(), labels: ['strategy'] },
+                    { id: 'demo-5', type: 'issue', number: 5, title: 'Security: Risk Assessment', stage: 'security', agent: 'shield-bot', state: 'open', body: 'Security review and risk assessment.', createdAt: new Date().toISOString(), labels: ['security'] }
+                ],
+                stats: { totalIssues: 5, openIssues: 5, activeAgents: 12, lastUpdate: new Date().toISOString() },
+                timestamp: new Date().toISOString()
+            };
+            renderDashboard();
+            hideLoadingScreen();
+        }
+
+        // Render the dashboard
+        function renderDashboard() {
+            if (!dashboardState) return;
+            
+            if (currentView === 'factory') {
+                renderFactoryView();
+            } else {
+                renderKanbanView();
+            }
+            
+            updateStats();
+        }
+
+        // Render Factory View
+        function renderFactoryView() {
+            const container = document.getElementById('agentsContainer');
+            container.innerHTML = '';
+            
+            // Clear zone contents
+            ['research', 'design', 'build', 'security', 'strategy', 'deploy'].forEach(zone => {
+                document.getElementById(`zone-${zone}`).innerHTML = '';
+            });
+            
+            // Render agents
+            Object.values(dashboardState.agents).forEach(agent => {
+                const agentEl = document.createElement('div');
+                agentEl.className = 'agent';
+                agentEl.style.left = agent.position.x + '%';
+                agentEl.style.top = agent.position.y + '%';
+                agentEl.id = `agent-${agent.id}`;
+                
+                agentEl.innerHTML = `
+                    <span class="agent-avatar">${agent.emoji}</span>
+                    <span class="agent-label">${agent.name}</span>
+                    <div class="speech-bubble" id="bubble-${agent.id}">${agent.currentTask?.thought || 'Idle...'}</div>
+                `;
+                
+                agentEl.onclick = () => showAgentDetails(agent);
+                container.appendChild(agentEl);
+            });
+            
+            // Render tasks in zones
+            dashboardState.tasks.forEach(task => {
+                if (task.state === 'open') {
+                    const zoneEl = document.getElementById(`zone-${task.stage}`);
+                    if (zoneEl) {
+                        const taskEl = document.createElement('div');
+                        taskEl.className = 'task-card';
+                        taskEl.innerHTML = `
+                            <div class="task-title">${task.title.substring(0, 40)}${task.title.length > 40 ? '...' : ''}</div>
+                            <div class="task-meta">${dashboardState.agents[task.agent]?.emoji || '🤖'} ${task.agent.replace('-', ' ')}</div>
+                        `;
+                        zoneEl.appendChild(taskEl);
+                    }
+                }
+            });
+        }
+
+        // Render Kanban View
+        function renderKanbanView() {
+            const board = document.getElementById('kanbanBoard');
+            board.innerHTML = '';
+            
+            const stages = ['research', 'design', 'build', 'security', 'strategy', 'deploy'];
+            const stageNames = {
+                'research': 'Stage 1 — Research',
+                'design': 'Stage 2 — Design',
+                'build': 'Stage 3 — Build',
+                'security': 'Security Review',
+                'strategy': 'Strategy Room',
+                'deploy': 'Stage 4 — Deploy'
+            };
+            
+            stages.forEach(stage => {
+                const stageTasks = dashboardState.tasks.filter(t => t.stage === stage && t.state === 'open');
+                
+                const column = document.createElement('div');
+                column.className = 'kanban-stage';
+                column.innerHTML = `
+                    <h2>${stageNames[stage]}</h2>
+                    ${stageTasks.map(task => `
+                        <div class="task-card" onclick="window.open('${task.url || '#'}', '_blank')">
+                            <div class="task-title">${task.title}</div>
+                            <div class="task-meta">${dashboardState.agents[task.agent]?.emoji || '🤖'} ${dashboardState.agents[task.agent]?.name || task.agent}</div>
+                        </div>
+                    `).join('')}
+                    ${stageTasks.length === 0 ? '<div style="color: #666; text-align: center; padding: 20px;">No active tasks</div>' : ''}
+                `;
+                
+                board.appendChild(column);
+            });
+        }
+
+        // Update statistics
+        function updateStats() {
+            if (!dashboardState?.stats) return;
+            
+            document.getElementById('statTasks').textContent = dashboardState.stats.openIssues || '-';
+            document.getElementById('statAgents').textContent = `${dashboardState.stats.activeAgents || 0}/12`;
+            document.getElementById('statIssues').textContent = dashboardState.stats.openIssues || '-';
+            
+            const updateTime = dashboardState.timestamp ? new Date(dashboardState.timestamp).toLocaleTimeString() : '-';
+            document.getElementById('statTime').textContent = updateTime;
+        }
+
+        // Switch between views
+        function switchView(view) {
+            currentView = view;
+            
+            document.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            if (view === 'factory') {
+                document.getElementById('factoryView').style.display = 'block';
+                document.getElementById('kanbanView').style.display = 'none';
+            } else {
+                document.getElementById('factoryView').style.display = 'none';
+                document.getElementById('kanbanView').style.display = 'block';
+            }
+            
+            renderDashboard();
+        }
+
+        // Show speech bubbles randomly
+        function startSpeechBubbles() {
+            speechBubbleInterval = setInterval(() => {
+                if (!dashboardState?.tasks) return;
+                
+                const activeTasks = dashboardState.tasks.filter(t => t.state === 'open' && t.thought);
+                if (activeTasks.length === 0) return;
+                
+                const randomTask = activeTasks[Math.floor(Math.random() * activeTasks.length)];
+                const bubble = document.getElementById(`bubble-${randomTask.agent}`);
+                
+                if (bubble) {
+                    document.querySelectorAll('.speech-bubble').forEach(b => b.classList.remove('visible'));
+                    bubble.textContent = randomTask.thought;
+                    bubble.classList.add('visible');
+                    
+                    setTimeout(() => {
+                        bubble.classList.remove('visible');
+                    }, 4000);
+                }
+            }, 3000);
+        }
+
+        // Show agent details
+        function showAgentDetails(agent) {
+            const task = dashboardState.tasks.find(t => t.agent === agent.id && t.state === 'open');
+            console.log(task ? `${agent.name}: ${task.thought || task.title}` : `${agent.name} is idle`);
+        }
+
+        // Zone Modal Functions
+        function openZoneModal(zone) {
+            const modal = document.getElementById('zoneModal');
+            const titleEl = document.getElementById('zoneModalTitle');
+            const bodyEl = document.getElementById('zoneModalBody');
+            
+            titleEl.textContent = zoneNames[zone] || zone;
+            
+            // Get agents in this zone
+            const zoneAgents = Object.values(dashboardState.agents).filter(a => 
+                a.zones?.includes(zone) || a.zones?.includes('all')
+            );
+            
+            // Get tasks in this zone
+            const zoneTasks = dashboardState.tasks.filter(t => t.stage === zone);
+            const openTasks = zoneTasks.filter(t => t.state === 'open');
+            
+            let html = '<div class="zone-info">';
+            
+            // Show agents in zone
+            if (zoneAgents.length > 0) {
+                html += '<div class="zone-agents"><h4>Agents in Zone</h4><div class="agent-chips">';
+                zoneAgents.forEach(agent => {
+                    html += `
+                        <div class="agent-chip">
+                            <span class="agent-emoji">${agent.emoji}</span>
+                            <span class="agent-name">${agent.name}</span>
+                            <span class="agent-status ${agent.status}">${agent.status}</span>
+                        </div>
+                    `;
+                });
+                html += '</div></div>';
+            }
+            
+            html += '</div>';
+            
+            // Show tasks
+            html += '<div class="zone-tasks-section"><h4>Active Tasks</h4><div class="zone-tasks-list">';
+            
+            if (openTasks.length === 0) {
+                html += `
+                    <div class="zone-empty-state">
+                        <div class="empty-icon">📭</div>
+                        <p>No active tasks in this zone.</p>
+                        <p class="empty-hint">Click "Request Work" to create a new task!</p>
+                    </div>
+                `;
+            } else {
+                openTasks.forEach(task => {
+                    const agent = dashboardState.agents[task.agent];
+                    html += `
+                        <div class="zone-task-card">
+                            <div class="zone-task-header">
+                                <span class="zone-task-title">${task.title}</span>
+                            </div>
+                            <div class="zone-task-desc">${task.body ? task.body.substring(0, 150) + (task.body.length > 150 ? '...' : '') : 'No description'}</div>
+                            <div class="zone-task-meta">
+                                <span class="zone-task-agent">${agent?.emoji || '🤖'} ${agent?.name || task.agent}</span>
+                                <span class="zone-task-time">📅 ${new Date(task.createdAt).toLocaleDateString()}</span>
+                                ${task.url ? `<a href="${task.url}" target="_blank" class="zone-task-link">View on GitHub →</a>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            
+            html += '</div></div>';
+            
+            // Add "Create Work Request" button
+            html += `
+                <div class="modal-actions">
+                    <button class="btn-create-work" onclick="openWorkRequestModal('${zone}')">
+                        <span>+</span>
+                        <span>Create Work Request</span>
+                    </button>
+                </div>
+            `;
+            
+            bodyEl.innerHTML = html;
+            modal.classList.add('visible');
+        }
+        
+        function closeZoneModal() {
+            document.getElementById('zoneModal').classList.remove('visible');
+        }
+
+        // Work Request Modal Functions
+        function openWorkRequestModal(preselectedZone = null) {
+            const modal = document.getElementById('workRequestModal');
+            const form = document.getElementById('workRequestForm');
+            const agentSelect = document.getElementById('workAgent');
+            const zoneSelect = document.getElementById('workZone');
+            
+            // Reset form state
+            form.style.display = 'flex';
+            document.getElementById('formSuccess').style.display = 'none';
+            document.getElementById('formError').style.display = 'none';
+            form.reset();
+            
+            // Populate agent dropdown with all 12 agents
+            agentSelect.innerHTML = '<option value="">Select an agent...</option>';
+            if (dashboardState?.agents) {
+                Object.values(dashboardState.agents).forEach(agent => {
+                    const option = document.createElement('option');
+                    option.value = agent.id;
+                    option.innerHTML = `${agent.emoji} ${agent.name} — ${agent.role}`;
+                    agentSelect.appendChild(option);
+                });
+            }
+            
+            // Preselect zone if provided
+            if (preselectedZone && zoneSelect) {
+                zoneSelect.value = preselectedZone;
+            }
+            
+            modal.classList.add('visible');
+        }
+        
+        function closeWorkRequestModal() {
+            document.getElementById('workRequestModal').classList.remove('visible');
+        }
+        
+        function resetWorkRequestForm() {
+            document.getElementById('workRequestForm').style.display = 'flex';
+            document.getElementById('formSuccess').style.display = 'none';
+            document.getElementById('formError').style.display = 'none';
+            document.getElementById('workRequestForm').reset();
+        }
+
+        // Handle work request submission
+        document.getElementById('workRequestForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submitWorkBtn');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<div class="spinner"></div> Creating...';
+            
+            const targetAgent = document.getElementById('workAgent').value;
+            const taskTitle = document.getElementById('workTitle').value;
+            const taskZone = document.getElementById('workZone').value;
+            const taskPriority = document.getElementById('workPriority').value;
+            const taskDescription = document.getElementById('workDescription').value;
+            const taskLabels = document.getElementById('workLabels').value;
+            
+            // Get agent info
+            const agent = dashboardState.agents[targetAgent];
+            
+            // Build labels array
+            const labels = ['build'];
+            if (taskLabels) {
+                labels.push(...taskLabels.split(',').map(l => l.trim()).filter(l => l));
+            }
+            labels.push(taskPriority, taskZone, `agent-${targetAgent}`);
+            
+            try {
+                // Check if GitHub token is available
+                if (!GITHUB_CONFIG.token) {
+                    // Demo mode - simulate successful creation
+                    console.log('Demo mode: Simulating GitHub issue creation');
+                    await simulateGitHubIssueCreation({
+                        targetAgent, taskTitle, taskZone, taskPriority, taskDescription, labels, agent
+                    });
+                } else {
+                    // Real GitHub API call
+                    await createGitHubIssue({
+                        targetAgent, taskTitle, taskZone, taskPriority, taskDescription, labels, agent
+                    });
+                }
+                
+            } catch (error) {
+                console.error('Error creating work request:', error);
+                document.getElementById('formError').textContent = 'Error: ' + error.message;
+                document.getElementById('formError').style.display = 'block';
+            }
+            
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        });
+
+        // Simulate GitHub issue creation (demo mode)
+        async function simulateGitHubIssueCreation({ targetAgent, taskTitle, taskZone, taskPriority, taskDescription, labels, agent }) {
+            // Simulate API delay
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            const issueNumber = dashboardState.stats.totalIssues + 1;
+            
+            // Add to local state
+            const newTask = {
+                id: `issue-${issueNumber}`,
+                type: 'issue',
+                number: issueNumber,
+                title: `[AGENT] Request: ${taskTitle}`,
+                stage: taskZone,
+                agent: targetAgent,
+                state: 'open',
+                body: taskDescription,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                labels: labels
+            };
+            
+            dashboardState.tasks.push(newTask);
+            dashboardState.stats.totalIssues++;
+            dashboardState.stats.openIssues++;
+            
+            // Show success
+            document.getElementById('workRequestForm').style.display = 'none';
+            document.getElementById('formSuccess').style.display = 'block';
+            document.getElementById('successMessage').innerHTML = `
+                Issue <strong>#${issueNumber}</strong> would be created for <strong>${agent ? agent.name : targetAgent}</strong>!<br>
+                <span style="font-size: 12px; opacity: 0.7;">(Demo mode - GitHub token not configured)</span>
+            `;
+            
+            // Refresh dashboard
+            renderDashboard();
+        }
+
+        // Real GitHub API call
+        async function createGitHubIssue({ targetAgent, taskTitle, taskZone, taskPriority, taskDescription, labels, agent }) {
+            const response = await fetch(`${GITHUB_CONFIG.apiBase}/repos/${GITHUB_CONFIG.repo}/issues`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `token ${GITHUB_CONFIG.token}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    title: `[AGENT] Request: ${taskTitle}`,
+                    body: `## Work Request
+
+**Target Agent:** ${targetAgent}
+**Zone/Stage:** ${taskZone}
+**Priority:** ${taskPriority}
+
+### Description
+${taskDescription}
+
+---
+*Created via Jelly-Legs Dashboard Work Request System*`,
+                    labels: labels
+                })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `GitHub API error: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            // Add to local state
+            const newTask = {
+                id: `issue-${data.number}`,
+                type: 'issue',
+                number: data.number,
+                title: data.title,
+                stage: taskZone,
+                agent: targetAgent,
+                state: 'open',
+                body: taskDescription,
+                createdAt: data.created_at,
+                updatedAt: data.updated_at,
+                labels: labels,
+                url: data.html_url
+            };
+            
+            dashboardState.tasks.push(newTask);
+            if (dashboardState.stats) {
+                dashboardState.stats.totalIssues = (dashboardState.stats.totalIssues || 0) + 1;
+                dashboardState.stats.openIssues = (dashboardState.stats.openIssues || 0) + 1;
+            }
+            
+            // Show success
+            document.getElementById('workRequestForm').style.display = 'none';
+            document.getElementById('formSuccess').style.display = 'block';
+            document.getElementById('successMessage').innerHTML = `
+                Issue <strong>#${data.number}</strong> created successfully and assigned to <strong>${agent ? agent.name : targetAgent}</strong>!<br>
+                <a href="${data.html_url}" target="_blank">View on GitHub →</a>
+            `;
+            
+            // Refresh dashboard
+            renderDashboard();
+        }
+
+        // Close modals on overlay click
+        document.getElementById('zoneModal')?.addEventListener('click', function(e) {
+            if (e.target === this) closeZoneModal();
+        });
+        
+        document.getElementById('workRequestModal')?.addEventListener('click', function(e) {
+            if (e.target === this) closeWorkRequestModal();
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeZoneModal();
+                closeWorkRequestModal();
+            }
+            if (e.ctrlKey && e.key === 'n') {
+                e.preventDefault();
+                openWorkRequestModal();
+            }
+        });
+
+        // Hide loading screen
+        function hideLoadingScreen() {
+            const loading = document.getElementById('loadingScreen');
+            loading.classList.add('hidden');
+            setTimeout(() => loading.style.display = 'none', 500);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDashboardData();
+            startSpeechBubbles();
+            
+            // Auto-refresh every 30 seconds
+            setInterval(loadDashboardData, 30000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+## 🛡️ SECURITY REVIEW: Project AETHER — Comment 3/5
+
+### HIGH FINDINGS (P1) — Anti-Gaming & Reward System
+
+**7. anti_gaming.rs — IP-Based Detection Easily Bypassable**
+
+Multiaccount detection relies solely on IP addresses. Attackers use VPNs, mobile data, IPv4/IPv6 dual-stack. Legitimate users behind the same router (family/office) are falsely flagged as multiaccounting.
+
+**8. anti_gaming.rs — Emulator Detection is Trivially Spoofed**
+
+CPU info checks like "Goldfish", "Android SDK", "qemu" are easily modified by attackers. MAC prefixes can be spoofed. Attackers use hidden Android VMs that pass standard checks.
+
+**9. anti_gaming.rs — Fake Uptime Only Detects Impossible Claims**
+
+A device registered 30 days ago can claim ANY uptime up to 30 days legitimately. An attacker runs 1 real device for 30 days, then sybils. The baseline is too low.
+
+**10. reward.rs — Trust Score Manipulation via Clock Manipulation**
+
+```rust
+pub fn update_trust_boost(&mut self, current_time: u64, active_days: u64) {
+    // Uses device-provided timestamp!
+}
+```
+Device with clock ahead by N days claims N days of active mining and boosts trust instantly without actual mining activity.
