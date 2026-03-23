@@ -9,6 +9,7 @@
 pub mod types;
 pub mod crypto;
 pub mod error;
+pub mod contracts;
 
 pub use types::*;
 pub use crypto::*;

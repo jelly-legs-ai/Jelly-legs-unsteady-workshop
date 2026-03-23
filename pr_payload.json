@@ -1,6 +1,6 @@
 {
   "title": "Initial project setup - AETHER fork from Agave",
   "body": "## Summary\n\nThis PR sets up the initial project structure for the AETHER blockchain fork from Agave (Solana's Rust core).\n\n## Changes\n\n- Created 5-layer modular architecture:\n  - `aether-core`: Core types and primitives\n  - `aether-consensus`: PoH + PoS hybrid consensus\n  - `aether-poh`: Proof of History implementation\n  - `aether-ai-lanes`: AI-powered transaction priority\n  - `aether-network`: P2P networking layer\n  - `aether-storage`: Blockchain storage\n\n- Added comprehensive README with build instructions\n- Added LICENSE (Apache 2.0)\n- Added .gitignore for Rust project\n\n## Architecture\n\nAETHER implements a 5-layer architecture for scalability and maintainability.\n\n## Testing\n\n- [ ] `cargo build` passes\n- [ ] `cargo test` passes\n- [ ] Documentation builds\n\n## Related Issues\n\nCloses #11",
-  "head": "aether-dev",
+  "head": "aether-setup-pr",
   "base": "main"
 }
