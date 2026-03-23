@@ -37,11 +37,36 @@ pub struct StakingPool {
     pub active_stakers: u64,
 }
 
+/// Delegation info for stake delegation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DelegationInfo {
+    pub delegator: String,
+    pub validator: String,
+    pub amount: u64,
+    pub start_epoch: u64,
+    pub last_claim_epoch: u64,
+    pub rewards_claimed: u64,
+    pub pool_id: String,
+}
+
+/// Validator performance metrics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidatorMetrics {
+    pub validator_address: String,
+    pub total_delegated: u64,
+    pub delegator_count: u64,
+    pub commission_rate: f64,
+    pub uptime_percent: f64,
+    pub slashing_events: u64,
+}
+
 /// Staking contract state
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StakingContract {
     pub pools: HashMap<String, StakingPool>,
     pub stakes: HashMap<String, Vec<StakeInfo>>,
+    pub delegations: HashMap<String, Vec<DelegationInfo>>,
+    pub validator_metrics: HashMap<String, ValidatorMetrics>,
     pub current_epoch: u64,
     pub total_rewards_distributed: u64,
 }
@@ -87,9 +112,132 @@ impl StakingContract {
         StakingContract {
             pools,
             stakes: HashMap::new(),
+            delegations: HashMap::new(),
+            validator_metrics: HashMap::new(),
             current_epoch: 0,
             total_rewards_distributed: 0,
         }
+    }
+    
+    /// Delegate stake to a validator
+    pub fn delegate(&mut self, delegator: &str, validator: &str, pool_id: &str, amount: u64) -> Result<DelegationInfo, &'static str> {
+        let pool = self.pools.get_mut(pool_id)
+            .ok_or("Pool not found")?;
+        
+        if amount < pool.min_stake {
+            return Err("Amount below minimum delegation");
+        }
+        
+        let delegation = DelegationInfo {
+            delegator: delegator.to_string(),
+            validator: validator.to_string(),
+            amount,
+            start_epoch: self.current_epoch,
+            last_claim_epoch: self.current_epoch,
+            rewards_claimed: 0,
+            pool_id: pool_id.to_string(),
+        };
+        
+        pool.total_staked += amount;
+        pool.active_stakers += 1;
+        
+        // Update validator metrics
+        let metrics = self.validator_metrics.entry(validator.to_string())
+            .or_insert(ValidatorMetrics {
+                validator_address: validator.to_string(),
+                total_delegated: 0,
+                delegator_count: 0,
+                commission_rate: 0.05, // 5% default commission
+                uptime_percent: 100.0,
+                slashing_events: 0,
+            });
+        metrics.total_delegated += amount;
+        metrics.delegator_count += 1;
+        
+        let key = delegator.to_string();
+        let delegations = self.delegations.entry(key).or_insert_with(Vec::new);
+        delegations.push(delegation.clone());
+        
+        Ok(delegation)
+    }
+    
+    /// Calculate delegation rewards
+    pub fn calculate_delegation_rewards(&self, delegation: &DelegationInfo) -> u64 {
+        let pool = self.pools.get(&delegation.pool_id).unwrap();
+        let epochs_staked = self.current_epoch - delegation.last_claim_epoch;
+        let reward_per_epoch = (delegation.amount as f64 * pool.reward_rate) / 365.0;
+        
+        // Apply validator commission
+        let metrics = self.validator_metrics.get(&delegation.validator);
+        let commission = metrics.map(|m| m.commission_rate).unwrap_or(0.05);
+        let net_reward = reward_per_epoch * (1.0 - commission);
+        
+        (net_reward * epochs_staked as f64) as u64
+    }
+    
+    /// Claim delegation rewards
+    pub fn claim_delegation_rewards(&mut self, delegator: &str, pool_id: &str) -> Result<u64, &'static str> {
+        let delegations = self.delegations.get_mut(delegator)
+            .ok_or("No delegations found")?;
+        
+        for delegation in delegations.iter_mut() {
+            if delegation.pool_id == pool_id {
+                let rewards = self.calculate_delegation_rewards(delegation);
+                delegation.last_claim_epoch = self.current_epoch;
+                delegation.rewards_claimed += rewards;
+                self.total_rewards_distributed += rewards;
+                return Ok(rewards);
+            }
+        }
+        
+        Err("No active delegation found")
+    }
+    
+    /// Redelegate rewards (compound)
+    pub fn redelegate_rewards(&mut self, delegator: &str, pool_id: &str) -> Result<u64, &'static str> {
+        let rewards = self.claim_delegation_rewards(delegator, pool_id)?;
+        
+        let delegations = self.delegations.get_mut(delegator)
+            .ok_or("No delegations found")?;
+        
+        for delegation in delegations.iter_mut() {
+            if delegation.pool_id == pool_id {
+                delegation.amount += rewards;
+                break;
+            }
+        }
+        
+        Ok(rewards)
+    }
+    
+    /// Undelegate stake
+    pub fn undelegate(&mut self, delegator: &str, pool_id: &str, amount: u64) -> Result<u64, &'static str> {
+        let delegations = self.delegations.get_mut(delegator)
+            .ok_or("No delegations found")?;
+        
+        for delegation in delegations.iter_mut() {
+            if delegation.pool_id == pool_id && delegation.amount >= amount {
+                let rewards = self.calculate_delegation_rewards(delegation);
+                delegation.amount -= amount;
+                delegation.last_claim_epoch = self.current_epoch;
+                delegation.rewards_claimed += rewards;
+                
+                if let Some(pool) = self.pools.get_mut(pool_id) {
+                    pool.total_staked -= amount;
+                    pool.active_stakers = pool.active_stakers.saturating_sub(1);
+                }
+                
+                if let Some(metrics) = self.validator_metrics.get_mut(&delegation.validator) {
+                    metrics.total_delegated = metrics.total_delegated.saturating_sub(amount);
+                    metrics.delegator_count = metrics.delegator_count.saturating_sub(1);
+                }
+                
+                self.total_rewards_distributed += rewards;
+                return Ok(amount + rewards);
+            }
+        }
+        
+        Err("Insufficient delegation or pool not found")
     }
     
     /// Stake tokens
