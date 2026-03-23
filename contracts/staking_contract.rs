@@ -340,6 +340,126 @@ impl StakingContract {
     pub fn advance_epoch(&mut self) {
         self.current_epoch += 1;
     }
+    
+    // =============================================================================
+    // REWARD CALCULATION HELPERS - Sprint Enhancement
+    // =============================================================================
+    
+    /// Calculate APY for a given pool
+    pub fn calculate_pool_apy(&self, pool_id: &str) -> f64 {
+        self.pools.get(pool_id)
+            .map(|p| p.reward_rate * 100.0)
+            .unwrap_or(0.0)
+    }
+    
+    /// Calculate daily reward rate (APY / 365)
+    pub fn daily_reward_rate(&self, pool_id: &str) -> f64 {
+        self.pools.get(pool_id)
+            .map(|p| p.reward_rate / 365.0)
+            .unwrap_or(0.0)
+    }
+    
+    /// Calculate hourly reward rate (APY / 365 / 24)
+    pub fn hourly_reward_rate(&self, pool_id: &str) -> f64 {
+        self.pools.get(pool_id)
+            .map(|p| p.reward_rate / 365.0 / 24.0)
+            .unwrap_or(0.0)
+    }
+    
+    /// Calculate projected rewards for a given stake amount and duration
+    pub fn project_rewards(&self, pool_id: &str, amount: u64, days: u64) -> u64 {
+        let pool = match self.pools.get(pool_id) {
+            Some(p) => p,
+            None => return 0,
+        };
+        
+        let daily_rate = pool.reward_rate / 365.0;
+        let yearly_rewards = amount as f64 * daily_rate * days as f64;
+        yearly_rewards as u64
+    }
+    
+    /// Calculate total staking value in USD (assuming price feed)
+    pub fn calculate_total_staked_value(&self, aeth_price: f64, flux_price: f64, ath_price: f64) -> f64 {
+        let mut total = 0.0;
+        
+        for (pool_id, pool) in &self.pools {
+            let token_price = match pool.token_type {
+                TokenType::AETH => aeth_price,
+                TokenType::FLUX => flux_price,
+                TokenType::ATH => ath_price,
+            };
+            total += pool.total_staked as f64 * token_price;
+        }
+        
+        total
+    }
+    
+    /// Get staking APR (Annual Percentage Rate) adjusted for compounding
+    pub fn calculate_compounded_apr(&self, pool_id: &str, compounding_frequency: u64) -> f64 {
+        let pool = match self.pools.get(pool_id) {
+            Some(p) => p,
+            None => return 0.0,
+        };
+        
+        let n = compounding_frequency as f64; // Number of compounding periods per year
+        let r = pool.reward_rate; // Annual rate
+        
+        // APY = (1 + r/n)^n - 1
+        let apy = (1.0 + r / n).powf(n) - 1.0;
+        apy * 100.0 // Return as percentage
+    }
+    
+    /// Calculate lockup period end date (in epochs)
+    pub fn get_lockup_end_epoch(&self, pool_id: &str) -> u64 {
+        self.pools.get(pool_id)
+            .map(|p| self.current_epoch + p.lockup_epochs)
+            .unwrap_or(0)
+    }
+    
+    /// Check if a stake is still locked
+    pub fn is_stake_locked(&self, stake: &StakeInfo) -> bool {
+        if !stake.is_locked {
+            return false;
+        }
+        self.current_epoch < stake.lock_end_epoch
+    }
+    
+    /// Get unlockable stake amount
+    pub fn get_unlockable_amount(&self, stakes: &[StakeInfo]) -> u64 {
+        stakes.iter()
+            .filter(|s| !self.is_stake_locked(s))
+            .map(|s| s.amount)
+            .sum()
+    }
+    
+    /// Calculate validator uptime score
+    pub fn calculate_uptime_score(&self, validator: &str) -> f64 {
+        self.validator_metrics.get(validator)
+            .map(|m| m.uptime_percent / 100.0)
+            .unwrap_or(0.0)
+    }
+    
+    /// Calculate effective reward rate after validator commission
+    pub fn effective_reward_rate(&self, pool_id: &str, validator: &str) -> f64 {
+        let pool_rate = self.daily_reward_rate(pool_id);
+        let metrics = match self.validator_metrics.get(validator) {
+            Some(m) => m,
+            None => return pool_rate,
+        };
+        
+        pool_rate * (1.0 - metrics.commission_rate)
+    }
+    
+    /// Get all pools info
+    pub fn get_all_pools(&self) -> Vec<(&String, &StakingPool)> {
+        self.pools.iter().collect()
+    }
+    
+    /// Get pool by token type
+    pub fn get_pool_by_token(&self, token_type: &TokenType) -> Option<&StakingPool> {
+        self.pools.values()
+            .find(|p| &p.token_type == token_type)
+    }
 }
 
 #[cfg(test)]
@@ -357,5 +477,44 @@ mod tests {
         contract.advance_epoch();
         let rewards = contract.calculate_rewards(&stake);
         assert!(rewards > 0);
+    }
+    
+    #[test]
+    fn test_reward_calculation_helpers() {
+        let contract = StakingContract::new();
+        
+        // Test APY calculation
+        let apy = contract.calculate_pool_apy("aeth_staking");
+        assert_eq!(apy, 15.0); // 15% APY
+        
+        // Test daily rate
+        let daily_rate = contract.daily_reward_rate("aeth_staking");
+        assert!((daily_rate - 0.000411).abs() < 0.0001); // ~0.0411% daily
+        
+        // Test projected rewards
+        let projected = contract.project_rewards("aeth_staking", 10000, 30);
+        assert!(projected > 0);
+        
+        // Test compounded APR
+        let compounded = contract.calculate_compounded_apr("aeth_staking", 365);
+        assert!(compounded > 15.0); // Should be slightly higher than 15% with daily compounding
+    }
+    
+    #[test]
+    fn test_stake_lockup() {
+        let mut contract = StakingContract::new();
+        let stake = contract.stake("user1", "aeth_staking", 1000).unwrap();
+        
+        // Initial lockup should be active
+        assert!(contract.is_stake_locked(&stake));
+        
+        // Advance epochs beyond lockup
+        for _ in 0..10 {
+            contract.advance_epoch();
+        }
+        
+        // After 10 epochs, still locked (7 day lock = 7 epochs)
+        let updated_stake = contract.stakes.get("user1").unwrap().first().unwrap();
+        assert!(!contract.is_stake_locked(updated_stake));
     }
 }
