@@ -1,225 +1,323 @@
 // Mining Contract - AeTHer Chain
-// FLUX token mining through device participation
+// Enhanced proof-of-availability mining with dynamic difficulty adjustment
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Device tier for mining
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Device tier for mining rewards
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum DeviceTier {
-    Mobile,
-    Laptop,
-    Desktop,
-    Server,
+    Mobile = 1,
+    Laptop = 2,
+    Desktop = 3,
+    Server = 4,
 }
 
 impl DeviceTier {
-    /// Get hashrate multiplier for this tier
-    pub fn hashrate_multiplier(&self) -> f64 {
+    pub fn multiplier(&self) -> f64 {
         match self {
-            DeviceTier::Mobile => 0.5,
-            DeviceTier::Laptop => 2.0,
-            DeviceTier::Desktop => 5.0,
-            DeviceTier::Server => 20.0,
+            DeviceTier::Mobile => 1.0,
+            DeviceTier::Laptop => 2.5,
+            DeviceTier::Desktop => 4.0,
+            DeviceTier::Server => 8.0,
         }
     }
-    
-    /// Get earnings multiplier
-    pub fn earnings_multiplier(&self) -> f64 {
+
+    pub fn min_uptime_hours(&self) -> u64 {
         match self {
-            DeviceTier::Mobile => 0.1,
-            DeviceTier::Laptop => 1.0,
-            DeviceTier::Desktop => 2.5,
-            DeviceTier::Server => 10.0,
+            DeviceTier::Mobile => 1,
+            DeviceTier::Laptop => 2,
+            DeviceTier::Desktop => 4,
+            DeviceTier::Server => 6,
         }
     }
 }
 
-/// Mining device registration
+/// Miner status
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum MinerStatus {
+    Active,
+    Offline,
+    Slashed,
+    PendingActivation,
+}
+
+/// Miner information
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MiningDevice {
-    pub device_id: String,
-    pub owner: String,
-    pub tier: DeviceTier,
-    pub hashrate: u64,          // Current hashrate (MH/s)
-    pub uptime_hours: u64,
-    pub total_mined: u64,        // Total FLUX mined
-    pub registered_epoch: u64,
+pub struct MinerInfo {
+    pub address: String,
+    pub device_tier: DeviceTier,
+    pub total_mined: u64,
     pub last_claim_epoch: u64,
-    pub is_active: bool,
+    pub consecutive_uptime_epochs: u64,
+    pub reputation_score: f64,
+    pub status: MinerStatus,
+    pub registered_at: u64,
+    pub last_active_epoch: u64,
+    pub penalty_count: u64,
 }
 
-/// Mining pool info
+/// Network-wide mining statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MiningPool {
-    pub name: String,
-    pub total_hashrate: u64,
-    pub active_miners: u64,
-    pub epoch_reward: u64,
-    pub difficulty: u64,
+pub struct NetworkMiningStats {
+    pub total_active_miners: u64,
+    pub total_miners_tier_mobile: u64,
+    pub total_miners_tier_laptop: u64,
+    pub total_miners_tier_desktop: u64,
+    pub total_miners_tier_server: u64,
+    pub epoch_rewards_distributed: u64,
+    pub current_epoch_difficulty: u64,
+    pub average_uptime_score: f64,
+    pub network_hashrate_equivalent: u64,
 }
 
 /// Mining contract state
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MiningContract {
-    pub devices: HashMap<String, MiningDevice>,
-    pub pools: HashMap<String, MiningPool>,
-    pub current_epoch: u64,
-    pub total_flux_mined: u64,
+    pub miners: HashMap<String, MinerInfo>,
+    pub network_stats: NetworkMiningStats,
     pub base_reward_per_epoch: u64,
+    pub current_epoch: u64,
+    pub difficulty_adjustment_interval: u64,
+    pub target_epoch_duration_secs: u64,
+    pub minimum_rewards_pool: u64,
+    pub emergency_difficulty: u64,
 }
 
 impl MiningContract {
     /// Create new mining contract
     pub fn new() -> Self {
-        let mut pools = HashMap::new();
-        
-        // Default FLUX mining pool
-        pools.insert("flux_main".to_string(), MiningPool {
-            name: "FLUX Main Pool".to_string(),
-            total_hashrate: 0,
-            active_miners: 0,
-            epoch_reward: 1000,
-            difficulty: 1000000,
-        });
-        
         MiningContract {
-            devices: HashMap::new(),
-            pools,
-            current_epoch: 0,
-            total_flux_mined: 0,
+            miners: HashMap::new(),
+            network_stats: NetworkMiningStats {
+                total_active_miners: 0,
+                total_miners_tier_mobile: 0,
+                total_miners_tier_laptop: 0,
+                total_miners_tier_desktop: 0,
+                total_miners_tier_server: 0,
+                epoch_rewards_distributed: 0,
+                current_epoch_difficulty: 1000,
+                average_uptime_score: 0.0,
+                network_hashrate_equivalent: 0,
+            },
             base_reward_per_epoch: 1000,
+            current_epoch: 0,
+            difficulty_adjustment_interval: 100,
+            target_epoch_duration_secs: 3600, // 1 hour
+            minimum_rewards_pool: 100_000,
+            emergency_difficulty: 500,
         }
     }
-    
-    /// Register a new mining device
-    pub fn register_device(
-        &mut self,
-        device_id: String,
-        owner: String,
-        tier: DeviceTier,
-    ) -> Result<MiningDevice, &'static str> {
-        if self.devices.contains_key(&device_id) {
-            return Err("Device already registered");
+
+    /// Register a new miner
+    pub fn register_miner(&mut self, address: String, device_tier: DeviceTier) -> Result<MinerInfo, String> {
+        if self.miners.contains_key(&address) {
+            return Err("Miner already registered".to_string());
         }
-        
-        let base_hashrate: u64 = match tier {
-            DeviceTier::Mobile => 5,
-            DeviceTier::Laptop => 20,
-            DeviceTier::Desktop => 100,
-            DeviceTier::Server => 500,
-        };
-        
-        let device = MiningDevice {
-            device_id: device_id.clone(),
-            owner,
-            tier: tier.clone(),
-            hashrate: base_hashrate,
-            uptime_hours: 0,
+
+        let miner = MinerInfo {
+            address: address.clone(),
+            device_tier,
             total_mined: 0,
-            registered_epoch: self.current_epoch,
-            last_claim_epoch: self.current_epoch,
-            is_active: true,
+            last_claim_epoch: 0,
+            consecutive_uptime_epochs: 0,
+            reputation_score: 50.0, // Start with neutral reputation
+            status: MinerStatus::PendingActivation,
+            registered_at: self.current_epoch,
+            last_active_epoch: 0,
+            penalty_count: 0,
         };
-        
-        self.devices.insert(device_id.clone(), device.clone());
-        
-        // Update pool stats
-        if let Some(pool) = self.pools.get_mut("flux_main") {
-            pool.active_miners += 1;
-            pool.total_hashrate += base_hashrate;
+
+        // Update tier counts
+        match device_tier {
+            DeviceTier::Mobile => self.network_stats.total_miners_tier_mobile += 1,
+            DeviceTier::Laptop => self.network_stats.total_miners_tier_laptop += 1,
+            DeviceTier::Desktop => self.network_stats.total_miners_tier_desktop += 1,
+            DeviceTier::Server => self.network_stats.total_miners_tier_server += 1,
         }
-        
-        Ok(device)
+        self.network_stats.total_active_miners += 1;
+
+        self.miners.insert(address, miner.clone());
+        Ok(miner)
     }
-    
-    /// Calculate mining reward for a device
-    pub fn calculate_reward(&self, device: &MiningDevice) -> u64 {
-        if !device.is_active {
+
+    /// Calculate uptime score for a miner (0.0 to 1.0)
+    pub fn calculate_uptime_score(&self, miner: &MinerInfo) -> f64 {
+        let tier = miner.device_tier;
+        let min_uptime = tier.min_uptime_hours();
+        let actual_uptime = self.get_actual_uptime(miner);
+        
+        if actual_uptime >= min_uptime {
+            // Full uptime or better
+            1.0
+        } else if actual_uptime == 0 {
+            // Complete downtime
+            0.0
+        } else {
+            // Partial uptime
+            actual_uptime as f64 / min_uptime as f64
+        }
+    }
+
+    /// Get actual uptime hours (simplified - would be calculated from actual epoch data)
+    fn get_actual_uptime(&self, miner: &MinerInfo) -> u64 {
+        // In production, this would check actual epoch participation data
+        // For now, simplified calculation based on consecutive epochs
+        miner.consecutive_uptime_epochs.min(24)
+    }
+
+    /// Calculate mining reward with all factors
+    pub fn calculate_reward(&self, miner: &MinerInfo) -> u64 {
+        // Skip if miner is slashed
+        if miner.status == MinerStatus::Slashed {
             return 0;
         }
-        
-        // Base reward * tier multiplier * uptime factor
-        let tier_mult = device.tier.earnings_multiplier();
-        let uptime_factor = (device.uptime_hours as f64 / 24.0).min(1.0).max(0.1);
-        
-        let pool = self.pools.get("flux_main").unwrap();
-        let network_share = device.hashrate as f64 / pool.total_hashrate as f64.max(1.0);
-        
-        let reward = (self.base_reward_per_epoch as f64 * tier_mult * uptime_factor * network_share) as u64;
-        reward.max(1) // Minimum 1 FLUX
+
+        // Base reward
+        let mut reward = self.base_reward_per_epoch as f64;
+
+        // Tier multiplier
+        reward *= miner.device_tier.multiplier();
+
+        // Uptime score (0.0 to 1.0)
+        let uptime_score = self.calculate_uptime_score(miner);
+        reward *= uptime_score;
+
+        // Reputation bonus (0.5x to 2.0x based on reputation 0-100)
+        let reputation_factor = 0.5 + (miner.reputation_score / 100.0);
+        reward *= reputation_factor;
+
+        // Network difficulty factor
+        let difficulty_factor = 1000.0 / self.network_stats.current_epoch_difficulty.max(1) as f64;
+        reward *= difficulty_factor;
+
+        // Apply floor to rewards
+        reward.max(1.0) as u64
     }
-    
-    /// Update device uptime
-    pub fn update_uptime(&mut self, device_id: &str, hours: u64) -> Result<(), &'static str> {
-        let device = self.devices.get_mut(device_id)
-            .ok_or("Device not found")?;
-        device.uptime_hours = device.uptime_hours.saturating_add(hours).min(24);
+
+    /// Record epoch participation for a miner
+    pub fn record_participation(&mut self, address: &str, participated: bool) -> Result<(), String> {
+        let miner = self.miners.get_mut(address)
+            .ok_or("Miner not found")?;
+
+        if participated {
+            miner.consecutive_uptime_epochs += 1;
+            miner.last_active_epoch = self.current_epoch;
+            
+            // Increase reputation for good participation
+            miner.reputation_score = (miner.reputation_score + 0.1).min(100.0);
+            
+            if miner.status == MinerStatus::PendingActivation || miner.status == MinerStatus::Offline {
+                miner.status = MinerStatus::Active;
+            }
+        } else {
+            miner.consecutive_uptime_epochs = 0;
+            miner.status = MinerStatus::Offline;
+            
+            // Decrease reputation for missed epochs
+            miner.reputation_score = (miner.reputation_score - 1.0).max(0.0);
+            
+            // Track penalties
+            if miner.reputation_score < 20.0 {
+                miner.penalty_count += 1;
+            }
+            
+            // Slash if too many penalties
+            if miner.penalty_count >= 3 {
+                miner.status = MinerStatus::Slashed;
+            }
+        }
+
         Ok(())
     }
-    
+
+    /// Adjust network difficulty based on participation
+    pub fn adjust_difficulty(&mut self) {
+        let participation_rate = if self.network_stats.total_active_miners > 0 {
+            let active = self.miners.values()
+                .filter(|m| m.status == MinerStatus::Active)
+                .count() as f64;
+            active / self.network_stats.total_active_miners as f64
+        } else {
+            0.0
+        };
+
+        // Increase difficulty if participation is high (rewards are too generous)
+        // Decrease difficulty if participation is low (rewards too scarce)
+        let current_difficulty = self.network_stats.current_epoch_difficulty;
+        
+        let new_difficulty = if participation_rate > 0.9 {
+            // High participation - increase difficulty slightly
+            (current_difficulty as f64 * 1.05).min(5000.0) as u64
+        } else if participation_rate < 0.5 {
+            // Low participation - decrease difficulty
+            (current_difficulty as f64 * 0.9).max(self.emergency_difficulty) as u64
+        } else {
+            // Stable - gradual increase
+            (current_difficulty as f64 * 1.01).min(5000.0) as u64
+        };
+
+        self.network_stats.current_epoch_difficulty = new_difficulty;
+    }
+
     /// Claim mining rewards
-    pub fn claim_rewards(&mut self, device_id: &str) -> Result<u64, &'static str> {
-        let device = self.devices.get_mut(device_id)
-            .ok_or("Device not found")?;
-        
-        if !device.is_active {
-            return Err("Device is not active");
+    pub fn claim_rewards(&mut self, address: &str) -> Result<u64, String> {
+        let miner = self.miners.get_mut(address)
+            .ok_or("Miner not found")?;
+
+        if miner.status == MinerStatus::Slashed {
+            return Err("Miner has been slashed".to_string());
         }
-        
-        let rewards = self.calculate_reward(device);
-        
-        if rewards == 0 {
-            return Err("No rewards to claim");
+
+        // Calculate unclaimed rewards
+        let epochs_since_claim = self.current_epoch - miner.last_claim_epoch;
+        let mut total_reward = 0u64;
+
+        for _ in 0..epochs_since_claim {
+            total_reward += self.calculate_reward(miner);
         }
-        
-        device.total_mined += rewards;
-        device.last_claim_epoch = self.current_epoch;
-        self.total_flux_mined += rewards;
-        
-        Ok(rewards)
+
+        // Update miner state
+        miner.total_mined += total_reward;
+        miner.last_claim_epoch = self.current_epoch;
+        self.network_stats.epoch_rewards_distributed += total_reward;
+
+        Ok(total_reward)
     }
-    
-    /// Deregister a device
-    pub fn deregister_device(&mut self, device_id: &str) -> Result<u64, &'static str> {
-        let device = self.devices.remove(device_id)
-            .ok_or("Device not found")?;
-        
-        // Update pool
-        if let Some(pool) = self.pools.get_mut("flux_main") {
-            pool.active_miners = pool.active_miners.saturating_sub(1);
-            pool.total_hashrate = pool.total_hashrate.saturating_sub(device.hashrate);
-        }
-        
-        Ok(device.total_mined)
-    }
-    
-    /// Advance epoch and distribute rewards
-    pub fn advance_epoch(&mut self) {
-        self.current_epoch += 1;
-    }
-    
-    /// Get network stats
-    pub fn get_network_stats(&self) -> MiningNetworkStats {
-        let pool = self.pools.get("flux_main").unwrap();
-        MiningNetworkStats {
-            total_hashrate: pool.total_hashrate,
-            active_miners: pool.active_miners,
-            epoch: self.current_epoch,
-            difficulty: pool.difficulty,
-            total_flux_mined: self.total_flux_mined,
-        }
+
+    /// Get miner statistics
+    pub fn get_miner_stats(&self, address: &str) -> Option<MinerStats> {
+        self.miners.get(address).map(|m| {
+            let current_reward = self.calculate_reward(m);
+            MinerStats {
+                address: m.address.clone(),
+                device_tier: m.device_tier,
+                tier_multiplier: m.device_tier.multiplier(),
+                total_mined: m.total_mined,
+                current_epoch_reward: current_reward,
+                uptime_score: self.calculate_uptime_score(m),
+                reputation_score: m.reputation_score,
+                status: m.status.clone(),
+                consecutive_uptime_epochs: m.consecutive_uptime_epochs,
+                penalty_count: m.penalty_count,
+            }
+        })
     }
 }
 
-/// Network statistics
+/// Miner statistics for API responses
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MiningNetworkStats {
-    pub total_hashrate: u64,
-    pub active_miners: u64,
-    pub epoch: u64,
-    pub difficulty: u64,
-    pub total_flux_mined: u64,
+pub struct MinerStats {
+    pub address: String,
+    pub device_tier: DeviceTier,
+    pub tier_multiplier: f64,
+    pub total_mined: u64,
+    pub current_epoch_reward: u64,
+    pub uptime_score: f64,
+    pub reputation_score: f64,
+    pub status: MinerStatus,
+    pub consecutive_uptime_epochs: u64,
+    pub penalty_count: u64,
 }
 
 #[cfg(test)]
@@ -227,43 +325,44 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_register_device() {
-        let mut contract = MiningContract::new();
-        let device = contract.register_device(
-            "device_001".to_string(),
-            "owner_1".to_string(),
-            DeviceTier::Laptop,
-        ).unwrap();
-        
-        assert_eq!(device.tier, DeviceTier::Laptop);
-        assert_eq!(device.hashrate, 20);
+    fn test_device_tier_multiplier() {
+        assert_eq!(DeviceTier::Mobile.multiplier(), 1.0);
+        assert_eq!(DeviceTier::Laptop.multiplier(), 2.5);
+        assert_eq!(DeviceTier::Desktop.multiplier(), 4.0);
+        assert_eq!(DeviceTier::Server.multiplier(), 8.0);
     }
 
     #[test]
-    fn test_claim_rewards() {
+    fn test_register_miner() {
         let mut contract = MiningContract::new();
-        contract.register_device(
-            "device_002".to_string(),
-            "owner_2".to_string(),
-            DeviceTier::Desktop,
-        ).unwrap();
-        
-        contract.update_uptime("device_002", 24).unwrap();
-        let rewards = contract.claim_rewards("device_002").unwrap();
-        
-        assert!(rewards > 0);
+        let result = contract.register_miner("miner1".to_string(), DeviceTier::Mobile);
+        assert!(result.is_ok());
+        assert_eq!(contract.network_stats.total_active_miners, 1);
     }
 
     #[test]
-    fn test_deregister_device() {
+    fn test_calculate_reward() {
         let mut contract = MiningContract::new();
-        contract.register_device(
-            "device_003".to_string(),
-            "owner_3".to_string(),
-            DeviceTier::Server,
-        ).unwrap();
+        contract.register_miner("miner1".to_string(), DeviceTier::Desktop).unwrap();
         
-        let total = contract.deregister_device("device_003").unwrap();
-        assert!(contract.devices.get("device_003").is_none());
+        let miner = contract.miners.get("miner1").unwrap();
+        let reward = contract.calculate_reward(miner);
+        
+        // Desktop has 4x multiplier
+        assert_eq!(reward, contract.base_reward_per_epoch * 4);
+    }
+
+    #[test]
+    fn test_reputation_penalty() {
+        let mut contract = MiningContract::new();
+        contract.register_miner("miner1".to_string(), DeviceTier::Mobile).unwrap();
+        
+        // Record no participation multiple times
+        for _ in 0..5 {
+            contract.record_participation("miner1", false).unwrap();
+        }
+        
+        let miner = contract.miners.get("miner1").unwrap();
+        assert!(miner.reputation_score < 50.0);
     }
 }
