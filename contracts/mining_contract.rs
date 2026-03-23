@@ -285,6 +285,26 @@ impl MiningContract {
         Ok(total_reward)
     }
 
+    /// Get projected rewards for a miner
+    pub fn get_projected_rewards(&self, address: &str, epochs: u64) -> Option<ProjectedRewards> {
+        self.miners.get(address).map(|m| {
+            let reward_per_epoch = self.calculate_reward(m);
+            let daily_rewards = reward_per_epoch * 24; // Assuming 24 epochs per day
+            let weekly_rewards = daily_rewards * 7;
+            let monthly_rewards = daily_rewards * 30;
+            
+            ProjectedRewards {
+                address: m.address.clone(),
+                per_epoch: reward_per_epoch,
+                daily: daily_rewards,
+                weekly: weekly_rewards,
+                monthly: monthly_rewards,
+                tier: m.device_tier,
+                uptime_score: self.calculate_uptime_score(m),
+            }
+        })
+    }
+
     /// Get miner statistics
     pub fn get_miner_stats(&self, address: &str) -> Option<MinerStats> {
         self.miners.get(address).map(|m| {
@@ -303,6 +323,18 @@ impl MiningContract {
             }
         })
     }
+}
+
+/// Projected rewards for a miner
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectedRewards {
+    pub address: String,
+    pub per_epoch: u64,
+    pub daily: u64,
+    pub weekly: u64,
+    pub monthly: u64,
+    pub tier: DeviceTier,
+    pub uptime_score: f64,
 }
 
 /// Miner statistics for API responses
