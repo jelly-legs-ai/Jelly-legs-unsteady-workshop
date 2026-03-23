@@ -1,5 +1,5 @@
 // FLUX Token Contract - AeTHer Chain
-// stub implementation for FLUX utility token
+// Mining rewards and utility token for network participation
 
 use serde::{Deserialize, Serialize};
 
