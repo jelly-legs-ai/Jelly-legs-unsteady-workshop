@@ -460,6 +460,149 @@ impl StakingContract {
         self.pools.values()
             .find(|p| &p.token_type == token_type)
     }
+    
+    // =============================================================================
+    // DELEGATION & VALIDATOR HELPERS - Sprint Enhancement
+    // =============================================================================
+    
+    /// Calculate share of network rewards (as percentage) for a given stake amount
+    pub fn calculate_network_share(&self, pool_id: &str, amount: u64) -> f64 {
+        let pool = match self.pools.get(pool_id) {
+            Some(p) => p,
+            None => return 0.0,
+        };
+        
+        if pool.total_staked == 0 {
+            return 0.0
+        }
+        
+        (amount as f64 / pool.total_staked as f64) * 100.0
+    }
+    
+    /// Calculate validator uptime score based on metrics
+    pub fn get_validator_uptime(&self, validator: &str) -> f64 {
+        self.validator_metrics.get(validator)
+            .map(|m| m.uptime_percent)
+            .unwrap_or(0.0)
+    }
+    
+    /// Get validator delegator count
+    pub fn get_validator_delegator_count(&self, validator: &str) -> u64 {
+        self.validator_metrics.get(validator)
+            .map(|m| m.delegator_count)
+            .unwrap_or(0)
+    }
+    
+    /// Get validator total delegated amount
+    pub fn get_validator_total_delegated(&self, validator: &str) -> u64 {
+        self.validator_metrics.get(validator)
+            .map(|m| m.total_delegated)
+            .unwrap_or(0)
+    }
+    
+    /// Calculate net APY after commission for delegators
+    pub fn calculate_net_apy_after_commission(&self, pool_id: &str, validator: &str) -> f64 {
+        let pool = match self.pools.get(pool_id) {
+            Some(p) => p,
+            None => return 0.0,
+        };
+        
+        let gross_apy = pool.reward_rate * 100.0;
+        let commission = self.validator_metrics.get(validator)
+            .map(|m| m.commission_rate)
+            .unwrap_or(0.05);
+        
+        gross_apy * (1.0 - commission)
+    }
+    
+    /// Check if a delegator has reached minimum stake for rewards
+    pub fn is_minimum_delegation(&self, pool_id: &str, amount: u64) -> bool {
+        self.pools.get(pool_id)
+            .map(|p| amount >= p.min_stake)
+            .unwrap_or(false)
+    }
+    
+    /// Get pool stats summary
+    pub fn get_pool_stats(&self, pool_id: &str) -> Option<PoolStats> {
+        self.pools.get(pool_id).map(|p| PoolStats {
+            name: p.name.clone(),
+            total_staked: p.total_staked,
+            reward_rate: p.reward_rate,
+            apy: p.reward_rate * 100.0,
+            min_stake: p.min_stake,
+            lockup_epochs: p.lockup_epochs,
+            active_stakers: p.active_stakers,
+        })
+    }
+    
+    /// Get all delegations for a delegator
+    pub fn get_delegator_delegations(&self, delegator: &str) -> Vec<&DelegationInfo> {
+        self.delegations.get(delegator)
+            .map(|d| d.iter().collect())
+            .unwrap_or_default()
+    }
+    
+    /// Get all stakes for an address
+    pub fn get_address_stakes(&self, address: &str) -> Vec<&StakeInfo> {
+        self.stakes.get(address)
+            .map(|s| s.iter().collect())
+            .unwrap_or_default()
+    }
+    
+    /// Calculate total staked value across all pools (in token units)
+    pub fn total_staked_all_pools(&self) -> u64 {
+        self.pools.values().map(|p| p.total_staked).sum()
+    }
+    
+    /// Get network-wide staking metrics
+    pub fn get_network_staking_metrics(&self) -> NetworkStakingMetrics {
+        let total_staked = self.total_staked_all_pools();
+        let mut total_delegated = 0u64;
+        let mut total_validators = 0u64;
+        let mut total_delegators = 0u64;
+        
+        for metrics in self.validator_metrics.values() {
+            total_delegated += metrics.total_delegated;
+            total_delegators += metrics.delegator_count;
+            total_validators += 1;
+        }
+        
+        NetworkStakingMetrics {
+            total_staked,
+            total_delegated,
+            total_validators,
+            total_delegators,
+            average_commission: self.validator_metrics.values()
+                .map(|m| m.commission_rate)
+                .sum::<f64>() / total_validators.max(1) as f64,
+            average_uptime: self.validator_metrics.values()
+                .map(|m| m.uptime_percent)
+                .sum::<f64>() / total_validators.max(1) as f64,
+            total_rewards_distributed: self.total_rewards_distributed,
+        }
+    }
+}
+
+/// Pool statistics for API responses
+pub struct PoolStats {
+    pub name: String,
+    pub total_staked: u64,
+    pub reward_rate: f64,
+    pub apy: f64,
+    pub min_stake: u64,
+    pub lockup_epochs: u64,
+    pub active_stakers: u64,
+}
+
+/// Network-wide staking metrics
+pub struct NetworkStakingMetrics {
+    pub total_staked: u64,
+    pub total_delegated: u64,
+    pub total_validators: u64,
+    pub total_delegators: u64,
+    pub average_commission: f64,
+    pub average_uptime: f64,
+    pub total_rewards_distributed: u64,
 }
 
 #[cfg(test)]
