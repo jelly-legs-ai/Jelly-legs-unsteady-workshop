@@ -195,6 +195,403 @@ impl MiningContract {
         reward.max(1.0) as u64
     }
 
+    // =============================================================================
+    // SPRINT 22 ENHANCEMENT: Advanced Mining Analytics & Network Optimization
+    // =============================================================================
+    
+    /// Calculate network decentralization index (0-100 scale)
+    pub fn calculate_decentralization_index(&self) -> f64 {
+        let total_miners = self.network_stats.total_active_miners;
+        if total_miners == 0 {
+            return 0.0;
+        }
+        
+        // Tier distribution balance score
+        let mobile_ratio = self.network_stats.total_miners_tier_mobile as f64 / total_miners as f64;
+        let laptop_ratio = self.network_stats.total_miners_tier_laptop as f64 / total_miners as f64;
+        let desktop_ratio = self.network_stats.total_miners_tier_desktop as f64 / total_miners as f64;
+        let server_ratio = self.network_stats.total_miners_tier_server as f64 / total_miners as f64;
+        
+        // Ideal distribution: 50% mobile, 25% laptop, 15% desktop, 10% server
+        let ideal = vec![0.50, 0.25, 0.15, 0.10];
+        let actual = vec![mobile_ratio, laptop_ratio, desktop_ratio, server_ratio];
+        
+        // Calculate deviation from ideal (lower = better)
+        let mut deviation = 0.0;
+        for i in 0..4 {
+            deviation += (ideal[i] - actual[i]).abs();
+        }
+        
+        // Convert to 0-100 score (perfect distribution = 100)
+        let max_deviation = 2.0; // Worst case
+        ((1.0 - deviation / max_deviation) * 100.0).max(0.0)
+    }
+    
+    /// Calculate mining reward efficiency (rewards per unit of hashrate)
+    pub fn calculate_reward_efficiency(&self) -> f64 {
+        if self.network_stats.network_hashrate_equivalent == 0 {
+            return 0.0;
+        }
+        
+        self.network_stats.epoch_rewards_distributed as f64 / 
+        self.network_stats.network_hashrate_equivalent as f64
+    }
+    
+    /// Get tier distribution breakdown
+    pub fn get_tier_distribution(&self) -> TierDistribution {
+        let total = self.network_stats.total_active_miners.max(1) as f64;
+        
+        TierDistribution {
+            mobile: (self.network_stats.total_miners_tier_mobile as f64 / total * 100.0).round(),
+            laptop: (self.network_stats.total_miners_tier_laptop as f64 / total * 100.0).round(),
+            desktop: (self.network_stats.total_miners_tier_desktop as f64 / total * 100.0).round(),
+            server: (self.network_stats.total_miners_tier_server as f64 / total * 100.0).round(),
+            total_miners: self.network_stats.total_active_miners,
+        }
+    }
+    
+    /// Calculate network hashrate growth rate
+    pub fn calculate_hashrate_growth(&self, previous_hashrate: u64) -> f64 {
+        if previous_hashrate == 0 {
+            return 0.0;
+        }
+        
+        let growth = (self.network_stats.network_hashrate_equivalent as i64 - previous_hashrate as i64) as f64;
+        (growth / previous_hashrate as f64) * 100.0
+    }
+    
+    /// Get miner activity heat map by tier
+    pub fn get_activity_heatmap(&self) -> ActivityHeatmap {
+        let mut tier_activity = HashMap::new();
+        
+        for (_, miner) in &self.miners {
+            if miner.status == MinerStatus::Active {
+                let tier_name = match miner.device_tier {
+                    DeviceTier::Mobile => "mobile",
+                    DeviceTier::Laptop => "laptop",
+                    DeviceTier::Desktop => "desktop",
+                    DeviceTier::Server => "server",
+                };
+                
+                let uptime_bucket = if miner.consecutive_uptime_epochs >= 30 {
+                    "high"
+                } else if miner.consecutive_uptime_epochs >= 7 {
+                    "medium"
+                } else {
+                    "low"
+                };
+                
+                let key = format!("{}_{}", tier_name, uptime_bucket);
+                *tier_activity.entry(key).or_insert(0) += 1;
+            }
+        }
+        
+        ActivityHeatmap {
+            by_tier_and_uptime: tier_activity,
+            total_active: self.network_stats.total_active_miners,
+        }
+    }
+    
+    /// Calculate optimal difficulty adjustment for next epoch
+    pub fn calculate_optimal_difficulty(&self, target_block_time: f64, actual_block_time: f64) -> u64 {
+        let current_difficulty = self.network_stats.current_epoch_difficulty as f64;
+        
+        // Difficulty adjustment formula (similar to Bitcoin)
+        let adjustment_factor = target_block_time / actual_block_time.max(1.0);
+        
+        // Cap adjustment to prevent extreme swings (max 4x change per adjustment)
+        let capped_factor = adjustment_factor.max(0.25).min(4.0);
+        
+        let new_difficulty = (current_difficulty * capped_factor) as u64;
+        
+        // Enforce minimum difficulty floor
+        new_difficulty.max(self.emergency_difficulty)
+    }
+    
+    /// Get mining profitability estimate per tier
+    pub fn get_profitability_by_tier(&self, electricity_cost_per_hour: f64) -> TierProfitability {
+        let mut profitability = HashMap::new();
+        
+        for tier in [DeviceTier::Mobile, DeviceTier::Laptop, DeviceTier::Desktop, DeviceTier::Server] {
+            let tier_miners: Vec<&MinerInfo> = self.miners.values()
+                .filter(|m| m.device_tier == tier)
+                .collect();
+            
+            if tier_miners.is_empty() {
+                continue;
+            }
+            
+            let avg_reward = tier_miners.iter()
+                .map(|m| self.calculate_reward(m))
+                .sum::<u64>() / tier_miners.len() as u64;
+            
+            let power_consumption_watts = match tier {
+                DeviceTier::Mobile => 5,
+                DeviceTier::Laptop => 45,
+                DeviceTier::Desktop => 200,
+                DeviceTier::Server => 500,
+            };
+            
+            let electricity_cost = (power_consumption_watts as f64 / 1000.0) * electricity_cost_per_hour;
+            let revenue_per_hour = avg_reward as f64; // Assuming 1 epoch = 1 hour
+            
+            profitability.insert(
+                format!("{:?}", tier),
+                TierProfit {
+                    average_reward: avg_reward,
+                    electricity_cost,
+                    net_profit: revenue_per_hour - electricity_cost,
+                    profit_margin: if revenue_per_hour > 0.0 {
+                        ((revenue_per_hour - electricity_cost) / revenue_per_hour * 100.0).round()
+                    } else {
+                        0.0
+                    },
+                },
+            );
+        }
+        
+        TierProfitability { by_tier: profitability }
+    }
+    
+    /// Identify underperforming miners (for optimization recommendations)
+    pub fn get_underperforming_miners(&self, threshold_percentile: f64) -> Vec<UnderperformingMiner> {
+        let mut miner_rewards: Vec<(String, u64, f64)> = self.miners.iter()
+            .filter(|(_, m)| m.status == MinerStatus::Active)
+            .map(|(addr, m)| (addr.clone(), self.calculate_reward(m), self.calculate_uptime_score(m)))
+            .collect();
+        
+        miner_rewards.sort_by(|a, b| a.1.cmp(&b.1));
+        
+        let threshold_index = (miner_rewards.len() as f64 * threshold_percentile / 100.0) as usize;
+        
+        miner_rewards.iter()
+            .take(threshold_index)
+            .map(|(addr, reward, uptime)| {
+                let miner = self.miners.get(addr).unwrap();
+                UnderperformingMiner {
+                    address: addr.clone(),
+                    current_reward: *reward,
+                    uptime_score: *uptime,
+                    device_tier: miner.device_tier,
+                    improvement_potential: self.calculate_improvement_potential(miner),
+                }
+            })
+            .collect()
+    }
+    
+    /// Calculate improvement potential for a miner
+    pub fn calculate_improvement_potential(&self, miner: &MinerInfo) -> ImprovementPotential {
+        let current_reward = self.calculate_reward(miner);
+        
+        // Potential with perfect uptime
+        let max_uptime_reward = {
+            let mut temp_miner = miner.clone();
+            temp_miner.consecutive_uptime_epochs = 24;
+            self.calculate_reward(&temp_miner)
+        };
+        
+        // Potential with upgraded tier
+        let next_tier_reward = match miner.device_tier {
+            DeviceTier::Mobile => {
+                let mut temp = miner.clone();
+                temp.device_tier = DeviceTier::Laptop;
+                self.calculate_reward(&temp)
+            },
+            DeviceTier::Laptop => {
+                let mut temp = miner.clone();
+                temp.device_tier = DeviceTier::Desktop;
+                self.calculate_reward(&temp)
+            },
+            DeviceTier::Desktop => {
+                let mut temp = miner.clone();
+                temp.device_tier = DeviceTier::Server;
+                self.calculate_reward(&temp)
+            },
+            DeviceTier::Server => current_reward, // Already max tier
+        };
+        
+        ImprovementPotential {
+            current_reward,
+            with_perfect_uptime: max_uptime_reward,
+            with_tier_upgrade: next_tier_reward,
+            uptime_gap: max_uptime_reward - current_reward,
+            tier_gap: next_tier_reward - current_reward,
+            recommended_action: if miner.consecutive_uptime_epochs < miner.device_tier.min_uptime_hours() {
+                "Improve uptime consistency"
+            } else if miner.device_tier != DeviceTier::Server {
+                "Consider tier upgrade"
+            } else {
+                "Maintain current performance"
+            }.to_string(),
+        }
+    }
+    
+    /// Calculate network sustainability score (0-100)
+    pub fn calculate_sustainability_score(&self) -> SustainabilityScore {
+        // Reward distribution sustainability
+        let rewards_vs_pool = self.network_stats.epoch_rewards_distributed as f64 / 
+                             self.minimum_rewards_pool as f64;
+        let rewards_score = (rewards_vs_pool * 50.0).min(50.0);
+        
+        // Miner retention score (based on reputation distribution)
+        let high_rep_miners = self.miners.values()
+            .filter(|m| m.reputation_score >= 70.0)
+            .count();
+        let retention_score = if self.miners.is_empty() {
+            0.0
+        } else {
+            (high_rep_miners as f64 / self.miners.len() as f64) * 25.0
+        };
+        
+        // Decentralization score
+        let decentralization_score = self.calculate_decentralization_index() * 0.25;
+        
+        SustainabilityScore {
+            overall_score: (rewards_score + retention_score + decentralization_score).round(),
+            rewards_sustainability: rewards_score.round(),
+            miner_retention: retention_score.round(),
+            decentralization: decentralization_score.round(),
+            status: if self.network_stats.epoch_rewards_distributed >= self.minimum_rewards_pool {
+                "Sustainable"
+            } else {
+                "At Risk"
+            }.to_string(),
+        }
+    }
+    
+    /// Get mining trend analysis (epoch-over-epoch changes)
+    pub fn get_mining_trends(&self, previous_epoch_stats: &NetworkMiningStats) -> MiningTrends {
+        let miner_change = self.network_stats.total_active_miners as i64 - 
+                          previous_epoch_stats.total_active_miners as i64;
+        let reward_change = self.network_stats.epoch_rewards_distributed as i64 - 
+                           previous_epoch_stats.epoch_rewards_distributed as i64;
+        let hashrate_change = self.network_stats.network_hashrate_equivalent as i64 - 
+                             previous_epoch_stats.network_hashrate_equivalent as i64;
+        
+        MiningTrends {
+            miner_growth: miner_change,
+            miner_growth_percent: if previous_epoch_stats.total_active_miners > 0 {
+                (miner_change as f64 / previous_epoch_stats.total_active_miners as f64 * 100.0).round()
+            } else {
+                0.0
+            },
+            reward_growth: reward_change,
+            reward_growth_percent: if previous_epoch_stats.epoch_rewards_distributed > 0 {
+                (reward_change as f64 / previous_epoch_stats.epoch_rewards_distributed as f64 * 100.0).round()
+            } else {
+                0.0
+            },
+            hashrate_growth: hashrate_change,
+            hashrate_growth_percent: if previous_epoch_stats.network_hashrate_equivalent > 0 {
+                (hashrate_change as f64 / previous_epoch_stats.network_hashrate_equivalent as f64 * 100.0).round()
+            } else {
+                0.0
+            },
+            trend_direction: if miner_change > 0 && reward_change > 0 {
+                "Growing"
+            } else if miner_change < 0 && reward_change < 0 {
+                "Declining"
+            } else {
+                "Mixed"
+            }.to_string(),
+        }
+    }
+    
+    /// Calculate fair reward distribution index (Gini coefficient style)
+    pub fn calculate_reward_distribution_fairness(&self) -> f64 {
+        let mut rewards: Vec<u64> = self.miners.values()
+            .filter(|m| m.status == MinerStatus::Active)
+            .map(|m| self.calculate_reward(m))
+            .collect();
+        
+        if rewards.is_empty() {
+            return 1.0; // Perfect equality when no miners
+        }
+        
+        rewards.sort();
+        let total_rewards: u64 = rewards.iter().sum();
+        let n = rewards.len();
+        
+        // Calculate Gini coefficient (0 = perfect equality, 1 = perfect inequality)
+        let mut cumulative = 0u64;
+        let mut gini_sum = 0.0;
+        
+        for (i, &reward) in rewards.iter().enumerate() {
+            cumulative += reward;
+            let cumulative_percent = cumulative as f64 / total_rewards as f64;
+            let ideal_percent = (i + 1) as f64 / n as f64;
+            gini_sum += (ideal_percent - cumulative_percent).abs();
+        }
+        
+        let gini = gini_sum / n as f64;
+        
+        // Convert to fairness score (1 - gini, so 1 = perfect fairness)
+        (1.0 - gini).max(0.0)
+    }
+    
+    /// Get personalized mining optimization recommendations for a miner
+    pub fn get_personalized_recommendations(&self, address: &str) -> MiningRecommendations {
+        let miner = match self.miners.get(address) {
+            Some(m) => m,
+            None => return MiningRecommendations::default(),
+        };
+        
+        let current_reward = self.calculate_reward(miner);
+        let uptime_score = self.calculate_uptime_score(miner);
+        let improvement = self.calculate_improvement_potential(miner);
+        
+        let mut recommendations = Vec::new();
+        
+        // Uptime recommendation
+        if uptime_score < 0.9 {
+            recommendations.push(Recommendation {
+                category: "Uptime".to_string(),
+                current_value: uptime_score,
+                target_value: 1.0,
+                impact: improvement.uptime_gap,
+                action: format!("Maintain {}+ hours consecutive uptime", miner.device_tier.min_uptime_hours()),
+                priority: if uptime_score < 0.5 { "High" } else { "Medium" }.to_string(),
+            });
+        }
+        
+        // Tier upgrade recommendation
+        if miner.device_tier != DeviceTier::Server && improvement.tier_gap > improvement.uptime_gap {
+            recommendations.push(Recommendation {
+                category: "Hardware".to_string(),
+                current_value: miner.device_tier.multiplier(),
+                target_value: match miner.device_tier {
+                    DeviceTier::Mobile => DeviceTier::Laptop.multiplier(),
+                    DeviceTier::Laptop => DeviceTier::Desktop.multiplier(),
+                    DeviceTier::Desktop => DeviceTier::Server.multiplier(),
+                    DeviceTier::Server => miner.device_tier.multiplier(),
+                },
+                impact: improvement.tier_gap,
+                action: "Upgrade to higher tier device for better rewards".to_string(),
+                priority: "Medium".to_string(),
+            });
+        }
+        
+        // Reputation building recommendation
+        if miner.reputation_score < 70.0 {
+            recommendations.push(Recommendation {
+                category: "Reputation".to_string(),
+                current_value: miner.reputation_score,
+                target_value: 100.0,
+                impact: (current_reward as f64 * 0.5) as u64, // Potential 50% increase
+                action: "Maintain consistent uptime and avoid penalties".to_string(),
+                priority: if miner.reputation_score < 50.0 { "High" } else { "Medium" }.to_string(),
+            });
+        }
+        
+        MiningRecommendations {
+            address: address.to_string(),
+            current_reward,
+            potential_max_reward: improvement.with_perfect_uptime.max(improvement.with_tier_upgrade),
+            recommendations,
+            overall_improvement_potential: improvement.with_perfect_uptime.max(improvement.with_tier_upgrade) - current_reward,
+        }
+    }
+    
     /// Record epoch participation for a miner
     pub fn record_participation(&mut self, address: &str, participated: bool) -> Result<(), String> {
         let miner = self.miners.get_mut(address)
@@ -887,6 +1284,106 @@ pub struct EpochSimulation {
         pub desktop: u64,
         pub server: u64,
         pub total_active: u64,
+    }
+    
+    // =============================================================================
+    // SPRINT 22 ANALYTICS STRUCTS
+    // =============================================================================
+    
+    /// Tier distribution percentages
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct TierDistribution {
+        pub mobile: f64,
+        pub laptop: f64,
+        pub desktop: f64,
+        pub server: f64,
+        pub total_miners: u64,
+    }
+    
+    /// Activity heatmap by tier and uptime
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct ActivityHeatmap {
+        pub by_tier_and_uptime: HashMap<String, u64>,
+        pub total_active: u64,
+    }
+    
+    /// Tier profitability analysis
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct TierProfitability {
+        pub by_tier: HashMap<String, TierProfit>,
+    }
+    
+    /// Individual tier profit metrics
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct TierProfit {
+        pub average_reward: u64,
+        pub electricity_cost: f64,
+        pub net_profit: f64,
+        pub profit_margin: f64,
+    }
+    
+    /// Underperforming miner analysis
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct UnderperformingMiner {
+        pub address: String,
+        pub current_reward: u64,
+        pub uptime_score: f64,
+        pub device_tier: DeviceTier,
+        pub improvement_potential: ImprovementPotential,
+    }
+    
+    /// Improvement potential breakdown
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct ImprovementPotential {
+        pub current_reward: u64,
+        pub with_perfect_uptime: u64,
+        pub with_tier_upgrade: u64,
+        pub uptime_gap: u64,
+        pub tier_gap: u64,
+        pub recommended_action: String,
+    }
+    
+    /// Network sustainability score
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct SustainabilityScore {
+        pub overall_score: f64,
+        pub rewards_sustainability: f64,
+        pub miner_retention: f64,
+        pub decentralization: f64,
+        pub status: String,
+    }
+    
+    /// Mining trend analysis
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct MiningTrends {
+        pub miner_growth: i64,
+        pub miner_growth_percent: f64,
+        pub reward_growth: i64,
+        pub reward_growth_percent: f64,
+        pub hashrate_growth: i64,
+        pub hashrate_growth_percent: f64,
+        pub trend_direction: String,
+    }
+    
+    /// Personalized mining recommendations
+    #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+    pub struct MiningRecommendations {
+        pub address: String,
+        pub current_reward: u64,
+        pub potential_max_reward: u64,
+        pub recommendations: Vec<Recommendation>,
+        pub overall_improvement_potential: u64,
+    }
+    
+    /// Individual recommendation item
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct Recommendation {
+        pub category: String,
+        pub current_value: f64,
+        pub target_value: f64,
+        pub impact: u64,
+        pub action: String,
+        pub priority: String,
     }
 }
         
