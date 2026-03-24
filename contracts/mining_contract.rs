@@ -350,6 +350,218 @@ impl MiningContract {
         let daily_rewards = base_reward * tier_multiplier * 24 * 0.0001; // rough token value
         
         // Daily electricity cost
+        let daily_power_cost = (power_watts / 1000.0) * 24.0 * electricity_cost_per_kwh;
+        
+        // Net profit (rewards - cost)
+        daily_rewards - daily_power_cost
+    }
+    
+    // =============================================================================
+    // MINING POOL SYSTEM - NEW SPRINT ADDITION
+    // =============================================================================
+    
+    /// Mining pool information for pooled mining rewards
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct MiningPool {
+        pub pool_id: String,
+        pub name: String,
+        pub owner: String,
+        pub total_hashrate: u64,
+        pub total_miners: u64,
+        pub pool_fee_percent: f64,
+        pub total_rewards_distributed: u64,
+        pub created_at: u64,
+        pub is_active: bool,
+    }
+    
+    /// Pool miner participation record
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct PoolMiner {
+        pub miner_address: String,
+        pub pool_id: String,
+        pub joined_at: u64,
+        pub hashrate_contributed: u64,
+        pub rewards_earned: u64,
+        pub last_claim_epoch: u64,
+    }
+    
+    /// Add mining pools to contract state
+    pub mining_pools: HashMap<String, MiningPool>,
+    pub pool_miners: HashMap<String, Vec<PoolMiner>>,
+    
+    /// Create a new mining pool
+    pub fn create_pool(&mut self, owner: String, name: String, pool_fee: f64) -> Result<MiningPool, String> {
+        if pool_fee < 0.0 || pool_fee > 10.0 {
+            return Err("Pool fee must be between 0% and 10%".to_string());
+        }
+        
+        let pool_id = format!("pool_{}_{}", owner, self.current_epoch);
+        let pool = MiningPool {
+            pool_id: pool_id.clone(),
+            name,
+            owner: owner.clone(),
+            total_hashrate: 0,
+            total_miners: 0,
+            pool_fee_percent: pool_fee,
+            total_rewards_distributed: 0,
+            created_at: self.current_epoch,
+            is_active: true,
+        };
+        
+        self.mining_pools.insert(pool_id.clone(), pool.clone());
+        self.pool_miners.insert(pool_id, Vec::new());
+        
+        Ok(pool)
+    }
+    
+    /// Join a mining pool
+    pub fn join_pool(&mut self, miner_address: String, pool_id: String) -> Result<PoolMiner, String> {
+        let pool = self.mining_pools.get_mut(&pool_id)
+            .ok_or("Pool not found")?;
+        
+        if !pool.is_active {
+            return Err("Pool is not active".to_string());
+        }
+        
+        let miner = self.miners.get(&miner_address)
+            .ok_or("Miner not found")?;
+        
+        if miner.status != MinerStatus::Active {
+            return Err("Miner must be active to join pool".to_string());
+        }
+        
+        // Check if already in a pool
+        let pools = self.pool_miners.get_mut(&pool_id).unwrap();
+        if pools.iter().any(|pm| pm.miner_address == miner_address) {
+            return Err("Miner already in pool".to_string());
+        }
+        
+        let pool_miner = PoolMiner {
+            miner_address: miner_address.clone(),
+            pool_id: pool_id.clone(),
+            joined_at: self.current_epoch,
+            hashrate_contributed: self.get_miner_hashrate(&miner_address),
+            rewards_earned: 0,
+            last_claim_epoch: self.current_epoch,
+        };
+        
+        pools.push(pool_miner.clone());
+        pool.total_miners += 1;
+        pool.total_hashrate += pool_miner.hashrate_contributed;
+        
+        Ok(pool_miner)
+    }
+    
+    /// Get miner's hashrate based on tier
+    fn get_miner_hashrate(&self, miner_address: &str) -> u64 {
+        if let Some(miner) = self.miners.get(miner_address) {
+            match miner.device_tier {
+                DeviceTier::Mobile => 500,
+                DeviceTier::Laptop => 2000,
+                DeviceTier::Desktop => 5000,
+                DeviceTier::Server => 20000,
+            }
+        } else {
+            0
+        }
+    }
+    
+    /// Leave a mining pool
+    pub fn leave_pool(&mut self, miner_address: String, pool_id: String) -> Result<(), String> {
+        let pool = self.mining_pools.get_mut(&pool_id)
+            .ok_or("Pool not found")?;
+        
+        let miners = self.pool_miners.get_mut(&pool_id).unwrap();
+        let idx = miners.iter().position(|pm| pm.miner_address == miner_address)
+            .ok_or("Miner not in pool")?;
+        
+        let miner = miners.remove(idx);
+        pool.total_miners -= 1;
+        pool.total_hashrate = pool.total_hashrate.saturating_sub(miner.hashrate_contributed);
+        
+        Ok(())
+    }
+    
+    /// Claim pool mining rewards (distributed proportionally by hashrate)
+    pub fn claim_pool_rewards(&mut self, miner_address: &str, pool_id: &str) -> Result<u64, String> {
+        let pool = self.mining_pools.get_mut(pool_id)
+            .ok_or("Pool not found")?;
+        
+        let miners = self.pool_miners.get_mut(pool_id).unwrap();
+        let miner_record = miners.iter_mut().find(|pm| pm.miner_address == miner_address)
+            .ok_or("Miner not in pool")?;
+        
+        // Calculate pool rewards for epochs since last claim
+        let epochs = self.current_epoch - miner_record.last_claim_epoch;
+        let pool_reward_per_epoch = self.base_reward_per_epoch * pool.total_miners;
+        
+        // Miner's share based on hashrate contribution
+        let share = if pool.total_hashrate > 0 {
+            miner_record.hashrate_contributed as f64 / pool.total_hashrate as f64
+        } else {
+            0.0
+        };
+        
+        // Apply pool fee
+        let gross_reward = (pool_reward_per_epoch * epochs as u64) as f64 * share;
+        let pool_fee = gross_reward * (pool.pool_fee_percent / 100.0);
+        let net_reward = (gross_reward - pool_fee) as u64;
+        
+        miner_record.rewards_earned += net_reward;
+        miner_record.last_claim_epoch = self.current_epoch;
+        pool.total_rewards_distributed += net_reward;
+        
+        Ok(net_reward)
+    }
+    
+    /// Get pool statistics
+    pub fn get_pool_stats(&self, pool_id: &str) -> Option<PoolStats> {
+        if let Some(pool) = self.mining_pools.get(pool_id) {
+            let miners = self.pool_miners.get(pool_id).unwrap_or(&Vec::new());
+            Some(PoolStats {
+                pool_id: pool.pool_id.clone(),
+                name: pool.name.clone(),
+                total_miners: pool.total_miners,
+                total_hashrate: pool.total_hashrate,
+                avg_hashrate_per_miner: if pool.total_miners > 0 {
+                    pool.total_hashrate / pool.total_miners
+                } else {
+                    0
+                },
+                pool_fee_percent: pool.pool_fee_percent,
+                total_rewards_distributed: pool.total_rewards_distributed,
+                is_active: pool.is_active,
+            })
+        } else {
+            None
+        }
+    }
+    
+    /// Pool statistics struct
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct PoolStats {
+        pub pool_id: String,
+        pub name: String,
+        pub total_miners: u64,
+        pub total_hashrate: u64,
+        pub avg_hashrate_per_miner: u64,
+        pub pool_fee_percent: f64,
+        pub total_rewards_distributed: u64,
+        pub is_active: bool,
+    }
+    
+    /// Tier counts helper struct
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct TierCounts {
+        pub mobile: u64,
+        pub laptop: u64,
+        pub desktop: u64,
+        pub server: u64,
+        pub total_active: u64,
+    }
+}
+        
+        // Daily electricity cost
         let daily_power_cost = (power_watts / 1000.0) * 24 * electricity_cost_per_kwh;
         
         if daily_power_cost > 0.0 {
