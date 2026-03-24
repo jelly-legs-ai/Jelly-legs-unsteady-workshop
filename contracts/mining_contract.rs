@@ -285,27 +285,214 @@ impl MiningContract {
         Ok(total_reward)
     }
 
-    /// Get projected rewards for a miner
-    pub fn get_projected_rewards(&self, address: &str, epochs: u64) -> Option<ProjectedRewards> {
-        self.miners.get(address).map(|m| {
-            let reward_per_epoch = self.calculate_reward(m);
-            let daily_rewards = reward_per_epoch * 24; // Assuming 24 epochs per day
-            let weekly_rewards = daily_rewards * 7;
-            let monthly_rewards = daily_rewards * 30;
-            
-            ProjectedRewards {
+    // =============================================================================
+    // REWARD CALCULATION HELPERS - Sprint Enhancement
+    // =============================================================================
+    
+    /// Calculate daily mining rewards based on current tier and uptime
+    pub fn calculate_daily_rewards(&self, miner: &MinerInfo) -> u64 {
+        let epoch_reward = self.calculate_reward(miner);
+        epoch_reward * 24 // Assuming 24 epochs per day
+    }
+    
+    /// Calculate weekly mining rewards
+    pub fn calculate_weekly_rewards(&self, miner: &MinerInfo) -> u64 {
+        self.calculate_daily_rewards(miner) * 7
+    }
+    
+    /// Calculate monthly mining rewards
+    pub fn calculate_monthly_rewards(&self, miner: &MinerInfo) -> u64 {
+        self.calculate_daily_rewards(miner) * 30
+    }
+    
+    /// Get network hashrate equivalent (aggregate of all miners)
+    pub fn get_network_hashrate(&self) -> u64 {
+        let mut total_hashrate = 0u64;
+        for miner in self.miners.values() {
+            if miner.status == MinerStatus::Active {
+                let tier_hashrate = match miner.device_tier {
+                    DeviceTier::Mobile => 0.5,
+                    DeviceTier::Laptop => 2.0,
+                    DeviceTier::Desktop => 5.0,
+                    DeviceTier::Server => 20.0,
+                };
+                total_hashrate += (tier_hashrate * 1000) as u64; // Convert to kh/s equivalent
+            }
+        }
+        total_hashrate
+    }
+    
+    /// Get active miner count by tier
+    pub fn get_miners_by_tier(&self) -> TierCounts {
+        TierCounts {
+            mobile: self.network_stats.total_miners_tier_mobile,
+            laptop: self.network_stats.total_miners_tier_laptop,
+            desktop: self.network_stats.total_miners_tier_desktop,
+            server: self.network_stats.total_miners_tier_server,
+            total_active: self.network_stats.total_active_miners,
+        }
+    }
+    
+    /// Calculate mining profitability for a given tier (reward per能耗 unit)
+    pub fn calculate_mining_profitability(&self, tier: DeviceTier, electricity_cost_per_kwh: f64) -> f64 {
+        let base_reward = self.base_reward_per_epoch as f64;
+        let tier_multiplier = tier.multiplier();
+        
+        // Estimated power consumption per tier (watts)
+        let power_watts = match tier {
+            DeviceTier::Mobile => 5.0,
+            DeviceTier::Laptop => 50.0,
+            DeviceTier::Desktop => 300.0,
+            DeviceTier::Server => 500.0,
+        };
+        
+        // Daily reward in USD equivalent (assuming token price)
+        let daily_rewards = base_reward * tier_multiplier * 24 * 0.0001; // rough token value
+        
+        // Daily electricity cost
+        let daily_power_cost = (power_watts / 1000.0) * 24 * electricity_cost_per_kwh;
+        
+        if daily_power_cost > 0.0 {
+            daily_rewards / daily_power_cost
+        } else {
+            daily_rewards
+        }
+    }
+    
+    /// Estimate time to recover device cost based on tier
+    pub fn estimate_roi_days(&self, tier: DeviceTier, device_cost_usd: f64, token_price_usd: f64) -> u64 {
+        let miner = MinerInfo {
+            address: "temp".to_string(),
+            device_tier: tier,
+            total_mined: 0,
+            last_claim_epoch: 0,
+            consecutive_uptime_epochs: 100,
+            reputation_score: 75.0,
+            status: MinerStatus::Active,
+            registered_at: 0,
+            last_active_epoch: 0,
+            penalty_count: 0,
+        };
+        
+        let daily_rewards = self.calculate_daily_rewards(&miner) as f64 * token_price_usd;
+        if daily_rewards > 0.0 {
+            (device_cost_usd / daily_rewards) as u64
+        } else {
+            u64::MAX
+        }
+    }
+    
+    /// Get all miners eligible for rewards (active status)
+    pub fn get_active_miners(&self) -> Vec<&MinerInfo> {
+        self.miners
+            .values()
+            .filter(|m| m.status == MinerStatus::Active)
+            .collect()
+    }
+    
+    /// Get network average reputation score
+    pub fn get_network_average_reputation(&self) -> f64 {
+        if self.miners.is_empty() {
+            return 50.0; // Default neutral reputation
+        }
+        let sum: f64 = self.miners.values().map(|m| m.reputation_score).sum();
+        sum / self.miners.len() as f64
+    }
+    
+    /// Get estimated next difficulty adjustment
+    pub fn estimate_difficulty_change(&self) -> f64 {
+        let active_count = self.get_active_miners().len() as f64;
+        let total_count = self.network_stats.total_active_miners as f64;
+        
+        if total_count == 0.0 {
+            return 0.0;
+        }
+        
+        let participation_rate = active_count / total_count;
+        
+        if participation_rate > 0.9 {
+            5.0 // 5% increase
+        } else if participation_rate < 0.5 {
+            -10.0 // 10% decrease
+        } else {
+            1.0 // 1% gradual increase
+        }
+    }
+    
+    /// Get miner leaderboard (top 10 by total mined)
+    pub fn get_miner_leaderboard(&self, limit: usize) -> Vec<MinerLeaderboardEntry> {
+        let mut miners: Vec<_> = self.miners.values().collect();
+        miners.sort_by(|a, b| b.total_mined.cmp(&a.total_mined));
+        
+        miners.into_iter()
+            .take(limit)
+            .enumerate()
+            .map(|(i, m)| MinerLeaderboardEntry {
+                rank: i + 1,
                 address: m.address.clone(),
-                per_epoch: reward_per_epoch,
-                daily: daily_rewards,
-                weekly: weekly_rewards,
-                monthly: monthly_rewards,
+                total_mined: m.total_mined,
                 tier: m.device_tier,
                 uptime_score: self.calculate_uptime_score(m),
-            }
-        })
+            })
+            .collect()
     }
-
-    /// Get miner statistics
+    
+    /// Check if a miner is eligible for bonus rewards
+    pub fn is_bonus_eligible(&self, miner: &MinerInfo) -> bool {
+        miner.status == MinerStatus::Active 
+            && miner.reputation_score >= 80.0 
+            && miner.consecutive_uptime_epochs >= 100
+    }
+    
+    /// Get bonus multiplier for eligible miners
+    pub fn get_bonus_multiplier(&self, miner: &MinerInfo) -> f64 {
+        if self.is_bonus_eligible(miner) {
+            1.25 // 25% bonus
+        } else {
+            1.0
+        }
+    }
+    
+    /// Get miner by address (immutable reference)
+    pub fn get_miner(&self, address: &str) -> Option<&MinerInfo> {
+        self.miners.get(address)
+    }
+    
+    /// Get miner by address (mutable reference)
+    pub fn get_miner_mut(&mut self, address: &str) -> Option<&mut MinerInfo> {
+        self.miners.get_mut(address)
+    }
+    
+    /// Count total registered miners
+    pub fn total_registered_miners(&self) -> u64 {
+        self.miners.len() as u64
+    }
+    
+    /// Get network utilization percentage
+    pub fn get_network_utilization(&self) -> f64 {
+        if self.network_stats.total_active_miners == 0 {
+            return 0.0;
+        }
+        
+        let active = self.get_active_miners().len() as f64;
+        let total = self.network_stats.total_active_miners as f64;
+        (active / total) * 100.0
+    }
+    
+    /// Calculate penalty factor based on reputation
+    pub fn calculate_penalty_factor(&self, miner: &MinerInfo) -> f64 {
+        if miner.reputation_score >= 75.0 {
+            1.0 // No penalty
+        } else if miner.reputation_score >= 50.0 {
+            0.75 // 25% reduction
+        } else if miner.reputation_score >= 25.0 {
+            0.5 // 50% reduction
+        } else {
+            0.25 // 75% reduction
+        }
+    }
+    
+    /// Get projected rewards for a miner
     pub fn get_miner_stats(&self, address: &str) -> Option<MinerStats> {
         self.miners.get(address).map(|m| {
             let current_reward = self.calculate_reward(m);
@@ -350,6 +537,26 @@ pub struct MinerStats {
     pub status: MinerStatus,
     pub consecutive_uptime_epochs: u64,
     pub penalty_count: u64,
+}
+
+/// Tier counts for network stats
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TierCounts {
+    pub mobile: u64,
+    pub laptop: u64,
+    pub desktop: u64,
+    pub server: u64,
+    pub total_active: u64,
+}
+
+/// Miner leaderboard entry
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MinerLeaderboardEntry {
+    pub rank: usize,
+    pub address: String,
+    pub total_mined: u64,
+    pub tier: DeviceTier,
+    pub uptime_score: f64,
 }
 
 #[cfg(test)]
