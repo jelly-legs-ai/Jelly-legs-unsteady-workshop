@@ -1,377 +1,244 @@
 // FLUX Token Contract - AeTHer Chain
-// Enhanced implementation for FLUX utility token with burning, minting, and transfer tracking
+// Utility token for AI agent services, transaction fees, and mining rewards
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// FLUX Token Configuration
-pub const FLUX_TOKEN_NAME: &str = "FLUX";
-pub const FLUX_TOKEN_SYMBOL: &str = "FLUX";
-pub const FLUX_TOKEN_DECIMALS: u8 = 18;
-pub const FLUX_MAX_SUPPLY: u64 = 10_000_000_000_u64; // 10 billion FLUX
-pub const FLUX_INITIAL_MINTED: u64 = 1_000_000_000_u64; // 1 billion initially minted
-
-/// FLUX Token State
+/// FLUX token contract state
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FluxToken {
+pub struct FluxTokenContract {
+    pub name: String,
+    pub symbol: String,
+    pub decimals: u8,
     pub total_supply: u64,
     pub circulating_supply: u64,
-    pub mining_reward_per_epoch: u64,
-    pub last_reward_distribution: u64,
-    pub burned_amount: u64,
-    pub treasury_balance: u64,
+    pub burned_supply: u64,
     pub balances: HashMap<String, u64>,
     pub allowances: HashMap<String, HashMap<String, u64>>,
+    pub minting_enabled: bool,
+    pub mint_cap: u64,
+    pub minted_amount: u64,
+    pub burn_address: String,
+    pub contract_version: String,
 }
 
-/// Transfer event log
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TransferEvent {
-    pub from: String,
-    pub to: String,
-    pub amount: u64,
-    pub epoch: u64,
-    pub timestamp: u64,
-    pub tx_hash: String,
-}
-
-/// Burn event log
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BurnEvent {
-    pub burner: String,
-    pub amount: u64,
-    pub epoch: u64,
-    pub timestamp: u64,
-    pub reason: String,
-}
-
-/// Initialize FLUX token
-pub fn init_flux_token() -> FluxToken {
-    let mut token = FluxToken {
-        total_supply: FLUX_INITIAL_MINTED,
-        circulating_supply: FLUX_INITIAL_MINTED,
-        mining_reward_per_epoch: 1000, // 1000 FLUX per epoch
-        last_reward_distribution: 0,
-        burned_amount: 0,
-        treasury_balance: FLUX_MAX_SUPPLY - FLUX_INITIAL_MINTED,
-        balances: HashMap::new(),
-        allowances: HashMap::new(),
-    };
-    
-    // Mint initial treasury allocation
-    token.balances.insert("treasury".to_string(), token.treasury_balance);
-    
-    token
-}
-
-/// Mint new FLUX tokens (treasury only)
-pub fn mint_flux(token: &mut FluxToken, amount: u64, recipient: String) -> Result<u64, String> {
-    if token.total_supply + amount > FLUX_MAX_SUPPLY {
-        return Err("Minting would exceed max supply".to_string());
-    }
-    
-    if token.treasury_balance < amount {
-        return Err("Insufficient treasury balance".to_string());
-    }
-    
-    token.total_supply += amount;
-    token.circulating_supply += amount;
-    token.treasury_balance -= amount;
-    
-    *token.balances.entry(recipient.clone()).or_insert(0) += amount;
-    
-    Ok(amount)
-}
-
-/// Burn FLUX tokens
-pub fn burn_flux(token: &mut FluxToken, owner: String, amount: u64, reason: String) -> Result<BurnEvent, String> {
-    let balance = token.balances.get(&owner).copied().unwrap_or(0);
-    
-    if balance < amount {
-        return Err("Insufficient balance to burn".to_string());
-    }
-    
-    token.balances.insert(owner.clone(), balance - amount);
-    token.circulating_supply -= amount;
-    token.burned_amount += amount;
-    
-    let burn_event = BurnEvent {
-        burner: owner,
-        amount,
-        epoch: token.last_reward_distribution,
-        timestamp: token.last_reward_distribution * 3600,
-        reason,
-    };
-    
-    Ok(burn_event)
-}
-
-/// Transfer FLUX tokens
-pub fn transfer_flux(token: &mut FluxToken, from: String, to: String, amount: u64) -> Result<TransferEvent, String> {
-    let from_balance = token.balances.get(&from).copied().unwrap_or(0);
-    
-    if from_balance < amount {
-        return Err("Insufficient balance".to_string());
-    }
-    
-    token.balances.insert(from.clone(), from_balance - amount);
-    *token.balances.entry(to.clone()).or_insert(0) += amount;
-    
-    let transfer_event = TransferEvent {
-        from,
-        to,
-        amount,
-        epoch: token.last_reward_distribution,
-        timestamp: token.last_reward_distribution * 3600,
-        tx_hash: format!("tx_{}_{}", from, to),
-    };
-    
-    Ok(transfer_event)
-}
-
-/// Approve spender to transfer tokens on behalf of owner
-pub fn approve_flux(token: &mut FluxToken, owner: String, spender: String, amount: u64) {
-    token.allowances
-        .entry(owner.clone())
-        .or_insert_with(HashMap::new)
-        .insert(spender, amount);
-}
-
-/// Transfer from (using allowance)
-pub fn transfer_from_flux(token: &mut FluxToken, spender: String, from: String, to: String, amount: u64) -> Result<TransferEvent, String> {
-    let owner_allowances = token.allowances.get(&from);
-    
-    match owner_allowances {
-        Some(allowances) => {
-            let spender_allowance = allowances.get(&spender).copied().unwrap_or(0);
-            
-            if spender_allowance < amount {
-                return Err("Allowance exceeded".to_string());
-            }
-            
-            // Reduce allowance
-            token.allowances.get_mut(&from).unwrap().insert(spender, spender_allowance - amount);
-            
-            // Execute transfer
-            transfer_flux(token, from, to, amount)
-        }
-        None => Err("No allowance set".to_string()),
-    }
-}
-
-/// Calculate mining reward based on epoch and device tier
-pub fn calculate_mining_reward(
-    epoch: u64,
-    device_tier: DeviceTier,
-    uptime_hours: u64,
-    network_participation: f64,
-) -> u64 {
-    let base_reward = 1000_u64;
-    let tier_multiplier = match device_tier {
-        DeviceTier::Mobile => 1.0,
-        DeviceTier::Laptop => 1.5,
-        DeviceTier::Desktop => 2.0,
-        DeviceTier::Server => 3.0,
-    };
-    let uptime_factor = (uptime_hours as f64 / 24.0).min(1.0);
-    let participation_factor = network_participation.min(1.0);
-    
-    (base_reward as f64 * tier_multiplier * uptime_factor * participation_factor) as u64
-}
-
-/// Device tier for mining rewards
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
-pub enum DeviceTier {
-    Mobile,
-    Laptop,
-    Desktop,
-    Server,
-}
-
-/// Reward distribution event
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RewardDistribution {
-    pub epoch: u64,
-    pub recipient: String,
-    pub amount: u64,
-    pub device_tier: DeviceTier,
-    pub timestamp: u64,
-}
-
-/// Distribute mining rewards for an epoch
-pub fn distribute_epoch_rewards(
-    token: &mut FluxToken,
-    epoch: u64,
-    recipients: Vec<(String, DeviceTier, u64, f64)>, // (address, tier, uptime, participation)
-) -> Vec<RewardDistribution> {
-    let mut distributions = Vec::new();
-    
-    for (recipient, tier, uptime, participation) in recipients {
-        let reward = calculate_mining_reward(epoch, tier, uptime, participation);
+impl FluxTokenContract {
+    /// Create new FLUX token contract
+    pub fn new() -> Self {
+        let mut balances = HashMap::new();
+        // Pre-mine initial supply for distribution
+        balances.insert("treasury".to_string(), 500_000_000);
+        balances.insert("mining_rewards".to_string(), 300_000_000);
+        balances.insert("team_allocation".to_string(), 100_000_000);
+        balances.insert("ecosystem_fund".to_string(), 100_000_000);
         
-        if reward > 0 {
-            token.circulating_supply += reward;
-            *token.balances.entry(recipient.clone()).or_insert(0) += reward;
-            
-            distributions.push(RewardDistribution {
-                epoch,
-                recipient,
-                amount: reward,
-                device_tier: tier,
-                timestamp: epoch * 3600, // epoch duration in seconds
-            });
+        FluxTokenContract {
+            name: "FLUX Token".to_string(),
+            symbol: "FLUX".to_string(),
+            decimals: 8,
+            total_supply: 1_000_000_000, // 1 billion FLUX
+            circulating_supply: 0,
+            burned_supply: 0,
+            balances,
+            allowances: HashMap::new(),
+            minting_enabled: false,
+            mint_cap: 1_500_000_000, // Max 1.5B FLUX ever
+            minted_amount: 0,
+            burn_address: "0x000000000000000000000000000000000000dead".to_string(),
+            contract_version: "1.0.0".to_string(),
         }
     }
     
-    token.last_reward_distribution = epoch;
-    distributions
-}
-
-/// Get token holder count
-pub fn get_holder_count(token: &FluxToken) -> u64 {
-    token.balances.iter().filter(|(_, balance)| **balance > 0).count() as u64
-}
-
-/// Get top token holders
-pub fn get_top_holders(token: &FluxToken, limit: usize) -> Vec<(String, u64)> {
-    let mut holders: Vec<_> = token.balances.iter()
-        .filter(|(_, balance)| **balance > 0)
-        .collect();
+    /// Transfer tokens
+    pub fn transfer(&mut self, from: &str, to: &str, amount: u64) -> Result<(), &'static str> {
+        if from == to {
+            return Err("Cannot transfer to self");
+        }
+        
+        let from_balance = self.balances.get(from).copied().unwrap_or(0);
+        if from_balance < amount {
+            return Err("Insufficient balance");
+        }
+        
+        *self.balances.entry(from.to_string()).or_insert(0) -= amount;
+        *self.balances.entry(to.to_string()).or_insert(0) += amount;
+        
+        Ok(())
+    }
     
-    holders.sort_by(|a, b| b.1.cmp(a.1));
-    holders.truncate(limit);
+    /// Approve spender to use tokens
+    pub fn approve(&mut self, owner: &str, spender: &str, amount: u64) -> Result<(), &'static str> {
+        self.allowances
+            .entry(owner.to_string())
+            .or_insert_with(HashMap::new)
+            .insert(spender.to_string(), amount);
+        Ok(())
+    }
     
-    holders.into_iter().map(|(addr, bal)| (addr.clone(), *bal)).collect()
-}
-
-/// Get token metrics
-pub fn get_flux_metrics(token: &FluxToken) -> FluxMetrics {
-    FluxMetrics {
-        total_supply: token.total_supply,
-        circulating_supply: token.circulating_supply,
-        burned_amount: token.burned_amount,
-        treasury_balance: token.treasury_balance,
-        holder_count: get_holder_count(token),
-        top_10_holders: get_top_holders(token, 10),
+    /// Transfer from approved allowance
+    pub fn transfer_from(&mut self, owner: &str, spender: &str, to: &str, amount: u64) -> Result<(), &'static str> {
+        let owner_allowances = self.allowances.get_mut(owner)
+            .ok_or("No allowances set")?;
+        
+        let allowance = owner_allowances.get_mut(spender)
+            .ok_or("No allowance for spender")?;
+        
+        if *allowance < amount {
+            return Err("Allowance exceeded");
+        }
+        
+        self.transfer(owner, to, amount)?;
+        *allowance -= amount;
+        
+        Ok(())
+    }
+    
+    /// Mint new FLUX tokens (only if enabled)
+    pub fn mint(&mut self, to: &str, amount: u64) -> Result<(), &'static str> {
+        if !self.minting_enabled {
+            return Err("Minting is disabled");
+        }
+        
+        if self.minted_amount + amount > self.mint_cap {
+            return Err("Mint cap exceeded");
+        }
+        
+        *self.balances.entry(to.to_string()).or_insert(0) += amount;
+        self.total_supply += amount;
+        self.minted_amount += amount;
+        
+        Ok(())
+    }
+    
+    /// Burn FLUX tokens
+    pub fn burn(&mut self, from: &str, amount: u64) -> Result<(), &'static str> {
+        let balance = self.balances.get(from).copied().unwrap_or(0);
+        if balance < amount {
+            return Err("Insufficient balance to burn");
+        }
+        
+        *self.balances.get_mut(from).unwrap() -= amount;
+        self.burned_supply += amount;
+        self.circulating_supply = self.circulating_supply.saturating_sub(amount);
+        
+        // Transfer to burn address (effectively remove from circulation)
+        *self.balances.entry(self.burn_address.clone()).or_insert(0) += amount;
+        
+        Ok(())
+    }
+    
+    /// Get balance of an address
+    pub fn balance_of(&self, address: &str) -> u64 {
+        *self.balances.get(address).unwrap_or(&0)
+    }
+    
+    /// Get allowance for spender
+    pub fn allowance(&self, owner: &str, spender: &str) -> u64 {
+        self.allowances
+            .get(owner)
+            .and_then(|spenders| spenders.get(spender))
+            .copied()
+            .unwrap_or(0)
+    }
+    
+    /// Calculate FLUX in circulation (excluding burn address)
+    pub fn calculate_circulating_supply(&self) -> u64 {
+        let burn_balance = self.balance_of(&self.burn_address);
+        self.total_supply - burn_balance
+    }
+    
+    /// Get token stats summary
+    pub fn get_token_stats(&self) -> TokenStats {
+        TokenStats {
+            name: self.name.clone(),
+            symbol: self.symbol.clone(),
+            total_supply: self.total_supply,
+            circulating_supply: self.calculate_circulating_supply(),
+            burned_supply: self.burned_supply,
+            minted_amount: self.minted_amount,
+            mint_cap: self.mint_cap,
+            minting_enabled: self.minting_enabled,
+            holder_count: self.balances.len(),
+            contract_version: self.contract_version.clone(),
+        }
+    }
+    
+    /// Enable/disable minting
+    pub fn set_minting_enabled(&mut self, enabled: bool) {
+        self.minting_enabled = enabled;
+    }
+    
+    /// Distribute mining rewards
+    pub fn distribute_mining_rewards(&mut self, miners: &[&str], rewards_per_miner: u64) -> Result<u64, &'static str> {
+        let mining_balance = self.balance_of("mining_rewards");
+        let total_needed = miners.len() as u64 * rewards_per_miner;
+        
+        if mining_balance < total_needed {
+            return Err("Insufficient mining rewards balance");
+        }
+        
+        for miner in miners {
+            self.transfer("mining_rewards", miner, rewards_per_miner)?;
+        }
+        
+        Ok(total_needed)
+    }
+    
+    /// Calculate FLUX per USD at given price
+    pub fn flux_per_usd(&self, price_usd: f64) -> f64 {
+        if price_usd <= 0.0 {
+            return 0.0;
+        }
+        1.0 / price_usd
+    }
+    
+    /// Calculate USD value of FLUX amount
+    pub fn usd_value(&self, amount: u64, price_usd: f64) -> f64 {
+        amount as f64 * price_usd
     }
 }
 
-/// Token metrics struct
+/// Token statistics for API responses
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FluxMetrics {
+pub struct TokenStats {
+    pub name: String,
+    pub symbol: String,
     pub total_supply: u64,
     pub circulating_supply: u64,
-    pub burned_amount: u64,
-    pub treasury_balance: u64,
-    pub holder_count: u64,
-    pub top_10_holders: Vec<(String, u64)>,
+    pub burned_supply: u64,
+    pub minted_amount: u64,
+    pub mint_cap: u64,
+    pub minting_enabled: bool,
+    pub holder_count: usize,
+    pub contract_version: String,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    
     #[test]
-    fn test_flux_token_init() {
-        let token = init_flux_token();
-        assert_eq!(token.total_supply, FLUX_INITIAL_MINTED);
-        assert_eq!(token.treasury_balance, FLUX_MAX_SUPPLY - FLUX_INITIAL_MINTED);
-    }
-
-    #[test]
-    fn test_flux_mint() {
-        let mut token = init_flux_token();
-        let minted = mint_flux(&mut token, 100_000, "user1".to_string()).unwrap();
-        assert_eq!(minted, 100_000);
-        assert_eq!(*token.balances.get("user1").unwrap(), 100_000);
-    }
-
-    #[test]
-    fn test_flux_burn() {
-        let mut token = init_flux_token();
-        mint_flux(&mut token, 100_000, "user1".to_string()).unwrap();
-        
-        let burn = burn_flux(&mut token, "user1".to_string(), 50_000, "test burn".to_string()).unwrap();
-        assert_eq!(burn.amount, 50_000);
-        assert_eq!(token.burned_amount, 50_000);
-    }
-
-    #[test]
-    fn test_flux_transfer() {
-        let mut token = init_flux_token();
-        mint_flux(&mut token, 100_000, "user1".to_string()).unwrap();
-        
-        let transfer = transfer_flux(&mut token, "user1".to_string(), "user2".to_string(), 25_000).unwrap();
-        assert_eq!(transfer.amount, 25_000);
-        assert_eq!(*token.balances.get("user2").unwrap(), 25_000);
-    }
-
-    #[test]
-    fn test_flux_approve_and_transfer_from() {
-        let mut token = init_flux_token();
-        mint_flux(&mut token, 100_000, "user1".to_string()).unwrap();
-        
-        approve_flux(&mut token, "user1".to_string(), "spender".to_string(), 50_000);
-        
-        let transfer = transfer_from_flux(&mut token, "spender".to_string(), "user1".to_string(), "user2".to_string(), 30_000).unwrap();
-        assert_eq!(transfer.amount, 30_000);
-    }
-
-    #[test]
-    fn test_holder_count() {
-        let mut token = init_flux_token();
-        mint_flux(&mut token, 100_000, "user1".to_string()).unwrap();
-        mint_flux(&mut token, 50_000, "user2".to_string()).unwrap();
-        
-        assert_eq!(get_holder_count(&token), 3); // treasury + user1 + user2
-    }
-}irculating_supply += reward;
-        
-        distributions.push(RewardDistribution {
-            epoch,
-            recipient,
-            amount: reward,
-            device_tier: tier,
-            timestamp: epoch * 3600, // epoch duration in seconds
-        });
+    fn test_token_creation() {
+        let contract = FluxTokenContract::new();
+        assert_eq!(contract.total_supply, 1_000_000_000);
+        assert_eq!(contract.symbol, "FLUX");
+        assert_eq!(contract.decimals, 8);
     }
     
-    token.last_reward_distribution = epoch;
-    distributions
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
     #[test]
-    fn test_flux_token_init() {
-        let token = init_flux_token();
-        assert_eq!(token.total_supply, FLUX_MAX_SUPPLY);
-        assert_eq!(token.circulating_supply, 0);
+    fn test_transfer() {
+        let mut contract = FluxTokenContract::new();
+        contract.transfer("treasury", "user1", 1000).unwrap();
+        assert_eq!(contract.balance_of("user1"), 1000);
+        assert!(contract.balance_of("treasury") < 500_000_000);
     }
-
+    
     #[test]
-    fn test_mobile_mining_reward() {
-        let reward = calculate_mining_reward(1, DeviceTier::Mobile, 24, 1.0);
-        assert_eq!(reward, 1000);
-    }
-
-    #[test]
-    fn test_laptop_mining_reward() {
-        let reward = calculate_mining_reward(1, DeviceTier::Laptop, 24, 1.0);
-        assert_eq!(reward, 1500);
-    }
-
-    #[test]
-    fn test_desktop_mining_reward() {
-        let reward = calculate_mining_reward(1, DeviceTier::Desktop, 24, 1.0);
-        assert_eq!(reward, 2000);
-    }
-
-    #[test]
-    fn test_partial_uptime_reward() {
-        let reward = calculate_mining_reward(1, DeviceTier::Mobile, 12, 1.0);
-        assert_eq!(reward, 500); // 50% uptime = 50% reward
+    fn test_burn() {
+        let mut contract = FluxTokenContract::new();
+        contract.transfer("treasury", "user1", 1000).unwrap();
+        contract.burn("user1", 500).unwrap();
+        assert_eq!(contract.balance_of("user1"), 500);
+        assert_eq!(contract.burned_supply, 500);
     }
 }
