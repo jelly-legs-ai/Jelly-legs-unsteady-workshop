@@ -71,6 +71,71 @@ pub struct NetworkMiningStats {
     pub network_hashrate_equivalent: u64,
 }
 
+/// Tier distribution breakdown
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TierDistribution {
+    pub mobile: f64,
+    pub laptop: f64,
+    pub desktop: f64,
+    pub server: f64,
+    pub total_miners: u64,
+}
+
+/// Activity heatmap by tier and uptime bucket
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActivityHeatmap {
+    pub by_tier_and_uptime: HashMap<String, u64>,
+    pub total_active: u64,
+}
+
+/// Network health status enumeration
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum NetworkHealthStatus {
+    Excellent,
+    Good,
+    Fair,
+    Poor,
+}
+
+/// Network health score breakdown
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NetworkHealthScore {
+    pub overall: f64,
+    pub uptime_score: f64,
+    pub distribution_score: f64,
+    pub activity_rate: f64,
+    pub reward_efficiency: f64,
+    pub status: NetworkHealthStatus,
+}
+
+/// Validator performance metrics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidatorPerformance {
+    pub uptime_percent: f64,
+    pub commission_rate: f64,
+    pub total_delegated: u64,
+    pub historical_roi: f64,
+}
+
+/// Stake risk level
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum StakeRiskLevel {
+    Low,
+    Medium,
+    High,
+}
+
+/// Stake-reward correlation analysis
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StakeRewardCorrelation {
+    pub stake_amount: u64,
+    pub validator_id: String,
+    pub correlation_score: f64,
+    pub expected_roi_percent: f64,
+    pub risk_level: StakeRiskLevel,
+    pub recommendation: String,
+}
+
 /// Mining contract state
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MiningContract {
@@ -347,6 +412,134 @@ impl MiningContract {
         let capped_factor = adjustment_factor.max(0.25).min(4.0);
         
         let new_difficulty = (current_difficulty * capped_factor) as u64;
+    }
+
+    // =============================================================================
+    // SPRINT 23: Network Health & Stake-Reward Correlation
+    // =============================================================================
+
+    /// Calculate network health score (0-100) based on multiple factors
+    pub fn calculate_network_health(&self) -> NetworkHealthScore {
+        let total_miners = self.network_stats.total_active_miners.max(1);
+        
+        // Uptime health: average uptime across all miners
+        let avg_uptime = self.miners.values()
+            .filter(|m| m.status == MinerStatus::Active)
+            .map(|m| self.calculate_uptime_score(m))
+            .sum::<f64>() / self.miners.values()
+            .filter(|m| m.status == MinerStatus::Active)
+            .count() as f64;
+        
+        // Distribution health: how well distributed across tiers
+        let distribution_score = self.calculate_decentralization_index();
+        
+        // Activity health: percentage of miners actively mining
+        let activity_rate = self.miners.values()
+            .filter(|m| m.status == MinerStatus::Active && m.consecutive_uptime_epochs > 0)
+            .count() as f64 / total_miners as f64;
+        
+        // Reward health: rewards distributed vs potential
+        let reward_rate = if self.minimum_rewards_pool > 0 {
+            self.network_stats.epoch_rewards_distributed as f64 / self.minimum_rewards_pool as f64
+        } else {
+            1.0
+        };
+        
+        // Weighted composite score
+        let health_score = (
+            avg_uptime * 0.35 +        // 35% uptime weight
+            distribution_score / 100.0 * 0.25 +  // 25% distribution weight
+            activity_rate * 0.25 +     // 25% activity weight
+            reward_rate.min(1.0) * 0.15  // 15% reward weight
+        ) * 100.0;
+        
+        NetworkHealthScore {
+            overall: health_score.round(),
+            uptime_score: (avg_uptime * 100.0).round(),
+            distribution_score,
+            activity_rate: (activity_rate * 100.0).round(),
+            reward_efficiency: (reward_rate.min(1.0) * 100.0).round(),
+            status: if health_score >= 80.0 {
+                NetworkHealthStatus::Excellent
+            } else if health_score >= 60.0 {
+                NetworkHealthStatus::Good
+            } else if health_score >= 40.0 {
+                NetworkHealthStatus::Fair
+            } else {
+                NetworkHealthStatus::Poor
+            },
+        }
+    }
+
+    /// Calculate stake-reward correlation for validator delegation optimization
+    pub fn calculate_stake_reward_correlation(&self, stake_amount: u64, validator_id: &str) -> StakeRewardCorrelation {
+        // Get validator metrics if available
+        let validator_metrics = self.get_validator_performance(validator_id);
+        
+        // Base correlation from stake amount
+        let base_correlation = (stake_amount as f64 / 1000.0).sqrt() / 10.0;
+        
+        // Validator performance modifier
+        let perf_modifier = if validator_metrics.uptime_percent > 99.0 {
+            1.2
+        } else if validator_metrics.uptime_percent > 95.0 {
+            1.0
+        } else {
+            0.8
+        };
+        
+        // Network congestion modifier (more miners = lower individual rewards)
+        let congestion_modifier = if self.network_stats.total_active_miners > 10000 {
+            0.85
+        } else if self.network_stats.total_active_miners > 5000 {
+            0.95
+        } else {
+            1.0
+        };
+        
+        // Epoch timing modifier
+        let epoch_modifier = match self.current_epoch % 24 {
+            0..=6 => 1.15,   // Low activity hours - better correlation
+            7..=14 => 1.0,   // Normal
+            15..=20 => 0.90, // Peak hours - more competition
+            _ => 1.05,       // Late hours - moderate
+        };
+        
+        let correlation_score = base_correlation * perf_modifier * congestion_modifier * epoch_modifier;
+        
+        StakeRewardCorrelation {
+            stake_amount,
+            validator_id: validator_id.to_string(),
+            correlation_score: (correlation_score * 100.0).round(),
+            expected_roi_percent: (correlation_score * 10.0).round(),
+            risk_level: if correlation_score > 8.0 {
+                StakeRiskLevel::Low
+            } else if correlation_score > 5.0 {
+                StakeRiskLevel::Medium
+            } else {
+                StakeRiskLevel::High
+            },
+            recommendation: if correlation_score > 7.0 {
+                "Strong stake-reward correlation - recommended for delegation"
+            } else if correlation_score > 4.0 {
+                "Moderate correlation - acceptable for medium-term staking"
+            } else {
+                "Weak correlation - consider alternative validators or timing"
+            }.to_string(),
+        }
+    }
+
+    /// Get validator performance metrics
+    fn get_validator_performance(&self, validator_id: &str) -> ValidatorPerformance {
+        // Simplified validator performance lookup
+        // In production, this would query actual validator data
+        ValidatorPerformance {
+            uptime_percent: 97.5,
+            commission_rate: 0.05,
+            total_delegated: 50000,
+            historical_roi: 0.12,
+        }
+    }
         
         // Enforce minimum difficulty floor
         new_difficulty.max(self.emergency_difficulty)
