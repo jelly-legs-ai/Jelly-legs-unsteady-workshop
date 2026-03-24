@@ -1186,6 +1186,301 @@ impl StakingContract {
         }
     }
     
+    // =============================================================================
+    // SPRINT 22 ENHANCEMENT: Advanced Mining Reward Analytics & Optimization
+    // =============================================================================
+    
+    /// Calculate network health score based on staking distribution
+    pub fn calculate_network_health_score(&self) -> NetworkHealthScore {
+        let total_staked = self.total_staked_all_pools();
+        let pool_count = self.pools.len() as u64;
+        let total_stakers = self.pools.values().map(|p| p.active_stakers).sum::<u64>();
+        let avg_uptime = self.validator_metrics.values()
+            .map(|m| m.uptime_percent)
+            .sum::<f64>() / self.validator_metrics.len().max(1) as f64;
+        
+        // Decentralization score (0-100): based on staker distribution
+        let decentralization = if total_stakers > 1000 { 100.0 }
+            else if total_stakers > 500 { 80.0 }
+            else if total_stakers > 100 { 60.0 }
+            else { 40.0 };
+        
+        // Uptime score (0-100)
+        let uptime_score = avg_uptime;
+        
+        // Diversity score (0-100): based on pool distribution
+        let diversity_score = if pool_count >= 3 { 100.0 }
+            else if pool_count == 2 { 70.0 }
+            else { 40.0 };
+        
+        // Overall health score
+        let overall = (decentralization + uptime_score + diversity_score) / 3.0;
+        
+        NetworkHealthScore {
+            overall_score: overall,
+            decentralization_score: decentralization,
+            uptime_score,
+            diversity_score,
+            total_staked,
+            total_stakers,
+            status: if overall >= 80.0 { "Excellent" }
+                   else if overall >= 60.0 { "Good" }
+                   else if overall >= 40.0 { "Fair" }
+                   else { "Needs Improvement" }.to_string(),
+        }
+    }
+    
+    /// Calculate reward acceleration factor for early adopters
+    pub fn calculate_early_adopter_bonus(&self, stake: &StakeInfo) -> f64 {
+        let epochs_since_start = self.current_epoch - stake.start_epoch;
+        
+        // Early adopter tiers
+        if epochs_since_start <= 30 {
+            1.5  // First 30 epochs: 50% bonus
+        } else if epochs_since_start <= 90 {
+            1.25 // First 90 epochs: 25% bonus
+        } else if epochs_since_start <= 180 {
+            1.1  // First 180 epochs: 10% bonus
+        } else {
+            1.0  // Standard rate
+        }
+    }
+    
+    /// Calculate community participation bonus (governance voting, referrals, etc.)
+    pub fn calculate_community_bonus(&self, address: &str, participation_score: f64) -> f64 {
+        if participation_score >= 90.0 {
+            1.3  // Highly active community member
+        } else if participation_score >= 70.0 {
+            1.15 // Active participant
+        } else if participation_score >= 50.0 {
+            1.05 // Occasional participant
+        } else {
+            1.0  // Base rate
+        }
+    }
+    
+    /// Calculate loyalty multiplier for long-term stakers
+    pub fn calculate_loyalty_multiplier(&self, stake: &StakeInfo) -> f64 {
+        let epochs_staked = self.current_epoch - stake.start_epoch;
+        
+        if epochs_staked >= 365 {
+            1.5  // Year+ staker: 50% bonus
+        } else if epochs_staked >= 180 {
+            1.3  // 6+ months: 30% bonus
+        } else if epochs_staked >= 90 {
+            1.2  // 3+ months: 20% bonus
+        } else if epochs_staked >= 30 {
+            1.1  // 1+ month: 10% bonus
+        } else {
+            1.0  // Base rate
+        }
+    }
+    
+    /// Calculate risk-adjusted reward rate (higher stakes = slightly lower rate for sustainability)
+    pub fn calculate_risk_adjusted_rate(&self, pool_id: &str, stake_amount: u64) -> f64 {
+        let pool = match self.pools.get(pool_id) {
+            Some(p) => p,
+            None => return 0.0,
+        };
+        
+        // Progressive rate adjustment for sustainability
+        if stake_amount > 100000 {
+            pool.reward_rate * 0.9  // -10% for very large stakes
+        } else if stake_amount > 50000 {
+            pool.reward_rate * 0.95 // -5% for large stakes
+        } else {
+            pool.reward_rate // Standard rate
+        }
+    }
+    
+    /// Calculate comprehensive mining reward with ALL bonuses
+    pub fn calculate_comprehensive_mining_reward(
+        &self,
+        stake: &StakeInfo,
+        network_participation: f64,
+        device_tier: &str,
+        uptime_percent: f64,
+        consecutive_epochs: u64,
+        community_score: f64,
+    ) -> u64 {
+        let pool = match self.get_pool_by_token(&stake.token_type) {
+            Some(p) => p,
+            None => return 0,
+        };
+        
+        // Base reward
+        let base_rate = self.calculate_risk_adjusted_rate(
+            match stake.token_type {
+                TokenType::AETH => "aeth_staking",
+                TokenType::FLUX => "flux_staking",
+                TokenType::ATH => "ath_staking",
+            },
+            stake.amount,
+        );
+        
+        // All multipliers
+        let participation_mult = if network_participation > 0.8 { 1.5 } else if network_participation > 0.5 { 1.0 } else { 0.5 };
+        let tier_mult = self.calculate_tier_bonus(device_tier);
+        let uptime_mult = self.calculate_uptime_multiplier(uptime_percent);
+        let consistency_mult = self.calculate_consistency_bonus(consecutive_epochs);
+        let early_adopter_mult = self.calculate_early_adopter_bonus(stake);
+        let community_mult = self.calculate_community_bonus(&stake.address, community_score);
+        let loyalty_mult = self.calculate_loyalty_multiplier(stake);
+        
+        // Combined multiplier (capped at 3.0x to prevent exploitation)
+        let total_mult = (participation_mult * tier_mult * uptime_mult * consistency_mult * 
+                         early_adopter_mult * community_mult * loyalty_mult).min(3.0);
+        
+        // Calculate final reward
+        let reward = (stake.amount as f64 * base_rate * total_mult) as u64;
+        
+        reward.max(1)
+    }
+    
+    /// Get detailed reward breakdown for transparency
+    pub fn get_reward_breakdown(
+        &self,
+        stake: &StakeInfo,
+        network_participation: f64,
+        device_tier: &str,
+        uptime_percent: f64,
+        consecutive_epochs: u64,
+        community_score: f64,
+    ) -> RewardBreakdown {
+        let pool = match self.get_pool_by_token(&stake.token_type) {
+            Some(p) => p,
+            None => return RewardBreakdown::default(),
+        };
+        
+        let base_rate = self.calculate_risk_adjusted_rate(
+            match stake.token_type {
+                TokenType::AETH => "aeth_staking",
+                TokenType::FLUX => "flux_staking",
+                TokenType::ATH => "ath_staking",
+            },
+            stake.amount,
+        );
+        
+        let base_reward = (stake.amount as f64 * base_rate) as u64;
+        
+        let participation_mult = if network_participation > 0.8 { 1.5 } else if network_participation > 0.5 { 1.0 } else { 0.5 };
+        let tier_mult = self.calculate_tier_bonus(device_tier);
+        let uptime_mult = self.calculate_uptime_multiplier(uptime_percent);
+        let consistency_mult = self.calculate_consistency_bonus(consecutive_epochs);
+        let early_adopter_mult = self.calculate_early_adopter_bonus(stake);
+        let community_mult = self.calculate_community_bonus(&stake.address, community_score);
+        let loyalty_mult = self.calculate_loyalty_multiplier(stake);
+        
+        let total_mult = (participation_mult * tier_mult * uptime_mult * consistency_mult * 
+                         early_adopter_mult * community_mult * loyalty_mult).min(3.0);
+        
+        let final_reward = (base_reward as f64 * total_mult) as u64;
+        
+        RewardBreakdown {
+            base_reward,
+            participation_bonus: (base_reward as f64 * (participation_mult - 1.0)) as u64,
+            tier_bonus: (base_reward as f64 * (tier_mult - 1.0)) as u64,
+            uptime_bonus: (base_reward as f64 * (uptime_mult - 1.0)) as u64,
+            consistency_bonus: (base_reward as f64 * (consistency_mult - 1.0)) as u64,
+            early_adopter_bonus: (base_reward as f64 * (early_adopter_mult - 1.0)) as u64,
+            community_bonus: (base_reward as f64 * (community_mult - 1.0)) as u64,
+            loyalty_bonus: (base_reward as f64 * (loyalty_mult - 1.0)) as u64,
+            total_multiplier: total_mult,
+            final_reward,
+        }
+    }
+    
+    /// Calculate projected APY with all bonuses for a given stake profile
+    pub fn calculate_projected_apy_with_bonuses(
+        &self,
+        pool_id: &str,
+        stake_amount: u64,
+        device_tier: &str,
+        uptime_percent: f64,
+        consecutive_epochs: u64,
+        community_score: f64,
+        epochs: u64,
+    ) -> ProjectedAPY {
+        let pool = match self.pools.get(pool_id) {
+            Some(p) => p,
+            None => return ProjectedAPY::default(),
+        };
+        
+        let stake = StakeInfo {
+            address: "projection".to_string(),
+            token_type: pool.token_type.clone(),
+            amount: stake_amount,
+            start_epoch: self.current_epoch,
+            last_claim_epoch: self.current_epoch,
+            rewards_claimed: 0,
+            is_locked: false,
+            lock_end_epoch: 0,
+        };
+        
+        let epoch_reward = self.calculate_comprehensive_mining_reward(
+            &stake,
+            0.75,
+            device_tier,
+            uptime_percent,
+            consecutive_epochs,
+            community_score,
+        );
+        
+        let annual_reward = epoch_reward * epochs;
+        let effective_apy = (annual_reward as f64 / stake_amount as f64) * 100.0;
+        
+        let base_apy = pool.reward_rate * 100.0;
+        let bonus_apy = effective_apy - base_apy;
+        
+        ProjectedAPY {
+            base_apy,
+            bonus_apy,
+            total_effective_apy: effective_apy,
+            projected_annual_reward: annual_reward,
+            breakdown: vec![
+                ("Base APY".to_string(), base_apy),
+                ("Network Participation".to_string(), if 0.75 > 0.5 { (base_apy * 0.5) } else { 0.0 }),
+                ("Device Tier".to_string(), (base_apy * (self.calculate_tier_bonus(device_tier) - 1.0))),
+                ("Uptime".to_string(), (base_apy * (self.calculate_uptime_multiplier(uptime_percent) - 1.0))),
+                ("Consistency".to_string(), (base_apy * (self.calculate_consistency_bonus(consecutive_epochs) - 1.0))),
+                ("Community".to_string(), (base_apy * (self.calculate_community_bonus("projection", community_score) - 1.0))),
+            ],
+        }
+    }
+    
+    /// Get optimal mining configuration for maximum rewards
+    pub fn get_optimal_mining_config(&self, stake_amount: u64, pool_id: &str) -> OptimalMiningConfig {
+        let pool = match self.pools.get(pool_id) {
+            Some(p) => p,
+            None => return OptimalMiningConfig::default(),
+        };
+        
+        // Optimal device tier recommendation
+        let recommended_tier = if stake_amount > 50000 { "desktop" }
+            else if stake_amount > 10000 { "laptop" }
+            else { "mobile" };
+        
+        // Target uptime for optimal rewards
+        let target_uptime = 99.0; // Aim for perfect uptime
+        
+        // Recommended consecutive epochs for consistency bonus
+        let target_consecutive = 30; // 1 month for good bonus
+        
+        // Expected reward multiplier
+        let expected_mult = self.calculate_tier_bonus(recommended_tier) * 
+                           self.calculate_uptime_multiplier(target_uptime) *
+                           self.calculate_consistency_bonus(target_consecutive);
+        
+        OptimalMiningConfig {
+            recommended_tier: recommended_tier.to_string(),
+            target_uptime,
+            target_consecutive_epochs: target_consecutive,
+            expected_multiplier: expected_mult,
+            projected_apy_increase: (expected_mult - 1.0) * pool.reward_rate * 100.0,
+        }
+    }
+}
+    
     /// Calculate optimal staking strategy for maximum rewards
     pub fn calculate_optimal_staking_strategy(&self, budget: u64, goal_epochs: u64) -> StakingStrategy {
         let mut strategies = Vec::new();
@@ -1439,6 +1734,53 @@ pub struct PersonalizedProjection {
     pub target_epochs: u64,
     pub projections: Vec<TokenProjection>,
     pub estimated_total: u64,
+}
+
+/// Network health score metrics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NetworkHealthScore {
+    pub overall_score: f64,
+    pub decentralization_score: f64,
+    pub uptime_score: f64,
+    pub diversity_score: f64,
+    pub total_staked: u64,
+    pub total_stakers: u64,
+    pub status: String,
+}
+
+/// Detailed reward breakdown for transparency
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct RewardBreakdown {
+    pub base_reward: u64,
+    pub participation_bonus: u64,
+    pub tier_bonus: u64,
+    pub uptime_bonus: u64,
+    pub consistency_bonus: u64,
+    pub early_adopter_bonus: u64,
+    pub community_bonus: u64,
+    pub loyalty_bonus: u64,
+    pub total_multiplier: f64,
+    pub final_reward: u64,
+}
+
+/// Projected APY with all bonuses
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ProjectedAPY {
+    pub base_apy: f64,
+    pub bonus_apy: f64,
+    pub total_effective_apy: f64,
+    pub projected_annual_reward: u64,
+    pub breakdown: Vec<(String, f64)>,
+}
+
+/// Optimal mining configuration recommendation
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct OptimalMiningConfig {
+    pub recommended_tier: String,
+    pub target_uptime: f64,
+    pub target_consecutive_epochs: u64,
+    pub expected_multiplier: f64,
+    pub projected_apy_increase: f64,
 }
 
 #[cfg(test)]
