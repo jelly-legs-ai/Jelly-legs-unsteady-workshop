@@ -23,6 +23,79 @@ pub mod routes {
     pub const CONTRACTS: &str = "/contracts";
     pub const NETWORK: &str = "/network";
     pub const HEALTH: &str = "/health";
+    pub const USERS: &str = "/users";
+    pub const KYC: &str = "/kyc";
+    pub const REWARDS: &str = "/rewards";
+    pub const ANALYTICS: &str = "/analytics";
+    pub const EXPORT: &str = "/export";
+}
+
+// ============================================================================
+// SPRINT 4 ENHANCEMENT: User & Agent Management API Routes
+// ============================================================================
+
+/// User management endpoints
+pub mod users {
+    pub const LIST: &str = "/users";
+    pub const GET: &str = "/users/{user_id}";
+    pub const CREATE: &str = "/users";
+    pub const UPDATE: &str = "/users/{user_id}";
+    pub const DELETE: &str = "/users/{user_id}";
+    pub const LINKED_ACCOUNTS: &str = "/users/{user_id}/accounts";
+    pub const LINK_AGENT: &str = "/users/{user_id}/agents/link";
+    pub const UNLINK_AGENT: &str = "/users/{user_id}/agents/unlink";
+    pub const PREFERENCES: &str = "/users/{user_id}/preferences";
+    pub const NOTIFICATIONS: &str = "/users/{user_id}/notifications";
+    pub const ACTIVITY_LOG: &str = "/users/{user_id}/activity";
+    pub const EXPORT_DATA: &str = "/users/{user_id}/export";
+    pub const VERIFY: &str = "/users/{user_id}/verify";
+    pub const SUSPEND: &str = "/users/{user_id}/suspend";
+    pub const REINSTATE: &str = "/users/{user_id}/reinstate";
+}
+
+/// KYC verification endpoints
+pub mod kyc {
+    pub const SUBMIT: &str = "/kyc/submit";
+    pub const STATUS: &str = "/kyc/status";
+    pub const DOCUMENTS: &str = "/kyc/documents";
+    pub const UPLOAD: &str = "/kyc/documents/upload";
+    pub const VERIFY: &str = "/kyc/verify";
+    pub const REJECT: &str = "/kyc/reject";
+    pub const APPEAL: &str = "/kyc/appeal";
+    pub const TIER_CHECK: &str = "/kyc/tier";
+    pub const EXPIRY: &str = "/kyc/expiry";
+    pub const RENEW: &str = "/kyc/renew";
+}
+
+/// Rewards management endpoints
+pub mod rewards {
+    pub const CLAIM: &str = "/rewards/claim";
+    pub const HISTORY: &str = "/rewards/history";
+    pub const PENDING: &str = "/rewards/pending";
+    pub const PROJECTED: &str = "/rewards/projected";
+    pub const COMPOUND: &str = "/rewards/compound";
+    pub const WITHDRAW: &str = "/rewards/withdraw";
+    pub const REDELEGATE: &str = "/rewards/redelegate";
+    pub const SCHEDULE: &str = "/rewards/schedule";
+    pub const TAX_REPORT: &str = "/rewards/tax-report";
+    pub const AIRDROP: &str = "/rewards/airdrop";
+    pub const REFERRAL: &str = "/rewards/referral";
+}
+
+/// Analytics & reporting endpoints
+pub mod analytics {
+    pub const DASHBOARD: &str = "/analytics/dashboard";
+    pub const PORTFOLIO: &str = "/analytics/portfolio";
+    pub const PERFORMANCE: &str = "/analytics/performance";
+    pub const STAKING_ANALYTICS: &str = "/analytics/staking";
+    pub const MINING_ANALYTICS: &str = "/analytics/mining";
+    pub const NETWORK_STATS: &str = "/analytics/network";
+    pub const TREND: &str = "/analytics/trend";
+    pub const COMPARE: &str = "/analytics/compare";
+    pub const EXPORT_CSV: &str = "/analytics/export/csv";
+    pub const EXPORT_JSON: &str = "/analytics/export/json";
+    pub const REALTIME: &str = "/analytics/realtime";
+    pub const HISTORICAL: &str = "/analytics/historical";
 }
 
 /// Account endpoints
