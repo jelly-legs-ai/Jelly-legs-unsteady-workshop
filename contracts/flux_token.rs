@@ -196,6 +196,245 @@ impl FluxTokenContract {
     pub fn usd_value(&self, amount: u64, price_usd: f64) -> f64 {
         amount as f64 * price_usd
     }
+    
+    // =============================================================================
+    // STAKING REWARDS DISTRIBUTION - Sprint 11 Enhancement
+    // =============================================================================
+    
+    /// Distribute staking rewards to eligible addresses
+    pub fn distribute_staking_rewards(&mut self, stakers: &[&str], rewards_per_staker: u64) -> Result<u64, &'static str> {
+        let treasury_balance = self.balance_of("treasury");
+        let total_needed = stakers.len() as u64 * rewards_per_staker;
+        
+        if treasury_balance < total_needed {
+            return Err("Insufficient treasury balance for rewards");
+        }
+        
+        for staker in stakers {
+            self.transfer("treasury", *staker, rewards_per_staker)?;
+        }
+        
+        Ok(total_needed)
+    }
+    
+    /// Calculate staking APY based on total staked and rewards rate
+    pub fn calculate_staking_apy(&self, total_staked: u64, annual_rewards: u64) -> f64 {
+        if total_staked == 0 {
+            return 0.0;
+        }
+        (annual_rewards as f64 / total_staked as f64) * 100.0
+    }
+    
+    /// Get reward per epoch for staking pool
+    pub fn get_epoch_reward_rate(&self, pool_id: &str, total_staked: u64) -> u64 {
+        // Base rate: 15% APY / 365 days / 24 epochs
+        let base_rate = 0.15 / 365.0 / 24.0;
+        (total_staked as f64 * base_rate) as u64
+    }
+    
+    /// Calculate compound staking rewards (rewards reinvested)
+    pub fn calculate_compound_staking_rewards(&self, principal: u64, apy: f64, epochs: u64) -> u64 {
+        let epoch_rate = apy / 365.0 / 24.0;
+        let compounded = (principal as f64 * (1.0 + epoch_rate).powf(epochs as f64)) as u64;
+        compounded - principal
+    }
+    
+    /// Get staking rewards tier based on stake amount
+    pub fn get_rewards_tier(&self, stake_amount: u64) -> RewardsTier {
+        if stake_amount >= 100_000 {
+            RewardsTier::Platinum
+        } else if stake_amount >= 50_000 {
+            RewardsTier::Gold
+        } else if stake_amount >= 10_000 {
+            RewardsTier::Silver
+        } else {
+            RewardsTier::Bronze
+        }
+    }
+    
+    /// Calculate tier bonus multiplier
+    pub fn get_tier_bonus(&self, tier: &RewardsTier) -> f64 {
+        match tier {
+            RewardsTier::Platinum => 1.5, // 50% bonus
+            RewardsTier::Gold => 1.25,    // 25% bonus
+            RewardsTier::Silver => 1.1,   // 10% bonus
+            RewardsTier::Bronze => 1.0,   // No bonus
+        }
+    }
+    
+    /// Lock tokens for staking (transfer to staking contract)
+    pub fn lock_for_staking(&mut self, from: &str, amount: u64, lock_epochs: u64) -> Result<StakingLock, &'static str> {
+        let balance = self.balance_of(from);
+        if balance < amount {
+            return Err("Insufficient balance");
+        }
+        
+        // Transfer to staking contract address
+        self.transfer(from, "staking_contract", amount)?;
+        
+        let lock = StakingLock {
+            lock_id: format!("lock_{}_{}", from, self.circulating_supply),
+            owner: from.to_string(),
+            amount,
+            locked_at: self.circulating_supply, // Using supply as epoch proxy
+            unlock_at: self.circulating_supply + lock_epochs,
+            is_active: true,
+        };
+        
+        Ok(lock)
+    }
+    
+    /// Unlock staked tokens after lock period
+    pub fn unlock_staking(&mut self, lock_id: &str) -> Result<u64, &'static str> {
+        // In production, would query actual staking contract
+        // This is a stub for the interface
+        Ok(0)
+    }
+    
+    /// Slash staked tokens for misbehavior
+    pub fn slash_staking(&mut self, lock_id: &str, slash_percent: f64) -> Result<u64, &'static str> {
+        // In production, would interact with slashing contract
+        Ok(0)
+    }
+    
+    /// Get total staking rewards distributed
+    pub fn total_staking_rewards_distributed(&self) -> u64 {
+        let staking_balance = self.balance_of("staking_contract");
+        let treasury_balance = self.balance_of("treasury");
+        let mining_balance = self.balance_of("mining_rewards");
+        
+        // Rewards distributed = initial treasury - current treasury
+        500_000_000 - treasury_balance - staking_balance - mining_balance
+    }
+    
+    /// Calculate inflation rate based on minting
+    pub fn calculate_inflation_rate(&self) -> f64 {
+        if self.total_supply == 0 {
+            return 0.0;
+        }
+        (self.minted_amount as f64 / self.total_supply as f64) * 100.0
+    }
+    
+    /// Get token holder distribution stats
+    pub fn get_holder_distribution(&self) -> HolderDistribution {
+        let mut distribution = HolderDistribution {
+            whales: 0,      // > 1M FLUX
+            large: 0,       // 100K - 1M
+            medium: 0,      // 10K - 100K
+            small: 0,       // 1K - 10K
+            micro: 0,       // < 1K
+            total_holders: self.balances.len(),
+        };
+        
+        for balance in self.balances.values() {
+            if *balance >= 1_000_000 {
+                distribution.whales += 1;
+            } else if *balance >= 100_000 {
+                distribution.large += 1;
+            } else if *balance >= 10_000 {
+                distribution.medium += 1;
+            } else if *balance >= 1_000 {
+                distribution.small += 1;
+            } else {
+                distribution.micro += 1;
+            }
+        }
+        
+        distribution
+    }
+    
+    /// Check if address is eligible for airdrop
+    pub fn is_airdrop_eligible(&self, address: &str, min_balance: u64, active_epochs: u64) -> bool {
+        let balance = self.balance_of(address);
+        balance >= min_balance
+        // In production, would also check active_epochs
+    }
+    
+    /// Distribute airdrop to eligible addresses
+    pub fn distribute_airdrop(&mut self, eligible_addresses: &[&str], amount_per_address: u64) -> Result<u64, &'static str> {
+        let ecosystem_balance = self.balance_of("ecosystem_fund");
+        let total_needed = eligible_addresses.len() as u64 * amount_per_address;
+        
+        if ecosystem_balance < total_needed {
+            return Err("Insufficient ecosystem fund balance");
+        }
+        
+        for address in eligible_addresses {
+            self.transfer("ecosystem_fund", *address, amount_per_address)?;
+        }
+        
+        Ok(total_needed)
+    }
+    
+    /// Calculate token velocity (transfers per epoch)
+    pub fn calculate_token_velocity(&self, transfers_per_epoch: u64, circulating_supply: u64) -> f64 {
+        if circulating_supply == 0 {
+            return 0.0;
+        }
+        transfers_per_epoch as f64 / circulating_supply as f64
+    }
+    
+    /// Get token supply breakdown
+    pub fn get_supply_breakdown(&self) -> SupplyBreakdown {
+        SupplyBreakdown {
+            total_supply: self.total_supply,
+            circulating_supply: self.calculate_circulating_supply(),
+            burned_supply: self.burned_supply,
+            treasury_balance: self.balance_of("treasury"),
+            mining_rewards_balance: self.balance_of("mining_rewards"),
+            team_balance: self.balance_of("team_allocation"),
+            ecosystem_balance: self.balance_of("ecosystem_fund"),
+            staking_contract_balance: self.balance_of("staking_contract"),
+            locked_supply: self.balance_of("staking_contract"),
+            liquid_supply: self.calculate_circulating_supply() - self.balance_of("staking_contract"),
+        }
+    }
+}
+
+/// Staking lock record
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StakingLock {
+    pub lock_id: String,
+    pub owner: String,
+    pub amount: u64,
+    pub locked_at: u64,
+    pub unlock_at: u64,
+    pub is_active: bool,
+}
+
+/// Rewards tier based on stake amount
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum RewardsTier {
+    Bronze,
+    Silver,
+    Gold,
+    Platinum,
+}
+
+/// Token holder distribution stats
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HolderDistribution {
+    pub whales: u64,
+    pub large: u64,
+    pub medium: u64,
+    pub small: u64,
+    pub micro: u64,
+    pub total_holders: usize,
+}
+
+/// Token supply breakdown
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SupplyBreakdown {
+    pub total_supply: u64,
+    pub circulating_supply: u64,
+    pub burned_supply: u64,
+    pub treasury_balance: u64,
+    pub mining_rewards_balance: u64,
+    pub team_balance: u64,
+    pub ecosystem_balance: u64,
+    pub staking_contract_balance: u64,
+    pub locked_supply: u64,
+    pub liquid_supply: u64,
 }
 
 /// Token statistics for API responses
