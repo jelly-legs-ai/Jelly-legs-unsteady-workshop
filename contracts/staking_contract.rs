@@ -515,6 +515,212 @@ impl StakingContract {
         gross_apy * (1.0 - commission)
     }
     
+    // =============================================================================
+    // ADVANCED STAKING ANALYTICS - SPRINT ENHANCEMENT
+    // =============================================================================
+    
+    /// Get staking pool distribution across all token types
+    pub fn get_pool_distribution(&self) -> PoolDistribution {
+        PoolDistribution {
+            aeth: self.pools.get("aeth_staking").map(|p| (p.total_staked, p.active_stakers)).unwrap_or((0, 0)),
+            flux: self.pools.get("flux_staking").map(|p| (p.total_staked, p.active_stakers)).unwrap_or((0, 0)),
+            ath: self.pools.get("ath_staking").map(|p| (p.total_staked, p.active_stakers)).unwrap_or((0, 0)),
+            total_staked: self.pools.values().map(|p| p.total_staked).sum(),
+            total_stakers: self.pools.values().map(|p| p.active_stakers).sum(),
+        }
+    }
+    
+    /// Calculate staking concentration risk (Gini coefficient style)
+    pub fn calculate_concentration_index(&self, pool_id: &str) -> f64 {
+        let stakes = self.stakes.values().flatten().filter(|s| {
+            match pool_id {
+                "aeth_staking" => s.token_type == TokenType::AETH,
+                "flux_staking" => s.token_type == TokenType::FLUX,
+                "ath_staking" => s.token_type == TokenType::ATH,
+                _ => false,
+            }
+        }).collect::<Vec<_>>();
+        
+        if stakes.is_empty() {
+            return 0.0;
+        }
+        
+        let total: u64 = stakes.iter().map(|s| s.amount).sum();
+        let mut amounts: Vec<u64> = stakes.iter().map(|s| s.amount).collect();
+        amounts.sort();
+        
+        // Simplified concentration: top 10% share
+        let top_10_count = stakes.len().max(1) / 10;
+        let top_10_total: u64 = amounts.iter().rev().take(top_10_count).sum();
+        
+        top_10_total as f64 / total as f64
+    }
+    
+    /// Get average stake size per pool
+    pub fn get_average_stake_size(&self, pool_id: &str) -> f64 {
+        let stakes = self.stakes.values().flatten().filter(|s| {
+            match pool_id {
+                "aeth_staking" => s.token_type == TokenType::AETH,
+                "flux_staking" => s.token_type == TokenType::FLUX,
+                "ath_staking" => s.token_type == TokenType::ATH,
+                _ => false,
+            }
+        }).collect::<Vec<_>>();
+        
+        if stakes.is_empty() {
+            return 0.0;
+        }
+        
+        let total: u64 = stakes.iter().map(|s| s.amount).sum();
+        total as f64 / stakes.len() as f64
+    }
+    
+    /// Calculate median stake size
+    pub fn get_median_stake_size(&self, pool_id: &str) -> u64 {
+        let mut amounts: Vec<u64> = self.stakes.values().flatten().filter(|s| {
+            match pool_id {
+                "aeth_staking" => s.token_type == TokenType::AETH,
+                "flux_staking" => s.token_type == TokenType::FLUX,
+                "ath_staking" => s.token_type == TokenType::ATH,
+                _ => false,
+            }
+        }).map(|s| s.amount).collect();
+        
+        if amounts.is_empty() {
+            return 0;
+        }
+        
+        amounts.sort();
+        let mid = amounts.len() / 2;
+        if amounts.len() % 2 == 0 {
+            (amounts[mid - 1] + amounts[mid]) / 2
+        } else {
+            amounts[mid]
+        }
+    }
+    
+    /// Get staking velocity (new stakes per epoch average)
+    pub fn get_staking_velocity(&self, pool_id: &str, epochs_window: u64) -> f64 {
+        let pool = match self.pools.get(pool_id) {
+            Some(p) => p,
+            None => return 0.0,
+        };
+        
+        if self.current_epoch < epochs_window {
+            return pool.active_stakers as f64 / self.current_epoch as f64;
+        }
+        
+        pool.active_stakers as f64 / epochs_window as f64
+    }
+    
+    /// Calculate compound growth projection for reinvested rewards
+    pub fn project_compound_growth(&self, pool_id: &str, initial_stake: u64, epochs: u64, reinvest: bool) -> CompoundProjection {
+        let pool = match self.pools.get(pool_id) {
+            Some(p) => p,
+            None => return CompoundProjection {
+                final_amount: initial_stake,
+                total_rewards: 0,
+                effective_apy: 0.0,
+                growth_multiple: 1.0,
+            },
+        };
+        
+        let daily_rate = pool.reward_rate / 365.0;
+        let mut current = initial_stake;
+        let mut total_rewards = 0u64;
+        
+        for _ in 0..epochs {
+            let reward = (current as f64 * daily_rate) as u64;
+            total_rewards += reward;
+            if reinvest {
+                current += reward;
+            }
+        }
+        
+        let effective_apy = if initial_stake > 0 {
+            ((current as f64 - initial_stake as f64) / initial_stake as f64) * 100.0
+        } else {
+            0.0
+        };
+        
+        CompoundProjection {
+            final_amount: current,
+            total_rewards,
+            effective_apy,
+            growth_multiple: current as f64 / initial_stake.max(1) as f64,
+        }
+    }
+    
+    /// Get optimal pool recommendation based on risk profile
+    pub fn recommend_pool(&self, risk_tolerance: f64, lockup_preference: &str) -> PoolRecommendation {
+        // risk_tolerance: 0.0 (conservative) to 1.0 (aggressive)
+        // lockup_preference: "short", "medium", "long"
+        
+        let pools: Vec<&StakingPool> = self.pools.values().collect();
+        
+        let recommended = match (risk_tolerance, lockup_preference) {
+            (r, "short") if r < 0.5 => pools.iter().find(|p| p.lockup_epochs <= 7 && r < 0.3),
+            (r, "short") => pools.iter().find(|p| p.lockup_epochs <= 7),
+            (r, "medium") if r < 0.5 => pools.iter().find(|p| p.lockup_epochs <= 14 && r < 0.3),
+            (r, "medium") => pools.iter().find(|p| p.lockup_epochs <= 14),
+            (r, "long") => pools.iter().find(|p| p.lockup_epochs > 14),
+            _ => pools.iter().max_by(|a, b| (a.reward_rate * a.total_staked as f64).partial_cmp(&(b.reward_rate * b.total_staked as f64)).unwrap()),
+        };
+        
+        match recommended {
+            Some(pool) => PoolRecommendation {
+                pool_id: self.pools.iter().find(|(_, p)| p == pool).map(|(k, _)| k.clone()).unwrap_or_default(),
+                reason: format!("APY: {:.2}%, Lockup: {} epochs", pool.reward_rate * 100.0, pool.lockup_epochs),
+                expected_apy: pool.reward_rate * 100.0,
+                lockup_epochs: pool.lockup_epochs,
+                min_stake: pool.min_stake,
+            },
+            None => PoolRecommendation {
+                pool_id: "aeth_staking".to_string(),
+                reason: "Default conservative pool".to_string(),
+                expected_apy: 15.0,
+                lockup_epochs: 7,
+                min_stake: 100,
+            },
+        }
+    }
+    
+    /// Calculate staking efficiency score (0-100)
+    pub fn get_staking_efficiency_score(&self, pool_id: &str) -> StakingEfficiency {
+        let pool = match self.pools.get(pool_id) {
+            Some(p) => p,
+            None => return StakingEfficiency {
+                score: 0,
+                apy_component: 0,
+                liquidity_component: 0,
+                participation_component: 0,
+                status: "No pool found".to_string(),
+            },
+        };
+        
+        // APY component (max 40 points)
+        let apy_score = (pool.reward_rate * 100.0 / 30.0 * 40.0).min(40.0);
+        
+        // Liquidity component (max 30 points) - based on total staked
+        let liquidity_score = (pool.total_staked as f64 / 10000.0 * 30.0).min(30.0);
+        
+        // Participation component (max 30 points) - based on active stakers
+        let participation_score = (pool.active_stakers as f64 / 100.0 * 30.0).min(30.0);
+        
+        let total_score = apy_score + liquidity_score + participation_score;
+        
+        StakingEfficiency {
+            score: total_score as u64,
+            apy_component: apy_score as u64,
+            liquidity_component: liquidity_score as u64,
+            participation_component: participation_score as u64,
+            status: if total_score >= 80.0 { "Excellent" }
+                    else if total_score >= 60.0 { "Good" }
+                    else if total_score >= 40.0 { "Fair" }
+                    else { "Poor" }.to_string(),
+        }
+    }
+    
     /// Check if a delegator has reached minimum stake for rewards
     pub fn is_minimum_delegation(&self, pool_id: &str, amount: u64) -> bool {
         self.pools.get(pool_id)
@@ -1143,6 +1349,45 @@ pub struct RewardSimulation {
     pub total_projected: u64,
     pub by_pool: HashMap<String, u64>,
     pub average_apy: f64,
+}
+
+/// Pool distribution across token types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PoolDistribution {
+    pub aeth: (u64, u64),      // (total_staked, active_stakers)
+    pub flux: (u64, u64),
+    pub ath: (u64, u64),
+    pub total_staked: u64,
+    pub total_stakers: u64,
+}
+
+/// Compound growth projection
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompoundProjection {
+    pub final_amount: u64,
+    pub total_rewards: u64,
+    pub effective_apy: f64,
+    pub growth_multiple: f64,
+}
+
+/// Pool recommendation based on risk profile
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PoolRecommendation {
+    pub pool_id: String,
+    pub reason: String,
+    pub expected_apy: f64,
+    pub lockup_epochs: u64,
+    pub min_stake: u64,
+}
+
+/// Staking efficiency score components
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StakingEfficiency {
+    pub score: u64,
+    pub apy_component: u64,
+    pub liquidity_component: u64,
+    pub participation_component: u64,
+    pub status: String,
 }
 
 /// Reward efficiency metrics
