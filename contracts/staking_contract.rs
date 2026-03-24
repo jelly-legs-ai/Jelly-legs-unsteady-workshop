@@ -1572,6 +1572,170 @@ impl StakingContract {
             estimated_total: projections.iter().map(|p| p.with_bonuses).sum(),
         }
     }
+    
+    // =============================================================================
+    // SPRINT 3 BACKEND: Enhanced Mining Reward Calculation with Network Load
+    // =============================================================================
+    
+    /// Calculate mining reward with dynamic network load adjustment
+    pub fn calculate_network_adjusted_mining_reward(
+        &self,
+        stake: &StakeInfo,
+        network_load: f64,
+        device_tier: &str,
+        validator_count: u64,
+    ) -> u64 {
+        let pool = match self.get_pool_by_token(&stake.token_type) {
+            Some(p) => p,
+            None => return 0,
+        };
+        
+        // Dynamic base rate based on network load
+        let dynamic_rate = self.calculate_dynamic_base_rate(
+            match stake.token_type {
+                TokenType::AETH => "aeth_staking",
+                TokenType::FLUX => "flux_staking",
+                TokenType::ATH => "ath_staking",
+            },
+            network_load,
+        );
+        
+        // Device tier bonus
+        let tier_mult = self.calculate_tier_bonus(device_tier);
+        
+        // Validator distribution bonus (more validators = better decentralization = bonus)
+        let validator_mult = if validator_count > 100 {
+            1.3
+        } else if validator_count > 50 {
+            1.15
+        } else if validator_count > 20 {
+            1.0
+        } else {
+            0.85
+        };
+        
+        // Calculate reward
+        let reward = (stake.amount as f64 * dynamic_rate * tier_mult * validator_mult) as u64;
+        
+        reward.max(1)
+    }
+    
+    /// Get mining reward analytics dashboard data
+    pub fn get_mining_analytics_dashboard(&self) -> MiningAnalyticsDashboard {
+        let mut total_rewards_by_tier = HashMap::new();
+        let mut total_rewards_by_token = HashMap::new();
+        let mut avg_reward_per_staker = HashMap::new();
+        let mut top_performers = Vec::new();
+        
+        for (address, stakes) in &self.stakes {
+            let mut addr_total = 0u64;
+            let mut addr_tier = "mobile";
+            let mut addr_token = TokenType::AETH;
+            
+            for stake in stakes {
+                if !self.is_stake_locked(stake) {
+                    let reward = self.calculate_network_adjusted_mining_reward(
+                        stake,
+                        0.75,
+                        "mobile",
+                        self.validator_metrics.len() as u64,
+                    );
+                    addr_total += reward;
+                    addr_token = stake.token_type.clone();
+                }
+            }
+            
+            *total_rewards_by_tier.entry(addr_tier.to_string()).or_insert(0) += addr_total;
+            *total_rewards_by_token.entry(addr_token).or_insert(0) += addr_total;
+            avg_reward_per_staker.insert(address.clone(), addr_total);
+            
+            top_performers.push((address.clone(), addr_total));
+        }
+        
+        top_performers.sort_by(|a, b| b.1.cmp(&a.1));
+        top_performers.truncate(10);
+        
+        MiningAnalyticsDashboard {
+            total_rewards_by_tier,
+            total_rewards_by_token,
+            top_performers,
+            avg_reward_per_staker: avg_reward_per_staker.values().sum::<u64>() / avg_reward_per_staker.len().max(1) as u64,
+            total_miners: self.stakes.len(),
+            total_validators: self.validator_metrics.len(),
+            current_epoch: self.current_epoch,
+        }
+    }
+    
+    /// Calculate epoch mining rewards with network load factor
+    pub fn calculate_epoch_rewards_with_network_load(&self, network_load: f64) -> EpochRewardsWithLoad {
+        let mut total_rewards = 0u64;
+        let mut by_token = HashMap::new();
+        let mut by_tier = HashMap::new();
+        let mut load_adjusted_total = 0u64;
+        
+        for (address, stakes) in &self.stakes {
+            for stake in stakes {
+                if !self.is_stake_locked(stake) {
+                    let base_reward = self.calculate_mining_reward(stake, 0.75);
+                    let load_adjusted = self.calculate_network_adjusted_mining_reward(
+                        stake,
+                        network_load,
+                        "mobile",
+                        self.validator_metrics.len() as u64,
+                    );
+                    
+                    total_rewards += base_reward;
+                    load_adjusted_total += load_adjusted;
+                    *by_token.entry(stake.token_type.clone()).or_insert(0) += load_adjusted;
+                    *by_tier.entry("mobile".to_string()).or_insert(0) += load_adjusted;
+                }
+            }
+        }
+        
+        let load_multiplier = if network_load > 0.8 {
+            "High (1.5x)"
+        } else if network_load > 0.5 {
+            "Medium (1.2x)"
+        } else if network_load > 0.3 {
+            "Normal (1.0x)"
+        } else {
+            "Low (0.8x)"
+        };
+        
+        EpochRewardsWithLoad {
+            base_total: total_rewards,
+            load_adjusted_total,
+            network_load,
+            load_multiplier: load_multiplier.to_string(),
+            by_token,
+            by_tier,
+            epoch: self.current_epoch,
+        }
+    }
+}
+
+/// Mining analytics dashboard data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiningAnalyticsDashboard {
+    pub total_rewards_by_tier: HashMap<String, u64>,
+    pub total_rewards_by_token: HashMap<TokenType, u64>,
+    pub top_performers: Vec<(String, u64)>,
+    pub avg_reward_per_staker: u64,
+    pub total_miners: usize,
+    pub total_validators: usize,
+    pub current_epoch: u64,
+}
+
+/// Epoch rewards with network load factor
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EpochRewardsWithLoad {
+    pub base_total: u64,
+    pub load_adjusted_total: u64,
+    pub network_load: f64,
+    pub load_multiplier: String,
+    pub by_token: HashMap<TokenType, u64>,
+    pub by_tier: HashMap<String, u64>,
+    pub epoch: u64,
 }
 
 /// Total epoch rewards summary
