@@ -774,6 +774,303 @@ impl StakingContract {
         
         schedule
     }
+    
+    // =============================================================================
+    // ADVANCED MINING REWARD ENHANCEMENTS - Sprint 22 Backend
+    // =============================================================================
+    
+    /// Calculate dynamic base reward rate based on network conditions
+    pub fn calculate_dynamic_base_rate(&self, pool_id: &str, network_load: f64) -> f64 {
+        let pool = match self.pools.get(pool_id) {
+            Some(p) => p,
+            None => return 0.0,
+        };
+        
+        // Network load adjustment: higher load = higher rewards to incentivize participation
+        let load_multiplier = if network_load > 0.8 {
+            1.5
+        } else if network_load > 0.5 {
+            1.2
+        } else if network_load > 0.3 {
+            1.0
+        } else {
+            0.8
+        };
+        
+        pool.reward_rate * load_multiplier
+    }
+    
+    /// Calculate tier-based mining reward (mobile, laptop, desktop, validator)
+    pub fn calculate_tier_bonus(&self, device_tier: &str) -> f64 {
+        match device_tier.to_lowercase().as_str() {
+            "mobile" => 1.0,      // Base rate
+            "laptop" => 1.25,     // 25% bonus
+            "desktop" => 1.5,     // 50% bonus
+            "validator" => 2.0,   // 100% bonus
+            _ => 1.0,
+        }
+    }
+    
+    /// Calculate uptime-based reward multiplier
+    pub fn calculate_uptime_multiplier(&self, uptime_percent: f64) -> f64 {
+        if uptime_percent >= 99.0 {
+            1.5  // Perfect uptime bonus
+        } else if uptime_percent >= 95.0 {
+            1.25 // Excellent uptime
+        } else if uptime_percent >= 90.0 {
+            1.0  // Standard rate
+        } else if uptime_percent >= 80.0 {
+            0.75 // Reduced rate
+        } else {
+            0.5  // Poor uptime penalty
+        }
+    }
+    
+    /// Calculate consistency bonus for consecutive epoch participation
+    pub fn calculate_consistency_bonus(&self, consecutive_epochs: u64) -> f64 {
+        if consecutive_epochs >= 30 {
+            1.4  // Month of consistency
+        } else if consecutive_epochs >= 14 {
+            1.25 // Two weeks
+        } else if consecutive_epochs >= 7 {
+            1.1  // One week
+        } else {
+            1.0  // Base rate
+        }
+    }
+    
+    /// Calculate total mining reward with all bonuses applied
+    pub fn calculate_total_mining_reward(
+        &self,
+        stake: &StakeInfo,
+        network_participation: f64,
+        device_tier: &str,
+        uptime_percent: f64,
+        consecutive_epochs: u64,
+    ) -> u64 {
+        let pool = match self.get_pool_by_token(&stake.token_type) {
+            Some(p) => p,
+            None => return 0,
+        };
+        
+        // Base reward
+        let base_rate = pool.reward_rate;
+        
+        // Apply all multipliers
+        let participation_mult = if network_participation > 0.8 { 1.5 } else if network_participation > 0.5 { 1.0 } else { 0.5 };
+        let tier_mult = self.calculate_tier_bonus(device_tier);
+        let uptime_mult = self.calculate_uptime_multiplier(uptime_percent);
+        let consistency_mult = self.calculate_consistency_bonus(consecutive_epochs);
+        
+        // Combined multiplier
+        let total_mult = participation_mult * tier_mult * uptime_mult * consistency_mult;
+        
+        // Calculate final reward
+        let reward = (stake.amount as f64 * base_rate * total_mult) as u64;
+        
+        reward.max(1)
+    }
+    
+    /// Calculate epoch rewards for all miners with detailed breakdown
+    pub fn calculate_detailed_epoch_rewards(&self) -> DetailedEpochRewards {
+        let mut total_rewards = 0u64;
+        let mut by_token = HashMap::new();
+        let mut by_tier = HashMap::new();
+        let mut by_uptime_range = HashMap::new();
+        let mut top_earners = Vec::new();
+        
+        for (address, stakes) in &self.stakes {
+            let mut address_total = 0u64;
+            
+            for stake in stakes {
+                if !self.is_stake_locked(stake) {
+                    let reward = self.calculate_total_mining_reward(
+                        stake,
+                        0.75,
+                        "mobile",
+                        95.0,
+                        14,
+                    );
+                    total_rewards += reward;
+                    address_total += reward;
+                    
+                    *by_token.entry(stake.token_type.clone()).or_insert(0) += reward;
+                    *by_tier.entry("mobile".to_string()).or_insert(0) += reward;
+                    
+                    let uptime_range = if stake.amount > 10000 {
+                        "high"
+                    } else if stake.amount > 1000 {
+                        "medium"
+                    } else {
+                        "low"
+                    };
+                    *by_uptime_range.entry(uptime_range.to_string()).or_insert(0) += reward;
+                }
+            }
+            
+            top_earners.push((address.clone(), address_total));
+        }
+        
+        // Sort top earners
+        top_earners.sort_by(|a, b| b.1.cmp(&a.1));
+        top_earners.truncate(10);
+        
+        DetailedEpochRewards {
+            total: total_rewards,
+            by_token,
+            by_tier,
+            by_uptime_range,
+            top_earners,
+            epoch: self.current_epoch,
+            total_miners: self.stakes.len(),
+        }
+    }
+    
+    /// Simulate reward distribution for testing/preview
+    pub fn simulate_reward_distribution(&self, epochs: u64) -> RewardSimulation {
+        let mut simulated_total = 0u64;
+        let mut projected_rewards = HashMap::new();
+        
+        for (pool_id, pool) in &self.pools {
+            let mut pool_total = 0u64;
+            
+            for (address, stakes) in &self.stakes {
+                for stake in stakes {
+                    if stake.token_type == pool.token_type && !self.is_stake_locked(stake) {
+                        let reward = self.calculate_total_mining_reward(
+                            stake,
+                            0.75,
+                            "mobile",
+                            95.0,
+                            14,
+                        );
+                        pool_total += reward * epochs;
+                    }
+                }
+            }
+            
+            projected_rewards.insert(pool_id.clone(), pool_total);
+            simulated_total += pool_total;
+        }
+        
+        RewardSimulation {
+            epochs,
+            total_projected: simulated_total,
+            by_pool: projected_rewards,
+            average_apy: self.pools.values().map(|p| p.reward_rate).sum::<f64>() / self.pools.len() as f64,
+        }
+    }
+    
+    /// Get reward efficiency metrics for optimization
+    pub fn get_reward_efficiency_metrics(&self, pool_id: &str) -> RewardEfficiencyMetrics {
+        let pool = match self.pools.get(pool_id) {
+            Some(p) => p,
+            None => return RewardEfficiencyMetrics::default(),
+        };
+        
+        let total_rewards = self.total_rewards_distributed as f64;
+        let total_staked = pool.total_staked as f64;
+        
+        RewardEfficiencyMetrics {
+            reward_per_token: if total_staked > 0.0 { total_rewards / total_staked } else { 0.0 },
+            reward_per_staker: if pool.active_stakers > 0 { total_rewards / pool.active_stakers as f64 } else { 0.0 },
+            reward_rate: pool.reward_rate,
+            effective_apy: pool.reward_rate * 100.0,
+            total_distributed: self.total_rewards_distributed,
+        }
+    }
+    
+    /// Calculate optimal staking strategy for maximum rewards
+    pub fn calculate_optimal_staking_strategy(&self, budget: u64, goal_epochs: u64) -> StakingStrategy {
+        let mut strategies = Vec::new();
+        
+        for (pool_id, pool) in &self.pools {
+            let stake_amount = budget.min(pool.total_staked.max(pool.min_stake));
+            let projected_reward = self.project_mining_rewards(pool_id, stake_amount, goal_epochs);
+            
+            strategies.push(StakingStrategyOption {
+                pool_id: pool_id.clone(),
+                token_type: pool.token_type.clone(),
+                recommended_stake: stake_amount,
+                projected_reward: projected_reward.base_reward,
+                apy: pool.reward_rate * 100.0,
+                lockup_epochs: pool.lockup_epochs,
+            });
+        }
+        
+        // Sort by projected reward
+        strategies.sort_by(|a, b| b.projected_reward.cmp(&a.projected_reward));
+        
+        StakingStrategy {
+            budget,
+            goal_epochs,
+            options: strategies,
+            recommended: strategies.first().cloned(),
+        }
+    }
+    
+    /// Get personalized reward projection for a user
+    pub fn get_personalized_projection(
+        &self,
+        address: &str,
+        device_tier: &str,
+        target_epochs: u64,
+    ) -> PersonalizedProjection {
+        let stakes = self.get_address_stakes(address);
+        let mut total_staked = 0u64;
+        let mut tokens_by_type = HashMap::new();
+        
+        for stake in stakes {
+            total_staked += stake.amount;
+            *tokens_by_type.entry(stake.token_type.clone()).or_insert(0) += stake.amount;
+        }
+        
+        let mut projections = Vec::new();
+        
+        for (token_type, amount) in &tokens_by_type {
+            let pool = self.get_pool_by_token(token_type).unwrap();
+            let pool_id = match token_type {
+                TokenType::AETH => "aeth_staking",
+                TokenType::FLUX => "flux_staking",
+                TokenType::ATH => "ath_staking",
+            };
+            
+            let base_reward = self.project_mining_rewards(pool_id, *amount, target_epochs);
+            let with_bonuses = self.calculate_total_mining_reward(
+                &StakeInfo {
+                    address: address.to_string(),
+                    token_type: token_type.clone(),
+                    amount: *amount,
+                    start_epoch: self.current_epoch,
+                    last_claim_epoch: self.current_epoch,
+                    rewards_claimed: 0,
+                    is_locked: false,
+                    lock_end_epoch: 0,
+                },
+                0.75,
+                device_tier,
+                95.0,
+                14,
+            ) * target_epochs;
+            
+            projections.push(TokenProjection {
+                token_type: token_type.clone(),
+                staked_amount: *amount,
+                base_reward: base_reward.base_reward,
+                with_bonuses,
+                bonus_multiplier: if base_reward.base_reward > 0 { with_bonuses as f64 / base_reward.base_reward as f64 } else { 1.0 },
+            });
+        }
+        
+        PersonalizedProjection {
+            address: address.to_string(),
+            device_tier: device_tier.to_string(),
+            total_staked,
+            target_epochs,
+            projections,
+            estimated_total: projections.iter().map(|p| p.with_bonuses).sum(),
+        }
+    }
 }
 
 /// Total epoch rewards summary
@@ -825,6 +1122,78 @@ pub struct NetworkStakingMetrics {
     pub average_commission: f64,
     pub average_uptime: f64,
     pub total_rewards_distributed: u64,
+}
+
+/// Detailed epoch rewards with breakdowns
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DetailedEpochRewards {
+    pub total: u64,
+    pub by_token: HashMap<TokenType, u64>,
+    pub by_tier: HashMap<String, u64>,
+    pub by_uptime_range: HashMap<String, u64>,
+    pub top_earners: Vec<(String, u64)>,
+    pub epoch: u64,
+    pub total_miners: usize,
+}
+
+/// Reward simulation for testing/preview
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RewardSimulation {
+    pub epochs: u64,
+    pub total_projected: u64,
+    pub by_pool: HashMap<String, u64>,
+    pub average_apy: f64,
+}
+
+/// Reward efficiency metrics
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct RewardEfficiencyMetrics {
+    pub reward_per_token: f64,
+    pub reward_per_staker: f64,
+    pub reward_rate: f64,
+    pub effective_apy: f64,
+    pub total_distributed: u64,
+}
+
+/// Staking strategy option
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StakingStrategyOption {
+    pub pool_id: String,
+    pub token_type: TokenType,
+    pub recommended_stake: u64,
+    pub projected_reward: u64,
+    pub apy: f64,
+    pub lockup_epochs: u64,
+}
+
+/// Optimal staking strategy recommendation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StakingStrategy {
+    pub budget: u64,
+    pub goal_epochs: u64,
+    pub options: Vec<StakingStrategyOption>,
+    pub recommended: Option<StakingStrategyOption>,
+}
+
+/// Token-specific projection
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenProjection {
+    pub token_type: TokenType,
+    pub staked_amount: u64,
+    pub base_reward: u64,
+    pub with_bonuses: u64,
+    pub bonus_multiplier: f64,
+}
+
+/// Personalized reward projection for a user
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PersonalizedProjection {
+    pub address: String,
+    pub device_tier: String,
+    pub total_staked: u64,
+    pub target_epochs: u64,
+    pub projections: Vec<TokenProjection>,
+    pub estimated_total: u64,
 }
 
 #[cfg(test)]
