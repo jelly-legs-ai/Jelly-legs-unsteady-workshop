@@ -9,7 +9,9 @@
 pub mod types;
 pub mod crypto;
 pub mod error;
+pub mod api_routes;
 
 pub use types::*;
 pub use crypto::*;
 pub use error::*;
+pub use api_routes::*;
