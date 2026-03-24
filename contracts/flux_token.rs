@@ -110,6 +110,473 @@ impl FluxTokenContract {
         Ok(())
     }
     
+    /// Burn tokens (reduce supply)
+    pub fn burn(&mut self, from: &str, amount: u64) -> Result<(), &'static str> {
+        let balance = self.balances.get(from).copied().unwrap_or(0);
+        if balance < amount {
+            return Err("Insufficient balance for burn");
+        }
+        
+        *self.balances.entry(from.to_string()).or_insert(0) -= amount;
+        self.burned_supply += amount;
+        self.circulating_supply = self.circulating_supply.saturating_sub(amount);
+        
+        Ok(())
+    }
+    
+    /// Burn from burn address (permanent supply reduction)
+    pub fn burn_from_address(&mut self, amount: u64) -> Result<(), &'static str> {
+        let balance = self.balances.get(&self.burn_address).copied().unwrap_or(0);
+        if balance < amount {
+            return Err("Insufficient balance in burn address");
+        }
+        
+        *self.balances.entry(self.burn_address.to_string()).or_insert(0) -= amount;
+        self.burned_supply += amount;
+        self.total_supply = self.total_supply.saturating_sub(amount);
+        
+        Ok(())
+    }
+    
+    // =============================================================================
+    // SPRINT 2 ENHANCEMENT: Advanced Token Economics & Fee Structures
+    // =============================================================================
+    
+    /// Calculate transaction fee based on amount and tier
+    pub fn calculate_transaction_fee(&self, amount: u64, fee_tier: &str) -> u64 {
+        let base_rate = match fee_tier {
+            "standard" => 0.003,  // 0.3%
+            "premium" => 0.001,   // 0.1%
+            "vip" => 0.0005,      // 0.05%
+            "agent" => 0.0001,    // 0.01% for AI agents
+            _ => 0.003,
+        };
+        
+        let fee = (amount as f64 * base_rate) as u64;
+        fee.max(1) // Minimum 1 FLUX fee
+    }
+    
+    /// Calculate dynamic fee based on network congestion
+    pub fn calculate_dynamic_fee(&self, amount: u64, network_congestion: f64) -> u64 {
+        // Base fee rate
+        let base_rate = 0.003;
+        
+        // Congestion multiplier (0.5x at low congestion, 2.0x at high)
+        let congestion_mult = if network_congestion > 0.8 {
+            2.0
+        } else if network_congestion > 0.5 {
+            1.5
+        } else if network_congestion > 0.3 {
+            1.0
+        } else {
+            0.5
+        };
+        
+        let fee = (amount as f64 * base_rate * congestion_mult) as u64;
+        fee.max(1)
+    }
+    
+    /// Calculate fee discount for staking FLUX
+    pub fn calculate_staking_discount(&self, staked_amount: u64) -> f64 {
+        if staked_amount >= 100000 {
+            0.5  // 50% discount for 100K+ staked
+        } else if staked_amount >= 50000 {
+            0.7  // 30% discount
+        } else if staked_amount >= 10000 {
+            0.85 // 15% discount
+        } else if staked_amount >= 1000 {
+            0.95 // 5% discount
+        } else {
+            1.0  // No discount
+        }
+    }
+    
+    /// Calculate final fee with all discounts applied
+    pub fn calculate_final_fee(
+        &self,
+        amount: u64,
+        fee_tier: &str,
+        network_congestion: f64,
+        staked_amount: u64,
+    ) -> u64 {
+        let base_fee = self.calculate_dynamic_fee(amount, network_congestion);
+        let tier_rate = match fee_tier {
+            "standard" => 1.0,
+            "premium" => 0.33,
+            "vip" => 0.17,
+            "agent" => 0.033,
+            _ => 1.0,
+        };
+        
+        let discounted_fee = (base_fee as f64 * tier_rate) as u64;
+        let staking_discount = self.calculate_staking_discount(staked_amount);
+        
+        let final_fee = (discounted_fee as f64 * staking_discount) as u64;
+        final_fee.max(1)
+    }
+    
+    /// Distribute transaction fees to treasury and validators
+    pub fn distribute_fees(&mut self, fee_amount: u64, treasury_share: f64) -> FeeDistribution {
+        let treasury_amount = (fee_amount as f64 * treasury_share) as u64;
+        let validator_amount = fee_amount - treasury_amount;
+        
+        // Add to treasury balance
+        *self.balances.entry("treasury".to_string()).or_insert(0) += treasury_amount;
+        
+        // Add to mining rewards for validators
+        *self.balances.entry("mining_rewards".to_string()).or_insert(0) += validator_amount;
+        
+        FeeDistribution {
+            total_fee: fee_amount,
+            treasury_amount,
+            validator_amount,
+            treasury_share: treasury_share * 100.0,
+        }
+    }
+    
+    /// Calculate token velocity (transaction volume / circulating supply)
+    pub fn calculate_token_velocity(&self, transaction_volume: u64) -> f64 {
+        if self.circulating_supply == 0 {
+            return 0.0;
+        }
+        transaction_volume as f64 / self.circulating_supply as f64
+    }
+    
+    /// Get token holder distribution stats
+    pub fn get_holder_distribution(&self) -> HolderDistribution {
+        let mut holders: Vec<(&String, &u64)> = self.balances.iter().collect();
+        holders.sort_by(|a, b| b.1.cmp(a.1));
+        
+        let total_holders = holders.len();
+        let top_10_total: u64 = holders.iter().take(10).map(|(_, b)| **b).sum();
+        let top_50_total: u64 = holders.iter().take(50).map(|(_, b)| **b).sum();
+        let top_100_total: u64 = holders.iter().take(100).map(|(_, b)| **b).sum();
+        
+        HolderDistribution {
+            total_holders,
+            top_10_concentration: top_10_total as f64 / self.circulating_supply as f64,
+            top_50_concentration: top_50_total as f64 / self.circulating_supply as f64,
+            top_100_concentration: top_100_total as f64 / self.circulating_supply as f64,
+            gini_coefficient: self.calculate_gini_coefficient(&holders),
+        }
+    }
+    
+    /// Calculate Gini coefficient for wealth distribution
+    fn calculate_gini_coefficient(&self, holders: &[(&String, &u64)]) -> f64 {
+        if holders.is_empty() {
+            return 0.0;
+        }
+        
+        let n = holders.len() as f64;
+        let total: u64 = holders.iter().map(|(_, b)| **b).sum();
+        
+        if total == 0 {
+            return 0.0;
+        }
+        
+        // Simplified Gini: cumulative share analysis
+        let mut cumulative = 0.0;
+        let mut gini_sum = 0.0;
+        
+        for (i, (_, balance)) in holders.iter().enumerate() {
+            let share = *balance as f64 / total as f64;
+            cumulative += share;
+            gini_sum += cumulative;
+        }
+        
+        let gini = 1.0 - (2.0 * gini_sum / n - (n + 1.0) / n);
+        gini.max(0.0).min(1.0)
+    }
+    
+    /// Calculate market cap equivalent (assuming price feed)
+    pub fn calculate_market_cap(&self, price_per_token: f64) -> f64 {
+        self.circulating_supply as f64 * price_per_token
+    }
+    
+    /// Calculate fully diluted valuation
+    pub fn calculate_fdv(&self, price_per_token: f64) -> f64 {
+        self.total_supply as f64 * price_per_token
+    }
+    
+    /// Get inflation rate (minted / total supply)
+    pub fn get_inflation_rate(&self) -> f64 {
+        if self.total_supply == 0 {
+            return 0.0;
+        }
+        self.minted_amount as f64 / self.total_supply as f64
+    }
+    
+    /// Calculate burn rate (burned / circulating)
+    pub fn get_burn_rate(&self) -> f64 {
+        if self.circulating_supply == 0 {
+            return 0.0;
+        }
+        self.burned_supply as f64 / self.circulating_supply as f64
+    }
+    
+    /// Get token economics summary
+    pub fn get_token_economics_summary(&self) -> TokenEconomicsSummary {
+        TokenEconomicsSummary {
+            total_supply: self.total_supply,
+            circulating_supply: self.circulating_supply,
+            burned_supply: self.burned_supply,
+            minted_amount: self.minted_amount,
+            mint_cap_remaining: self.mint_cap - self.minted_amount,
+            inflation_rate: self.get_inflation_rate(),
+            burn_rate: self.get_burn_rate(),
+            holder_count: self.balances.len(),
+        }
+    }
+    
+    /// Check if address qualifies for agent tier pricing
+    pub fn is_agent_address(&self, address: &str) -> bool {
+        // Simple heuristic: addresses with "agent" or high balance
+        address.contains("agent") || self.balances.get(address).unwrap_or(&0) > &50000
+    }
+    
+    /// Airdrop tokens to multiple addresses
+    pub fn airdrop(&mut self, recipients: Vec<(&str, u64)>) -> Result<AirdropResult, &'static str> {
+        let mut total_amount = 0u64;
+        let mut successful = 0;
+        let mut failed = 0;
+        let mut errors = Vec::new();
+        
+        for (address, amount) in recipients {
+            total_amount += amount;
+        }
+        
+        // Check if treasury has enough
+        let treasury_balance = self.balances.get("treasury").copied().unwrap_or(0);
+        if treasury_balance < total_amount {
+            return Err("Insufficient treasury balance for airdrop");
+        }
+        
+        for (address, amount) in recipients {
+            match self.transfer("treasury", address, amount) {
+                Ok(_) => successful += 1,
+                Err(e) => {
+                    failed += 1;
+                    errors.push((address.to_string(), e.to_string()));
+                }
+            }
+        }
+        
+        Ok(AirdropResult {
+            total_amount,
+            successful,
+            failed,
+            errors,
+        })
+    }
+    
+    /// Vesting schedule check
+    pub fn check_vesting_schedule(&self, address: &str, cliff_epochs: u64, total_epochs: u64, current_epoch: u64) -> VestingStatus {
+        let balance = self.balances.get(address).copied().unwrap_or(0);
+        
+        if current_epoch < cliff_epochs {
+            return VestingStatus {
+                vested_amount: 0,
+                locked_amount: balance,
+                vested_percentage: 0.0,
+                epochs_until_cliff: cliff_epochs - current_epoch,
+                status: "Cliff period active".to_string(),
+            };
+        }
+        
+        let epochs_since_cliff = current_epoch - cliff_epochs;
+        let vested_percentage = (epochs_since_cliff as f64 / (total_epochs - cliff_epochs) as f64).min(1.0);
+        let vested_amount = (balance as f64 * vested_percentage) as u64;
+        let locked_amount = balance - vested_amount;
+        
+        VestingStatus {
+            vested_amount,
+            locked_amount,
+            vested_percentage: vested_percentage * 100.0,
+            epochs_until_cliff: 0,
+            status: if vested_percentage >= 1.0 { "Fully vested" } else { "Vesting in progress" }.to_string(),
+        }
+    }
+    
+    /// Calculate liquidity score based on distribution
+    pub fn calculate_liquidity_score(&self) -> LiquidityScore {
+        let holder_dist = self.get_holder_distribution();
+        
+        // Decentralization score (inverse of concentration)
+        let decentralization = (1.0 - holder_dist.top_10_concentration) * 100.0;
+        
+        // Holder count score
+        let holder_score = if holder_dist.total_holders > 10000 {
+            100.0
+        } else if holder_dist.total_holders > 1000 {
+            80.0
+        } else if holder_dist.total_holders > 100 {
+            60.0
+        } else {
+            40.0
+        };
+        
+        // Velocity score
+        let velocity_score = if self.circulating_supply > 0 {
+            ((self.balances.len() as f64 / 100.0) * 50.0).min(100.0)
+        } else {
+            0.0
+        };
+        
+        let overall_score = (decentralization + holder_score + velocity_score) / 3.0;
+        
+        LiquidityScore {
+            overall_score,
+            decentralization_score: decentralization,
+            holder_score,
+            velocity_score,
+            status: if overall_score >= 80.0 { "Excellent" }
+                   else if overall_score >= 60.0 { "Good" }
+                   else if overall_score >= 40.0 { "Fair" }
+                   else { "Poor" }.to_string(),
+        }
+    }
+    
+    /// Get fee tier recommendation based on holding amount
+    pub fn recommend_fee_tier(&self, address: &str) -> FeeTierRecommendation {
+        let balance = self.balances.get(address).copied().unwrap_or(0);
+        
+        if balance >= 100000 {
+            FeeTierRecommendation {
+                tier: "vip".to_string(),
+                reason: "High balance holder (>100K FLUX)".to_string(),
+                discount_rate: 0.0005,
+                estimated_savings_percent: 83.3,
+            }
+        } else if balance >= 50000 {
+            FeeTierRecommendation {
+                tier: "premium".to_string(),
+                reason: "Medium balance holder (>50K FLUX)".to_string(),
+                discount_rate: 0.001,
+                estimated_savings_percent: 66.7,
+            }
+        } else if balance >= 1000 || address.contains("agent") {
+            FeeTierRecommendation {
+                tier: "agent".to_string(),
+                reason: "AI agent or small holder".to_string(),
+                discount_rate: 0.0001,
+                estimated_savings_percent: 96.7,
+            }
+        } else {
+            FeeTierRecommendation {
+                tier: "standard".to_string(),
+                reason: "Standard tier (<1K FLUX)".to_string(),
+                discount_rate: 0.003,
+                estimated_savings_percent: 0.0,
+            }
+        }
+    }
+    
+    /// Calculate deflationary pressure (burn rate vs mint rate)
+    pub fn calculate_deflationary_pressure(&self) -> DeflationaryPressure {
+        let burn_ratio = if self.total_supply > 0 {
+            self.burned_supply as f64 / self.total_supply as f64
+        } else {
+            0.0
+        };
+        
+        let mint_ratio = if self.mint_cap > 0 {
+            self.minted_amount as f64 / self.mint_cap as f64
+        } else {
+            0.0
+        };
+        
+        let net_pressure = burn_ratio - mint_ratio;
+        
+        DeflationaryPressure {
+            burn_ratio,
+            mint_ratio,
+            net_pressure,
+            trend: if net_pressure > 0.01 { "Deflationary" }
+                   else if net_pressure < -0.01 { "Inflationary" }
+                   else { "Neutral" }.to_string(),
+        }
+    }
+    
+    /// Get treasury health metrics
+    pub fn get_treasury_health(&self) -> TreasuryHealth {
+        let treasury_balance = self.balances.get("treasury").copied().unwrap_or(0);
+        let mining_balance = self.balances.get("mining_rewards").copied().unwrap_or(0);
+        let ecosystem_balance = self.balances.get("ecosystem_fund").copied().unwrap_or(0);
+        
+        let total_reserved = treasury_balance + mining_balance + ecosystem_balance;
+        let treasury_ratio = if total_reserved > 0 {
+            treasury_balance as f64 / total_reserved as f64
+        } else {
+            0.0
+        };
+        
+        TreasuryHealth {
+            treasury_balance,
+            mining_balance,
+            ecosystem_balance,
+            total_reserved,
+            treasury_ratio,
+            runway_score: if treasury_balance > 100_000_000 { 100.0 }
+                          else if treasury_balance > 50_000_000 { 80.0 }
+                          else if treasury_balance > 10_000_000 { 60.0 }
+                          else { 40.0 },
+        }
+    }
+    
+    /// Calculate token utility score based on usage patterns
+    pub fn calculate_utility_score(&self, tx_count: u64, active_addresses: u64) -> UtilityScore {
+        let tx_velocity = if self.circulating_supply > 0 {
+            tx_count as f64 / self.circulating_supply as f64
+        } else {
+            0.0
+        };
+        
+        let adoption_score = if active_addresses > 10000 {
+            100.0
+        } else if active_addresses > 1000 {
+            80.0
+        } else if active_addresses > 100 {
+            60.0
+        } else {
+            40.0
+        };
+        
+        let utility_score = (tx_velocity * 1000.0 * 50.0 + adoption_score * 0.5).min(100.0);
+        
+        UtilityScore {
+            overall_score: utility_score,
+            tx_velocity,
+            adoption_score,
+            active_addresses,
+            status: if utility_score >= 80.0 { "High Utility" }
+                   else if utility_score >= 60.0 { "Medium Utility" }
+                   else if utility_score >= 40.0 { "Low Utility" }
+                   else { "Minimal Utility" }.to_string(),
+        }
+    }
+    
+    /// Simulate token economics scenario
+    pub fn simulate_economics_scenario(&self, scenario: &EconomicsScenario) -> EconomicsSimulation {
+        let mut simulated_supply = self.circulating_supply;
+        let mut simulated_burned = self.burned_supply;
+        let mut simulated_minted = self.minted_amount;
+        
+        match scenario {
+            EconomicsScenario::HighAdoption { tx_growth, user_growth } => {
+                // Simulate increased burns from higher tx volume
+                let burn_increase = (tx_growth * 0.01 * self.c
+        
+        if self.minted_amount + amount > self.mint_cap {
+            return Err("Mint cap exceeded");
+        }
+        
+        *self.balances.entry(to.to_string()).or_insert(0) += amount;
+        self.total_supply += amount;
+        self.minted_amount += amount;
+        
+        Ok(())
+    }
+    
     /// Burn FLUX tokens
     pub fn burn(&mut self, from: &str, amount: u64) -> Result<(), &'static str> {
         let balance = self.balances.get(from).copied().unwrap_or(0);
