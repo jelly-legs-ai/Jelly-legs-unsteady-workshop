@@ -166,7 +166,7 @@ impl MiningContract {
         miner.consecutive_uptime_epochs.min(24)
     }
 
-    /// Calculate mining reward with all factors
+    /// Calculate mining reward with all factors - SPRINT 22 ENHANCED
     pub fn calculate_reward(&self, miner: &MinerInfo) -> u64 {
         // Skip if miner is slashed
         if miner.status == MinerStatus::Slashed {
@@ -191,8 +191,52 @@ impl MiningContract {
         let difficulty_factor = 1000.0 / self.network_stats.current_epoch_difficulty.max(1) as f64;
         reward *= difficulty_factor;
 
+        // === SPRINT 22 ENHANCEMENT: Advanced Reward Factors ===
+        
+        // Network contribution bonus - miners who contribute during low-participation epochs get bonus
+        let participation_rate = self.get_current_participation_rate();
+        let contribution_bonus = if participation_rate < 0.6 {
+            // Low participation - active miners get 25% bonus
+            1.25
+        } else if participation_rate < 0.8 {
+            // Medium participation - 10% bonus
+            1.10
+        } else {
+            1.0
+        };
+        reward *= contribution_bonus;
+
+        // Longevity bonus - miners with 100+ consecutive epochs get extra
+        if miner.consecutive_uptime_epochs >= 100 {
+            reward *= 1.15; // 15% longevity bonus
+        } else if miner.consecutive_uptime_epochs >= 50 {
+            reward *= 1.08; // 8% bonus
+        } else if miner.consecutive_uptime_epochs >= 25 {
+            reward *= 1.04; // 4% bonus
+        }
+
+        // Epoch timing bonus - rewards vary by epoch to distribute load
+        let epoch_factor = match self.current_epoch % 24 {
+            0..=5 => 1.1,   // Early hours - higher reward
+            6..=12 => 1.0,  // Normal
+            13..=18 => 0.95, // Mid-day - slightly lower
+            _ => 1.05,      // Evening - slight boost
+        };
+        reward *= epoch_factor;
+
         // Apply floor to rewards
         reward.max(1.0) as u64
+    }
+
+    /// Get current network participation rate
+    fn get_current_participation_rate(&self) -> f64 {
+        if self.network_stats.total_active_miners == 0 {
+            return 0.0;
+        }
+        let active = self.miners.values()
+            .filter(|m| m.status == MinerStatus::Active)
+            .count() as f64;
+        active / self.network_stats.total_active_miners as f64
     }
 
     // =============================================================================
