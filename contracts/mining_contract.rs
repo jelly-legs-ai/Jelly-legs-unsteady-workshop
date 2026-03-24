@@ -333,7 +333,7 @@ impl MiningContract {
         }
     }
     
-    /// Calculate mining profitability for a given tier (reward per能耗 unit)
+    /// Calculate mining profitability for a given tier (reward per kWh unit)
     pub fn calculate_mining_profitability(&self, tier: DeviceTier, electricity_cost_per_kwh: f64) -> f64 {
         let base_reward = self.base_reward_per_epoch as f64;
         let tier_multiplier = tier.multiplier();
@@ -348,6 +348,161 @@ impl MiningContract {
         
         // Daily reward in USD equivalent (assuming token price)
         let daily_rewards = base_reward * tier_multiplier * 24 * 0.0001; // rough token value
+        
+        // Daily power cost in USD
+        let daily_power_cost = (power_watts / 1000.0) * 24.0 * electricity_cost_per_kwh;
+        
+        // Profit margin (rewards - costs)
+        daily_rewards - daily_power_cost
+    }
+    
+    /// Calculate ROI (Return on Investment) for mining hardware
+    pub fn calculate_roi(&self, tier: DeviceTier, hardware_cost: f64) -> f64 {
+        let monthly_reward = self.calculate_monthly_rewards_for_tier(tier);
+        let monthly_roi = (monthly_reward * 0.0001) / hardware_cost * 100.0; // Convert to percentage
+        monthly_roi
+    }
+    
+    /// Calculate monthly rewards for a tier (average)
+    pub fn calculate_monthly_rewards_for_tier(&self, tier: DeviceTier) -> u64 {
+        let base_reward = self.base_reward_per_epoch;
+        let multiplier = tier.multiplier() as u64;
+        base_reward * multiplier * 24 * 30 // 30 days, 24 epochs/day
+    }
+    
+    /// Get estimated annual revenue for a miner
+    pub fn estimate_annual_revenue(&self, miner: &MinerInfo) -> u64 {
+        let monthly = self.calculate_monthly_rewards(miner);
+        monthly * 12
+    }
+    
+    /// Calculate compound growth of mining rewards (reinvested)
+    pub fn calculate_compound_growth(&self, initial_stake: u64, epochs: u64, reinvest_rate: f64) -> u64 {
+        let mut total = initial_stake;
+        for _ in 0..epochs {
+            let reward = total / 100; // 1% per epoch simplified
+            let reinvested = (reward as f64 * reinvest_rate) as u64;
+            total += reinvested;
+        }
+        total
+    }
+    
+    /// Get mining reward distribution schedule
+    pub fn get_reward_schedule(&self) -> RewardSchedule {
+        RewardSchedule {
+            epochs_per_day: 24,
+            epochs_per_week: 168,
+            epochs_per_month: 720,
+            epochs_per_year: 8760,
+            base_reward_per_epoch: self.base_reward_per_epoch,
+            difficulty_adjustment_interval: self.difficulty_adjustment_interval,
+        }
+    }
+    
+    /// Calculate penalty for early unstake (slashing)
+    pub fn calculate_slashing_penalty(&self, stake_amount: u64, reason: SlashingReason) -> u64 {
+        let penalty_rate = match reason {
+            SlashingReason::Downtime => 5, // 5% penalty
+            SlashingReason::DoubleSigning => 50, // 50% penalty
+            SlashingReason::Fraud => 100, // 100% slash
+        };
+        stake_amount * penalty_rate / 100
+    }
+    
+    /// Get optimal mining tier recommendation based on budget
+    pub fn recommend_tier_for_budget(&self, budget_usd: f64) -> DeviceTier {
+        if budget_usd < 100.0 {
+            DeviceTier::Mobile
+        } else if budget_usd < 500.0 {
+            DeviceTier::Laptop
+        } else if budget_usd < 1500.0 {
+            DeviceTier::Desktop
+        } else {
+            DeviceTier::Server
+        }
+    }
+    
+    /// Calculate break-even point for mining investment
+    pub fn calculate_break_even_epochs(&self, tier: DeviceTier, hardware_cost: f64, electricity_cost: f64) -> u64 {
+        let profit_per_epoch = self.calculate_mining_profitability(tier, electricity_cost) / 24.0;
+        if profit_per_epoch <= 0.0 {
+            return u64::MAX; // Never breaks even
+        }
+        (hardware_cost / profit_per_epoch).ceil() as u64
+    }
+    
+    /// Simulate mining rewards over time with difficulty adjustments
+    pub fn simulate_mining_rewards(&self, initial_miners: u64, epochs: u64) -> Vec<EpochSimulation> {
+        let mut simulations = Vec::new();
+        let mut current_difficulty = self.network_stats.current_epoch_difficulty;
+        let mut miner_count = initial_miners;
+        
+        for epoch in 0..epochs {
+            let reward_per_miner = self.base_reward_per_epoch * 1000 / current_difficulty.max(1);
+            simulations.push(EpochSimulation {
+                epoch,
+                difficulty: current_difficulty,
+                miner_count,
+                reward_per_miner,
+                total_distributed: reward_per_miner * miner_count,
+            });
+            
+            // Adjust difficulty every N epochs
+            if epoch % self.difficulty_adjustment_interval == 0 && epoch > 0 {
+                current_difficulty = (current_difficulty as f64 * 1.02).min(5000.0) as u64;
+                miner_count = (miner_count as f64 * 1.01).min(10000.0) as u64; // Growth simulation
+            }
+        }
+        
+        simulations
+    }
+    
+    /// Get mining efficiency score (0-100)
+    pub fn calculate_efficiency_score(&self, miner: &MinerInfo) -> u64 {
+        let uptime_score = (self.calculate_uptime_score(miner) * 50.0) as u64;
+        let reputation_score = (miner.reputation_score / 2.0) as u64;
+        uptime_score + reputation_score
+    }
+}
+
+/// Tier counts summary
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TierCounts {
+    pub mobile: u64,
+    pub laptop: u64,
+    pub desktop: u64,
+    pub server: u64,
+    pub total_active: u64,
+}
+
+/// Reward schedule information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RewardSchedule {
+    pub epochs_per_day: u64,
+    pub epochs_per_week: u64,
+    pub epochs_per_month: u64,
+    pub epochs_per_year: u64,
+    pub base_reward_per_epoch: u64,
+    pub difficulty_adjustment_interval: u64,
+}
+
+/// Slashing reasons
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum SlashingReason {
+    Downtime,
+    DoubleSigning,
+    Fraud,
+}
+
+/// Epoch simulation result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EpochSimulation {
+    pub epoch: u64,
+    pub difficulty: u64,
+    pub miner_count: u64,
+    pub reward_per_miner: u64,
+    pub total_distributed: u64,
+}
         
         // Daily electricity cost
         let daily_power_cost = (power_watts / 1000.0) * 24.0 * electricity_cost_per_kwh;
