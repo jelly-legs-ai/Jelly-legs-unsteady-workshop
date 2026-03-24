@@ -449,6 +449,180 @@ impl MiningContract {
             
             // Adjust difficulty every N epochs
             if epoch % self.difficulty_adjustment_interval == 0 && epoch > 0 {
+                current_difficulty = self.adjust_difficulty_simulation(current_difficulty, miner_count);
+                // Simulate miner churn based on profitability
+                if reward_per_miner < 100 {
+                    miner_count = miner_count * 95 / 100; // 5% leave
+                } else if reward_per_miner > 500 {
+                    miner_count = miner_count * 105 / 100; // 5% join
+                }
+            }
+        }
+        
+        simulations
+    }
+    
+    /// Adjust difficulty in simulation context
+    fn adjust_difficulty_simulation(&self, current: u64, miners: u64) -> u64 {
+        if miners > 1000 {
+            (current as f64 * 1.1).min(5000.0) as u64
+        } else if miners < 100 {
+            (current as f64 * 0.9).max(self.emergency_difficulty) as u64
+        } else {
+            current
+        }
+    }
+    
+    // =============================================================================
+    // ADVANCED MINING ANALYTICS - Sprint Enhancement
+    // =============================================================================
+    
+    /// Calculate mining efficiency score (0-100) based on reward/cost ratio
+    pub fn calculate_efficiency_score(&self, miner: &MinerInfo) -> f64 {
+        let reward = self.calculate_reward(miner) as f64;
+        let uptime = self.calculate_uptime_score(miner);
+        let reputation = miner.reputation_score;
+        
+        // Weighted score: 40% reward, 30% uptime, 30% reputation
+        let score = (reward * 0.4) + (uptime * 100.0 * 0.3) + (reputation * 0.3);
+        score.min(100.0)
+    }
+    
+    /// Get mining power distribution (Gini coefficient for reward inequality)
+    pub fn calculate_reward_gini(&self) -> f64 {
+        let mut rewards: Vec<u64> = self.miners.values()
+            .map(|m| self.calculate_reward(m))
+            .collect();
+        rewards.sort();
+        
+        let n = rewards.len() as f64;
+        if n <= 1.0 {
+            return 0.0;
+        }
+        
+        let mean = rewards.iter().sum::<u64>() as f64 / n;
+        let mut cumsum = 0.0;
+        let mut weighted_sum = 0.0;
+        
+        for (i, &reward) in rewards.iter().enumerate() {
+            let r = reward as f64;
+            cumsum += r;
+            weighted_sum += (i as f64 + 1.0) * r;
+        }
+        
+        let gini = (2.0 * weighted_sum) / (n * cumsum) - (n + 1.0) / n;
+        gini.max(0.0).min(1.0)
+    }
+    
+    /// Predict next epoch difficulty based on current trends
+    pub fn predict_next_difficulty(&self) -> u64 {
+        let participation = self.network_stats.total_active_miners as f64 / 
+            (self.network_stats.total_miners_tier_mobile + 
+             self.network_stats.total_miners_tier_laptop + 
+             self.network_stats.total_miners_tier_desktop + 
+             self.network_stats.total_miners_tier_server) as f64;
+        
+        if participation > 0.9 {
+            (self.network_stats.current_epoch_difficulty as f64 * 1.05).min(5000.0) as u64
+        } else if participation < 0.5 {
+            (self.network_stats.current_epoch_difficulty as f64 * 0.9).max(self.emergency_difficulty) as u64
+        } else {
+            self.network_stats.current_epoch_difficulty
+        }
+    }
+    
+    /// Calculate optimal stake amount for maximum ROI
+    pub fn calculate_optimal_stake(&self, token_type: TokenType, budget: u64) -> u64 {
+        let pool = self.get_staking_pool_for_token(token_type);
+        if let Some(p) = pool {
+            // Optimal is min stake for testing, or max for serious mining
+            if budget < p.min_stake * 10 {
+                p.min_stake
+            } else {
+                budget.min(1_000_000) // Cap at 1M for safety
+            }
+        } else {
+            100
+        }
+    }
+    
+    /// Get staking pool for token type
+    fn get_staking_pool_for_token(&self, token_type: TokenType) -> Option<&StakingPool> {
+        for (_, pool) in &self.pools {
+            if pool.token_type == token_type {
+                return Some(pool);
+            }
+        }
+        None
+    }
+    
+    /// Calculate mining hashrate per dollar invested
+    pub fn calculate_hashrate_per_dollar(&self, tier: DeviceTier, hardware_cost: f64) -> f64 {
+        let hashrate = match tier {
+            DeviceTier::Mobile => 0.5,
+            DeviceTier::Laptop => 2.0,
+            DeviceTier::Desktop => 5.0,
+            DeviceTier::Server => 20.0,
+        };
+        hashrate * 1000.0 / hardware_cost.max(1.0)
+    }
+    
+    /// Estimate time to reach mining milestone
+    pub fn estimate_time_to_milestone(&self, miner: &MinerInfo, milestone: u64) -> u64 {
+        let remaining = milestone - miner.total_mined;
+        if remaining == 0 {
+            return 0;
+        }
+        let reward_per_epoch = self.calculate_reward(miner);
+        if reward_per_epoch == 0 {
+            return u64::MAX;
+        }
+        remaining / reward_per_epoch
+    }
+    
+    /// Get mining risk assessment (Low/Medium/High)
+    pub fn assess_mining_risk(&self, miner: &MinerInfo) -> MiningRisk {
+        if miner.status == MinerStatus::Slashed {
+            MiningRisk::Critical
+        } else if miner.penalty_count >= 2 {
+            MiningRisk::High
+        } else if miner.reputation_score < 30.0 {
+            MiningRisk::Medium
+        } else if miner.consecutive_uptime_epochs < 3 {
+            MiningRisk::Low
+        } else {
+            MiningRisk::VeryLow
+        }
+    }
+    
+    /// Calculate diversification score for mining portfolio
+    pub fn calculate_diversification_score(&self, stakes: &[StakeInfo]) -> f64 {
+        if stakes.is_empty() {
+            return 0.0;
+        }
+        
+        let mut token_counts: HashMap<TokenType, u64> = HashMap::new();
+        for stake in stakes {
+            *token_counts.entry(stake.token_type.clone()).or_insert(0) += stake.amount;
+        }
+        
+        let total = stakes.iter().map(|s| s.amount).sum::<u64>() as f64;
+        if total == 0.0 {
+            return 0.0;
+        }
+        
+        // Shannon diversity index
+        let mut diversity = 0.0;
+        for (_, amount) in token_counts {
+            let p = amount as f64 / total;
+            if p > 0.0 {
+                diversity -= p * p.ln();
+            }
+        }
+        
+        diversity.min(2.0) // Normalize to 0-2 scale
+    }
+            if epoch % self.difficulty_adjustment_interval == 0 && epoch > 0 {
                 current_difficulty = (current_difficulty as f64 * 1.02).min(5000.0) as u64;
                 miner_count = (miner_count as f64 * 1.01).min(10000.0) as u64; // Growth simulation
             }
