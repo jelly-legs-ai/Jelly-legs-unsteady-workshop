@@ -1,0 +1,608 @@
+// Governance Contract - AeTHer Chain
+// Quadratic voting-based DAO governance for protocol upgrades
+
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+/// Proposal status enum
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum ProposalStatus {
+    Pending,
+    Active,
+    Passed,
+    Failed,
+    Executed,
+    Queued,
+    Expired,
+}
+
+/// Proposal type
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ProposalType {
+    /// Protocol parameter changes
+    ParameterChange {
+        parameter: String,
+        new_value: String,
+    },
+    /// Treasury allocation
+    TreasuryAllocation {
+        recipient: String,
+        amount: u64,
+        token: TokenType,
+    },
+    /// Smart contract upgrade
+    ContractUpgrade {
+        contract_id: String,
+        new_code_hash: String,
+    },
+    /// Community fund distribution
+    CommunityFund {
+        description: String,
+        distributions: Vec<Distribution>,
+    },
+    /// Emergency security action
+    EmergencySecurity {
+        action: String,
+        target: String,
+    },
+}
+
+/// Token type for treasury operations
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum TokenType {
+    AETH,
+    FLUX,
+    ATH,
+}
+
+/// Distribution for community fund proposals
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Distribution {
+    pub recipient: String,
+    pub amount: u64,
+    pub percentage: f64,
+}
+
+/// Vote choice
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum VoteChoice {
+    For,
+    Against,
+    Abstain,
+}
+
+/// Individual vote record
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Vote {
+    pub voter: String,
+    pub choice: VoteChoice,
+    pub voting_power: u64,
+    pub quadratic_power: f64,
+    pub timestamp: u64,
+    pub reason: Option<String>,
+}
+
+/// Proposal structure
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Proposal {
+    pub id: String,
+    pub proposal_type: ProposalType,
+    pub title: String,
+    pub description: String,
+    pub status: ProposalStatus,
+    pub author: String,
+    pub created_at: u64,
+    pub voting_start: u64,
+    pub voting_end: u64,
+    pub execution_delay: u64,
+    pub execution_time: Option<u64>,
+    pub for_votes: u64,
+    pub against_votes: u64,
+    pub abstain_votes: u64,
+    pub total_voters: u64,
+    pub quorum: u64,
+    pub vote_counts: HashMap<VoteChoice, u64>,
+    pub voters: Vec<Vote>,
+    pub execution_data: Option<String>,
+}
+
+/// Delegated vote tracking
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Delegation {
+    pub delegator: String,
+    pub delegate: String,
+    pub voting_power: u64,
+    pub locked_until: u64,
+}
+
+/// Governor settings
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GovernorSettings {
+    pub voting_period: u64,        // in epochs
+    pub quorum_threshold: u64,      // minimum votes required (raw)
+    pub quorum_percentage: f64,    // percentage of total supply
+    pub proposal_threshold: u64,   // minimum tokens to create proposal
+    pub execution_delay: u64,      // delay before execution (epochs)
+    pub veto_enabled: bool,
+    pub veto_threshold: u64,
+    pub quadratic_slope: f64,     // slope for quadratic voting calculation
+    pub quadratic_constant: f64,   // constant for quadratic voting
+}
+
+impl Default for GovernorSettings {
+    fn default() -> Self {
+        GovernorSettings {
+            voting_period: 168,           // ~7 days (168 epochs at 1 hour each)
+            quorum_threshold: 100_000_000, // 100M tokens
+            quorum_percentage: 4.0,        // 4% of total supply
+            proposal_threshold: 10_000_000, // 10M tokens to create
+            execution_delay: 48,            // 48 epochs (~2 days)
+            veto_enabled: true,
+            veto_threshold: 50_000_000,    // 50M tokens
+            quadratic_slope: 1.0,
+            quadratic_constant: 1.0,
+        }
+    }
+}
+
+/// Governance contract state
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GovernanceContract {
+    pub proposals: HashMap<String, Proposal>,
+    pub delegates: HashMap<String, Vec<Delegation>>,
+    pub delegators: HashMap<String, String>,  // delegator -> delegate
+    pub settings: GovernorSettings,
+    pub total_proposals: u64,
+    pub proposal_counter: u64,
+    pub treasury_balance: HashMap<TokenType, u64>,
+    pub emergency_actions: Vec<EmergencyAction>,
+    pub veto_power_used: u64,
+}
+
+/// Emergency action record
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EmergencyAction {
+    pub id: String,
+    pub action_type: String,
+    pub target: String,
+    pub executed_by: String,
+    pub timestamp: u64,
+    pub reason: String,
+}
+
+impl GovernanceContract {
+    /// Create new governance contract
+    pub fn new() -> Self {
+        GovernanceContract {
+            proposals: HashMap::new(),
+            delegates: HashMap::new(),
+            delegators: HashMap::new(),
+            settings: GovernorSettings::default(),
+            total_proposals: 0,
+            proposal_counter: 0,
+            treasury_balance: HashMap::new(),
+            emergency_actions: Vec::new(),
+            veto_power_used: 0,
+        }
+    }
+
+    /// Calculate quadratic voting power
+    /// Uses sqrt(votes) to prevent governance capture by large holders
+    pub fn calculate_quadratic_vote(&self, token_amount: u64) -> f64 {
+        let tokens = token_amount as f64;
+        let raw_power = (self.settings.quadratic_constant + 
+                        tokens * self.settings.quadratic_slope).sqrt();
+        
+        // Cap at initial voting power to prevent overflow
+        raw_power.min(token_amount as f64)
+    }
+
+    /// Create a new governance proposal
+    pub fn create_proposal(
+        &mut self,
+        author: &str,
+        proposal_type: ProposalType,
+        title: String,
+        description: String,
+        voting_power: u64,
+    ) -> Result<Proposal, &'static str> {
+        // Check proposal threshold
+        if voting_power < self.settings.proposal_threshold {
+            return Err("Insufficient voting power to create proposal");
+        }
+
+        self.proposal_counter += 1;
+        let proposal_id = format!("AIP-{:04}", self.proposal_counter);
+
+        let current_time = 0; // Would be actual chain time
+
+        let proposal = Proposal {
+            id: proposal_id.clone(),
+            proposal_type,
+            title,
+            description,
+            status: ProposalStatus::Pending,
+            author: author.to_string(),
+            created_at: current_time,
+            voting_start: current_time,
+            voting_end: current_time + self.settings.voting_period,
+            execution_delay: self.settings.execution_delay,
+            execution_time: None,
+            for_votes: 0,
+            against_votes: 0,
+            abstain_votes: 0,
+            total_voters: 0,
+            quorum: self.settings.quorum_threshold,
+            vote_counts: HashMap::new(),
+            voters: Vec::new(),
+            execution_data: None,
+        };
+
+        self.proposals.insert(proposal_id.clone(), proposal.clone());
+        self.total_proposals += 1;
+
+        Ok(proposal)
+    }
+
+    /// Cast a vote on a proposal
+    pub fn cast_vote(
+        &mut self,
+        proposal_id: &str,
+        voter: &str,
+        choice: VoteChoice,
+        voting_power: u64,
+        reason: Option<String>,
+    ) -> Result<(), &'static str> {
+        let proposal = self.proposals.get_mut(proposal_id)
+            .ok_or("Proposal not found")?;
+
+        // Check if proposal is active
+        if proposal.status != ProposalStatus::Active {
+            return Err("Proposal is not accepting votes");
+        }
+
+        // Check if voter already voted
+        if proposal.voters.iter().any(|v| v.voter == voter) {
+            return Err("Already voted on this proposal");
+        }
+
+        // Calculate quadratic voting power
+        let quadratic_power = self.calculate_quadratic_vote(voting_power);
+
+        let vote = Vote {
+            voter: voter.to_string(),
+            choice: choice.clone(),
+            voting_power,
+            quadratic_power,
+            timestamp: 0, // Would be actual timestamp
+            reason,
+        };
+
+        // Update vote counts
+        *proposal.vote_counts.entry(choice.clone()).or_insert(0) += 1;
+
+        // Update weighted votes
+        match choice {
+            VoteChoice::For => proposal.for_votes += voting_power,
+            VoteChoice::Against => proposal.against_votes += voting_power,
+            VoteChoice::Abstain => proposal.abstain_votes += voting_power,
+        }
+
+        proposal.total_voters += 1;
+        proposal.voters.push(vote);
+
+        Ok(())
+    }
+
+    /// Finalize a proposal after voting ends
+    pub fn finalize_proposal(&mut self, proposal_id: &str) -> Result<ProposalStatus, &'static str> {
+        let proposal = self.proposals.get_mut(proposal_id)
+            .ok_or("Proposal not found")?;
+
+        if proposal.status != ProposalStatus::Active {
+            return Err("Proposal is not in active state");
+        }
+
+        let total_votes = proposal.for_votes + proposal.against_votes + proposal.abstain_votes;
+
+        // Check quorum
+        if total_votes < proposal.quorum {
+            proposal.status = ProposalStatus::Failed;
+            return Ok(ProposalStatus::Failed);
+        }
+
+        // Check if passed (simple majority for now, could add quadratic weighting)
+        if proposal.for_votes > proposal.against_votes {
+            proposal.status = ProposalStatus::Passed;
+        } else {
+            proposal.status = ProposalStatus::Failed;
+        }
+
+        Ok(proposal.status.clone())
+    }
+
+    /// Queue a passed proposal for execution
+    pub fn queue_proposal(&mut self, proposal_id: &str) -> Result<(), &'static str> {
+        let proposal = self.proposals.get_mut(proposal_id)
+            .ok_or("Proposal not found")?;
+
+        if proposal.status != ProposalStatus::Passed {
+            return Err("Proposal must be passed to queue");
+        }
+
+        proposal.status = ProposalStatus::Queued;
+        proposal.execution_time = Some(proposal.voting_end + proposal.execution_delay);
+
+        Ok(())
+    }
+
+    /// Execute a queued proposal
+    pub fn execute_proposal(&mut self, proposal_id: &str) -> Result<(), &'static str> {
+        let proposal = self.proposals.get_mut(proposal_id)
+            .ok_or("Proposal not found")?;
+
+        if proposal.status != ProposalStatus::Queued {
+            return Err("Proposal must be queued to execute");
+        }
+
+        // Check execution time
+        if let Some(exec_time) = proposal.execution_time {
+            let current_time = 0; // Would be actual time
+            if current_time < exec_time {
+                return Err("Execution delay not elapsed");
+            }
+        }
+
+        proposal.status = ProposalStatus::Executed;
+
+        // Execute the proposal action based on type
+        match &proposal.proposal_type {
+            ProposalType::TreasuryAllocation { recipient, amount, token } => {
+                self.execute_treasury_transfer(recipient, *amount, token.clone())?;
+            }
+            ProposalType::ParameterChange { parameter, new_value } => {
+                self.execute_parameter_change(parameter, new_value)?;
+            }
+            _ => {
+                // Other proposal types would have custom execution logic
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Execute treasury transfer
+    fn execute_treasury_transfer(&mut self, recipient: &str, amount: u64, token: TokenType) -> Result<(), &'static str> {
+        let balance = self.treasury_balance.get(&token).copied().unwrap_or(0);
+        
+        if balance < amount {
+            return Err("Insufficient treasury balance");
+        }
+
+        *self.treasury_balance.get_mut(&token).unwrap() -= amount;
+        
+        // In real implementation, would transfer to recipient
+        Ok(())
+    }
+
+    /// Execute parameter change
+    fn execute_parameter_change(&mut self, parameter: &str, new_value: &str) -> Result<(), &'static str> {
+        // Update governance settings based on parameter
+        match parameter {
+            "voting_period" => {
+                if let Ok(v) = new_value.parse::<u64>() {
+                    self.settings.voting_period = v;
+                }
+            }
+            "quorum_percentage" => {
+                if let Ok(v) = new_value.parse::<f64>() {
+                    self.settings.quorum_percentage = v;
+                }
+            }
+            _ => return Err("Unknown parameter"),
+        }
+        Ok(())
+    }
+
+    /// Delegate voting power to another address
+    pub fn delegate(&mut self, delegator: &str, delegate: &str, voting_power: u64) -> Result<(), &'static str> {
+        if delegator == delegate {
+            return Err("Cannot delegate to self");
+        }
+
+        let delegation = Delegation {
+            delegator: delegator.to_string(),
+            delegate: delegate.to_string(),
+            voting_power,
+            locked_until: 0, // Would be actual lock expiry
+        };
+
+        // Update delegate's delegations
+        let delegations = self.delegates.entry(delegate.to_string()).or_insert_with(Vec::new);
+        delegations.push(delegation);
+
+        // Update delegator's delegate
+        self.delegators.insert(delegator.to_string(), delegate.to_string());
+
+        Ok(())
+    }
+
+    /// Revoke delegation
+    pub fn revoke_delegation(&mut self, delegator: &str) -> Result<(), &'static str> {
+        if let Some(delegate) = self.delegators.remove(delegator) {
+            if let Some(delegations) = self.delegates.get_mut(&delegate) {
+                delegations.retain(|d| d.delegator != delegator);
+            }
+        }
+        Ok(())
+    }
+
+    /// Emergency veto (for security council)
+    pub fn emergency_veto(&mut self, proposal_id: &str, reason: &str) -> Result<(), &'static str> {
+        let proposal = self.proposals.get_mut(proposal_id)
+            .ok_or("Proposal not found")?;
+
+        if !self.settings.veto_enabled {
+            return Err("Veto is not enabled");
+        }
+
+        if proposal.status == ProposalStatus::Executed {
+            return Err("Cannot veto executed proposal");
+        }
+
+        proposal.status = ProposalStatus::Failed;
+
+        let action = EmergencyAction {
+            id: format!("EMERGENCY-{:}", proposal_id),
+            action_type: "VETO".to_string(),
+            target: proposal_id.to_string(),
+            executed_by: "SECURITY_COUNCIL".to_string(),
+            timestamp: 0,
+            reason: reason.to_string(),
+        };
+
+        self.emergency_actions.push(action);
+        self.veto_power_used += 1;
+
+        Ok(())
+    }
+
+    /// Get active proposals
+    pub fn get_active_proposals(&self) -> Vec<&Proposal> {
+        self.proposals
+            .values()
+            .filter(|p| p.status == ProposalStatus::Active)
+            .collect()
+    }
+
+    /// Get voter's vote on a proposal
+    pub fn get_voter_vote(&self, proposal_id: &str, voter: &str) -> Option<&Vote> {
+        self.proposals
+            .get(proposal_id)
+            .and_then(|p| p.voters.iter().find(|v| v.voter == voter))
+    }
+
+    /// Calculate total delegated voting power for an address
+    pub fn get_delegated_power(&self, address: &str) -> u64 {
+        self.delegates
+            .get(address)
+            .map(|d| d.iter().map(|del| del.voting_power).sum())
+            .unwrap_or(0)
+    }
+
+    /// Get proposal results summary
+    pub fn get_proposal_results(&self, proposal_id: &str) -> Option<ProposalResults> {
+        self.proposals.get(proposal_id).map(|p| {
+            let total = p.for_votes + p.against_votes + p.abstain_votes;
+            ProposalResults {
+                proposal_id: p.id.clone(),
+                title: p.title.clone(),
+                status: p.status.clone(),
+                for_votes: p.for_votes,
+                against_votes: p.against_votes,
+                abstain_votes: p.abstain_votes,
+                total_votes: total,
+                for_percentage: if total > 0 { (p.for_votes as f64 / total as f64) * 100.0 } else { 0.0 },
+                against_percentage: if total > 0 { (p.against_votes as f64 / total as f64) * 100.0 } else { 0.0 },
+                quorum_reached: total >= p.quorum,
+                total_voters: p.total_voters,
+            }
+        })
+    }
+}
+
+/// Proposal results for API responses
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProposalResults {
+    pub proposal_id: String,
+    pub title: String,
+    pub status: ProposalStatus,
+    pub for_votes: u64,
+    pub against_votes: u64,
+    pub abstain_votes: u64,
+    pub total_votes: u64,
+    pub for_percentage: f64,
+    pub against_percentage: f64,
+    pub quorum_reached: bool,
+    pub total_voters: u64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_quadratic_voting() {
+        let contract = GovernanceContract::new();
+        
+        // 100 tokens should give sqrt(100) = 10 voting power
+        let power = contract.calculate_quadratic_vote(100);
+        assert!((power - 10.0).abs() < 0.1);
+        
+        // 10000 tokens should give sqrt(10000) = 100 voting power
+        let power = contract.calculate_quadratic_vote(10000);
+        assert!((power - 100.0).abs() < 0.1);
+    }
+
+    #[test]
+    fn test_create_proposal() {
+        let mut contract = GovernanceContract::new();
+        
+        let proposal = contract.create_proposal(
+            "user1",
+            ProposalType::ParameterChange {
+                parameter: "voting_period".to_string(),
+                new_value: "200".to_string(),
+            },
+            "Increase Voting Period".to_string(),
+            "Increase voting period to improve governance quality".to_string(),
+            15_000_000, // Above threshold
+        );
+        
+        assert!(proposal.is_ok());
+        let proposal = proposal.unwrap();
+        assert_eq!(proposal.status, ProposalStatus::Pending);
+        assert!(proposal.id.starts_with("AIP-"));
+    }
+
+    #[test]
+    fn test_voting() {
+        let mut contract = GovernanceContract::new();
+        
+        // Create proposal
+        let proposal = contract.create_proposal(
+            "user1",
+            ProposalType::TreasuryAllocation {
+                recipient: "treasury".to_string(),
+                amount: 1000,
+                token: TokenType::AETH,
+            },
+            "Treasury Allocation".to_string(),
+            "Allocate funds to development".to_string(),
+            15_000_000,
+        ).unwrap();
+        
+        // Activate voting
+        let proposal = contract.proposals.get_mut(&proposal.id).unwrap();
+        proposal.status = ProposalStatus::Active;
+        
+        // Cast votes
+        assert!(contract.cast_vote(&proposal.id, "voter1", VoteChoice::For, 1000000, None).is_ok());
+        assert!(contract.cast_vote(&proposal.id, "voter2", VoteChoice::Against, 500000, None).is_ok());
+        
+        let results = contract.get_proposal_results(&proposal.id).unwrap();
+        assert_eq!(results.for_votes, 1000000);
+        assert_eq!(results.against_votes, 500000);
+    }
+
+    #[test]
+    fn test_delegation() {
+        let mut contract = GovernanceContract::new();
+        
+        assert!(contract.delegate("user1", "user2", 1000).is_ok());
+        assert!(contract.revoke_delegation("user1").is_ok());
+        
+        let delegated = contract.get_delegated_power("user2");
+        assert_eq!(delegated, 0); // After revocation
+    }
+}
