@@ -1,0 +1,37 @@
+{
+  "name": "aether-cli",
+  "version": "1.0.0",
+  "description": "AeTHer Validator Command Line Interface - System checks, onboarding, and validator management",
+  "main": "index.js",
+  "bin": {
+    "aether-cli": "./index.js"
+  },
+  "scripts": {
+    "test": "node test/doctor.test.js",
+    "start": "node index.js",
+    "doctor": "node index.js doctor"
+  },
+  "keywords": [
+    "aether",
+    "validator",
+    "blockchain",
+    "cli",
+    "crypto",
+    "mining"
+  ],
+  "author": "Jelly-legs AI Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ],
+  "preferGlobal": true
+}
