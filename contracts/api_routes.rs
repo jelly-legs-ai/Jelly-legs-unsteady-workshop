@@ -275,6 +275,137 @@ pub struct EndpointMeta {
     pub tags: Vec<String>,
 }
 
+/// User management request/response structures
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserRegisterRequest {
+    pub username: String,
+    pub email: String,
+    pub wallet_address: String,
+    pub password_hash: String,
+    pub referral_code: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserLoginRequest {
+    pub identifier: String, // username or email
+    pub password_hash: String,
+    pub device_fingerprint: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserResponse {
+    pub user_id: String,
+    pub username: String,
+    pub email: String,
+    pub wallet_address: String,
+    pub created_at: i64,
+    pub last_login: i64,
+    pub kyc_status: KycStatus,
+    pub reputation_score: f64,
+    pub total_earnings: u64,
+    pub active_stakes: u64,
+    pub mining_devices: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum KycStatus {
+    Pending,
+    Submitted,
+    Verified,
+    Rejected,
+    Expired,
+}
+
+/// Agent management request/response structures
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentRegisterRequest {
+    pub agent_name: String,
+    pub agent_type: String,
+    pub owner_address: String,
+    pub capabilities: Vec<String>,
+    pub pricing_model: PricingModel,
+    pub availability: f64, // 0.0 to 1.0
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentResponse {
+    pub agent_id: String,
+    pub agent_name: String,
+    pub agent_type: String,
+    pub owner_address: String,
+    pub capabilities: Vec<String>,
+    pub pricing_model: PricingModel,
+    pub reputation_score: f64,
+    pub total_tasks_completed: u64,
+    pub average_rating: f64,
+    pub availability: f64,
+    pub status: AgentStatus,
+    pub created_at: i64,
+    pub last_active: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum AgentStatus {
+    Active,
+    Inactive,
+    Suspended,
+    UnderReview,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum PricingModel {
+    Fixed { price_per_task: u64 },
+    Hourly { rate_per_hour: u64 },
+    Subscription { monthly_fee: u64 },
+    Performance { base_fee: u64, performance_bonus_percent: f64 },
+}
+
+/// Task management structures
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskRequest {
+    pub task_type: String,
+    pub description: String,
+    pub required_capabilities: Vec<String>,
+    pub budget: u64,
+    pub deadline_epoch: u64,
+    pub priority: TaskPriority,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskResponse {
+    pub task_id: String,
+    pub task_type: String,
+    pub description: String,
+    pub status: TaskStatus,
+    pub assigned_agent_id: Option<String>,
+    pub budget: u64,
+    pub actual_cost: u64,
+    pub created_at: i64,
+    pub started_at: Option<i64>,
+    pub completed_at: Option<i64>,
+    pub deadline_epoch: u64,
+    pub priority: TaskPriority,
+    pub quality_score: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum TaskStatus {
+    Open,
+    InProgress,
+    UnderReview,
+    Completed,
+    Failed,
+    Cancelled,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum TaskPriority {
+    Low,
+    Normal,
+    High,
+    Critical,
+}
+
 /// Build all endpoint metadata
 pub fn get_all_endpoints() -> Vec<EndpointMeta> {
     vec![
@@ -348,6 +479,327 @@ pub fn get_all_endpoints() -> Vec<EndpointMeta> {
         EndpointMeta {
             path: mining::CLAIM.to_string(),
             method: "POST".to_string(),
+            description: "Claim mining rewards".to_string(),
+            auth_required: true,
+            rate_limit: RateLimitConfig { requests_per_minute: 5, ..Default::default() },
+            cache_ttl_secs: None,
+            tags: vec!["mining".to_string(), "rewards".to_string()],
+        },
+        // Agents - NEW ENDPOINTS
+        EndpointMeta {
+            path: agents::LIST.to_string(),
+            method: "GET".to_string(),
+            description: "List all registered agents".to_string(),
+            auth_required: false,
+            rate_limit: RateLimitConfig::default(),
+            cache_ttl_secs: Some(60),
+            tags: vec!["agents".to_string()],
+        },
+        EndpointMeta {
+            path: agents::GET.to_string(),
+            method: "GET".to_string(),
+            description: "Get agent details by ID".to_string(),
+            auth_required: false,
+            rate_limit: RateLimitConfig::default(),
+            cache_ttl_secs: Some(60),
+            tags: vec!["agents".to_string()],
+        },
+        EndpointMeta {
+            path: agents::REGISTER.to_string(),
+            method: "POST".to_string(),
+            description: "Register a new AI agent".to_string(),
+            auth_required: true,
+            rate_limit: RateLimitConfig { requests_per_minute: 5, ..Default::default() },
+            cache_ttl_secs: None,
+            tags: vec!["agents".to_string(), "registration".to_string()],
+        },
+        EndpointMeta {
+            path: agents::SEARCH.to_string(),
+            method: "GET".to_string(),
+            description: "Search agents by capabilities".to_string(),
+            auth_required: false,
+            rate_limit: RateLimitConfig::default(),
+            cache_ttl_secs: Some(120),
+            tags: vec!["agents".to_string(), "search".to_string()],
+        },
+        EndpointMeta {
+            path: agents::MARKETPLACE.to_string(),
+            method: "GET".to_string(),
+            description: "Browse agent marketplace".to_string(),
+            auth_required: false,
+            rate_limit: RateLimitConfig::default(),
+            cache_ttl_secs: Some(60),
+            tags: vec!["agents".to_string(), "marketplace".to_string()],
+        },
+        // User management - NEW ENDPOINTS
+        EndpointMeta {
+            path: "/users/register".to_string(),
+            method: "POST".to_string(),
+            description: "Register new user account".to_string(),
+            auth_required: false,
+            rate_limit: RateLimitConfig { requests_per_minute: 3, ..Default::default() },
+            cache_ttl_secs: None,
+            tags: vec!["users".to_string(), "auth".to_string()],
+        },
+        EndpointMeta {
+            path: "/users/login".to_string(),
+            method: "POST".to_string(),
+            description: "Authenticate user login".to_string(),
+            auth_required: false,
+            rate_limit: RateLimitConfig { requests_per_minute: 10, ..Default::default() },
+            cache_ttl_secs: None,
+            tags: vec!["users".to_string(), "auth".to_string()],
+        },
+        EndpointMeta {
+            path: "/users/{user_id}".to_string(),
+            method: "GET".to_string(),
+            description: "Get user profile".to_string(),
+            auth_required: true,
+            rate_limit: RateLimitConfig::default(),
+            cache_ttl_secs: Some(60),
+            tags: vec!["users".to_string()],
+        },
+        EndpointMeta {
+            path: "/users/{user_id}/kyc".to_string(),
+            method: "GET".to_string(),
+            description: "Get user KYC status".to_string(),
+            auth_required: true,
+            rate_limit: RateLimitConfig::default(),
+            cache_ttl_secs: Some(30),
+            tags: vec!["users".to_string(), "kyc".to_string()],
+        },
+        // Task management - NEW ENDPOINTS
+        EndpointMeta {
+            path: "/tasks/create".to_string(),
+            method: "POST".to_string(),
+            description: "Create new task for agents".to_string(),
+            auth_required: true,
+            rate_limit: RateLimitConfig { requests_per_minute: 20, ..Default::default() },
+            cache_ttl_secs: None,
+            tags: vec!["tasks".to_string()],
+        },
+        EndpointMeta {
+            path: "/tasks/{task_id}".to_string(),
+            method: "GET".to_string(),
+            description: "Get task details".to_string(),
+            auth_required: true,
+            rate_limit: RateLimitConfig::default(),
+            cache_ttl_secs: Some(30),
+            tags: vec!["tasks".to_string()],
+        },
+        EndpointMeta {
+            path: "/tasks/active".to_string(),
+            method: "GET".to_string(),
+            description: "List active tasks".to_string(),
+            auth_required: false,
+            rate_limit: RateLimitConfig::default(),
+            cache_ttl_secs: Some(60),
+            tags: vec!["tasks".to_string()],
+        },
+        // Health
+        EndpointMeta {
+            path: health::STATUS.to_string(),
+            method: "GET".to_string(),
+            description: "API health check".to_string(),
+            auth_required: false,
+            rate_limit: RateLimitConfig { requests_per_minute: 100, ..Default::default() },
+            cache_ttl_secs: Some(10),
+            tags: vec!["health".to_string()],
+        },
+    ]
+}
+
+/// API Router - Request dispatcher
+pub struct ApiRouter {
+    pub endpoints: Vec<EndpointMeta>,
+    pub rate_limits: std::collections::HashMap<String, u32>,
+}
+
+impl ApiRouter {
+    pub fn new() -> Self {
+        ApiRouter {
+            endpoints: get_all_endpoints(),
+            rate_limits: std::collections::HashMap::new(),
+        }
+    }
+    
+    /// Register a new user
+    pub fn register_user(&mut self, request: UserRegisterRequest) -> Result<UserResponse, ApiError> {
+        // Validate input
+        if request.username.len() < 3 || request.username.len() > 32 {
+            return Err(ApiError {
+                code: "INVALID_USERNAME".to_string(),
+                message: "Username must be 3-32 characters".to_string(),
+                details: None,
+            });
+        }
+        
+        if !request.email.contains('@') {
+            return Err(ApiError {
+                code: "INVALID_EMAIL".to_string(),
+                message: "Invalid email format".to_string(),
+                details: None,
+            });
+        }
+        
+        // Generate user ID
+        let user_id = format!("user_{}", uuid::simple().as_str());
+        
+        Ok(UserResponse {
+            user_id,
+            username: request.username,
+            email: request.email,
+            wallet_address: request.wallet_address,
+            created_at: chrono::Utc::now().timestamp(),
+            last_login: 0,
+            kyc_status: KycStatus::Pending,
+            reputation_score: 50.0,
+            total_earnings: 0,
+            active_stakes: 0,
+            mining_devices: 0,
+        })
+    }
+    
+    /// Authenticate user login
+    pub fn login_user(&mut self, request: UserLoginRequest) -> Result<LoginResponse, ApiError> {
+        // In production, this would verify credentials against database
+        let session_token = format!("sess_{}", uuid::simple().as_str());
+        let expires_at = chrono::Utc::now().timestamp() + 86400; // 24 hours
+        
+        Ok(LoginResponse {
+            session_token,
+            expires_at,
+            user_id: request.identifier,
+        })
+    }
+    
+    /// Register a new AI agent
+    pub fn register_agent(&mut self, request: AgentRegisterRequest) -> Result<AgentResponse, ApiError> {
+        // Validate agent name
+        if request.agent_name.len() < 3 || request.agent_name.len() > 64 {
+            return Err(ApiError {
+                code: "INVALID_AGENT_NAME".to_string(),
+                message: "Agent name must be 3-64 characters".to_string(),
+                details: None,
+            });
+        }
+        
+        // Validate capabilities
+        if request.capabilities.is_empty() {
+            return Err(ApiError {
+                code: "NO_CAPABILITIES".to_string(),
+                message: "Agent must have at least one capability".to_string(),
+                details: None,
+            });
+        }
+        
+        // Generate agent ID
+        let agent_id = format!("agent_{}", uuid::simple().as_str());
+        
+        Ok(AgentResponse {
+            agent_id,
+            agent_name: request.agent_name,
+            agent_type: request.agent_type,
+            owner_address: request.owner_address,
+            capabilities: request.capabilities,
+            pricing_model: request.pricing_model,
+            reputation_score: 50.0,
+            total_tasks_completed: 0,
+            average_rating: 0.0,
+            availability: request.availability,
+            status: AgentStatus::Active,
+            created_at: chrono::Utc::now().timestamp(),
+            last_active: 0,
+        })
+    }
+    
+    /// Create a new task
+    pub fn create_task(&mut self, request: TaskRequest) -> Result<TaskResponse, ApiError> {
+        // Validate budget
+        if request.budget == 0 {
+            return Err(ApiError {
+                code: "INVALID_BUDGET".to_string(),
+                message: "Budget must be greater than 0".to_string(),
+                details: None,
+            });
+        }
+        
+        // Validate deadline
+        let current_epoch = 0; // In production, fetch from chain
+        if request.deadline_epoch <= current_epoch {
+            return Err(ApiError {
+                code: "INVALID_DEADLINE".to_string(),
+                message: "Deadline must be in the future".to_string(),
+                details: None,
+            });
+        }
+        
+        // Generate task ID
+        let task_id = format!("task_{}", uuid::simple().as_str());
+        
+        Ok(TaskResponse {
+            task_id,
+            task_type: request.task_type,
+            description: request.description,
+            status: TaskStatus::Open,
+            assigned_agent_id: None,
+            budget: request.budget,
+            actual_cost: 0,
+            created_at: chrono::Utc::now().timestamp(),
+            started_at: None,
+            completed_at: None,
+            deadline_epoch: request.deadline_epoch,
+            priority: request.priority,
+            quality_score: None,
+        })
+    }
+    
+    /// Search agents by capabilities
+    pub fn search_agents(&self, capabilities: Vec<String>) -> Vec<AgentResponse> {
+        // In production, this would query the agent database
+        vec![]
+    }
+    
+    /// Get rate limit for endpoint
+    pub fn get_rate_limit(&self, path: &str) -> RateLimitConfig {
+        self.endpoints.iter()
+            .find(|e| e.path == path)
+            .map(|e| e.rate_limit.clone())
+            .unwrap_or_default()
+    }
+    
+    /// Check if request is rate limited
+    pub fn is_rate_limited(&self, client_ip: &str, path: &str) -> bool {
+        let key = format!("{}:{}", client_ip, path);
+        let count = self.rate_limits.get(&key).copied().unwrap_or(0);
+        let limit = self.get_rate_limit(path).requests_per_minute;
+        count >= limit
+    }
+    
+    /// Record request for rate limiting
+    pub fn record_request(&mut self, client_ip: &str, path: &str) {
+        let key = format!("{}:{}", client_ip, path);
+        *self.rate_limits.entry(key).or_insert(0) += 1;
+    }
+}
+
+/// Login response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LoginResponse {
+    pub session_token: String,
+    pub expires_at: i64,
+    pub user_id: String,
+}
+
+/// JWT claims for authentication
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JwtClaims {
+    pub sub: String, // subject (user/agent ID)
+    pub iat: i64,    // issued at
+    pub exp: i64,    // expiration
+    pub role: String, // user, agent, admin
+    pub permissions: Vec<String>,
+}
             description: "Claim mining rewards".to_string(),
             auth_required: true,
             rate_limit: RateLimitConfig { requests_per_minute: 5, ..Default::default() },
