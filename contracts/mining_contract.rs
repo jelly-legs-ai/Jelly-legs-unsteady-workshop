@@ -877,6 +877,236 @@ pub struct EpochSimulation {
             }
         })
     }
+    
+    // =============================================================================
+    // ADVANCED REWARD ANALYTICS - SPRINT ENHANCEMENT
+    // =============================================================================
+    
+    /// Calculate reward distribution across all tiers
+    pub fn get_tier_reward_distribution(&self) -> TierRewardDistribution {
+        let mut distribution = TierRewardDistribution {
+            mobile: (0, 0),
+            laptop: (0, 0),
+            desktop: (0, 0),
+            server: (0, 0),
+            total: 0,
+        };
+        
+        for miner in self.miners.values() {
+            if miner.status != MinerStatus::Active {
+                continue;
+            }
+            
+            let reward = self.calculate_reward(miner);
+            let count = match miner.device_tier {
+                DeviceTier::Mobile => &mut distribution.mobile.0,
+                DeviceTier::Laptop => &mut distribution.laptop.0,
+                DeviceTier::Desktop => &mut distribution.desktop.0,
+                DeviceTier::Server => &mut distribution.server.0,
+            };
+            *count += 1;
+            
+            let total_reward = match miner.device_tier {
+                DeviceTier::Mobile => &mut distribution.mobile.1,
+                DeviceTier::Laptop => &mut distribution.laptop.1,
+                DeviceTier::Desktop => &mut distribution.desktop.1,
+                DeviceTier::Server => &mut distribution.server.1,
+            };
+            *total_reward += reward;
+            
+            distribution.total += reward;
+        }
+        
+        distribution
+    }
+    
+    /// Get reward percentile rankings (top 10%, 25%, 50%, 75%)
+    pub fn get_reward_percentiles(&self) -> RewardPercentiles {
+        let mut rewards: Vec<u64> = self.miners
+            .values()
+            .filter(|m| m.status == MinerStatus::Active)
+            .map(|m| self.calculate_reward(m))
+            .collect();
+        
+        rewards.sort();
+        let len = rewards.len();
+        
+        if len == 0 {
+            return RewardPercentiles {
+                p10: 0,
+                p25: 0,
+                p50: 0,
+                p75: 0,
+                p90: 0,
+                max: 0,
+                min: 0,
+                mean: 0.0,
+            };
+        }
+        
+        let sum: u64 = rewards.iter().sum();
+        RewardPercentiles {
+            p10: rewards[len * 10 / 100],
+            p25: rewards[len * 25 / 100],
+            p50: rewards[len * 50 / 100],
+            p75: rewards[len * 75 / 100],
+            p90: rewards[len * 90 / 100],
+            max: *rewards.last().unwrap(),
+            min: *rewards.first().unwrap(),
+            mean: sum as f64 / len as f64,
+        }
+    }
+    
+    /// Calculate optimal stake amount for maximum ROI
+    pub fn calculate_optimal_stake_amount(&self, budget: u64, risk_tolerance: f64) -> StakeRecommendation {
+        // Risk tolerance: 0.0 (conservative) to 1.0 (aggressive)
+        let recommended_tier = match risk_tolerance {
+            r if r < 0.25 => DeviceTier::Mobile,      // Conservative
+            r if r < 0.5 => DeviceTier::Laptop,       // Moderate
+            r if r < 0.75 => DeviceTier::Desktop,     // Aggressive
+            _ => DeviceTier::Server,                  // Very aggressive
+        };
+        
+        let miner = MinerInfo {
+            address: "temp".to_string(),
+            device_tier: recommended_tier,
+            total_mined: 0,
+            last_claim_epoch: 0,
+            consecutive_uptime_epochs: 50,
+            reputation_score: 60.0,
+            status: MinerStatus::Active,
+            registered_at: 0,
+            last_active_epoch: 0,
+            penalty_count: 0,
+        };
+        
+        let daily_reward = self.calculate_daily_rewards(&miner);
+        let monthly_reward = self.calculate_monthly_rewards(&miner);
+        let break_even_days = self.calculate_break_even_epochs(recommended_tier, budget as f64, 0.12) / 24;
+        
+        StakeRecommendation {
+            tier: recommended_tier,
+            estimated_daily_reward: daily_reward,
+            estimated_monthly_reward: monthly_reward,
+            break_even_days,
+            roi_12_months: (monthly_reward * 12) as f64 / budget as f64 * 100.0,
+        }
+    }
+    
+    /// Get network reward health score (0-100)
+    pub fn get_network_reward_health(&self) -> NetworkRewardHealth {
+        let active_miners = self.get_active_miners().len();
+        let total_rewards = self.network_stats.epoch_rewards_distributed;
+        let avg_reputation = self.get_network_average_reputation();
+        let participation_rate = self.get_network_utilization();
+        
+        // Score components
+        let activity_score = (active_miners as f64 / 100.0).min(40.0); // Max 40 points
+        let distribution_score = if total_rewards > 0 { 30.0 } else { 0.0 }; // 30 points
+        let reputation_score = (avg_reputation / 100.0) * 20.0; // Max 20 points
+        let participation_score = (participation_rate / 100.0) * 10.0; // Max 10 points
+        
+        let total_score = activity_score + distribution_score + reputation_score + participation_score;
+        
+        NetworkRewardHealth {
+            score: total_score as u64,
+            activity_score: activity_score as u64,
+            distribution_score: distribution_score as u64,
+            reputation_score: reputation_score as u64,
+            participation_score: participation_score as u64,
+            status: if total_score >= 80.0 { "Excellent" }
+                    else if total_score >= 60.0 { "Good" }
+                    else if total_score >= 40.0 { "Fair" }
+                    else { "Poor" }.to_string(),
+        }
+    }
+    
+    /// Compare mining vs staking returns for same capital
+    pub fn compare_mining_staking_returns(&self, capital: u64, epochs: u64) -> ReturnComparison {
+        // Mining returns (server tier for max returns)
+        let server_miner = MinerInfo {
+            address: "temp".to_string(),
+            device_tier: DeviceTier::Server,
+            total_mined: 0,
+            last_claim_epoch: 0,
+            consecutive_uptime_epochs: 100,
+            reputation_score: 80.0,
+            status: MinerStatus::Active,
+            registered_at: 0,
+            last_active_epoch: 0,
+            penalty_count: 0,
+        };
+        
+        let mining_reward = self.calculate_reward(&server_miner) * epochs;
+        
+        // Staking returns (ATH pool - highest APY)
+        let staking_apy = self.pools.get("ath_staking").map(|p| p.reward_rate).unwrap_or(0.25);
+        let staking_reward = (capital as f64 * staking_apy * epochs as f64 / 365.0) as u64;
+        
+        ReturnComparison {
+            mining_return: mining_reward,
+            staking_return: staking_reward,
+            better_option: if mining_reward > staking_reward { "Mining" } else { "Staking" }.to_string(),
+            difference: (mining_reward as i64 - staking_reward as i64).abs() as u64,
+            mining_roi: mining_reward as f64 / capital as f64 * 100.0,
+            staking_roi: staking_reward as f64 / capital as f64 * 100.0,
+        }
+    }
+}
+
+/// Tier reward distribution (miner count, total rewards)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TierRewardDistribution {
+    pub mobile: (u64, u64),
+    pub laptop: (u64, u64),
+    pub desktop: (u64, u64),
+    pub server: (u64, u64),
+    pub total: u64,
+}
+
+/// Reward percentile statistics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RewardPercentiles {
+    pub p10: u64,
+    pub p25: u64,
+    pub p50: u64,
+    pub p75: u64,
+    pub p90: u64,
+    pub max: u64,
+    pub min: u64,
+    pub mean: f64,
+}
+
+/// Stake recommendation based on budget and risk
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StakeRecommendation {
+    pub tier: DeviceTier,
+    pub estimated_daily_reward: u64,
+    pub estimated_monthly_reward: u64,
+    pub break_even_days: u64,
+    pub roi_12_months: f64,
+}
+
+/// Network reward health score
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NetworkRewardHealth {
+    pub score: u64,
+    pub activity_score: u64,
+    pub distribution_score: u64,
+    pub reputation_score: u64,
+    pub participation_score: u64,
+    pub status: String,
+}
+
+/// Mining vs staking return comparison
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReturnComparison {
+    pub mining_return: u64,
+    pub staking_return: u64,
+    pub better_option: String,
+    pub difference: u64,
+    pub mining_roi: f64,
+    pub staking_roi: f64,
 }
 
 /// Projected rewards for a miner
