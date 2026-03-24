@@ -581,6 +581,228 @@ impl StakingContract {
             total_rewards_distributed: self.total_rewards_distributed,
         }
     }
+    
+    // =============================================================================
+    // MINING REWARD CALCULATION LOGIC - Sprint 3 Enhancement
+    // =============================================================================
+    
+    /// Calculate mining reward based on staked amount and network participation
+    pub fn calculate_mining_reward(&self, stake: &StakeInfo, network_participation: f64) -> u64 {
+        let pool = match self.get_pool_by_token(&stake.token_type) {
+            Some(p) => p,
+            None => return 0,
+        };
+        
+        // Base reward rate from pool
+        let base_rate = pool.reward_rate;
+        
+        // Network participation bonus (0.5 to 1.5x)
+        let participation_multiplier = if network_participation > 0.8 {
+            1.5
+        } else if network_participation > 0.5 {
+            1.0
+        } else {
+            0.5
+        };
+        
+        // Stake duration bonus (longer stakes earn more)
+        let epochs_staked = self.current_epoch - stake.start_epoch;
+        let duration_bonus = if epochs_staked > 30 {
+            1.3
+        } else if epochs_staked > 14 {
+            1.1
+        } else {
+            1.0
+        };
+        
+        // Calculate reward
+        let reward = (stake.amount as f64 * base_rate * participation_multiplier * duration_bonus) as u64;
+        
+        // Apply minimum reward floor
+        reward.max(1)
+    }
+    
+    /// Calculate epoch-based mining rewards for all active stakes
+    pub fn calculate_epoch_mining_rewards(&self) -> TotalEpochRewards {
+        let mut total_rewards = 0u64;
+        let mut rewards_by_token = HashMap::new();
+        let mut rewards_by_tier = HashMap::new();
+        
+        for (address, stakes) in &self.stakes {
+            for stake in stakes {
+                if !self.is_stake_locked(stake) {
+                    let reward = self.calculate_mining_reward(stake, 0.75); // Assume 75% participation
+                    total_rewards += reward;
+                    
+                    *rewards_by_token.entry(stake.token_type.clone()).or_insert(0) += reward;
+                    *rewards_by_tier.entry(address.clone()).or_insert(0) += reward;
+                }
+            }
+        }
+        
+        TotalEpochRewards {
+            total: total_rewards,
+            by_token: rewards_by_token,
+            by_address: rewards_by_tier,
+            epoch: self.current_epoch,
+        }
+    }
+    
+    /// Distribute mining rewards to eligible stakers
+    pub fn distribute_mining_rewards(&mut self, epoch: u64) -> Result<u64, &'static str> {
+        let epoch_rewards = self.calculate_epoch_mining_rewards();
+        
+        for (address, stake_list) in self.stakes.iter_mut() {
+            for stake in stake_list.iter_mut() {
+                if !self.is_stake_locked(stake) {
+                    let reward = self.calculate_mining_reward(stake, 0.75);
+                    stake.rewards_claimed += reward;
+                    self.total_rewards_distributed += reward;
+                }
+            }
+        }
+        
+        Ok(epoch_rewards.total)
+    }
+    
+    /// Calculate validator mining reward based on delegated stake and uptime
+    pub fn calculate_validator_mining_reward(&self, validator: &str, epoch: u64) -> u64 {
+        let metrics = match self.validator_metrics.get(validator) {
+            Some(m) => m,
+            None => return 0,
+        };
+        
+        // Base reward per delegated token
+        let base_rate = 0.0001; // 0.01% per epoch
+        
+        // Uptime multiplier (0.0 to 1.0)
+        let uptime_multiplier = metrics.uptime_percent / 100.0;
+        
+        // Commission bonus (higher commission = higher reward)
+        let commission_bonus = 1.0 + metrics.commission_rate;
+        
+        // Calculate reward
+        let reward = (metrics.total_delegated as f64 * base_rate * uptime_multiplier * commission_bonus) as u64;
+        
+        reward.max(1)
+    }
+    
+    /// Get mining reward projection for a stake amount
+    pub fn project_mining_rewards(&self, pool_id: &str, amount: u64, epochs: u64) -> MiningRewardProjection {
+        let pool = match self.pools.get(pool_id) {
+            Some(p) => p,
+            None => return MiningRewardProjection::default(),
+        };
+        
+        let daily_rate = pool.reward_rate / 365.0;
+        let epoch_rate = daily_rate / 24.0; // Assuming 24 epochs per day
+        
+        let base_reward = (amount as f64 * epoch_rate * epochs as f64) as u64;
+        let with_participation_bonus = (base_reward as f64 * 1.25) as u64; // 25% bonus at high participation
+        let with_duration_bonus = (base_reward as f64 * 1.3) as u64; // 30% bonus for long stakes
+        
+        MiningRewardProjection {
+            pool_id: pool_id.to_string(),
+            stake_amount: amount,
+            epochs: epochs,
+            base_reward,
+            with_participation_bonus,
+            with_duration_bonus,
+            apy: pool.reward_rate * 100.0,
+        }
+    }
+    
+    /// Calculate compound rewards (rewards reinvested)
+    pub fn calculate_compound_mining_rewards(&self, stake: &StakeInfo, compounding_epochs: u64) -> u64 {
+        let pool = match self.get_pool_by_token(&stake.token_type) {
+            Some(p) => p,
+            None => return 0,
+        };
+    
+        let epoch_rate = pool.reward_rate / 365.0 / 24.0;
+        let initial_amount = stake.amount;
+        
+        // Compound formula: A = P(1 + r)^n
+        let compounded_amount = (initial_amount as f64 * (1.0 + epoch_rate).powf(compounding_epochs as f64)) as u64;
+        
+        compounded_amount - initial_amount // Return only the rewards portion
+    }
+    
+    /// Get optimal stake amount for target daily reward
+    pub fn calculate_stake_for_target_reward(&self, pool_id: &str, target_daily_reward: u64) -> u64 {
+        let pool = match self.pools.get(pool_id) {
+            Some(p) => p,
+            None => return 0,
+        };
+        
+        let daily_rate = pool.reward_rate / 365.0;
+        let required_stake = (target_daily_reward as f64 / daily_rate) as u64;
+        
+        // Ensure meets minimum stake
+        required_stake.max(pool.min_stake)
+    }
+    
+    /// Calculate mining reward efficiency (reward per token staked)
+    pub fn calculate_reward_efficiency(&self, pool_id: &str) -> f64 {
+        let pool = match self.pools.get(pool_id) {
+            Some(p) => p,
+            None => return 0.0,
+        };
+        
+        if pool.total_staked == 0 {
+            return 0.0;
+        }
+        
+        let total_rewards = self.total_rewards_distributed as f64;
+        total_rewards / pool.total_staked as f64
+    }
+    
+    /// Get mining reward schedule for a stake
+    pub fn get_reward_schedule(&self, stake: &StakeInfo, epochs: u64) -> Vec<RewardScheduleEntry> {
+        let mut schedule = Vec::new();
+        
+        for epoch in 0..epochs {
+            let future_epoch = self.current_epoch + epoch;
+            let reward = self.calculate_mining_reward(stake, 0.75);
+            
+            schedule.push(RewardScheduleEntry {
+                epoch: future_epoch,
+                projected_reward: reward,
+                cumulative_reward: stake.rewards_claimed + (reward * epoch),
+            });
+        }
+        
+        schedule
+    }
+}
+
+/// Total epoch rewards summary
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TotalEpochRewards {
+    pub total: u64,
+    pub by_token: HashMap<TokenType, u64>,
+    pub by_address: HashMap<String, u64>,
+    pub epoch: u64,
+}
+
+/// Mining reward projection
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct MiningRewardProjection {
+    pub pool_id: String,
+    pub stake_amount: u64,
+    pub epochs: u64,
+    pub base_reward: u64,
+    pub with_participation_bonus: u64,
+    pub with_duration_bonus: u64,
+    pub apy: f64,
+}
+
+/// Reward schedule entry
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RewardScheduleEntry {
+    pub epoch: u64,
+    pub projected_reward: u64,
+    pub cumulative_reward: u64,
 }
 
 /// Pool statistics for API responses
