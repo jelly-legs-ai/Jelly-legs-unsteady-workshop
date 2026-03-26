@@ -2109,4 +2109,243 @@ mod tests {
         let miner = contract.miners.get("miner1").unwrap();
         assert!(miner.reputation_score < 50.0);
     }
+
+    #[test]
+    fn test_decentralization_index() {
+        let mut contract = MiningContract::new();
+        contract.register_miner("m1".to_string(), DeviceTier::Mobile).unwrap();
+        contract.register_miner("m2".to_string(), DeviceTier::Laptop).unwrap();
+        contract.register_miner("m3".to_string(), DeviceTier::Desktop).unwrap();
+        contract.register_miner("m4".to_string(), DeviceTier::Server).unwrap();
+        
+        let index = contract.calculate_decentralization_index();
+        assert!(index > 0.0 && index <= 100.0);
+    }
+
+    #[test]
+    fn test_reward_percentiles() {
+        let mut contract = MiningContract::new();
+        for i in 0..10 {
+            let tier = match i % 4 {
+                0 => DeviceTier::Mobile,
+                1 => DeviceTier::Laptop,
+                2 => DeviceTier::Desktop,
+                _ => DeviceTier::Server,
+            };
+            contract.register_miner(format!("miner{}", i), tier).unwrap();
+        }
+        
+        let percentiles = contract.get_reward_percentiles();
+        assert!(percentiles.p90 >= percentiles.p10);
+        assert!(percentiles.max >= percentiles.min);
+    }
+
+    #[test]
+    fn test_optimal_stake_recommendation() {
+        let contract = MiningContract::new();
+        let recommendation = contract.calculate_optimal_stake_amount(10000, 0.5);
+        
+        assert_eq!(recommendation.tier, DeviceTier::Laptop); // Moderate risk
+        assert!(recommendation.roi_12_months > 0.0);
+    }
+
+    #[test]
+    fn test_network_reward_health() {
+        let mut contract = MiningContract::new();
+        contract.register_miner("miner1".to_string(), DeviceTier::Desktop).unwrap();
+        
+        let health = contract.get_network_reward_health();
+        assert!(health.score <= 100);
+        assert!(!health.status.is_empty());
+    }
+
+    #[test]
+    fn test_mining_vs_staking_comparison() {
+        let contract = MiningContract::new();
+        let comparison = contract.compare_mining_staking_returns(5000, 30);
+        
+        assert!(comparison.mining_return > 0 || comparison.staking_return > 0);
+        assert!(!comparison.better_option.is_empty());
+    }
+}
+
+// =============================================================================
+// SPRINT 7: Enhanced Mining Analytics & Predictive Rewards
+// =============================================================================
+
+/// Predictive reward projection for planning
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RewardProjection {
+    pub miner_address: String,
+    pub current_epoch_reward: u64,
+    pub projected_daily: u64,
+    pub projected_weekly: u64,
+    pub projected_monthly: u64,
+    pub projected_yearly: u64,
+    pub confidence_score: f64,
+    pub factors: Vec<String>,
+}
+
+/// Mining optimization suggestions
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OptimizationSuggestion {
+    pub suggestion_type: String,
+    pub description: String,
+    pub estimated_impact_percent: f64,
+    pub effort_level: String,
+    pub priority: String,
+}
+
+impl MiningContract {
+    /// Project future rewards for a miner based on current performance
+    pub fn project_rewards(&self, address: &str) -> Option<RewardProjection> {
+        let miner = self.miners.get(address)?;
+        
+        if miner.status != MinerStatus::Active {
+            return None;
+        }
+        
+        let current_reward = self.calculate_reward(miner);
+        let uptime_score = self.calculate_uptime_score(miner);
+        
+        // Calculate confidence based on historical consistency
+        let confidence = if miner.consecutive_uptime_epochs >= 100 {
+            0.95
+        } else if miner.consecutive_uptime_epochs >= 50 {
+            0.85
+        } else if miner.consecutive_uptime_epochs >= 25 {
+            0.70
+        } else {
+            0.50
+        };
+        
+        let mut factors = Vec::new();
+        factors.push(format!("Tier: {:?}", miner.device_tier));
+        factors.push(format!("Uptime score: {:.1}%", uptime_score * 100.0));
+        factors.push(format!("Reputation: {:.1}", miner.reputation_score));
+        
+        Some(RewardProjection {
+            miner_address: address.to_string(),
+            current_epoch_reward: current_reward,
+            projected_daily: (current_reward as f64 * 24.0 * confidence) as u64,
+            projected_weekly: (current_reward as f64 * 168.0 * confidence) as u64,
+            projected_monthly: (current_reward as f64 * 720.0 * confidence) as u64,
+            projected_yearly: (current_reward as f64 * 8760.0 * confidence) as u64,
+            confidence_score: confidence,
+            factors,
+        })
+    }
+
+    /// Generate optimization suggestions for a miner
+    pub fn get_optimization_suggestions(&self, address: &str) -> Vec<OptimizationSuggestion> {
+        let mut suggestions = Vec::new();
+        
+        if let Some(miner) = self.miners.get(address) {
+            // Suggest tier upgrade if reputation is high
+            if miner.reputation_score >= 80.0 && miner.device_tier != DeviceTier::Server {
+                suggestions.push(OptimizationSuggestion {
+                    suggestion_type: "tier_upgrade".to_string(),
+                    description: format!("Upgrade from {:?} to higher tier for increased rewards", miner.device_tier),
+                    estimated_impact_percent: match miner.device_tier {
+                        DeviceTier::Mobile => 150.0, // Mobile -> Laptop = 2.5x
+                        DeviceTier::Laptop => 60.0,  // Laptop -> Desktop = 1.6x
+                        DeviceTier::Desktop => 100.0, // Desktop -> Server = 2x
+                        DeviceTier::Server => 0.0,
+                    },
+                    effort_level: "High".to_string(),
+                    priority: "Medium".to_string(),
+                });
+            }
+            
+            // Suggest uptime improvement
+            let uptime_score = self.calculate_uptime_score(miner);
+            if uptime_score < 0.8 {
+                suggestions.push(OptimizationSuggestion {
+                    suggestion_type: "uptime_improvement".to_string(),
+                    description: "Increase device uptime to maximize reward multiplier".to_string(),
+                    estimated_impact_percent: (0.8 - uptime_score) * 100.0,
+                    effort_level: "Medium".to_string(),
+                    priority: "High".to_string(),
+                });
+            }
+            
+            // Suggest reputation building
+            if miner.reputation_score < 60.0 {
+                suggestions.push(OptimizationSuggestion {
+                    suggestion_type: "reputation_building".to_string(),
+                    description: "Maintain consistent participation to build reputation".to_string(),
+                    estimated_impact_percent: (60.0 - miner.reputation_score) / 60.0 * 50.0,
+                    effort_level: "Low".to_string(),
+                    priority: "High".to_string(),
+                });
+            }
+        }
+        
+        suggestions
+    }
+
+    /// Calculate projected network rewards based on current trends
+    pub fn project_network_rewards(&self, epochs_ahead: u64) -> u64 {
+        let current_rate = self.network_stats.epoch_rewards_distributed;
+        let participation_trend = self.get_current_participation_rate();
+        
+        // Simple linear projection with participation factor
+        let growth_factor = if participation_trend > 0.8 {
+            1.05 // 5% growth
+        } else if participation_trend > 0.6 {
+            1.0 // Stable
+        } else {
+            0.95 // Declining
+        };
+        
+        (current_rate as f64 * growth_factor.powi(epochs_ahead as i32) * epochs_ahead as f64) as u64
+    }
+
+    /// Get mining efficiency score for a miner (0-100)
+    pub fn calculate_miner_efficiency(&self, address: &str) -> Option<f64> {
+        let miner = self.miners.get(address)?;
+        
+        let uptime_score = self.calculate_uptime_score(miner);
+        let reputation_factor = miner.reputation_score / 100.0;
+        let tier_efficiency = miner.device_tier.multiplier() / 8.0; // Normalize to server tier
+        
+        let efficiency = (uptime_score * 0.4 + reputation_factor * 0.4 + tier_efficiency * 0.2) * 100.0;
+        Some(efficiency.min(100.0))
+    }
+
+    /// Batch project rewards for multiple miners
+    pub fn batch_project_rewards(&self, addresses: &[String]) -> Vec<RewardProjection> {
+        addresses.iter()
+            .filter_map(|addr| self.project_rewards(addr))
+            .collect()
+    }
+
+    /// Get top earners leaderboard with projections
+    pub fn get_leaderboard_with_projections(&self, limit: usize) -> Vec<(MinerLeaderboardEntry, Option<RewardProjection>)> {
+        let mut miners: Vec<&MinerInfo> = self.miners.values()
+            .filter(|m| m.status == MinerStatus::Active)
+            .collect();
+        
+        miners.sort_by(|a, b| b.total_mined.cmp(&a.total_mined));
+        
+        miners.iter()
+            .take(limit)
+            .map(|miner| {
+                let entry = MinerLeaderboardEntry {
+                    rank: 0, // Will be set below
+                    address: miner.address.clone(),
+                    total_mined: miner.total_mined,
+                    tier: miner.device_tier,
+                    uptime_score: self.calculate_uptime_score(miner),
+                };
+                let projection = self.project_rewards(&miner.address);
+                (entry, projection)
+            })
+            .enumerate()
+            .map(|(idx, (mut entry, proj))| {
+                entry.rank = idx + 1;
+                (entry, proj)
+            })
+            .collect()
+    }
 }
