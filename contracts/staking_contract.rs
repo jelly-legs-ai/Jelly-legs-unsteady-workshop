@@ -1947,6 +1947,140 @@ pub struct OptimalMiningConfig {
     pub projected_apy_increase: f64,
 }
 
+/// Auto-compound configuration for staking
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutoCompoundConfig {
+    pub enabled: bool,
+    pub threshold_amount: u64,      // Auto-compound when rewards reach this amount
+    pub compound_frequency_epochs: u64,
+    pub max_compound_per_epoch: u64,
+    pub gas_optimization: bool,      // Batch compounds to save gas
+}
+
+impl Default for AutoCompoundConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            threshold_amount: 100,
+            compound_frequency_epochs: 1,
+            max_compound_per_epoch: 10,
+            gas_optimization: true,
+        }
+    }
+}
+
+/// Auto-compound performance metrics
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AutoCompoundMetrics {
+    pub total_compounds: u64,
+    pub total_reinvested: u64,
+    pub compound_interest_earned: u64,
+    pub avg_compound_interval_epochs: f64,
+    pub effective_apy_boost: f64,     // APY increase from compounding
+    pub gas_saved: u64,
+}
+
+/// Staking reward optimization suggestion
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StakingOptimization {
+    pub current_strategy: String,
+    pub suggested_strategy: String,
+    pub current_projected_reward: u64,
+    pub optimized_projected_reward: u64,
+    pub improvement_percent: f64,
+    pub action_required: Vec<String>,
+    pub risk_level: String,  // "low", "medium", "high"
+}
+
+/// Compound event record
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompoundEvent {
+    pub epoch: u64,
+    pub amount_compounded: u64,
+    pub new_principal: u64,
+    pub rewards_added: u64,
+    pub gas_cost: u64,
+    pub effective_rate: f64,
+}
+
+/// Staking tier benefits comparison
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TierComparison {
+    pub tier: String,
+    pub min_stake: u64,
+    pub base_apy: f64,
+    pub bonus_apy: f64,
+    pub total_apy: f64,
+    pub lockup_epochs: u64,
+    pub early_withdrawal_penalty: f64,
+    pub special_benefits: Vec<String>,
+}
+
+/// Stake distribution analytics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StakeDistribution {
+    pub total_staked: u64,
+    pub staker_count: u64,
+    pub avg_stake_per_user: f64,
+    pub median_stake: u64,
+    pub top_10_percent_stake: u64,
+    pub gini_coefficient: f64,  // Measure of stake concentration (0 = equal, 1 = unequal)
+    pub distribution_health: String,  // "healthy", "concentrated", "decentralized"
+}
+
+/// Validator recommendation for delegators
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidatorRecommendation {
+    pub validator_address: String,
+    pub commission_rate: f64,
+    pub uptime_percent: f64,
+    pub total_delegated: u64,
+    pub delegator_count: u64,
+    pub historical_performance: f64,  // 0-100 score
+    pub risk_score: f64,              // 0-100, lower is better
+    pub recommended_stake: u64,
+    pub reason: String,
+}
+
+/// Staking goal tracker
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StakingGoal {
+    pub goal_name: String,
+    pub target_amount: u64,
+    pub current_amount: u64,
+    pub target_epoch: u64,
+    pub current_epoch: u64,
+    pub progress_percent: f64,
+    pub on_track: bool,
+    pub recommended_action: Option<String>,
+}
+
+/// APY comparison across pools
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct APYComparison {
+    pub pool_name: String,
+    pub base_apy: f64,
+    pub with_auto_compound_apy: f64,
+    pub with_bonuses_apy: f64,
+    pub effective_apy: f64,
+    pub risk_adjusted_apy: f64,
+    pub rank: u32,
+}
+
+/// Stake withdrawal planner
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WithdrawalPlan {
+    pub total_staked: u64,
+    pub requested_withdrawal: u64,
+    pub lock_end_epoch: u64,
+    pub current_epoch: u64,
+    pub epochs_remaining: u64,
+    pub early_withdrawal_penalty: u64,
+    pub net_received: u64,
+    pub recommended_wait_epochs: u64,
+    pub potential_gain_from_waiting: u64,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
