@@ -404,6 +404,136 @@ CREATE INDEX idx_agent_address ON agents(agent_address);
 CREATE INDEX idx_agent_owner ON agents(owner_address);
 CREATE INDEX idx_agent_kyc ON agents(kyc_status);
 
+-- Agent-User linking table (for user/agent management)
+CREATE TABLE IF NOT EXISTS agent_user_links (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id UUID REFERENCES agents(id) ON DELETE CASCADE,
+    user_address VARCHAR(64) NOT NULL,
+    link_type VARCHAR(20) DEFAULT 'owner',
+    permissions TEXT[] DEFAULT '{}',
+    linked_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    unlinked_at TIMESTAMP WITH TIME ZONE,
+    is_active BOOLEAN DEFAULT TRUE,
+    metadata JSONB DEFAULT '{}',
+    CONSTRAINT valid_link_type CHECK (link_type IN ('owner', 'operator', 'viewer', 'service'))
+);
+
+CREATE INDEX idx_link_agent ON agent_user_links(agent_id);
+CREATE INDEX idx_link_user ON agent_user_links(user_address);
+
+-- Agent configuration table
+CREATE TABLE IF NOT EXISTS agent_configs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id UUID REFERENCES agents(id) ON DELETE CASCADE,
+    config_key VARCHAR(100) NOT NULL,
+    config_value JSONB NOT NULL,
+    version INTEGER DEFAULT 1,
+    updated_by VARCHAR(64),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT unique_agent_config UNIQUE(agent_id, config_key)
+);
+
+CREATE INDEX idx_config_agent ON agent_configs(agent_id);
+
+-- Agent lifecycle events table
+CREATE TABLE IF NOT EXISTS agent_lifecycle_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id UUID REFERENCES agents(id) ON DELETE CASCADE,
+    event_type VARCHAR(30) NOT NULL,
+    event_data JSONB,
+    triggered_by VARCHAR(64),
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT valid_event_type CHECK (event_type IN ('created', 'paused', 'resumed', 'restarted', 'scaled', 'deployed', 'deleted', 'error', 'health_check'))
+);
+
+CREATE INDEX idx_lifecycle_agent ON agent_lifecycle_events(agent_id);
+CREATE INDEX idx_lifecycle_type ON agent_lifecycle_events(event_type);
+
+-- Agent health metrics table
+CREATE TABLE IF NOT EXISTS agent_health_metrics (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id UUID REFERENCES agents(id) ON DELETE CASCADE,
+    epoch BIGINT NOT NULL,
+    cpu_usage_percent DECIMAL(5,2),
+    memory_usage_mb BIGINT,
+    disk_usage_mb BIGINT,
+    network_latency_ms INTEGER,
+    error_count INTEGER DEFAULT 0,
+    task_queue_size INTEGER DEFAULT 0,
+    response_time_avg_ms INTEGER,
+    uptime_percent DECIMAL(5,2),
+    status VARCHAR(20) DEFAULT 'unknown',
+    recorded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT valid_health_status CHECK (status IN ('healthy', 'degraded', 'unhealthy', 'unknown'))
+);
+
+CREATE INDEX idx_health_agent ON agent_health_metrics(agent_id);
+CREATE INDEX idx_health_epoch ON agent_health_metrics(epoch);
+
+-- Agent templates table
+CREATE TABLE IF NOT EXISTS agent_templates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    template_name VARCHAR(100) NOT NULL,
+    template_version VARCHAR(20) NOT NULL,
+    category VARCHAR(50) NOT NULL,
+    description TEXT,
+    author_address VARCHAR(64) NOT NULL,
+    base_config JSONB NOT NULL,
+    required_capabilities TEXT[] DEFAULT '{}',
+    deployment_script_url VARCHAR(255),
+    is_public BOOLEAN DEFAULT FALSE,
+    price_flux BIGINT DEFAULT 0,
+    total_deployments BIGINT DEFAULT 0,
+    average_rating DECIMAL(3,2) DEFAULT 0.00,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_template_name ON agent_templates(template_name);
+CREATE INDEX idx_template_category ON agent_templates(category);
+CREATE INDEX idx_template_author ON agent_templates(author_address);
+
+-- Agent marketplace listings table
+CREATE TABLE IF NOT EXISTS agent_marketplace_listings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id UUID REFERENCES agents(id) ON DELETE CASCADE,
+    seller_address VARCHAR(64) NOT NULL,
+    listing_type VARCHAR(20) DEFAULT 'sale',
+    price_flux BIGINT NOT NULL,
+    currency VARCHAR(10) DEFAULT 'FLUX',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    expires_at TIMESTAMP WITH TIME ZONE,
+    sold_at TIMESTAMP WITH TIME ZONE,
+    buyer_address VARCHAR(64),
+    CONSTRAINT valid_listing_type CHECK (listing_type IN ('sale', 'rental', 'subscription', 'freemium'))
+);
+
+CREATE INDEX idx_listing_agent ON agent_marketplace_listings(agent_id);
+CREATE INDEX idx_listing_seller ON agent_marketplace_listings(seller_address);
+CREATE INDEX idx_listing_active ON agent_marketplace_listings(is_active);
+
+-- Agent task execution logs table (enhanced)
+CREATE TABLE IF NOT EXISTS agent_task_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id UUID REFERENCES agents(id) ON DELETE CASCADE,
+    task_id VARCHAR(100) NOT NULL,
+    task_type VARCHAR(50) NOT NULL,
+    status VARCHAR(20) DEFAULT 'pending',
+    input_data JSONB,
+    output_data JSONB,
+    flux_earned BIGINT DEFAULT 0,
+    execution_time_ms INTEGER,
+    error_message TEXT,
+    started_at TIMESTAMP WITH TIME ZONE,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    CONSTRAINT valid_task_status CHECK (status IN ('pending', 'running', 'completed', 'failed', 'cancelled'))
+);
+
+CREATE INDEX idx_task_agent ON agent_task_logs(agent_id);
+CREATE INDEX idx_task_status ON agent_task_logs(status);
+CREATE INDEX idx_task_type ON agent_task_logs(task_type);
+
 -- Governance proposals table
 CREATE TABLE IF NOT EXISTS proposals (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
