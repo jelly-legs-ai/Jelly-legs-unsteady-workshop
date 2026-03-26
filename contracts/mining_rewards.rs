@@ -199,6 +199,165 @@ impl MiningCalculator {
         // ~720 epochs per month
         self.calculate_multi_epoch_reward(miner, 720)
     }
+    
+    /// Batch calculate rewards for multiple miners (optimized for bulk operations)
+    pub fn batch_calculate_rewards(&self, miners: &[&Miner]) -> Vec<(String, u64)> {
+        miners.iter()
+            .map(|miner| (miner.miner_id.clone(), self.calculate_epoch_reward(miner)))
+            .collect()
+    }
+    
+    /// Calculate reward projection with trend analysis
+    pub fn project_rewards_with_trend(&self, miner: &Miner, epochs: u64) -> RewardProjection {
+        let base_reward = self.calculate_multi_epoch_reward(miner, epochs);
+        
+        // Calculate trend based on contribution score trajectory
+        let trend_factor = if miner.contribution_score > 0.8 {
+            1.15 // Optimistic: 15% bonus for high performers
+        } else if miner.contribution_score > 0.5 {
+            1.0 // Neutral
+        } else {
+            0.85 // Pessimistic: 15% reduction for low performers
+        };
+        
+        let projected = (base_reward as f64 * trend_factor) as u64;
+        let confidence = match miner.uptime_percentage {
+            x if x >= 95.0 => 0.95,
+            x if x >= 85.0 => 0.85,
+            x if x >= 75.0 => 0.70,
+            _ => 0.50,
+        };
+        
+        RewardProjection {
+            miner_id: miner.miner_id.clone(),
+            epochs,
+            base_projection: base_reward,
+            trend_adjusted_projection: projected,
+            confidence,
+            trend: if trend_factor > 1.0 { "positive" } else if trend_factor < 1.0 { "negative" } else { "stable" }.to_string(),
+        }
+    }
+    
+    /// Optimize miner configuration for maximum rewards
+    pub fn suggest_optimizations(&self, miner: &Miner) -> Vec<OptimizationSuggestion> {
+        let mut suggestions = Vec::new();
+        
+        // Check uptime optimization
+        if miner.uptime_percentage < self.config.uptime_threshold * 100.0 {
+            suggestions.push(OptimizationSuggestion {
+                category: "uptime".to_string(),
+                current_value: miner.uptime_percentage,
+                target_value: self.config.uptime_threshold * 100.0,
+                impact: "Enable mining rewards (currently earning 0)".to_string(),
+                priority: 1,
+            });
+        } else if miner.uptime_percentage < 95.0 {
+            let potential_gain = (95.0 - miner.uptime_percentage) * 0.05;
+            suggestions.push(OptimizationSuggestion {
+                category: "uptime".to_string(),
+                current_value: miner.uptime_percentage,
+                target_value: 95.0,
+                impact: format!("Potential {:.1}% reward increase", potential_gain),
+                priority: 2,
+            });
+        }
+        
+        // Check contribution score optimization
+        if miner.contribution_score < 0.8 {
+            let potential_gain = (0.8 - miner.contribution_score) * self.config.contribution_factor * 100.0;
+            suggestions.push(OptimizationSuggestion {
+                category: "contribution".to_string(),
+                current_value: miner.contribution_score * 100.0,
+                target_value: 80.0,
+                impact: format!("Potential {:.1}% reward increase", potential_gain),
+                priority: 2,
+            });
+        }
+        
+        // Check device tier upgrade path
+        let next_tier = match miner.device_tier {
+            DeviceTier::Mobile => Some((DeviceTier::Laptop, 2.5, "Upgrade to laptop tier (8+ GB RAM)")),
+            DeviceTier::Laptop => Some((DeviceTier::Desktop, 5.0, "Upgrade to desktop tier (16+ GB RAM)")),
+            DeviceTier::Desktop => Some((DeviceTier::Server, 10.0, "Upgrade to server tier (64+ GB RAM)")),
+            DeviceTier::Server => None,
+        };
+        
+        if let Some((tier, multiplier, desc)) = next_tier {
+            let current_mult = miner.device_tier.multiplier();
+            let upgrade_gain = ((multiplier - current_mult) / current_mult) * 100.0;
+            suggestions.push(OptimizationSuggestion {
+                category: "hardware".to_string(),
+                current_value: current_mult,
+                target_value: multiplier,
+                impact: format!("{:.0}% reward increase - {}", upgrade_gain, desc),
+                priority: 3,
+            });
+        }
+        
+        // Sort by priority
+        suggestions.sort_by_key(|s| s.priority);
+        suggestions
+    }
+    
+    /// Calculate efficiency score for a miner (0-100 scale)
+    pub fn calculate_efficiency_score(&self, miner: &Miner) -> EfficiencyScore {
+        let uptime_score = (miner.uptime_percentage / 100.0 * 40.0).min(40.0);
+        let contribution_score = (miner.contribution_score * 40.0).min(40.0);
+        let tier_score = match miner.device_tier {
+            DeviceTier::Mobile => 5.0,
+            DeviceTier::Laptop => 10.0,
+            DeviceTier::Desktop => 15.0,
+            DeviceTier::Server => 20.0,
+        };
+        
+        let total = uptime_score + contribution_score + tier_score;
+        let grade = match total {
+            x if x >= 90.0 => 'A',
+            x if x >= 80.0 => 'B',
+            x if x >= 70.0 => 'C',
+            x if x >= 60.0 => 'D',
+            _ => 'F',
+        };
+        
+        EfficiencyScore {
+            score: total.round(),
+            grade,
+            uptime_component: uptime_score,
+            contribution_component: contribution_score,
+            hardware_component: tier_score,
+        }
+    }
+}
+
+/// Reward projection with trend analysis
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RewardProjection {
+    pub miner_id: String,
+    pub epochs: u64,
+    pub base_projection: u64,
+    pub trend_adjusted_projection: u64,
+    pub confidence: f64,
+    pub trend: String,
+}
+
+/// Optimization suggestion for miners
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OptimizationSuggestion {
+    pub category: String,
+    pub current_value: f64,
+    pub target_value: f64,
+    pub impact: String,
+    pub priority: u32,
+}
+
+/// Efficiency score breakdown
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EfficiencyScore {
+    pub score: f64,
+    pub grade: char,
+    pub uptime_component: f64,
+    pub contribution_component: f64,
+    pub hardware_component: f64,
 }
 
 /// Mining pool for combined mining operations
