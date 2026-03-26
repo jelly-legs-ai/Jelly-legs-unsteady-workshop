@@ -78,6 +78,12 @@ pub mod rewards {
     pub const REDELEGATE: &str = "/rewards/redelegate";
     pub const SCHEDULE: &str = "/rewards/schedule";
     pub const TAX_REPORT: &str = "/rewards/tax-report";
+    pub const MINING_REWARDS: &str = "/rewards/mining";
+    pub const STAKING_REWARDS: &str = "/rewards/staking";
+    pub const VALIDATOR_REWARDS: &str = "/rewards/validator";
+    pub const OPTIMIZE: &str = "/rewards/optimize";
+    pub const BREAKDOWN: &str = "/rewards/breakdown";
+    pub const SIMULATE: &str = "/rewards/simulate";
     pub const AIRDROP: &str = "/rewards/airdrop";
     pub const REFERRAL: &str = "/rewards/referral";
 }
@@ -163,6 +169,31 @@ pub mod agents {
     pub const SLASH: &str = "/agents/{agent_id}/slash";
     pub const MARKETPLACE: &str = "/agents/marketplace";
     pub const SEARCH: &str = "/agents/search";
+    // User/Agent Management
+    pub const LINK_USER: &str = "/agents/{agent_id}/link-user";
+    pub const UNLINK_USER: &str = "/agents/{agent_id}/unlink-user";
+    pub const OWNER: &str = "/agents/{agent_id}/owner";
+    pub const CONFIG: &str = "/agents/{agent_id}/config";
+    pub const UPDATE_CONFIG: &str = "/agents/{agent_id}/config/update";
+    // Agent Lifecycle
+    pub const PAUSE: &str = "/agents/{agent_id}/pause";
+    pub const RESUME: &str = "/agents/{agent_id}/resume";
+    pub const RESTART: &str = "/agents/{agent_id}/restart";
+    pub const DELETE: &str = "/agents/{agent_id}/delete";
+    pub const SCALE: &str = "/agents/{agent_id}/scale";
+    pub const DEPLOY: &str = "/agents/deploy";
+    pub const BATCH_CREATE: &str = "/agents/batch";
+    // Agent Templates & Marketplace
+    pub const TEMPLATES: &str = "/agents/templates";
+    pub const CREATE_TEMPLATE: &str = "/agents/templates/create";
+    pub const LISTINGS: &str = "/agents/marketplace/listings";
+    pub const PURCHASE: &str = "/agents/marketplace/purchase";
+    // Agent Health & Monitoring
+    pub const HEALTH: &str = "/agents/{agent_id}/health";
+    pub const METRICS: &str = "/agents/{agent_id}/metrics";
+    pub const LOGS: &str = "/agents/{agent_id}/logs";
+    pub const STATUS: &str = "/agents/{agent_id}/status";
+    pub const LANE: &str = "/agents/{agent_id}/lane";
 }
 
 /// Governance endpoints
