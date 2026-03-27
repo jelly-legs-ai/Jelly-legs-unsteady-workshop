@@ -555,6 +555,10 @@ impl FluxTokenContract {
         }
     }
     
+    // =============================================================================
+    // SPRINT 9: Enhanced Token Economics & Cross-Chain Bridge Support
+    // =============================================================================
+    
     /// Simulate token economics scenario
     pub fn simulate_economics_scenario(&self, scenario: &EconomicsScenario) -> EconomicsSimulation {
         let mut simulated_supply = self.circulating_supply;
@@ -564,8 +568,369 @@ impl FluxTokenContract {
         match scenario {
             EconomicsScenario::HighAdoption { tx_growth, user_growth } => {
                 // Simulate increased burns from higher tx volume
-                let burn_increase = (tx_growth * 0.01 * self.c
+                let burn_increase = (tx_growth * 0.01 * self.circulating_supply as f64) as u64;
+                simulated_burned += burn_increase;
+            }
+            EconomicsScenario::LowAdoption { tx_decline, user_decline } => {
+                // Simulate reduced activity
+                let mint_increase = (*user_decline * 0.001 * self.total_supply as f64) as u64;
+                simulated_minted += mint_increase;
+            }
+        }
         
+        EconomicsSimulation {
+            final_supply: simulated_supply,
+            final_burned: simulated_burned,
+            final_minted: simulated_minted,
+        }
+    }
+    
+    /// Cross-chain bridge lock for wrapped tokens
+    pub fn bridge_lock(&mut self, from: &str, amount: u64, target_chain: &str) -> Result<BridgeLockReceipt, &'static str> {
+        let balance = self.balance_of(from);
+        if balance < amount {
+            return Err("Insufficient balance for bridge");
+        }
+        
+        // Lock tokens in bridge contract
+        self.transfer(from, "bridge_contract", amount)?;
+        
+        let receipt = BridgeLockReceipt {
+            lock_id: format!("bridge_{}_{}_{}", from, target_chain, self.circulating_supply),
+            source_chain: "aether".to_string(),
+            target_chain: target_chain.to_string(),
+            amount,
+            locked_at: self.circulating_supply,
+            status: "locked".to_string(),
+        };
+        
+        Ok(receipt)
+    }
+    
+    /// Cross-chain bridge unlock (mint wrapped tokens on target chain)
+    pub fn bridge_unlock(&mut self, receipt_id: &str, to: &str) -> Result<u64, &'static str> {
+        // In production, would verify cross-chain proof
+        // This is a stub for the interface
+        Ok(0)
+    }
+    
+    /// Get bridge statistics
+    pub fn get_bridge_stats(&self) -> BridgeStats {
+        let bridge_balance = self.balance_of("bridge_contract");
+        BridgeStats {
+            total_locked: bridge_balance,
+            total_bridged_out: 0,
+            total_bridged_in: 0,
+            active_locks: 0,
+        }
+    }
+    
+    /// Calculate bridge fee for cross-chain transfer
+    pub fn calculate_bridge_fee(&self, amount: u64, target_chain: &str) -> u64 {
+        let base_fee = (amount as f64 * 0.005) as u64; // 0.5% base fee
+        let chain_multiplier = match target_chain {
+            "ethereum" => 1.5,
+            "bsc" => 1.2,
+            "polygon" => 1.0,
+            "solana" => 1.3,
+            _ => 1.0,
+        };
+        (base_fee as f64 * chain_multiplier) as u64
+    }
+    
+    /// Wrapped FLUX mint (for bridged-in tokens)
+    pub fn mint_wrapped_flux(&mut self, to: &str, amount: u64, source_chain: &str) -> Result<(), &'static str> {
+        // Mint wrapped FLUX on AeTHer Chain
+        *self.balances.entry(to.to_string()).or_insert(0) += amount;
+        self.total_supply += amount;
+        Ok(())
+    }
+    
+    /// Burn wrapped FLUX (for bridging out)
+    pub fn burn_wrapped_flux(&mut self, from: &str, amount: u64) -> Result<(), &'static str> {
+        self.burn(from, amount)?;
+        Ok(())
+    }
+    
+    /// Get liquidity pool info
+    pub fn get_liquidity_pool_info(&self, pool_id: &str) -> LiquidityPoolInfo {
+        let pool_balance = self.balance_of(&format!("pool_{}", pool_id));
+        LiquidityPoolInfo {
+            pool_id: pool_id.to_string(),
+            total_liquidity: pool_balance,
+            apr: 0.12, // 12% base APR
+            volume_24h: 0,
+            fees_24h: 0,
+        }
+    }
+    
+    /// Add liquidity to pool
+    pub fn add_liquidity(&mut self, provider: &str, pool_id: &str, amount: u64) -> Result<LiquidityReceipt, &'static str> {
+        let balance = self.balance_of(provider);
+        if balance < amount {
+            return Err("Insufficient balance");
+        }
+        
+        self.transfer(provider, &format!("pool_{}", pool_id), amount)?;
+        
+        Ok(LiquidityReceipt {
+            receipt_id: format!("liq_{}_{}_{}", provider, pool_id, self.circulating_supply),
+            provider: provider.to_string(),
+            pool_id: pool_id.to_string(),
+            amount,
+            lp_tokens_issued: amount, // 1:1 for simplicity
+        })
+    }
+    
+    /// Remove liquidity from pool
+    pub fn remove_liquidity(&mut self, provider: &str, pool_id: &str, lp_amount: u64) -> Result<u64, &'static str> {
+        // In production, would calculate share of pool
+        Ok(lp_amount)
+    }
+    
+    /// Calculate impermanent loss for liquidity provider
+    pub fn calculate_impermanent_loss(&self, initial_price_ratio: f64, current_price_ratio: f64, initial_value: f64) -> f64 {
+        let sqrt_ratio = (current_price_ratio / initial_price_ratio).sqrt();
+        let il = 2.0 * sqrt_ratio / (1.0 + sqrt_ratio) - 1.0;
+        il * initial_value
+    }
+    
+    /// Get token economics dashboard data
+    pub fn get_economics_dashboard(&self) -> EconomicsDashboard {
+        let holder_dist = self.get_holder_distribution();
+        let treasury_health = self.get_treasury_health();
+        let liquidity_score = self.calculate_liquidity_score();
+        
+        EconomicsDashboard {
+            supply_metrics: self.get_token_economics_summary(),
+            holder_metrics: holder_dist,
+            treasury_metrics: treasury_health,
+            liquidity_metrics: liquidity_score,
+            timestamp: self.circulating_supply, // Proxy for timestamp
+        }
+    }
+    
+    /// Emergency pause function (governance only)
+    pub fn emergency_pause(&mut self, reason: &str) -> EmergencyPause {
+        self.minting_enabled = false;
+        EmergencyPause {
+            paused_at: self.circulating_supply,
+            reason: reason.to_string(),
+            transfers_enabled: true,
+            burns_enabled: true,
+        }
+    }
+    
+    /// Unpause after emergency
+    pub fn emergency_unpause(&mut self) {
+        self.minting_enabled = true;
+    }
+    
+    /// Get circulating supply excluding locked/bridged amounts
+    pub fn get_true_circulating_supply(&self, locked_amount: u64, bridged_amount: u64) -> u64 {
+        self.circulating_supply.saturating_sub(locked_amount).saturating_sub(bridged_amount)
+    }
+    
+    /// Calculate fully diluted market cap at given price
+    pub fn calculate_fully_diluted_valuation(&self, price_usd: f64) -> f64 {
+        self.total_supply as f64 * price_usd
+    }
+    
+    /// Get token holder concentration risk assessment
+    pub fn assess_concentration_risk(&self) -> ConcentrationRisk {
+        let holder_dist = self.get_holder_distribution();
+        let top_10_pct = holder_dist.top_10_concentration * 100.0;
+        
+        ConcentrationRisk {
+            risk_level: if top_10_pct > 50.0 { "High" }
+                       else if top_10_pct > 30.0 { "Medium" }
+                       else { "Low" }.to_string(),
+            top_10_percentage: top_10_pct,
+            top_50_percentage: holder_dist.top_50_concentration * 100.0,
+            top_100_percentage: holder_dist.top_100_concentration * 100.0,
+            recommendation: if top_10_pct > 50.0 {
+                "Consider incentives for broader distribution".to_string()
+            } else {
+                "Distribution within acceptable range".to_string()
+            },
+        }
+    }
+}
+
+/// Economics scenario for simulation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum EconomicsScenario {
+    HighAdoption { tx_growth: f64, user_growth: f64 },
+    LowAdoption { tx_decline: f64, user_decline: f64 },
+}
+
+/// Economics simulation result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EconomicsSimulation {
+    pub final_supply: u64,
+    pub final_burned: u64,
+    pub final_minted: u64,
+}
+
+/// Bridge lock receipt
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BridgeLockReceipt {
+    pub lock_id: String,
+    pub source_chain: String,
+    pub target_chain: String,
+    pub amount: u64,
+    pub locked_at: u64,
+    pub status: String,
+}
+
+/// Bridge statistics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BridgeStats {
+    pub total_locked: u64,
+    pub total_bridged_out: u64,
+    pub total_bridged_in: u64,
+    pub active_locks: u64,
+}
+
+/// Liquidity pool information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LiquidityPoolInfo {
+    pub pool_id: String,
+    pub total_liquidity: u64,
+    pub apr: f64,
+    pub volume_24h: u64,
+    pub fees_24h: u64,
+}
+
+/// Liquidity receipt
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LiquidityReceipt {
+    pub receipt_id: String,
+    pub provider: String,
+    pub pool_id: String,
+    pub amount: u64,
+    pub lp_tokens_issued: u64,
+}
+
+/// Fee distribution result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FeeDistribution {
+    pub total_fee: u64,
+    pub treasury_amount: u64,
+    pub validator_amount: u64,
+    pub treasury_share: f64,
+}
+
+/// Token economics summary
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenEconomicsSummary {
+    pub total_supply: u64,
+    pub circulating_supply: u64,
+    pub burned_supply: u64,
+    pub minted_amount: u64,
+    pub mint_cap_remaining: u64,
+    pub inflation_rate: f64,
+    pub burn_rate: f64,
+    pub holder_count: usize,
+}
+
+/// Vesting status
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VestingStatus {
+    pub vested_amount: u64,
+    pub locked_amount: u64,
+    pub vested_percentage: f64,
+    pub epochs_until_cliff: u64,
+    pub status: String,
+}
+
+/// Liquidity score
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LiquidityScore {
+    pub overall_score: f64,
+    pub decentralization_score: f64,
+    pub holder_score: f64,
+    pub velocity_score: f64,
+    pub status: String,
+}
+
+/// Fee tier recommendation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FeeTierRecommendation {
+    pub tier: String,
+    pub reason: String,
+    pub discount_rate: f64,
+    pub estimated_savings_percent: f64,
+}
+
+/// Deflationary pressure metrics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeflationaryPressure {
+    pub burn_ratio: f64,
+    pub mint_ratio: f64,
+    pub net_pressure: f64,
+    pub trend: String,
+}
+
+/// Treasury health metrics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TreasuryHealth {
+    pub treasury_balance: u64,
+    pub mining_balance: u64,
+    pub ecosystem_balance: u64,
+    pub total_reserved: u64,
+    pub treasury_ratio: f64,
+    pub runway_score: f64,
+}
+
+/// Token utility score
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UtilityScore {
+    pub overall_score: f64,
+    pub tx_velocity: f64,
+    pub adoption_score: f64,
+    pub active_addresses: u64,
+    pub status: String,
+}
+
+/// Airdrop result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AirdropResult {
+    pub total_amount: u64,
+    pub successful: u64,
+    pub failed: u64,
+    pub errors: Vec<(String, String)>,
+}
+
+/// Emergency pause state
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EmergencyPause {
+    pub paused_at: u64,
+    pub reason: String,
+    pub transfers_enabled: bool,
+    pub burns_enabled: bool,
+}
+
+/// Concentration risk assessment
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConcentrationRisk {
+    pub risk_level: String,
+    pub top_10_percentage: f64,
+    pub top_50_percentage: f64,
+    pub top_100_percentage: f64,
+    pub recommendation: String,
+}
+
+/// Economics dashboard data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EconomicsDashboard {
+    pub supply_metrics: TokenEconomicsSummary,
+    pub holder_metrics: HolderDistribution,
+    pub treasury_metrics: TreasuryHealth,
+    pub liquidity_metrics: LiquidityScore,
+    pub timestamp: u64,
+}
+
         if self.minted_amount + amount > self.mint_cap {
             return Err("Mint cap exceeded");
         }
