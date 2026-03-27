@@ -103,6 +103,41 @@ pub struct GovernanceContract {
     pub quorum_percent: f64,
     pub threshold_percent: f64,
     pub timelock_epochs: u64,
+    pub conviction_voting_enabled: bool,
+    pub delegation_enabled: bool,
+}
+
+/// Mining contract with halving and bonus mechanics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiningContract {
+    pub contract_address: String,
+    pub version: String,
+    pub total_miners: u64,
+    pub total_flux_minted: u64,
+    pub base_reward_per_epoch: u64,
+    pub halving_interval_epochs: u64,
+    pub current_halving: u64,
+    pub miners: HashMap<String, MinerState>,
+    pub bonus_pool: u64,
+    pub early_adopter_cutoff_epoch: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MinerState {
+    pub miner_id: String,
+    pub device_tier: u8, // 0=Mobile, 1=Laptop, 2=Desktop, 3=Server
+    pub ram_gb: u32,
+    pub cpu_cores: u32,
+    pub uptime_percentage: f64,
+    pub contribution_score: f64,
+    pub epochs_mined: u64,
+    pub total_rewards_earned: u64,
+    pub pending_rewards: u64,
+    pub last_claim_epoch: u64,
+    pub is_active: bool,
+    pub registered_epoch: u64,
+    pub consecutive_epochs: u64,
+    pub loyalty_multiplier: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -140,6 +175,8 @@ impl GovernanceContract {
             quorum_percent: 10.0, // 10% of total stake
             threshold_percent: 50.0, // Simple majority
             timelock_epochs: 48, // 48 hour timelock
+            conviction_voting_enabled: false,
+            delegation_enabled: true,
         }
     }
     
@@ -219,6 +256,171 @@ pub enum Vote {
     For,
     Against,
     Abstain,
+}
+
+// =============================================================================
+// MINING CONTRACT IMPLEMENTATION
+// =============================================================================
+
+impl MiningContract {
+    pub fn new() -> Self {
+        MiningContract {
+            contract_address: "0xMiningContract".to_string(),
+            version: "2.0.0".to_string(),
+            total_miners: 0,
+            total_flux_minted: 0,
+            base_reward_per_epoch: 10_000_000, // 0.1 FLUX
+            halving_interval_epochs: 43_800, // ~5 years
+            current_halving: 0,
+            miners: HashMap::new(),
+            bonus_pool: 1_000_000_000, // 10 FLUX bonus pool
+            early_adopter_cutoff_epoch: 8760, // First year
+        }
+    }
+    
+    pub fn register_miner(&mut self, miner_id: String, ram_gb: u32, cpu_cores: u32, current_epoch: u64) -> Result<(), &'static str> {
+        if self.miners.contains_key(&miner_id) {
+            return Err("Miner already registered");
+        }
+        
+        let device_tier = if ram_gb < 4 {
+            0 // Mobile
+        } else if ram_gb < 16 {
+            1 // Laptop
+        } else if ram_gb < 64 {
+            2 // Desktop
+        } else {
+            3 // Server
+        };
+        
+        let miner = MinerState {
+            miner_id: miner_id.clone(),
+            device_tier,
+            ram_gb,
+            cpu_cores,
+            uptime_percentage: 100.0,
+            contribution_score: 0.5,
+            epochs_mined: 0,
+            total_rewards_earned: 0,
+            pending_rewards: 0,
+            last_claim_epoch: current_epoch,
+            is_active: true,
+            registered_epoch: current_epoch,
+            consecutive_epochs: 0,
+            loyalty_multiplier: 1.0,
+        };
+        
+        self.miners.insert(miner_id, miner);
+        self.total_miners += 1;
+        Ok(())
+    }
+    
+    pub fn calculate_halving_factor(&self, registered_epoch: u64) -> f64 {
+        let epochs_since_start = registered_epoch;
+        let halvings = epochs_since_start / self.halving_interval_epochs;
+        0.5_f64.powi(halvings as i32)
+    }
+    
+    pub fn calculate_loyalty_multiplier(&self, epochs_mined: u64) -> f64 {
+        // Increases with epochs, caps at 1.5x
+        1.0 + (epochs_mined as f64 / 1000.0).min(0.5)
+    }
+    
+    pub fn calculate_epoch_reward(&self, miner: &MinerState) -> u64 {
+        if !miner.is_active {
+            return 0;
+        }
+        
+        let base = self.base_reward_per_epoch as f64;
+        
+        // Device tier multiplier
+        let tier_mult = match miner.device_tier {
+            0 => 1.0,   // Mobile
+            1 => 2.5,   // Laptop
+            2 => 5.0,   // Desktop
+            3 => 10.0,  // Server
+            _ => 1.0,
+        };
+        
+        // Halving factor
+        let halving_factor = self.calculate_halving_factor(miner.registered_epoch);
+        
+        // Loyalty bonus
+        let loyalty_mult = self.calculate_loyalty_multiplier(miner.epochs_mined);
+        
+        // Early adopter bonus
+        let early_adopter_bonus = if miner.registered_epoch < self.early_adopter_cutoff_epoch {
+            1.5
+        } else {
+            1.0
+        };
+        
+        // Contribution bonus
+        let contribution_bonus = 1.0 + (miner.contribution_score * 0.5);
+        
+        let reward = base * tier_mult * halving_factor * loyalty_mult * early_adopter_bonus * contribution_bonus;
+        reward as u64
+    }
+    
+    pub fn claim_rewards(&mut self, miner_id: &str, current_epoch: u64) -> Result<u64, &'static str> {
+        let miner = self.miners.get_mut(miner_id)
+            .ok_or("Miner not found")?;
+        
+        let epochs_since_claim = current_epoch - miner.last_claim_epoch;
+        let reward = self.calculate_epoch_reward(miner) * epochs_since_claim;
+        
+        miner.pending_rewards += reward;
+        miner.total_rewards_earned += reward;
+        miner.epochs_mined += epochs_since_claim;
+        miner.last_claim_epoch = current_epoch;
+        miner.loyalty_multiplier = self.calculate_loyalty_multiplier(miner.epochs_mined);
+        
+        self.total_flux_minted += reward;
+        
+        Ok(reward)
+    }
+    
+    pub fn update_miner_uptime(&mut self, miner_id: &str, uptime_percent: f64) -> Result<(), &'static str> {
+        let miner = self.miners.get_mut(miner_id)
+            .ok_or("Miner not found")?;
+        
+        miner.uptime_percentage = uptime_percent;
+        
+        // Track consecutive epochs for bonus
+        if uptime_percent >= 99.0 {
+            miner.consecutive_epochs += 1;
+        } else {
+            miner.consecutive_epochs = 0;
+        }
+        
+        Ok(())
+    }
+    
+    pub fn get_miner(&self, miner_id: &str) -> Option<&MinerState> {
+        self.miners.get(miner_id)
+    }
+    
+    pub fn get_active_miners(&self) -> Vec<&MinerState> {
+        self.miners.values()
+            .filter(|m| m.is_active)
+            .collect()
+    }
+    
+    pub fn get_total_hashrate(&self) -> u64 {
+        self.miners.values()
+            .filter(|m| m.is_active)
+            .map(|m| {
+                let tier_mult = match m.device_tier {
+                    0 => 1,
+                    1 => 2,
+                    2 => 5,
+                    3 => 10,
+                    _ => 1,
+                };
+                (m.cpu_cores as u64) * tier_mult
+            })
+            .sum()
+    }
 }
 
 // =============================================================================
