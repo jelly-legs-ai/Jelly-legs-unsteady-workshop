@@ -1947,6 +1947,248 @@ pub struct OptimalMiningConfig {
     pub projected_apy_increase: f64,
 }
 
+// =============================================================================
+// SPRINT 10: Cross-Chain Staking & Liquid Staking Derivatives
+// =============================================================================
+
+/// Cross-chain staking position for bridged assets
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CrossChainStake {
+    pub stake_id: String,
+    pub owner: String,
+    pub source_chain: String,      // e.g., "ethereum", "bsc", "polygon"
+    pub destination_chain: String,  // e.g., "aether"
+    pub amount: u64,
+    pub wrapped_amount: u64,       // Amount of wrapped tokens received
+    pub start_epoch: u64,
+    pub lock_end_epoch: u64,
+    pub bridge_fee_paid: u64,
+    pub status: CrossChainStakeStatus,
+}
+
+/// Cross-chain stake status
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum CrossChainStakeStatus {
+    PendingBridge,
+    Bridging,
+    Active,
+    Unbonding,
+    Completed,
+    Failed,
+}
+
+/// Liquid staking derivative token (stAETH, stFLUX, stATH)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LiquidStakingToken {
+    pub token_symbol: String,      // e.g., "stAETH", "stFLUX"
+    pub underlying_token: TokenType,
+    pub total_supply: u64,
+    pub total_staked: u64,
+    pub exchange_rate: f64,         // 1 stToken = X underlying (increases with rewards)
+    pub initial_exchange_rate: f64,
+    pub last_reward_epoch: u64,
+    pub accumulated_rewards: u64,
+    pub fee_rate: f64,              // Protocol fee on rewards (e.g., 0.1 = 10%)
+}
+
+impl LiquidStakingToken {
+    pub fn new(symbol: &str, token: TokenType, initial_rate: f64) -> Self {
+        Self {
+            token_symbol: symbol.to_string(),
+            underlying_token: token,
+            total_supply: 0,
+            total_staked: 0,
+            exchange_rate: initial_rate,
+            initial_exchange_rate: initial_rate,
+            last_reward_epoch: 0,
+            accumulated_rewards: 0,
+            fee_rate: 0.1,
+        }
+    }
+    
+    /// Calculate amount of underlying tokens received for staking
+    pub fn stake(&mut self, amount: u64) -> u64 {
+        let mint_amount = (amount as f64 / self.exchange_rate) as u64;
+        self.total_supply += mint_amount;
+        self.total_staked += amount;
+        mint_amount
+    }
+    
+    /// Calculate amount of underlying tokens received for unstaking
+    pub fn unstake(&mut self, stoken_amount: u64) -> Result<u64, &'static str> {
+        if stoken_amount > self.total_supply {
+            return Err("Insufficient liquid staking token supply");
+        }
+        
+        let underlying_amount = (stoken_amount as f64 * self.exchange_rate) as u64;
+        self.total_supply -= stoken_amount;
+        self.total_staked = self.total_staked.saturating_sub(underlying_amount);
+        Ok(underlying_amount)
+    }
+    
+    /// Update exchange rate based on accumulated rewards
+    pub fn update_exchange_rate(&mut self, new_rewards: u64) {
+        self.accumulated_rewards += new_rewards;
+        let fee = (new_rewards as f64 * self.fee_rate) as u64;
+        let net_rewards = new_rewards - fee;
+        
+        if self.total_staked > 0 {
+            let new_rate = (self.total_staked + net_rewards) as f64 / self.total_supply.max(1) as f64;
+            self.exchange_rate = new_rate.max(self.initial_exchange_rate);
+        }
+    }
+    
+    /// Get APY for liquid staking token
+    pub fn get_apy(&self, epochs_per_year: u64) -> f64 {
+        if self.total_staked == 0 || self.last_reward_epoch == 0 {
+            return 0.0;
+        }
+        
+        let reward_rate = self.accumulated_rewards as f64 / self.total_staked as f64;
+        reward_rate * epochs_per_year as f64 * 100.0
+    }
+}
+
+/// Liquid staking position
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LiquidStakingPosition {
+    pub owner: String,
+    pub stoken_symbol: String,
+    pub stoken_amount: u64,
+    pub underlying_value: u64,
+    pub staked_epoch: u64,
+    pub claimable_rewards: u64,
+}
+
+/// Delegation voucher for transferable staking position
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DelegationVoucher {
+    pub voucher_id: String,
+    pub owner: String,
+    pub validator: String,
+    pub staked_amount: u64,
+    pub maturity_epoch: u64,
+    pub transferable: bool,
+    pub current_owner: String,
+    pub transfer_history: Vec<(String, String, u64)>, // (from, to, epoch)
+}
+
+/// Staking bond for institutional stakers
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StakingBond {
+    pub bond_id: String,
+    pub issuer: String,
+    pub principal: u64,
+    pub term_epochs: u64,
+    pub coupon_rate: f64,          // Periodic reward rate
+    pub start_epoch: u64,
+    pub maturity_epoch: u64,
+    pub coupons_paid: u64,
+    pub is_redeemable: bool,
+    pub collateral_token: TokenType,
+}
+
+impl StakingBond {
+    pub fn new(issuer: &str, principal: u64, term_epochs: u64, coupon_rate: f64, collateral: TokenType) -> Self {
+        Self {
+            bond_id: format!("bond_{}_{}", issuer, principal),
+            issuer: issuer.to_string(),
+            principal,
+            term_epochs,
+            coupon_rate,
+            start_epoch: 0,
+            maturity_epoch: 0,
+            coupons_paid: 0,
+            is_redeemable: false,
+            collateral_token: collateral,
+        }
+    }
+    
+    pub fn activate(&mut self, current_epoch: u64) {
+        self.start_epoch = current_epoch;
+        self.maturity_epoch = current_epoch + self.term_epochs;
+        self.is_redeemable = false;
+    }
+    
+    pub fn pay_coupon(&mut self, amount: u64) {
+        self.coupons_paid += amount;
+    }
+    
+    pub fn redeem(&mut self) -> Result<u64, &'static str> {
+        if !self.is_redeemable {
+            return Err("Bond not yet redeemable");
+        }
+        Ok(self.principal)
+    }
+}
+
+/// Staking derivatives pool for trading staked positions
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StakingDerivativesPool {
+    pub pool_id: String,
+    pub name: String,
+    pub underlying_token: TokenType,
+    pub total_pool_value: u64,
+    pub share_count: u64,
+    pub positions: Vec<DerivativePosition>,
+    pub fee_rate: f64,
+    pub performance_fee: f64,
+}
+
+/// Derivative position in staking pool
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DerivativePosition {
+    pub owner: String,
+    pub shares: u64,
+    pub entry_value: u64,
+    pub entry_epoch: u64,
+    pub claimable_rewards: u64,
+}
+
+/// Staking options contract (call/put on staking rewards)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StakingOption {
+    pub option_id: String,
+    pub holder: String,
+    pub option_type: OptionType,
+    pub underlying_pool: String,
+    pub strike_reward_rate: f64,
+    pub premium_paid: u64,
+    pub expiration_epoch: u64,
+    pub exercised: bool,
+    pub notional_value: u64,
+}
+
+/// Option type enum
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum OptionType {
+    Call,   // Right to receive higher rewards
+    Put,    // Right to protect against lower rewards
+}
+
+/// Staking insurance policy
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StakingInsurance {
+    pub policy_id: String,
+    pub insured: String,
+    pub covered_amount: u64,
+    pub coverage_type: InsuranceCoverageType,
+    pub premium_per_epoch: u64,
+    pub start_epoch: u64,
+    pub end_epoch: u64,
+    pub claims_made: u64,
+    pub is_active: bool,
+}
+
+/// Insurance coverage types
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum InsuranceCoverageType {
+    SlashingProtection,      // Cover validator slashing losses
+    SmartContractRisk,       // Cover contract exploit losses
+    StableYield,             // Guarantee minimum APY
+    PrincipalProtection,     // Protect principal amount
+}
+
 /// Auto-compound configuration for staking
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutoCompoundConfig {
