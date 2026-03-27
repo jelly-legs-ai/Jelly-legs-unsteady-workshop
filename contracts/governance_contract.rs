@@ -527,6 +527,627 @@ pub struct ProposalResults {
     pub total_voters: u64,
 }
 
+// =============================================================================
+// SPRINT 11: Advanced Governance Mechanisms & Treasury Management
+// =============================================================================
+
+/// Timelock mechanism for delayed execution
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Timelock {
+    pub timelock_id: String,
+    pub proposal_id: String,
+    pub executor: String,
+    pub delay_epochs: u64,
+    pub ready_at_epoch: u64,
+    pub executed: bool,
+    pub execution_epoch: Option<u64>,
+    pub cancelled: bool,
+}
+
+impl Timelock {
+    pub fn new(proposal_id: &str, executor: &str, delay_epochs: u64, current_epoch: u64) -> Self {
+        Self {
+            timelock_id: format!("timelock_{}_{}", proposal_id, current_epoch),
+            proposal_id: proposal_id.to_string(),
+            executor: executor.to_string(),
+            delay_epochs,
+            ready_at_epoch: current_epoch + delay_epochs,
+            executed: false,
+            execution_epoch: None,
+            cancelled: false,
+        }
+    }
+    
+    pub fn can_execute(&self, current_epoch: u64) -> bool {
+        !self.executed && !self.cancelled && current_epoch >= self.ready_at_epoch
+    }
+    
+    pub fn execute(&mut self, current_epoch: u64) -> Result<(), &'static str> {
+        if !self.can_execute(current_epoch) {
+            return Err("Timelock not ready");
+        }
+        self.executed = true;
+        self.execution_epoch = Some(current_epoch);
+        Ok(())
+    }
+    
+    pub fn cancel(&mut self) {
+        self.cancelled = true;
+    }
+}
+
+/// Multi-sig wallet for governance treasury
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MultiSigWallet {
+    pub wallet_id: String,
+    pub name: String,
+    pub signers: Vec<String>,
+    pub threshold: u64,  // Required signatures for execution
+    pub pending_transactions: Vec<MultiSigTransaction>,
+    pub executed_transactions: Vec<MultiSigTransaction>,
+    pub treasury_balance: HashMap<TokenType, u64>,
+}
+
+impl MultiSigWallet {
+    pub fn new(wallet_id: &str, name: &str, signers: Vec<String>, threshold: u64) -> Self {
+        Self {
+            wallet_id: wallet_id.to_string(),
+            name: name.to_string(),
+            signers,
+            threshold,
+            pending_transactions: Vec::new(),
+            executed_transactions: Vec::new(),
+            treasury_balance: HashMap::new(),
+        }
+    }
+    
+    pub fn submit_transaction(&mut self, submitter: &str, recipient: &str, amount: u64, token: TokenType) -> Result<u64, &'static str> {
+        if !self.signers.contains(&submitter.to_string()) {
+            return Err("Not a signer");
+        }
+        
+        let tx_id = self.pending_transactions.len() as u64;
+        let tx = MultiSigTransaction {
+            tx_id,
+            submitter: submitter.to_string(),
+            recipient: recipient.to_string(),
+            amount,
+            token,
+            signatures: vec![submitter.to_string()],
+            executed: false,
+            submitted_at: 0,
+        };
+        
+        self.pending_transactions.push(tx);
+        Ok(tx_id)
+    }
+    
+    pub fn sign_transaction(&mut self, tx_id: u64, signer: &str) -> Result<(), &'static str> {
+        if !self.signers.contains(&signer.to_string()) {
+            return Err("Not a signer");
+        }
+        
+        let tx = self.pending_transactions.get_mut(tx_id as usize)
+            .ok_or("Transaction not found")?;
+        
+        if tx.signatures.contains(&signer.to_string()) {
+            return Err("Already signed");
+        }
+        
+        tx.signatures.push(signer.to_string());
+        Ok(())
+    }
+    
+    pub fn execute_transaction(&mut self, tx_id: u64) -> Result<(), &'static str> {
+        let tx = self.pending_transactions.get_mut(tx_id as usize)
+            .ok_or("Transaction not found")?;
+        
+        if tx.signatures.len() < self.threshold as usize {
+            return Err("Insufficient signatures");
+        }
+        
+        if tx.executed {
+            return Err("Already executed");
+        }
+        
+        let balance = self.treasury_balance.get(&tx.token).copied().unwrap_or(0);
+        if balance < tx.amount {
+            return Err("Insufficient treasury balance");
+        }
+        
+        *self.treasury_balance.get_mut(&tx.token).unwrap() -= tx.amount;
+        tx.executed = true;
+        
+        let executed_tx = self.pending_transactions.remove(tx_id as usize);
+        self.executed_transactions.push(executed_tx);
+        
+        Ok(())
+    }
+}
+
+/// Multi-sig transaction
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MultiSigTransaction {
+    pub tx_id: u64,
+    pub submitter: String,
+    pub recipient: String,
+    pub amount: u64,
+    pub token: TokenType,
+    pub signatures: Vec<String>,
+    pub executed: bool,
+    pub submitted_at: u64,
+}
+
+/// Proposal category for organization
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum ProposalCategory {
+    ProtocolUpgrade,
+    TreasuryManagement,
+    ParameterChange,
+    CommunityGrant,
+    SecurityPatch,
+    GovernanceChange,
+    Partnership,
+    Other,
+}
+
+/// Proposal tags for filtering
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProposalTags {
+    pub category: ProposalCategory,
+    pub priority: Priority,
+    pub tags: Vec<String>,
+    pub risk_level: RiskLevel,
+}
+
+/// Priority levels
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum Priority {
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
+/// Risk assessment levels
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum RiskLevel {
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
+/// Voting power snapshot at specific epoch
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VotingPowerSnapshot {
+    pub address: String,
+    pub epoch: u64,
+    pub own_power: u64,
+    pub delegated_power: u64,
+    pub total_power: u64,
+    pub delegations_count: u64,
+}
+
+/// Conviction voting (time-weighted voting power)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConvictionVote {
+    pub voter: String,
+    pub proposal_id: String,
+    pub choice: VoteChoice,
+    pub locked_tokens: u64,
+    pub lock_start_epoch: u64,
+    pub lock_end_epoch: u64,
+    pub conviction_score: f64,
+}
+
+impl ConvictionVote {
+    /// Calculate conviction score based on lock duration
+    pub fn calculate_conviction(&self, current_epoch: u64) -> f64 {
+        let epochs_locked = current_epoch.saturating_sub(self.lock_start_epoch);
+        // Conviction formula: tokens * sqrt(epochs_locked)
+        self.locked_tokens as f64 * (epochs_locked as f64).sqrt() / 100.0
+    }
+}
+
+/// Governance treasury with budget allocation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GovernanceTreasury {
+    pub total_balance: HashMap<TokenType, u64>,
+    pub allocated_budgets: HashMap<String, Budget>,
+    pub spending_history: Vec<TreasurySpend>,
+    pub budget_cycles: Vec<BudgetCycle>,
+}
+
+impl GovernanceTreasury {
+    pub fn new() -> Self {
+        Self {
+            total_balance: HashMap::new(),
+            allocated_budgets: HashMap::new(),
+            spending_history: Vec::new(),
+            budget_cycles: Vec::new(),
+        }
+    }
+    
+    pub fn create_budget(&mut self, name: &str, amount: u64, token: TokenType, epochs: u64) -> Result<(), &'static str> {
+        let balance = self.total_balance.get(&token).copied().unwrap_or(0);
+        if balance < amount {
+            return Err("Insufficient treasury balance");
+        }
+        
+        let budget = Budget {
+            name: name.to_string(),
+            amount,
+            token,
+            remaining: amount,
+            start_epoch: 0,
+            end_epoch: 0,
+            spent: 0,
+        };
+        
+        self.allocated_budgets.insert(name.to_string(), budget);
+        Ok(())
+    }
+    
+    pub fn spend(&mut self, budget_name: &str, recipient: &str, amount: u64, reason: &str) -> Result<(), &'static str> {
+        let budget = self.allocated_budgets.get_mut(budget_name)
+            .ok_or("Budget not found")?;
+        
+        if budget.remaining < amount {
+            return Err("Insufficient budget remaining");
+        }
+        
+        budget.remaining -= amount;
+        budget.spent += amount;
+        
+        self.spending_history.push(TreasurySpend {
+            budget_name: budget_name.to_string(),
+            recipient: recipient.to_string(),
+            amount,
+            token: budget.token.clone(),
+            reason: reason.to_string(),
+            epoch: 0,
+        });
+        
+        Ok(())
+    }
+    
+    pub fn get_budget_utilization(&self, budget_name: &str) -> Option<BudgetUtilization> {
+        self.allocated_budgets.get(budget_name).map(|b| {
+            BudgetUtilization {
+                name: b.name.clone(),
+                total: b.amount,
+                spent: b.spent,
+                remaining: b.remaining,
+                utilization_percent: (b.spent as f64 / b.amount as f64) * 100.0,
+            }
+        })
+    }
+}
+
+/// Budget allocation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Budget {
+    pub name: String,
+    pub amount: u64,
+    pub token: TokenType,
+    pub remaining: u64,
+    pub start_epoch: u64,
+    pub end_epoch: u64,
+    pub spent: u64,
+}
+
+/// Budget cycle (quarterly, annually, etc.)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BudgetCycle {
+    pub cycle_id: String,
+    pub name: String,
+    pub start_epoch: u64,
+    pub end_epoch: u64,
+    pub total_budget: HashMap<TokenType, u64>,
+    pub actual_spending: HashMap<TokenType, u64>,
+}
+
+/// Treasury spend record
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TreasurySpend {
+    pub budget_name: String,
+    pub recipient: String,
+    pub amount: u64,
+    pub token: TokenType,
+    pub reason: String,
+    pub epoch: u64,
+}
+
+/// Budget utilization metrics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BudgetUtilization {
+    pub name: String,
+    pub total: u64,
+    pub spent: u64,
+    pub remaining: u64,
+    pub utilization_percent: f64,
+}
+
+/// Proposal discussion comment
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProposalComment {
+    pub comment_id: String,
+    pub proposal_id: String,
+    pub author: String,
+    pub content: String,
+    pub timestamp: u64,
+    pub upvotes: u64,
+    pub downvotes: u64,
+    pub parent_comment_id: Option<String>,
+    pub edited: bool,
+}
+
+/// Governance analytics dashboard
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GovernanceAnalytics {
+    pub total_proposals: u64,
+    pub active_proposals: u64,
+    pub passed_proposals: u64,
+    pub failed_proposals: u64,
+    pub total_voters: u64,
+    pub average_participation: f64,
+    pub total_delegations: u64,
+    pub treasury_balance: HashMap<TokenType, u64>,
+    pub top_delegates: Vec<(String, u64)>,
+    pub proposal_categories: HashMap<ProposalCategory, u64>,
+}
+
+/// Voter participation metrics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VoterMetrics {
+    pub address: String,
+    pub proposals_voted: u64,
+    pub proposals_created: u64,
+    pub delegation_count: u64,
+    pub voting_power: u64,
+    pub conviction_score: f64,
+    pub governance_rank: u64,
+}
+
+/// Governance notification settings
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GovernanceNotification {
+    pub user: String,
+    pub notify_on_new_proposal: bool,
+    pub notify_on_voting_end: bool,
+    pub notify_on_execution: bool,
+    pub notify_on_delegation: bool,
+    pub channels: Vec<String>,  // email, discord, telegram, etc.
+}
+
+/// Extended governance contract with advanced features
+impl GovernanceContract {
+    /// Create timelock for proposal execution
+    pub fn create_timelock(&mut self, proposal_id: &str, executor: &str, delay_epochs: u64) -> Result<Timelock, &'static str> {
+        let proposal = self.proposals.get(proposal_id)
+            .ok_or("Proposal not found")?;
+        
+        if proposal.status != ProposalStatus::Passed {
+            return Err("Proposal must be passed to create timelock");
+        }
+        
+        let timelock = Timelock::new(proposal_id, executor, delay_epochs, self.proposal_counter);
+        Ok(timelock)
+    }
+    
+    /// Execute timelocked proposal
+    pub fn execute_timelocked(&mut self, timelock_id: &str, current_epoch: u64) -> Result<(), &'static str> {
+        // In production, would look up timelock from storage
+        // This is a stub for the interface
+        Ok(())
+    }
+    
+    /// Create multi-sig treasury wallet
+    pub fn create_multisig_wallet(&mut self, name: &str, signers: Vec<String>, threshold: u64) -> Result<MultiSigWallet, &'static str> {
+        if threshold > signers.len() as u64 {
+            return Err("Threshold cannot exceed signer count");
+        }
+        
+        let wallet = MultiSigWallet::new(
+            &format!("multisig_{}_{}", name, self.total_proposals),
+            name,
+            signers,
+            threshold,
+        );
+        
+        Ok(wallet)
+    }
+    
+    /// Get proposal by category
+    pub fn get_proposals_by_category(&self, category: &ProposalCategory) -> Vec<&Proposal> {
+        // In production, would have category index
+        self.proposals.values().collect()
+    }
+    
+    /// Create voting power snapshot
+    pub fn create_snapshot(&self, address: &str, epoch: u64) -> VotingPowerSnapshot {
+        let own_power = 0u64; // Would query token balance
+        let delegated_power = self.get_delegated_power(address);
+        
+        VotingPowerSnapshot {
+            address: address.to_string(),
+            epoch,
+            own_power,
+            delegated_power,
+            total_power: own_power + delegated_power,
+            delegations_count: self.delegates.get(address).map(|d| d.len() as u64).unwrap_or(0),
+        }
+    }
+    
+    /// Submit conviction vote (time-locked voting)
+    pub fn submit_conviction_vote(
+        &mut self,
+        proposal_id: &str,
+        voter: &str,
+        choice: VoteChoice,
+        locked_tokens: u64,
+        lock_epochs: u64,
+    ) -> Result<ConvictionVote, &'static str> {
+        let proposal = self.proposals.get(proposal_id)
+            .ok_or("Proposal not found")?;
+        
+        let vote = ConvictionVote {
+            voter: voter.to_string(),
+            proposal_id: proposal_id.to_string(),
+            choice,
+            locked_tokens,
+            lock_start_epoch: self.proposal_counter,
+            lock_end_epoch: self.proposal_counter + lock_epochs,
+            conviction_score: 0.0,
+        };
+        
+        Ok(vote)
+    }
+    
+    /// Add comment to proposal
+    pub fn add_proposal_comment(
+        &mut self,
+        proposal_id: &str,
+        author: &str,
+        content: &str,
+        parent_comment_id: Option<String>,
+    ) -> Result<ProposalComment, &'static str> {
+        let comment = ProposalComment {
+            comment_id: format!("comment_{}_{}", proposal_id, self.total_proposals),
+            proposal_id: proposal_id.to_string(),
+            author: author.to_string(),
+            content: content.to_string(),
+            timestamp: 0,
+            upvotes: 0,
+            downvotes: 0,
+            parent_comment_id,
+            edited: false,
+        };
+        
+        Ok(comment)
+    }
+    
+    /// Get governance analytics dashboard
+    pub fn get_analytics(&self) -> GovernanceAnalytics {
+        let mut active = 0u64;
+        let mut passed = 0u64;
+        let mut failed = 0u64;
+        let mut total_voters = 0u64;
+        
+        for proposal in self.proposals.values() {
+            match proposal.status {
+                ProposalStatus::Active => active += 1,
+                ProposalStatus::Passed | ProposalStatus::Executed => passed += 1,
+                ProposalStatus::Failed => failed += 1,
+                _ => {}
+            }
+            total_voters += proposal.total_voters;
+        }
+        
+        GovernanceAnalytics {
+            total_proposals: self.total_proposals,
+            active_proposals: active,
+            passed_proposals: passed,
+            failed_proposals: failed,
+            total_voters,
+            average_participation: if self.total_proposals > 0 {
+                total_voters as f64 / self.total_proposals as f64
+            } else {
+                0.0
+            },
+            total_delegations: self.delegators.len() as u64,
+            treasury_balance: self.treasury_balance.clone(),
+            top_delegates: Vec::new(),
+            proposal_categories: HashMap::new(),
+        }
+    }
+    
+    /// Get voter metrics
+    pub fn get_voter_metrics(&self, address: &str) -> VoterMetrics {
+        let mut proposals_voted = 0u64;
+        let mut proposals_created = 0u64;
+        
+        for proposal in self.proposals.values() {
+            if proposal.author == address {
+                proposals_created += 1;
+            }
+            if proposal.voters.iter().any(|v| v.voter == address) {
+                proposals_voted += 1;
+            }
+        }
+        
+        VoterMetrics {
+            address: address.to_string(),
+            proposals_voted,
+            proposals_created,
+            delegation_count: self.delegates.get(address).map(|d| d.len() as u64).unwrap_or(0),
+            voting_power: self.get_delegated_power(address),
+            conviction_score: 0.0,
+            governance_rank: 0,
+        }
+    }
+    
+    /// Calculate governance health score
+    pub fn calculate_governance_health(&self) -> GovernanceHealthScore {
+        let total_proposals = self.total_proposals;
+        let active_count = self.get_active_proposals().len() as u64;
+        let total_voters: u64 = self.proposals.values().map(|p| p.total_voters).sum();
+        let avg_participation = if total_proposals > 0 {
+            total_voters as f64 / total_proposals as f64
+        } else {
+            0.0
+        };
+        
+        // Participation score (0-40)
+        let participation_score = (avg_participation / 100.0 * 40.0).min(40.0);
+        
+        // Activity score (0-30)
+        let activity_score = (active_count as f64 / 10.0 * 30.0).min(30.0);
+        
+        // Decentralization score (0-30)
+        let unique_voters = self.proposals.values()
+            .flat_map(|p| p.voters.iter().map(|v| v.voter.clone()))
+            .collect::<std::collections::HashSet<_>>()
+            .len();
+        let decentralization_score = (unique_voters as f64 / 100.0 * 30.0).min(30.0);
+        
+        let overall = participation_score + activity_score + decentralization_score;
+        
+        GovernanceHealthScore {
+            overall_score: overall,
+            participation_score,
+            activity_score,
+            decentralization_score,
+            status: if overall >= 80.0 { "Excellent" }
+                   else if overall >= 60.0 { "Good" }
+                   else if overall >= 40.0 { "Fair" }
+                   else { "Needs Improvement" }.to_string(),
+        }
+    }
+}
+
+/// Governance health score metrics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GovernanceHealthScore {
+    pub overall_score: f64,
+    pub participation_score: f64,
+    pub activity_score: f64,
+    pub decentralization_score: f64,
+    pub status: String,
+}
+
+/// Governance notification preferences
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NotificationPreferences {
+    pub user: String,
+    pub email_enabled: bool,
+    pub discord_enabled: bool,
+    pub telegram_enabled: bool,
+    pub min_proposal_value: u64,
+    pub categories_subscribed: Vec<ProposalCategory>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
