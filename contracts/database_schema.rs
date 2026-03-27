@@ -1,705 +1,712 @@
 // Database Schema - AeTHer Chain
-// PostgreSQL schema definitions for on-chain data indexing and querying
+// Replit DB / SQLite schema definitions for chain data persistence
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
-/// Database schema version
-pub const SCHEMA_VERSION: &str = "1.0.0";
+// ============================================================================
+// TABLE DEFINITIONS
+// ============================================================================
 
-/// Account types in the AeTHer Chain ecosystem
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum AccountType {
-    User,
-    Validator,
-    Agent,
-    Contract,
-    Treasury,
-    Unknown,
-}
-
-impl AccountType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            AccountType::User => "user",
-            AccountType::Validator => "validator",
-            AccountType::Agent => "agent",
-            AccountType::Contract => "contract",
-            AccountType::Treasury => "treasury",
-            AccountType::Unknown => "unknown",
-        }
-    }
-}
-
-/// User account information
+/// Users table - Core user account data
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UserAccount {
-    pub id: String,
-    pub address: String,
-    pub account_type: AccountType,
-    pub created_at: i64,
-    pub aeth_balance: i64,
-    pub flux_balance: i64,
-    pub staked_aeth: i64,
-    pub pending_rewards: i64,
-    pub is_verified: bool,
-    pub kyc_level: u8,
+pub struct UsersTable {
+    pub user_id: String,           // Primary key: user_{address}
+    pub wallet_address: String,    // Unique, indexed
+    pub username: String,          // Unique
+    pub email: String,             // Unique, encrypted
+    pub password_hash: String,     // Encrypted
+    pub created_at: u64,           // Epoch timestamp
+    pub last_login: u64,
+    pub kyc_status: String,        // pending, submitted, verified, rejected, expired
+    pub kyc_tier: u32,             // 0-3
+    pub reputation_score: f64,     // 0-100
+    pub total_earnings: u64,       // Total FLUX earned
+    pub is_suspended: bool,
+    pub suspension_reason: Option<String>,
+    pub referral_code: String,
+    pub referred_by: Option<String>,
+    pub metadata: HashMap<String, String>,
 }
 
-/// Validator node information
+/// Accounts table - Wallet/account balances
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ValidatorInfo {
-    pub id: String,
-    pub address: String,
-    pub name: String,
-    pub ip_address: String,
-    pub port: u16,
-    pub staked_amount: i64,
-    pub delegations_received: i64,
-    pub commission_rate: f64,
-    pub uptime_percent: f64,
-    pub total_blocks_produced: u64,
-    pub total_blocks_missed: u64,
-    pub slashing_events: u32,
-    pub last_active_epoch: u64,
-    pub status: ValidatorStatus,
-    pub location: String,
-    pub version: String,
+pub struct AccountsTable {
+    pub account_id: String,        // Primary key: acc_{address}
+    pub user_id: String,           // Foreign key -> users.user_id
+    pub wallet_address: String,    // Unique, indexed
+    pub aeth_balance: u64,         // Native token (8 decimals)
+    pub flux_balance: u64,         // Utility token (8 decimals)
+    pub ath_balance: u64,          // Governance token (8 decimals)
+    pub staked_aeth: u64,
+    pub staked_flux: u64,
+    pub staked_ath: u64,
+    pub delegated_amount: u64,
+    pub pending_rewards: u64,
+    pub total_transactions: u64,
+    pub last_activity: u64,
+    pub account_type: String,      // user, agent, contract, treasury
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum ValidatorStatus {
-    Active,
-    Inactive,
-    Jailed,
-    Unjailing,
-}
-
-/// Staking position record
+/// Agents table - Registered AI agents
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StakingPosition {
-    pub id: String,
-    pub owner_address: String,
-    pub validator_id: Option<String>,
-    pub pool_id: String,
-    pub token_type: String,
-    pub amount: i64,
+pub struct AgentsTable {
+    pub agent_id: String,          // Primary key: agent_{uuid}
+    pub owner_user_id: String,     // Foreign key -> users.user_id
+    pub agent_name: String,
+    pub agent_type: String,        // mining, staking, governance, trading, etc.
+    pub capabilities: Vec<String>, // JSON array
+    pub status: String,            // active, inactive, suspended, under_review
+    pub reputation_score: f64,     // 0-100
+    pub total_tasks: u64,
+    pub successful_tasks: u64,
+    pub total_earnings: u64,
+    pub pricing_model: String,     // JSON: {type: "fixed"|"hourly"|"subscription", ...}
+    pub availability: f64,         // 0.0-1.0
+    pub created_at: u64,
+    pub last_active: u64,
+    pub kyc_verified: bool,
+    pub metadata: HashMap<String, String>,
+}
+
+/// Devices table - Mining device registrations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DevicesTable {
+    pub device_id: String,         // Primary key: dev_{uuid}
+    pub owner_user_id: String,     // Foreign key -> users.user_id
+    pub device_name: String,
+    pub device_tier: String,       // mobile, laptop, desktop, server
+    pub ram_gb: u32,
+    pub cpu_cores: u32,
+    pub gpu_model: Option<String>,
+    pub os_type: String,           // android, ios, windows, macos, linux
+    pub app_version: String,
+    pub status: String,            // active, inactive, offline, banned
+    pub uptime_percentage: f64,
+    pub contribution_score: f64,
+    pub epochs_mined: u64,
+    pub total_rewards: u64,
+    pub pending_rewards: u64,
+    pub last_heartbeat: u64,
+    pub registered_at: u64,
+    pub metadata: HashMap<String, String>,
+}
+
+/// Stakes table - Staking positions
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StakesTable {
+    pub stake_id: String,          // Primary key: stake_{uuid}
+    pub user_id: String,           // Foreign key -> users.user_id
+    pub pool_id: String,           // Foreign key -> staking_pools.pool_id
+    pub token_type: String,        // AETH, FLUX, ATH
+    pub amount: u64,
     pub start_epoch: u64,
-    pub end_epoch: Option<u64>,
-    pub lock_end_epoch: Option<u64>,
-    pub is_delegated: bool,
-    pub rewards_claimed: i64,
-    pub pending_rewards: i64,
-    pub tier: Option<String>,
+    pub lock_end_epoch: u64,
+    pub is_locked: bool,
+    pub auto_compound: bool,
+    pub rewards_claimed: u64,
+    pub last_claim_epoch: u64,
+    pub status: String,            // active, unstaking, claimed, expired
+    pub created_at: u64,
 }
 
-/// FLUX mining reward record
+/// Staking Pools table - Pool configurations
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MiningReward {
-    pub id: String,
-    pub miner_address: String,
-    pub device_id: String,
-    pub epoch: u64,
-    pub work_type: String,
-    pub work_contribution: i64,
-    pub reward_amount: i64,
-    pub reward_epoch: u64,
-    pub is_claimed: bool,
-    pub claimed_at: Option<i64>,
-}
-
-/// AI Agent registration and KYC record
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AgentRecord {
-    pub id: String,
-    pub agent_address: String,
-    pub owner_address: String,
+pub struct StakingPoolsTable {
+    pub pool_id: String,           // Primary key: pool_{token}
     pub name: String,
-    pub symbol: String,
-    pub category: String,
-    pub capabilities: Vec<String>,
-    pub kyc_status: KYCStatus,
-    pub kyc_issuer: Option<String>,
-    pub kyc_timestamp: Option<i64>,
-    pub reputation_score: f64,
-    pub total_tasks_executed: u64,
-    pub total_flux_earned: i64,
-    pub stake_bonded: i64,
-    pub verified_claims: Vec<String>,
-    pub metadata_url: String,
+    pub token_type: String,        // AETH, FLUX, ATH
+    pub reward_rate: f64,          // APY as decimal
+    pub min_stake: u64,
+    pub max_stake: Option<u64>,
+    pub lockup_epochs: u64,
+    pub total_staked: u64,
+    pub active_stakers: u64,
+    pub total_rewards_distributed: u64,
     pub is_active: bool,
+    pub created_at: u64,
+    pub metadata: HashMap<String, String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum KYCStatus {
-    Unverified,
-    Pending,
-    Verified,
-    Revoked,
-    Expired,
-}
-
-/// Governance proposal record
+/// Validators table - Validator nodes
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GovernanceProposal {
-    pub id: String,
-    pub proposal_id: u64,
+pub struct ValidatorsTable {
+    pub validator_id: String,      // Primary key: val_{address}
+    pub wallet_address: String,    // Unique
+    pub operator_user_id: Option<String>, // Foreign key -> users.user_id
+    pub name: String,
+    pub description: Option<String>,
+    pub website: Option<String>,
+    pub commission_rate: f64,      // 0.0-1.0
+    pub total_delegated: u64,
+    pub delegator_count: u64,
+    pub uptime_percent: f64,
+    pub slashing_events: u64,
+    pub total_rewards_earned: u64,
+    pub status: String,            // active, inactive, jailed, tombstoned
+    pub jailed_until: Option<u64>,
+    pub created_at: u64,
+    pub metadata: HashMap<String, String>,
+}
+
+/// Delegations table - Stake delegations to validators
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DelegationsTable {
+    pub delegation_id: String,     // Primary key: del_{uuid}
+    pub delegator_user_id: String, // Foreign key -> users.user_id
+    pub validator_id: String,      // Foreign key -> validators.validator_id
+    pub amount: u64,
+    pub start_epoch: u64,
+    pub last_claim_epoch: u64,
+    pub rewards_claimed: u64,
+    pub is_claimable: bool,
+    pub status: String,            // active, unbonding, claimed
+    pub unbonding_epoch: Option<u64>,
+    pub created_at: u64,
+}
+
+/// Transactions table - All chain transactions
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransactionsTable {
+    pub tx_hash: String,           // Primary key
+    pub block_number: u64,
+    pub epoch: u64,
+    pub from_address: String,
+    pub to_address: String,
+    pub tx_type: String,           // transfer, stake, unstake, claim, delegate, etc.
+    pub token_type: String,        // AETH, FLUX, ATH
+    pub amount: u64,
+    pub fee: u64,
+    pub status: String,            // pending, confirmed, failed
+    pub timestamp: u64,
+    pub gas_used: u64,
+    pub memo: Option<String>,
+    pub metadata: HashMap<String, String>,
+}
+
+/// Blocks table - Chain blocks
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlocksTable {
+    pub block_number: u64,         // Primary key
+    pub block_hash: String,        // Unique
+    pub parent_hash: String,
+    pub epoch: u64,
+    pub proposer_validator: String,
+    pub transaction_count: u32,
+    pub total_fees: u64,
+    pub block_size: u32,
+    pub gas_used: u64,
+    pub gas_limit: u64,
+    pub timestamp: u64,
+    pub state_root: String,
+    pub metadata: HashMap<String, String>,
+}
+
+/// Epochs table - Epoch statistics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EpochsTable {
+    pub epoch: u64,                // Primary key
+    pub start_timestamp: u64,
+    pub end_timestamp: u64,
+    pub block_count: u32,
+    pub transaction_count: u64,
+    pub total_rewards_distributed: u64,
+    pub active_validators: u32,
+    pub active_miners: u32,
+    pub total_staked: u64,
+    pub network_uptime: f64,
+    pub status: String,            // active, completed, archived
+}
+
+/// Subscriptions table - User subscriptions (Replit DB)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubscriptionsTable {
+    pub subscription_id: String,   // Primary key: sub_{uuid}
+    pub user_id: String,           // Foreign key -> users.user_id
+    pub agent_id: Option<String>,  // Foreign key -> agents.agent_id
+    pub tier: String,              // free, basic, professional, enterprise
+    pub status: String,            // active, trial, expired, cancelled, past_due
+    pub billing_cycle: String,     // monthly, quarterly, yearly, lifetime
+    pub started_at: u64,
+    pub current_period_start: u64,
+    pub current_period_end: u64,
+    pub trial_end: Option<u64>,
+    pub cancel_at_period_end: bool,
+    pub flux_paid_total: u64,
+    pub next_billing_epoch: u64,
+    pub auto_renew: bool,
+    pub metadata: HashMap<String, String>,
+}
+
+/// Invoices table - Billing invoices
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InvoicesTable {
+    pub invoice_id: String,        // Primary key: inv_{uuid}
+    pub subscription_id: String,   // Foreign key -> subscriptions.subscription_id
+    pub user_id: String,           // Foreign key -> users.user_id
+    pub amount_flux: u64,
+    pub status: String,            // draft, open, paid, uncollectible, void
+    pub created_at: u64,
+    pub due_at: u64,
+    pub paid_at: Option<u64>,
+    pub billing_period_start: u64,
+    pub billing_period_end: u64,
+    pub line_items: Vec<String>,   // JSON array
+    pub metadata: HashMap<String, String>,
+}
+
+/// Tasks table - Agent task marketplace
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TasksTable {
+    pub task_id: String,           // Primary key: task_{uuid}
+    pub creator_user_id: String,   // Foreign key -> users.user_id
+    pub assigned_agent_id: Option<String>, // Foreign key -> agents.agent_id
+    pub task_type: String,
+    pub description: String,
+    pub required_capabilities: Vec<String>,
+    pub budget: u64,
+    pub actual_cost: u64,
+    pub status: String,            // open, in_progress, under_review, completed, failed, cancelled
+    pub priority: String,          // low, normal, high, critical
+    pub created_at: u64,
+    pub started_at: Option<u64>,
+    pub completed_at: Option<u64>,
+    pub deadline_epoch: u64,
+    pub quality_score: Option<f64>,
+    pub metadata: HashMap<String, String>,
+}
+
+/// Governance Proposals table
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProposalsTable {
+    pub proposal_id: String,       // Primary key: prop_{uuid}
+    pub proposer_user_id: String,  // Foreign key -> users.user_id
     pub title: String,
     pub description: String,
-    pub author_address: String,
-    pub proposal_type: ProposalType,
-    pub status: ProposalStatus,
-    pub created_at: i64,
+    pub proposal_type: String,     // parameter_change, treasury_spend, upgrade, etc.
+    pub status: String,            // draft, active, passed, rejected, executed, expired
+    pub votes_for: u64,
+    pub votes_against: u64,
+    pub votes_abstain: u64,
+    pub quorum_required: u64,
     pub voting_start_epoch: u64,
     pub voting_end_epoch: u64,
-    pub total_yes_votes: i64,
-    pub total_no_votes: i64,
-    pub total_abstain_votes: i64,
-    pub quorum_required: i64,
-    pub execution_payload: Option<String>,
-    pub execution_result: Option<String>,
+    pub execution_epoch: Option<u64>,
+    pub created_at: u64,
+    pub metadata: HashMap<String, String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum ProposalType {
-    ParameterChange,
-    TreasurySpend,
-    ProtocolUpgrade,
-    Emergency,
-    General,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum ProposalStatus {
-    Draft,
-    Active,
-    Passed,
-    Failed,
-    Executed,
-    Cancelled,
-}
-
-/// Vote record for governance
+/// Votes table - Governance votes
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VoteRecord {
-    pub id: String,
-    pub proposal_id: u64,
-    pub voter_address: String,
-    pub vote: VoteChoice,
-    pub voting_power: i64,
-    pub quadratic_weight: f64,
-    pub timestamp: i64,
-    pub epoch: u64,
+pub struct VotesTable {
+    pub vote_id: String,           // Primary key: vote_{uuid}
+    pub proposal_id: String,       // Foreign key -> proposals.proposal_id
+    pub voter_user_id: String,     // Foreign key -> users.user_id
+    pub vote_weight: u64,          // Based on stake
+    pub vote: String,              // for, against, abstain
+    pub voted_at: u64,
+    pub metadata: HashMap<String, String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum VoteChoice {
-    Yes,
-    No,
-    Abstain,
-}
-
-/// Cross-chain bridge transaction record
+/// Notifications table - User notifications
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BridgeTransaction {
-    pub id: String,
-    pub transaction_hash: String,
-    pub source_chain: String,
-    pub destination_chain: String,
-    pub token_type: String,
-    pub amount: i64,
-    pub sender_address: String,
-    pub recipient_address: String,
-    pub status: BridgeStatus,
-    pub created_at: i64,
-    pub completed_at: Option<i64>,
-    pub bridge_fee: i64,
-    pub minting_tx_hash: Option<String>,
+pub struct NotificationsTable {
+    pub notification_id: String,   // Primary key: notif_{uuid}
+    pub user_id: String,           // Foreign key -> users.user_id
+    pub title: String,
+    pub message: String,
+    pub notification_type: String, // reward, stake, governance, system, etc.
+    pub priority: String,          // low, normal, high, urgent
+    pub is_read: bool,
+    pub created_at: u64,
+    pub read_at: Option<u64>,
+    pub action_url: Option<String>,
+    pub metadata: HashMap<String, String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum BridgeStatus {
-    Pending,
-    Bridging,
-    Completed,
-    Failed,
-    Refunded,
-}
-
-/// Network statistics aggregated by epoch
+/// Activity Logs table - Audit trail
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EpochStats {
-    pub epoch: u64,
-    pub total_transactions: u64,
-    pub total_fees_collected: i64,
-    pub total_rewards_distributed: i64,
-    pub active_validators: u32,
-    pub total_stake: i64,
-    pub total_delegations: i64,
-    pub avg_block_time_ms: u32,
-    pub total_slashing_events: u32,
-    pub mining_rewards_issued: i64,
-    pub timestamp: i64,
+pub struct ActivityLogsTable {
+    pub log_id: String,            // Primary key: log_{uuid}
+    pub user_id: String,           // Foreign key -> users.user_id
+    pub action: String,            // login, stake, claim, vote, etc.
+    pub resource_type: String,     // user, stake, proposal, etc.
+    pub resource_id: Option<String>,
+    pub ip_address: Option<String>,
+    pub user_agent: Option<String>,
+    pub status: String,            // success, failure, pending
+    pub error_message: Option<String>,
+    pub created_at: u64,
+    pub metadata: HashMap<String, String>,
 }
 
-/// Device registration for mobile mining
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MiningDevice {
-    pub id: String,
-    pub device_address: String,
-    pub owner_address: String,
-    pub device_type: DeviceType,
-    pub device_tier: DeviceTier,
-    pub operating_system: String,
-    pub uptime_last_7_days: f64,
-    pub total_work_contributions: i64,
-    pub total_rewards_earned: i64,
-    pub is_registered: bool,
-    pub registration_epoch: u64,
-    pub last_active_epoch: u64,
-    pub country_code: String,
+// ============================================================================
+// INDEX DEFINITIONS
+// ============================================================================
+
+/// Database index configurations
+pub struct IndexConfig {
+    pub table: &'static str,
+    pub index_name: &'static str,
+    pub columns: Vec<&'static str>,
+    pub unique: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum DeviceType {
-    Mobile,
-    Laptop,
-    Desktop,
-    Server,
+pub fn get_all_indexes() -> Vec<IndexConfig> {
+    vec![
+        // Users indexes
+        IndexConfig {
+            table: "users",
+            index_name: "idx_users_wallet",
+            columns: vec!["wallet_address"],
+            unique: true,
+        },
+        IndexConfig {
+            table: "users",
+            index_name: "idx_users_username",
+            columns: vec!["username"],
+            unique: true,
+        },
+        IndexConfig {
+            table: "users",
+            index_name: "idx_users_kyc",
+            columns: vec!["kyc_status"],
+            unique: false,
+        },
+        // Accounts indexes
+        IndexConfig {
+            table: "accounts",
+            index_name: "idx_accounts_wallet",
+            columns: vec!["wallet_address"],
+            unique: true,
+        },
+        IndexConfig {
+            table: "accounts",
+            index_name: "idx_accounts_user",
+            columns: vec!["user_id"],
+            unique: false,
+        },
+        // Agents indexes
+        IndexConfig {
+            table: "agents",
+            index_name: "idx_agents_owner",
+            columns: vec!["owner_user_id"],
+            unique: false,
+        },
+        IndexConfig {
+            table: "agents",
+            index_name: "idx_agents_status",
+            columns: vec!["status"],
+            unique: false,
+        },
+        // Stakes indexes
+        IndexConfig {
+            table: "stakes",
+            index_name: "idx_stakes_user",
+            columns: vec!["user_id"],
+            unique: false,
+        },
+        IndexConfig {
+            table: "stakes",
+            index_name: "idx_stakes_pool",
+            columns: vec!["pool_id"],
+            unique: false,
+        },
+        IndexConfig {
+            table: "stakes",
+            index_name: "idx_stakes_status",
+            columns: vec!["status"],
+            unique: false,
+        },
+        // Transactions indexes
+        IndexConfig {
+            table: "transactions",
+            index_name: "idx_tx_from",
+            columns: vec!["from_address"],
+            unique: false,
+        },
+        IndexConfig {
+            table: "transactions",
+            index_name: "idx_tx_to",
+            columns: vec!["to_address"],
+            unique: false,
+        },
+        IndexConfig {
+            table: "transactions",
+            index_name: "idx_tx_epoch",
+            columns: vec!["epoch"],
+            unique: false,
+        },
+        // Subscriptions indexes
+        IndexConfig {
+            table: "subscriptions",
+            index_name: "idx_subs_user",
+            columns: vec!["user_id"],
+            unique: false,
+        },
+        IndexConfig {
+            table: "subscriptions",
+            index_name: "idx_subs_status",
+            columns: vec!["status"],
+            unique: false,
+        },
+    ]
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum DeviceTier {
-    Tier1,  // High-end devices
-    Tier2,  // Mid-range devices  
-    Tier3,  // Entry-level devices
+// ============================================================================
+// DATABASE SCHEMA MANAGER
+// ============================================================================
+
+/// Schema version for migrations
+pub const SCHEMA_VERSION: u32 = 1;
+
+/// Database schema manager
+pub struct DatabaseSchema {
+    pub version: u32,
+    pub tables: Vec<&'static str>,
 }
 
-impl DeviceTier {
-    pub fn reward_multiplier(&self) -> f64 {
-        match self {
-            DeviceTier::Tier1 => 1.5,
-            DeviceTier::Tier2 => 1.0,
-            DeviceTier::Tier3 => 0.5,
+impl DatabaseSchema {
+    pub fn new() -> Self {
+        DatabaseSchema {
+            version: SCHEMA_VERSION,
+            tables: vec![
+                "users",
+                "accounts",
+                "agents",
+                "devices",
+                "stakes",
+                "staking_pools",
+                "validators",
+                "delegations",
+                "transactions",
+                "blocks",
+                "epochs",
+                "subscriptions",
+                "invoices",
+                "tasks",
+                "proposals",
+                "votes",
+                "notifications",
+                "activity_logs",
+            ],
+        }
+    }
+    
+    /// Get CREATE TABLE statement for a table
+    pub fn get_create_table(&self, table_name: &str) -> &'static str {
+        match table_name {
+            "users" => r#"
+                CREATE TABLE IF NOT EXISTS users (
+                    user_id TEXT PRIMARY KEY,
+                    wallet_address TEXT UNIQUE NOT NULL,
+                    username TEXT UNIQUE NOT NULL,
+                    email TEXT UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    created_at INTEGER NOT NULL,
+                    last_login INTEGER NOT NULL,
+                    kyc_status TEXT NOT NULL,
+                    kyc_tier INTEGER NOT NULL,
+                    reputation_score REAL NOT NULL,
+                    total_earnings INTEGER NOT NULL,
+                    is_suspended BOOLEAN NOT NULL,
+                    suspension_reason TEXT,
+                    referral_code TEXT NOT NULL,
+                    referred_by TEXT,
+                    metadata TEXT
+                )
+            "#,
+            "accounts" => r#"
+                CREATE TABLE IF NOT EXISTS accounts (
+                    account_id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    wallet_address TEXT UNIQUE NOT NULL,
+                    aeth_balance INTEGER NOT NULL,
+                    flux_balance INTEGER NOT NULL,
+                    ath_balance INTEGER NOT NULL,
+                    staked_aeth INTEGER NOT NULL,
+                    staked_flux INTEGER NOT NULL,
+                    staked_ath INTEGER NOT NULL,
+                    delegated_amount INTEGER NOT NULL,
+                    pending_rewards INTEGER NOT NULL,
+                    total_transactions INTEGER NOT NULL,
+                    last_activity INTEGER NOT NULL,
+                    account_type TEXT NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users(user_id)
+                )
+            "#,
+            "stakes" => r#"
+                CREATE TABLE IF NOT EXISTS stakes (
+                    stake_id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    pool_id TEXT NOT NULL,
+                    token_type TEXT NOT NULL,
+                    amount INTEGER NOT NULL,
+                    start_epoch INTEGER NOT NULL,
+                    lock_end_epoch INTEGER NOT NULL,
+                    is_locked BOOLEAN NOT NULL,
+                    auto_compound BOOLEAN NOT NULL,
+                    rewards_claimed INTEGER NOT NULL,
+                    last_claim_epoch INTEGER NOT NULL,
+                    status TEXT NOT NULL,
+                    created_at INTEGER NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users(user_id),
+                    FOREIGN KEY (pool_id) REFERENCES staking_pools(pool_id)
+                )
+            "#,
+            "staking_pools" => r#"
+                CREATE TABLE IF NOT EXISTS staking_pools (
+                    pool_id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    token_type TEXT NOT NULL,
+                    reward_rate REAL NOT NULL,
+                    min_stake INTEGER NOT NULL,
+                    max_stake INTEGER,
+                    lockup_epochs INTEGER NOT NULL,
+                    total_staked INTEGER NOT NULL,
+                    active_stakers INTEGER NOT NULL,
+                    total_rewards_distributed INTEGER NOT NULL,
+                    is_active BOOLEAN NOT NULL,
+                    created_at INTEGER NOT NULL
+                )
+            "#,
+            "subscriptions" => r#"
+                CREATE TABLE IF NOT EXISTS subscriptions (
+                    subscription_id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    agent_id TEXT,
+                    tier TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    billing_cycle TEXT NOT NULL,
+                    started_at INTEGER NOT NULL,
+                    current_period_start INTEGER NOT NULL,
+                    current_period_end INTEGER NOT NULL,
+                    trial_end INTEGER,
+                    cancel_at_period_end BOOLEAN NOT NULL,
+                    flux_paid_total INTEGER NOT NULL,
+                    next_billing_epoch INTEGER NOT NULL,
+                    auto_renew BOOLEAN NOT NULL,
+                    metadata TEXT,
+                    FOREIGN KEY (user_id) REFERENCES users(user_id),
+                    FOREIGN KEY (agent_id) REFERENCES agents(agent_id)
+                )
+            "#,
+            _ => "",
+        }
+    }
+    
+    /// Get all CREATE TABLE statements
+    pub fn get_all_create_tables(&self) -> Vec<(&'static str, &'static str)> {
+        self.tables.iter()
+            .map(|t| (*t, self.get_create_table(t)))
+            .filter(|(_, sql)| !sql.is_empty())
+            .collect()
+    }
+    
+    /// Get migration script for version upgrade
+    pub fn get_migration(&self, from_version: u32, to_version: u32) -> Option<&'static str> {
+        if from_version >= to_version {
+            return None;
+        }
+        
+        match (from_version, to_version) {
+            (0, 1) => Some(r#"
+                -- Migration v0 -> v1: Initial schema
+                -- All tables created fresh
+            "#),
+            _ => None,
         }
     }
 }
 
-/// SQL Schema Definitions
+impl Default for DatabaseSchema {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
-pub const CREATE_TABLES_SQL: &str = r#"
--- AeTHer Chain Database Schema v1.0.0
+// ============================================================================
+// REPLIT DB KEY PATTERNS
+// ============================================================================
 
--- User accounts table
-CREATE TABLE IF NOT EXISTS user_accounts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    address VARCHAR(64) UNIQUE NOT NULL,
-    account_type VARCHAR(20) NOT NULL DEFAULT 'user',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    aeth_balance BIGINT DEFAULT 0,
-    flux_balance BIGINT DEFAULT 0,
-    staked_aeth BIGINT DEFAULT 0,
-    pending_rewards BIGINT DEFAULT 0,
-    is_verified BOOLEAN DEFAULT FALSE,
-    kyc_level SMALLINT DEFAULT 0,
-    metadata JSONB DEFAULT '{}',
-    CONSTRAINT valid_account_type CHECK (account_type IN ('user', 'validator', 'agent', 'contract', 'treasury'))
-);
-
-CREATE INDEX idx_user_address ON user_accounts(address);
-CREATE INDEX idx_user_type ON user_accounts(account_type);
-
--- Validators table
-CREATE TABLE IF NOT EXISTS validators (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    address VARCHAR(64) UNIQUE NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    ip_address VARCHAR(45),
-    port SMALLINT DEFAULT 8080,
-    staked_amount BIGINT NOT NULL DEFAULT 0,
-    delegations_received BIGINT NOT NULL DEFAULT 0,
-    commission_rate DECIMAL(5,4) DEFAULT 0.1000,
-    uptime_percent DECIMAL(5,2) DEFAULT 0.00,
-    total_blocks_produced BIGINT DEFAULT 0,
-    total_blocks_missed BIGINT DEFAULT 0,
-    slashing_events SMALLINT DEFAULT 0,
-    last_active_epoch BIGINT DEFAULT 0,
-    status VARCHAR(20) DEFAULT 'inactive',
-    location VARCHAR(100),
-    version VARCHAR(20),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    CONSTRAINT valid_status CHECK (status IN ('active', 'inactive', 'jailed', 'unjailing'))
-);
-
-CREATE INDEX idx_validator_address ON validators(address);
-CREATE INDEX idx_validator_status ON validators(status);
-
--- Staking positions table
-CREATE TABLE IF NOT EXISTS staking_positions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    owner_address VARCHAR(64) NOT NULL,
-    validator_id UUID REFERENCES validators(id),
-    pool_id VARCHAR(50) NOT NULL,
-    token_type VARCHAR(10) NOT NULL,
-    amount BIGINT NOT NULL,
-    start_epoch BIGINT NOT NULL,
-    end_epoch BIGINT,
-    lock_end_epoch BIGINT,
-    is_delegated BOOLEAN DEFAULT FALSE,
-    rewards_claimed BIGINT DEFAULT 0,
-    pending_rewards BIGINT DEFAULT 0,
-    tier VARCHAR(20),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE INDEX idx_stake_owner ON staking_positions(owner_address);
-CREATE INDEX idx_stake_validator ON staking_positions(validator_id);
-CREATE INDEX idx_stake_pool ON staking_positions(pool_id);
-
--- Mining rewards table
-CREATE TABLE IF NOT EXISTS mining_rewards (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    miner_address VARCHAR(64) NOT NULL,
-    device_id VARCHAR(100) NOT NULL,
-    epoch BIGINT NOT NULL,
-    work_type VARCHAR(50) NOT NULL,
-    work_contribution BIGINT NOT NULL,
-    reward_amount BIGINT NOT NULL,
-    reward_epoch BIGINT NOT NULL,
-    is_claimed BOOLEAN DEFAULT FALSE,
-    claimed_at TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE INDEX idx_mining_epoch ON mining_rewards(epoch);
-CREATE INDEX idx_mining_miner ON mining_rewards(miner_address);
-CREATE INDEX idx_mining_device ON mining_rewards(device_id);
-
--- Agent registry table
-CREATE TABLE IF NOT EXISTS agents (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    agent_address VARCHAR(64) UNIQUE NOT NULL,
-    owner_address VARCHAR(64) NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    symbol VARCHAR(20) NOT NULL,
-    category VARCHAR(50) NOT NULL,
-    capabilities TEXT[] DEFAULT '{}',
-    kyc_status VARCHAR(20) DEFAULT 'unverified',
-    kyc_issuer VARCHAR(100),
-    kyc_timestamp TIMESTAMP WITH TIME ZONE,
-    reputation_score DECIMAL(3,2) DEFAULT 0.00,
-    total_tasks_executed BIGINT DEFAULT 0,
-    total_flux_earned BIGINT DEFAULT 0,
-    stake_bonded BIGINT DEFAULT 0,
-    verified_claims TEXT[] DEFAULT '{}',
-    metadata_url VARCHAR(255),
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    CONSTRAINT valid_kyc CHECK (kyc_status IN ('unverified', 'pending', 'verified', 'revoked', 'expired'))
-);
-
-CREATE INDEX idx_agent_address ON agents(agent_address);
-CREATE INDEX idx_agent_owner ON agents(owner_address);
-CREATE INDEX idx_agent_kyc ON agents(kyc_status);
-
--- Agent-User linking table (for user/agent management)
-CREATE TABLE IF NOT EXISTS agent_user_links (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    agent_id UUID REFERENCES agents(id) ON DELETE CASCADE,
-    user_address VARCHAR(64) NOT NULL,
-    link_type VARCHAR(20) DEFAULT 'owner',
-    permissions TEXT[] DEFAULT '{}',
-    linked_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    unlinked_at TIMESTAMP WITH TIME ZONE,
-    is_active BOOLEAN DEFAULT TRUE,
-    metadata JSONB DEFAULT '{}',
-    CONSTRAINT valid_link_type CHECK (link_type IN ('owner', 'operator', 'viewer', 'service'))
-);
-
-CREATE INDEX idx_link_agent ON agent_user_links(agent_id);
-CREATE INDEX idx_link_user ON agent_user_links(user_address);
-
--- Agent configuration table
-CREATE TABLE IF NOT EXISTS agent_configs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    agent_id UUID REFERENCES agents(id) ON DELETE CASCADE,
-    config_key VARCHAR(100) NOT NULL,
-    config_value JSONB NOT NULL,
-    version INTEGER DEFAULT 1,
-    updated_by VARCHAR(64),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    CONSTRAINT unique_agent_config UNIQUE(agent_id, config_key)
-);
-
-CREATE INDEX idx_config_agent ON agent_configs(agent_id);
-
--- Agent lifecycle events table
-CREATE TABLE IF NOT EXISTS agent_lifecycle_events (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    agent_id UUID REFERENCES agents(id) ON DELETE CASCADE,
-    event_type VARCHAR(30) NOT NULL,
-    event_data JSONB,
-    triggered_by VARCHAR(64),
-    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    CONSTRAINT valid_event_type CHECK (event_type IN ('created', 'paused', 'resumed', 'restarted', 'scaled', 'deployed', 'deleted', 'error', 'health_check'))
-);
-
-CREATE INDEX idx_lifecycle_agent ON agent_lifecycle_events(agent_id);
-CREATE INDEX idx_lifecycle_type ON agent_lifecycle_events(event_type);
-
--- Agent health metrics table
-CREATE TABLE IF NOT EXISTS agent_health_metrics (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    agent_id UUID REFERENCES agents(id) ON DELETE CASCADE,
-    epoch BIGINT NOT NULL,
-    cpu_usage_percent DECIMAL(5,2),
-    memory_usage_mb BIGINT,
-    disk_usage_mb BIGINT,
-    network_latency_ms INTEGER,
-    error_count INTEGER DEFAULT 0,
-    task_queue_size INTEGER DEFAULT 0,
-    response_time_avg_ms INTEGER,
-    uptime_percent DECIMAL(5,2),
-    status VARCHAR(20) DEFAULT 'unknown',
-    recorded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    CONSTRAINT valid_health_status CHECK (status IN ('healthy', 'degraded', 'unhealthy', 'unknown'))
-);
-
-CREATE INDEX idx_health_agent ON agent_health_metrics(agent_id);
-CREATE INDEX idx_health_epoch ON agent_health_metrics(epoch);
-
--- Agent templates table
-CREATE TABLE IF NOT EXISTS agent_templates (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    template_name VARCHAR(100) NOT NULL,
-    template_version VARCHAR(20) NOT NULL,
-    category VARCHAR(50) NOT NULL,
-    description TEXT,
-    author_address VARCHAR(64) NOT NULL,
-    base_config JSONB NOT NULL,
-    required_capabilities TEXT[] DEFAULT '{}',
-    deployment_script_url VARCHAR(255),
-    is_public BOOLEAN DEFAULT FALSE,
-    price_flux BIGINT DEFAULT 0,
-    total_deployments BIGINT DEFAULT 0,
-    average_rating DECIMAL(3,2) DEFAULT 0.00,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE INDEX idx_template_name ON agent_templates(template_name);
-CREATE INDEX idx_template_category ON agent_templates(category);
-CREATE INDEX idx_template_author ON agent_templates(author_address);
-
--- Agent marketplace listings table
-CREATE TABLE IF NOT EXISTS agent_marketplace_listings (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    agent_id UUID REFERENCES agents(id) ON DELETE CASCADE,
-    seller_address VARCHAR(64) NOT NULL,
-    listing_type VARCHAR(20) DEFAULT 'sale',
-    price_flux BIGINT NOT NULL,
-    currency VARCHAR(10) DEFAULT 'FLUX',
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    expires_at TIMESTAMP WITH TIME ZONE,
-    sold_at TIMESTAMP WITH TIME ZONE,
-    buyer_address VARCHAR(64),
-    CONSTRAINT valid_listing_type CHECK (listing_type IN ('sale', 'rental', 'subscription', 'freemium'))
-);
-
-CREATE INDEX idx_listing_agent ON agent_marketplace_listings(agent_id);
-CREATE INDEX idx_listing_seller ON agent_marketplace_listings(seller_address);
-CREATE INDEX idx_listing_active ON agent_marketplace_listings(is_active);
-
--- Agent task execution logs table (enhanced)
-CREATE TABLE IF NOT EXISTS agent_task_logs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    agent_id UUID REFERENCES agents(id) ON DELETE CASCADE,
-    task_id VARCHAR(100) NOT NULL,
-    task_type VARCHAR(50) NOT NULL,
-    status VARCHAR(20) DEFAULT 'pending',
-    input_data JSONB,
-    output_data JSONB,
-    flux_earned BIGINT DEFAULT 0,
-    execution_time_ms INTEGER,
-    error_message TEXT,
-    started_at TIMESTAMP WITH TIME ZONE,
-    completed_at TIMESTAMP WITH TIME ZONE,
-    CONSTRAINT valid_task_status CHECK (status IN ('pending', 'running', 'completed', 'failed', 'cancelled'))
-);
-
-CREATE INDEX idx_task_agent ON agent_task_logs(agent_id);
-CREATE INDEX idx_task_status ON agent_task_logs(status);
-CREATE INDEX idx_task_type ON agent_task_logs(task_type);
-
--- Governance proposals table
-CREATE TABLE IF NOT EXISTS proposals (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    proposal_id BIGSERIAL UNIQUE,
-    title VARCHAR(255) NOT NULL,
-    description TEXT NOT NULL,
-    author_address VARCHAR(64) NOT NULL,
-    proposal_type VARCHAR(30) NOT NULL,
-    status VARCHAR(20) DEFAULT 'draft',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    voting_start_epoch BIGINT,
-    voting_end_epoch BIGINT,
-    total_yes_votes BIGINT DEFAULT 0,
-    total_no_votes BIGINT DEFAULT 0,
-    total_abstain_votes BIGINT DEFAULT 0,
-    quorum_required BIGINT DEFAULT 0,
-    execution_payload JSONB,
-    execution_result TEXT,
-    CONSTRAINT valid_proposal_type CHECK (proposal_type IN ('parameter_change', 'treasury_spend', 'protocol_upgrade', 'emergency', 'general')),
-    CONSTRAINT valid_proposal_status CHECK (status IN ('draft', 'active', 'passed', 'failed', 'executed', 'cancelled'))
-);
-
-CREATE INDEX idx_proposal_id ON proposals(proposal_id);
-CREATE INDEX idx_proposal_status ON proposals(status);
-CREATE INDEX idx_proposal_author ON proposals(author_address);
-
--- Vote records table
-CREATE TABLE IF NOT EXISTS votes (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    proposal_id BIGINT REFERENCES proposals(proposal_id),
-    voter_address VARCHAR(64) NOT NULL,
-    vote VARCHAR(10) NOT NULL,
-    voting_power BIGINT NOT NULL,
-    quadratic_weight DECIMAL(10,4) NOT NULL,
-    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    epoch BIGINT NOT NULL,
-    CONSTRAINT valid_vote CHECK (vote IN ('yes', 'no', 'abstain'))
-);
-
-CREATE INDEX idx_vote_proposal ON votes(proposal_id);
-CREATE INDEX idx_vote_voter ON votes(voter_address);
-
--- Bridge transactions table
-CREATE TABLE IF NOT EXISTS bridge_transactions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    transaction_hash VARCHAR(128) UNIQUE NOT NULL,
-    source_chain VARCHAR(30) NOT NULL,
-    destination_chain VARCHAR(30) NOT NULL,
-    token_type VARCHAR(20) NOT NULL,
-    amount BIGINT NOT NULL,
-    sender_address VARCHAR(64) NOT NULL,
-    recipient_address VARCHAR(64) NOT NULL,
-    status VARCHAR(20) DEFAULT 'pending',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    completed_at TIMESTAMP WITH TIME ZONE,
-    bridge_fee BIGINT DEFAULT 0,
-    minting_tx_hash VARCHAR(128),
-    CONSTRAINT valid_bridge_status CHECK (status IN ('pending', 'bridging', 'completed', 'failed', 'refunded'))
-);
-
-CREATE INDEX idx_bridge_tx_hash ON bridge_transactions(transaction_hash);
-CREATE INDEX idx_bridge_status ON bridge_transactions(status);
-CREATE INDEX idx_bridge_sender ON bridge_transactions(sender_address);
-
--- Epoch statistics table
-CREATE TABLE IF NOT EXISTS epoch_stats (
-    epoch BIGINT PRIMARY KEY,
-    total_transactions BIGINT DEFAULT 0,
-    total_fees_collected BIGINT DEFAULT 0,
-    total_rewards_distributed BIGINT DEFAULT 0,
-    active_validators SMALLINT DEFAULT 0,
-    total_stake BIGINT DEFAULT 0,
-    total_delegations BIGINT DEFAULT 0,
-    avg_block_time_ms SMALLINT DEFAULT 0,
-    total_slashing_events SMALLINT DEFAULT 0,
-    mining_rewards_issued BIGINT DEFAULT 0,
-    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Mining devices table
-CREATE TABLE IF NOT EXISTS mining_devices (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    device_address VARCHAR(100) UNIQUE NOT NULL,
-    owner_address VARCHAR(64) NOT NULL,
-    device_type VARCHAR(20) NOT NULL,
-    device_tier VARCHAR(10) NOT NULL,
-    operating_system VARCHAR(30) NOT NULL,
-    uptime_last_7_days DECIMAL(5,2) DEFAULT 0.00,
-    total_work_contributions BIGINT DEFAULT 0,
-    total_rewards_earned BIGINT DEFAULT 0,
-    is_registered BOOLEAN DEFAULT FALSE,
-    registration_epoch BIGINT,
-    last_active_epoch BIGINT DEFAULT 0,
-    country_code VARCHAR(3),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    CONSTRAINT valid_device_type CHECK (device_type IN ('mobile', 'laptop', 'desktop', 'server')),
-    CONSTRAINT valid_device_tier CHECK (device_tier IN ('tier1', 'tier2', 'tier3'))
-);
-
-CREATE INDEX idx_device_address ON mining_devices(device_address);
-CREATE INDEX idx_device_owner ON mining_devices(owner_address);
-CREATE INDEX idx_device_status ON mining_devices(is_registered);
-
--- Transaction index table for fast lookups
-CREATE TABLE IF NOT EXISTS transactions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    transaction_hash VARCHAR(128) UNIQUE NOT NULL,
-    block_number BIGINT NOT NULL,
-    epoch BIGINT NOT NULL,
-    sender_address VARCHAR(64) NOT NULL,
-    recipient_address VARCHAR(64),
-    token_type VARCHAR(10),
-    amount BIGINT,
-    fee BIGINT,
-    transaction_type VARCHAR(30) NOT NULL,
-    status VARCHAR(20) DEFAULT 'confirmed',
-    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    CONSTRAINT valid_tx_type CHECK (transaction_type IN ('transfer', 'stake', 'unstake', 'claim', 'delegate', 'undelegate', 'register', 'kyc', 'vote', 'bridge', 'contract')),
-    CONSTRAINT valid_tx_status CHECK (status IN ('pending', 'confirmed', 'failed'))
-);
-
-CREATE INDEX idx_tx_hash ON transactions(transaction_hash);
-CREATE INDEX idx_tx_block ON transactions(block_number);
-CREATE INDEX idx_tx_sender ON transactions(sender_address);
-CREATE INDEX idx_tx_recipient ON transactions(recipient_address);
-CREATE INDEX idx_tx_epoch ON transactions(epoch);
-"#;
+/// Replit DB key pattern helpers
+pub mod db_keys {
+    pub fn user(user_id: &str) -> String {
+        format!("users/{}", user_id)
+    }
+    
+    pub fn account(wallet_address: &str) -> String {
+        format!("accounts/{}", wallet_address)
+    }
+    
+    pub fn agent(agent_id: &str) -> String {
+        format!("agents/{}", agent_id)
+    }
+    
+    pub fn device(device_id: &str) -> String {
+        format!("devices/{}", device_id)
+    }
+    
+    pub fn stake(stake_id: &str) -> String {
+        format!("stakes/{}", stake_id)
+    }
+    
+    pub fn subscription(subscription_id: &str) -> String {
+        format!("subscriptions/{}", subscription_id)
+    }
+    
+    pub fn invoice(invoice_id: &str) -> String {
+        format!("invoices/{}", invoice_id)
+    }
+    
+    pub fn task(task_id: &str) -> String {
+        format!("tasks/{}", task_id)
+    }
+    
+    pub fn proposal(proposal_id: &str) -> String {
+        format!("proposals/{}", proposal_id)
+    }
+    
+    pub fn notification(user_id: &str, notification_id: &str) -> String {
+        format!("users/{}/notifications/{}", user_id, notification_id)
+    }
+    
+    pub fn activity_log(user_id: &str, log_id: &str) -> String {
+        format!("users/{}/activity/{}", user_id, log_id)
+    }
+    
+    pub fn usage(user_id: &str, epoch: u64) -> String {
+        format!("usage/{}/{}", user_id, epoch)
+    }
+    
+    pub fn mining_rewards(device_id: &str, epoch: u64) -> String {
+        format!("mining/{}/{}/rewards", device_id, epoch)
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    
     #[test]
-    fn test_user_account_creation() {
-        let user = UserAccount {
-            id: "test-1".to_string(),
-            address: "0x1234".to_string(),
-            account_type: AccountType::User,
-            created_at: 1234567890,
-            aeth_balance: 1000,
-            flux_balance: 5000,
-            staked_aeth: 500,
-            pending_rewards: 25,
-            is_verified: true,
-            kyc_level: 1,
-        };
-        assert_eq!(user.aeth_balance, 1000);
+    fn test_schema_version() {
+        let schema = DatabaseSchema::new();
+        assert_eq!(schema.version, SCHEMA_VERSION);
     }
-
+    
     #[test]
-    fn test_validator_status() {
-        assert_eq!(ValidatorStatus::Active.as_str(), "active");
-        assert_eq!(ValidatorStatus::Jailed.as_str(), "jailed");
+    fn test_tables_defined() {
+        let schema = DatabaseSchema::new();
+        assert!(schema.tables.len() >= 10);
+        assert!(schema.tables.contains(&"users"));
+        assert!(schema.tables.contains(&"stakes"));
+        assert!(schema.tables.contains(&"subscriptions"));
     }
-
+    
     #[test]
-    fn test_device_tier_multiplier() {
-        assert_eq!(DeviceTier::Tier1.reward_multiplier(), 1.5);
-        assert_eq!(DeviceTier::Tier2.reward_multiplier(), 1.0);
-        assert_eq!(DeviceTier::Tier3.reward_multiplier(), 0.5);
-    }
-
-    #[test]
-    fn test_kyc_status() {
-        assert_eq!(KYCStatus::Verified.as_str(), "verified");
-        assert_eq!(KYCStatus::Pending.as_str(), "pending");
+    fn test_db_keys() {
+        assert_eq!(db_keys::user("user123"), "users/user123");
+        assert_eq!(db_keys::subscription("sub456"), "subscriptions/sub456");
+        assert_eq!(db_keys::usage("user1", 100), "usage/user1/100");
     }
 }
