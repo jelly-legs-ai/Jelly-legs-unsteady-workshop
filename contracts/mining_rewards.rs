@@ -46,6 +46,19 @@ pub struct MiningRewardConfig {
     pub network_difficulty: f64,     // Dynamic difficulty adjustment
     pub inflation_cap: u64,          // Max FLUX mintable per year
     pub total_minted: u64,           // Track total minted FLUX
+    pub halving_interval_epochs: u64, // Epochs between reward halvings
+    pub current_halving: u64,        // Current halving epoch count
+    pub bonus_multipliers: BonusMultipliers, // Special bonus conditions
+}
+
+/// Bonus multipliers for special mining conditions
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct BonusMultipliers {
+    pub early_adopter_bonus: f64,    // Bonus for early miners (e.g., 1.5x)
+    pub loyalty_bonus: f64,          // Bonus for long-term miners
+    pub network_growth_bonus: f64,   // Bonus when network grows
+    pub stake_multiplier: f64,       // Bonus for staking while mining
+    pub consecutive_epochs_bonus: f64, // Bonus for consecutive mining
 }
 
 impl Default for MiningRewardConfig {
@@ -58,6 +71,15 @@ impl Default for MiningRewardConfig {
             network_difficulty: 1.0,           // Start at base difficulty
             inflation_cap: 100_000_000_000_000, // 1 billion FLUX per year (8 decimals)
             total_minted: 0,
+            halving_interval_epochs: 43800,    // ~5 years at 1hr epochs (Bitcoin-style halving)
+            current_halving: 0,
+            bonus_multipliers: BonusMultipliers {
+                early_adopter_bonus: 1.5,      // 1.5x for early miners
+                loyalty_bonus: 0.0,            // Calculated dynamically
+                network_growth_bonus: 0.0,     // Reserved for future use
+                stake_multiplier: 1.2,         // 1.2x if staking while mining
+                consecutive_epochs_bonus: 0.1, // 10% bonus for 99%+ uptime
+            },
         }
     }
 }
@@ -142,10 +164,44 @@ impl MiningCalculator {
         // Apply network difficulty
         let difficulty_adjustment = 1.0 / self.config.network_difficulty;
         
+        // Apply halving reduction
+        let halving_factor = self.calculate_halving_factor(miner.registered_epoch);
+        
+        // Calculate bonus multipliers
+        let bonus_mult = self.calculate_bonus_multipliers(miner);
+        
         // Calculate final reward
-        let reward = base * tier_mult * contribution_bonus * difficulty_adjustment;
+        let reward = base * tier_mult * contribution_bonus * difficulty_adjustment * halving_factor * bonus_mult;
         
         reward as u64
+    }
+    
+    /// Calculate halving factor based on epoch count
+    pub fn calculate_halving_factor(&self, registered_epoch: u64) -> f64 {
+        let epochs_since_start = registered_epoch;
+        let halvings = epochs_since_start / self.config.halving_interval_epochs;
+        
+        // Each halving reduces reward by 50%
+        0.5_f64.powi(halvings as i32)
+    }
+    
+    /// Calculate combined bonus multipliers for a miner
+    pub fn calculate_bonus_multipliers(&self, miner: &Miner) -> f64 {
+        let mut multiplier = 1.0;
+        
+        // Early adopter bonus
+        multiplier += self.config.bonus_multipliers.early_adopter_bonus - 1.0;
+        
+        // Loyalty bonus (increases with epochs mined)
+        let loyalty_factor = (miner.epochs_mined as f64 / 1000.0).min(0.5);
+        multiplier += loyalty_factor;
+        
+        // Consecutive epochs bonus
+        if miner.uptime_percentage >= 99.0 {
+            multiplier += self.config.bonus_multipliers.consecutive_epochs_bonus;
+        }
+        
+        multiplier.min(3.0) // Cap at 3x total bonus
     }
     
     /// Calculate rewards for multiple epochs
