@@ -51,6 +51,24 @@ pub mod users {
     pub const VERIFY: &str = "/users/{user_id}/verify";
     pub const SUSPEND: &str = "/users/{user_id}/suspend";
     pub const REINSTATE: &str = "/users/{user_id}/reinstate";
+    pub const SEARCH: &str = "/users/search";
+    pub const BATCH_CREATE: &str = "/users/batch";
+    pub const BATCH_UPDATE: &str = "/users/batch/update";
+    pub const BULK_DELETE: &str = "/users/batch/delete";
+    pub const IMPORT: &str = "/users/import";
+    pub const ROLE_ASSIGN: &str = "/users/{user_id}/role";
+    pub const PERMISSIONS: &str = "/users/{user_id}/permissions";
+    pub const SESSIONS: &str = "/users/{user_id}/sessions";
+    pub const DEVICES: &str = "/users/{user_id}/devices";
+    pub const SECURITY: &str = "/users/{user_id}/security";
+    pub const TWO_FA: &str = "/users/{user_id}/2fa";
+    pub const API_KEYS: &str = "/users/{user_id}/api-keys";
+    pub const RATE_LIMIT: &str = "/users/{user_id}/rate-limit";
+    pub const QUOTA: &str = "/users/{user_id}/quota";
+    pub const SUBSCRIPTION: &str = "/users/{user_id}/subscription";
+    pub const BILLING: &str = "/users/{user_id}/billing";
+    pub const INVOICES: &str = "/users/{user_id}/invoices";
+    pub const PAYMENT_METHODS: &str = "/users/{user_id}/payment-methods";
 }
 
 /// KYC verification endpoints
