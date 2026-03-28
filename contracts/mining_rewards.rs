@@ -46,6 +46,12 @@ pub struct MiningRewardConfig {
     pub network_difficulty: f64,     // Dynamic difficulty adjustment
     pub inflation_cap: u64,          // Max FLUX mintable per year
     pub total_minted: u64,           // Track total minted FLUX
+    // Sprint 22 Enhancements
+    pub streak_bonus_multiplier: f64,  // Bonus for consecutive epochs (max 2.0x)
+    pub network_bonus_pool: u64,       // Bonus pool for top contributors
+    pub peak_hours_multiplier: f64,    // Bonus for mining during peak demand
+    pub early_adopter_bonus: f64,      // Bonus for early network participants
+    pub geo_diversity_bonus: f64,      // Bonus for underrepresented regions
 }
 
 impl Default for MiningRewardConfig {
@@ -58,6 +64,12 @@ impl Default for MiningRewardConfig {
             network_difficulty: 1.0,           // Start at base difficulty
             inflation_cap: 100_000_000_000_000, // 1 billion FLUX per year (8 decimals)
             total_minted: 0,
+            // Sprint 22 Enhancements
+            streak_bonus_multiplier: 1.5,      // Max 1.5x bonus for streaks
+            network_bonus_pool: 1_000_000_000, // 10 FLUX bonus pool per epoch
+            peak_hours_multiplier: 1.2,        // 20% bonus during peak hours
+            early_adopter_bonus: 2.0,          // 2x for first 10K miners (epoch < 8760)
+            geo_diversity_bonus: 1.3,          // 30% bonus for underrepresented regions
         }
     }
 }
@@ -77,6 +89,13 @@ pub struct Miner {
     pub last_claim_epoch: u64,
     pub is_active: bool,
     pub registered_epoch: u64,
+    // Sprint 22 Enhancements
+    pub consecutive_epochs: u64,      // Streak counter for bonus
+    pub last_active_epoch: u64,       // Track last epoch for streak calculation
+    pub region_code: String,          // Geographic region for diversity bonus
+    pub peak_hours_mined: u64,        // Epochs mined during peak hours
+    pub total_tasks_verified: u64,    // Total verification tasks completed
+    pub reputation_score: f64,        // Long-term reputation (0.0-1.0)
 }
 
 impl Miner {
@@ -96,7 +115,20 @@ impl Miner {
             last_claim_epoch: 0,
             is_active: true,
             registered_epoch: 0,
+            // Sprint 22 Enhancements
+            consecutive_epochs: 0,
+            last_active_epoch: 0,
+            region_code: String::from("UNKNOWN"),
+            peak_hours_mined: 0,
+            total_tasks_verified: 0,
+            reputation_score: 0.5,
         }
+    }
+    
+    pub fn new_with_region(miner_id: String, ram_gb: u32, cpu_cores: u32, region: String) -> Self {
+        let mut miner = Self::new(miner_id, ram_gb, cpu_cores);
+        miner.region_code = region;
+        miner
     }
     
     pub fn update_contribution_score(&mut self, tasks_completed: u64, tasks_assigned: u64) {
@@ -142,8 +174,44 @@ impl MiningCalculator {
         // Apply network difficulty
         let difficulty_adjustment = 1.0 / self.config.network_difficulty;
         
-        // Calculate final reward
-        let reward = base * tier_mult * contribution_bonus * difficulty_adjustment;
+        // Calculate base reward before bonuses
+        let mut reward = base * tier_mult * contribution_bonus * difficulty_adjustment;
+        
+        // Sprint 22: Apply streak bonus (consecutive epochs)
+        let streak_bonus = if miner.consecutive_epochs >= 24 {
+            // Max bonus after 24 consecutive epochs
+            self.config.streak_bonus_multiplier
+        } else if miner.consecutive_epochs >= 12 {
+            1.25
+        } else if miner.consecutive_epochs >= 6 {
+            1.1
+        } else {
+            1.0
+        };
+        reward *= streak_bonus.min(self.config.streak_bonus_multiplier);
+        
+        // Sprint 22: Apply peak hours bonus
+        // Peak hours: 09:00-12:00 and 19:00-23:00 UTC
+        let current_hour = (miner.last_active_epoch % 24) as u32;
+        let is_peak_hour = (current_hour >= 9 && current_hour < 12) || (current_hour >= 19 && current_hour < 23);
+        if is_peak_hour {
+            reward *= self.config.peak_hours_multiplier;
+        }
+        
+        // Sprint 22: Apply early adopter bonus (first year of network)
+        if miner.registered_epoch < 8760 {
+            reward *= self.config.early_adopter_bonus;
+        }
+        
+        // Sprint 22: Apply geo diversity bonus for underrepresented regions
+        let underrepresented_regions = ["AF", "SA", "SEA", "OC"];
+        if underrepresented_regions.contains(&miner.region_code.as_str()) {
+            reward *= self.config.geo_diversity_bonus;
+        }
+        
+        // Sprint 22: Apply reputation bonus for long-term miners
+        let reputation_bonus = 1.0 + (miner.reputation_score * 0.2);
+        reward *= reputation_bonus;
         
         reward as u64
     }
@@ -181,6 +249,55 @@ impl MiningCalculator {
         
         // Clamp difficulty between 0.5 and 2.0
         self.config.network_difficulty = self.config.network_difficulty.max(0.5).min(2.0);
+    }
+    
+    /// Update miner streak and activity tracking (call each epoch)
+    pub fn update_miner_activity(&self, miner: &mut Miner, current_epoch: u64) {
+        if current_epoch == miner.last_active_epoch + 1 {
+            // Consecutive epoch - increment streak
+            miner.consecutive_epochs += 1;
+        } else if current_epoch > miner.last_active_epoch + 1 {
+            // Gap in mining - reset streak
+            miner.consecutive_epochs = 1;
+        }
+        miner.last_active_epoch = current_epoch;
+        
+        // Update reputation based on long-term behavior
+        if miner.consecutive_epochs >= 48 {
+            // Bonus reputation for 2+ day streaks
+            miner.reputation_score = (miner.reputation_score + 0.01).min(1.0);
+        } else if miner.consecutive_epochs == 0 {
+            // Penalty for breaking streak
+            miner.reputation_score = (miner.reputation_score - 0.02).max(0.0);
+        }
+    }
+    
+    /// Record task verification for contribution tracking
+    pub fn record_task_verification(&self, miner: &mut Miner, tasks_verified: u64) {
+        miner.total_tasks_verified += tasks_verified;
+        // Update contribution score based on verification history
+        let expected_tasks = miner.epochs_mined * 10; // Expect ~10 tasks per epoch
+        if expected_tasks > 0 {
+            miner.contribution_score = (miner.total_tasks_verified as f64 / expected_tasks as f64).min(1.0);
+        }
+    }
+    
+    /// Distribute network bonus pool to top contributors
+    pub fn distribute_bonus_pool(&self, miners: &mut [Miner], current_epoch: u64) {
+        // Sort by contribution score and reputation
+        miners.sort_by(|a, b| {
+            let score_a = a.contribution_score * 0.6 + a.reputation_score * 0.4;
+            let score_b = b.contribution_score * 0.6 + b.reputation_score * 0.4;
+            score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
+        });
+        
+        // Top 10% get bonus from pool
+        let top_count = (miners.len() as f64 * 0.1).max(1.0) as usize;
+        let bonus_per_miner = self.config.network_bonus_pool / top_count as u64;
+        
+        for miner in miners.iter_mut().take(top_count) {
+            miner.pending_rewards += bonus_per_miner;
+        }
     }
     
     /// Check if inflation cap is reached
@@ -480,5 +597,95 @@ mod tests {
         
         assert!(monthly > daily * 28);
         assert!(monthly < daily * 32);
+    }
+    
+    #[test]
+    fn test_streak_bonus() {
+        let config = MiningRewardConfig::default();
+        let calculator = MiningCalculator::new(config);
+        
+        let mut miner_no_streak = Miner::new("no_streak".to_string(), 8, 4);
+        miner_no_streak.consecutive_epochs = 0;
+        miner_no_streak.last_active_epoch = 100;
+        
+        let mut miner_long_streak = Miner::new("long_streak".to_string(), 8, 4);
+        miner_long_streak.consecutive_epochs = 24;
+        miner_long_streak.last_active_epoch = 100;
+        
+        let reward_no_streak = calculator.calculate_epoch_reward(&miner_no_streak);
+        let reward_long_streak = calculator.calculate_epoch_reward(&miner_long_streak);
+        
+        // Long streak should earn more
+        assert!(reward_long_streak > reward_no_streak);
+        println!("No streak: {}, 24-epoch streak: {}", reward_no_streak, reward_long_streak);
+    }
+    
+    #[test]
+    fn test_early_adopter_bonus() {
+        let config = MiningRewardConfig::default();
+        let calculator = MiningCalculator::new(config);
+        
+        let mut early_miner = Miner::new("early".to_string(), 8, 4);
+        early_miner.registered_epoch = 100; // Early adopter
+        
+        let mut late_miner = Miner::new("late".to_string(), 8, 4);
+        late_miner.registered_epoch = 10000; // After first year
+        
+        let early_reward = calculator.calculate_epoch_reward(&early_miner);
+        let late_reward = calculator.calculate_epoch_reward(&late_miner);
+        
+        // Early adopter should earn 2x
+        assert_eq!(early_reward, late_reward * 2);
+    }
+    
+    #[test]
+    fn test_geo_diversity_bonus() {
+        let config = MiningRewardConfig::default();
+        let calculator = MiningCalculator::new(config);
+        
+        let mut us_miner = Miner::new_with_region("us".to_string(), 8, 4, "US".to_string());
+        let mut africa_miner = Miner::new_with_region("africa".to_string(), 8, 4, "AF".to_string());
+        
+        let us_reward = calculator.calculate_epoch_reward(&us_miner);
+        let africa_reward = calculator.calculate_epoch_reward(&africa_miner);
+        
+        // Underrepresented region should get 30% bonus
+        assert!(africa_reward > us_reward);
+    }
+    
+    #[test]
+    fn test_miner_activity_tracking() {
+        let config = MiningRewardConfig::default();
+        let calculator = MiningCalculator::new(config);
+        
+        let mut miner = Miner::new("active".to_string(), 8, 4);
+        
+        // Simulate 10 consecutive epochs
+        for epoch in 1..=10 {
+            calculator.update_miner_activity(&mut miner, epoch);
+        }
+        
+        assert_eq!(miner.consecutive_epochs, 10);
+        assert_eq!(miner.last_active_epoch, 10);
+        
+        // Break the streak
+        calculator.update_miner_activity(&mut miner, 15);
+        assert_eq!(miner.consecutive_epochs, 1); // Reset to 1
+    }
+    
+    #[test]
+    fn test_reputation_growth() {
+        let config = MiningRewardConfig::default();
+        let calculator = MiningCalculator::new(config);
+        
+        let mut miner = Miner::new("reputable".to_string(), 8, 4);
+        let initial_rep = miner.reputation_score;
+        
+        // 48 consecutive epochs should increase reputation
+        for epoch in 1..=48 {
+            calculator.update_miner_activity(&mut miner, epoch);
+        }
+        
+        assert!(miner.reputation_score > initial_rep);
     }
 }
