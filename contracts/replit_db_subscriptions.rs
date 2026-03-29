@@ -212,6 +212,83 @@ pub enum PaymentStatus {
     Refunded,
 }
 
+/// Referral program for subscription discounts
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReferralCode {
+    pub code: String,
+    pub referrer_address: String,
+    pub referee_address: Option<String>,
+    pub discount_percent: f64,
+    pub reward_flux: u64,
+    pub created_at: u64,
+    pub used_at: Option<u64>,
+    pub is_active: bool,
+}
+
+/// Referral program config
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReferralProgram {
+    pub referrer_reward_flux: u64,
+    pub referee_discount_percent: f64,
+    pub max_referrals_per_user: u32,
+    pub referral_codes: HashMap<String, ReferralCode>,
+    pub user_referral_counts: HashMap<String, u32>,
+}
+
+impl ReferralProgram {
+    pub fn new() -> Self {
+        ReferralProgram {
+            referrer_reward_flux: 500, // 5 FLUX reward
+            referee_discount_percent: 10.0, // 10% discount
+            max_referrals_per_user: 100,
+            referral_codes: HashMap::new(),
+            user_referral_counts: HashMap::new(),
+        }
+    }
+    
+    pub fn generate_code(&mut self, user_address: &str, current_epoch: u64) -> String {
+        let code = format!("AETH-{}-{}", user_address[..6].to_uppercase(), current_epoch % 10000);
+        
+        let referral = ReferralCode {
+            code: code.clone(),
+            referrer_address: user_address.to_string(),
+            referee_address: None,
+            discount_percent: self.referee_discount_percent,
+            reward_flux: self.referrer_reward_flux,
+            created_at: current_epoch,
+            used_at: None,
+            is_active: true,
+        };
+        
+        self.referral_codes.insert(code.clone(), referral);
+        code
+    }
+    
+    pub fn apply_code(&mut self, code: &str, referee_address: &str, current_epoch: u64) -> Result<(f64, u64), &'static str> {
+        let referral = self.referral_codes.get_mut(code)
+            .ok_or("Invalid referral code")?;
+        
+        if !referral.is_active {
+            return Err("Referral code already used");
+        }
+        
+        let referrer_count = self.user_referral_counts.entry(referral.referrer_address.clone())
+            .or_insert(0);
+        
+        if *referrer_count >= self.max_referrals_per_user {
+            return Err("Referrer has reached max referrals");
+        }
+        
+        referral.referee_address = Some(referee_address.to_string());
+        referral.used_at = Some(current_epoch);
+        referral.is_active = false;
+        
+        *referrer_count += 1;
+        
+        Ok((referral.discount_percent, referral.reward_flux))
+    }
+}
+
 /// Replit DB subscription manager
 pub struct SubscriptionManager {
     pub subscriptions: HashMap<String, Subscription>,
@@ -220,6 +297,22 @@ pub struct SubscriptionManager {
     pub usage_metrics: HashMap<String, UsageMetrics>,
     pub current_epoch: u64,
     pub db_prefix: String,
+    pub referral_program: ReferralProgram,
+    pub promo_codes: HashMap<String, PromoCode>,
+}
+
+/// Promotional code for discounts
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PromoCode {
+    pub code: String,
+    pub discount_percent: f64,
+    pub discount_flux: u64,
+    pub max_uses: u32,
+    pub current_uses: u32,
+    pub valid_from: u64,
+    pub valid_until: u64,
+    pub applicable_tiers: Vec<SubscriptionTier>,
+    pub is_active: bool,
 }
 
 impl SubscriptionManager {
@@ -232,11 +325,59 @@ impl SubscriptionManager {
             usage_metrics: HashMap::new(),
             current_epoch: 0,
             db_prefix: db_prefix.to_string(),
+            referral_program: ReferralProgram::new(),
+            promo_codes: HashMap::new(),
         }
     }
     
+    /// Create promotional code
+    pub fn create_promo_code(&mut self, code: String, discount_percent: f64, discount_flux: u64, max_uses: u32, valid_epochs: u64, applicable_tiers: Vec<SubscriptionTier>) {
+        let promo = PromoCode {
+            code,
+            discount_percent,
+            discount_flux,
+            max_uses,
+            current_uses: 0,
+            valid_from: self.current_epoch,
+            valid_until: self.current_epoch + valid_epochs,
+            applicable_tiers,
+            is_active: true,
+        };
+        self.promo_codes.insert(promo.code.clone(), promo);
+    }
+    
+    /// Apply promo code to get discount
+    pub fn apply_promo_code(&mut self, code: &str, tier: &SubscriptionTier) -> Result<(f64, u64), &'static str> {
+        let promo = self.promo_codes.get_mut(code)
+            .ok_or("Invalid promo code")?;
+        
+        if !promo.is_active {
+            return Err("Promo code expired or deactivated");
+        }
+        
+        if self.current_epoch < promo.valid_from || self.current_epoch > promo.valid_until {
+            return Err("Promo code not valid at this time");
+        }
+        
+        if promo.current_uses >= promo.max_uses {
+            return Err("Promo code max uses reached");
+        }
+        
+        if !promo.applicable_tiers.is_empty() && !promo.applicable_tiers.contains(tier) {
+            return Err("Promo code not applicable to this tier");
+        }
+        
+        promo.current_uses += 1;
+        
+        if promo.current_uses >= promo.max_uses {
+            promo.is_active = false;
+        }
+        
+        Ok((promo.discount_percent, promo.discount_flux))
+    }
+    
     /// Create new subscription
-    pub fn create_subscription(&mut self, user_address: &str, tier: SubscriptionTier, billing_cycle: BillingCycle) -> Result<Subscription, String> {
+    pub fn create_subscription(&mut self, user_address: &str, tier: SubscriptionTier, billing_cycle: BillingCycle, promo_code: Option<&str>) -> Result<Subscription, String> {
         let subscription_id = format!("sub_{}_{}", user_address, self.current_epoch);
         
         let trial_end = if tier == SubscriptionTier::Professional || tier == SubscriptionTier::Enterprise {
