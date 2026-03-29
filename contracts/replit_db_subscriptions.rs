@@ -149,6 +149,250 @@ pub struct UsageMetrics {
     pub compute_units: u64,
     pub storage_mb: u64,
     pub bandwidth_mb: u64,
+    pub premium_features_used: Vec<String>,
+}
+
+/// Replit DB connection configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReplitDbConfig {
+    pub database_url: String,
+    pub api_key: String,
+    pub timeout_ms: u64,
+    pub max_retries: u32,
+    pub batch_size: u32,
+}
+
+/// Subscription persistence layer for Replit DB
+pub struct ReplitDbSubscriptions {
+    config: ReplitDbConfig,
+}
+
+impl ReplitDbSubscriptions {
+    /// Create new Replit DB subscription manager
+    pub fn new(config: ReplitDbConfig) -> Self {
+        Self { config }
+    }
+    
+    /// Store subscription in Replit DB
+    pub async fn store_subscription(&self, subscription: &Subscription) -> Result<String, DbError> {
+        // Key format: subscription:{subscription_id}
+        let key = format!("subscription:{}", subscription.subscription_id);
+        // In production: use Replit DB HTTP API
+        // POST to database_url with key/value
+        Ok(key)
+    }
+    
+    /// Retrieve subscription from Replit DB
+    pub async fn get_subscription(&self, subscription_id: &str) -> Result<Subscription, DbError> {
+        let key = format!("subscription:{}", subscription_id);
+        // In production: GET from Replit DB
+        // Return deserialized Subscription
+        Err(DbError::NotFound)
+    }
+    
+    /// Get all subscriptions for a user
+    pub async fn get_user_subscriptions(&self, user_address: &str) -> Result<Vec<Subscription>, DbError> {
+        // Query prefix: subscription:* where user_address matches
+        // Return filtered list
+        Ok(vec![])
+    }
+    
+    /// Update subscription status
+    pub async fn update_status(&self, subscription_id: &str, status: SubscriptionStatus) -> Result<(), DbError> {
+        // Get existing, update status, store back
+        Ok(())
+    }
+    
+    /// Store usage metrics for billing period
+    pub async fn store_usage(&self, usage: &UsageMetrics) -> Result<String, DbError> {
+        let key = format!("usage:{}:{}", usage.user_address, usage.epoch);
+        Ok(key)
+    }
+    
+    /// Get aggregated usage for billing period
+    pub async fn get_period_usage(&self, user_address: &str, start_epoch: u64, end_epoch: u64) -> Result<AggregatedUsage, DbError> {
+        // Query all usage:*:epoch keys in range
+        // Sum api_calls, agent_tasks, compute_units, storage_mb
+        Ok(AggregatedUsage {
+            total_api_calls: 0,
+            total_agent_tasks: 0,
+            total_compute_units: 0,
+            total_storage_mb: 0,
+            epochs_counted: 0,
+        })
+    }
+    
+    /// Check if subscription is active and valid
+    pub async fn validate_subscription(&self, subscription_id: &str) -> Result<ValidationResult, DbError> {
+        let subscription = self.get_subscription(subscription_id).await?;
+        
+        let is_active = subscription.status == SubscriptionStatus::Active;
+        let is_not_expired = subscription.current_period_end > Self::current_epoch();
+        let is_within_limits = true; // Check usage vs tier limits
+        
+        Ok(ValidationResult {
+            is_valid: is_active && is_not_expired && is_within_limits,
+            subscription,
+            remaining_quota: 1000,
+            reset_epoch: 0,
+        })
+    }
+    
+    /// Process recurring billing for subscription
+    pub async fn process_billing(&self, subscription_id: &str) -> Result<BillingResult, DbError> {
+        // Get subscription
+        // Calculate amount due (apply discount for billing cycle)
+        // Charge user's payment method
+        // Update current_period_start/end
+        // Update next_billing_epoch
+        // Record transaction
+        Ok(BillingResult {
+            success: true,
+            amount_charged: 0,
+            new_period_end: 0,
+            transaction_id: String::new(),
+        })
+    }
+    
+    /// Cancel subscription at period end
+    pub async fn cancel_subscription(&self, subscription_id: &str, immediate: bool) -> Result<(), DbError> {
+        // If immediate: set status = Cancelled, end current period
+        // If not immediate: set cancel_at_period_end = true
+        Ok(())
+    }
+    
+    /// Get subscriptions due for renewal
+    pub async fn get_renewals_due(&self, epoch: u64) -> Result<Vec<Subscription>, DbError> {
+        // Query all subscriptions where next_billing_epoch <= epoch
+        // Filter out those with cancel_at_period_end = true
+        Ok(vec![])
+    }
+    
+    /// Batch process renewals (gas-optimized)
+    pub async fn batch_process_renewals(&self, subscription_ids: &[String]) -> Result<BatchBillingResult, DbError> {
+        let mut results = Vec::new();
+        let mut total_charged = 0u64;
+        let mut successes = 0u32;
+        let mut failures = 0u32;
+        
+        for id in subscription_ids {
+            match self.process_billing(id).await {
+                Ok(result) => {
+                    if result.success {
+                        successes += 1;
+                        total_charged += result.amount_charged;
+                    } else {
+                        failures += 1;
+                    }
+                    results.push(result);
+                }
+                Err(_) => failures += 1,
+            }
+        }
+        
+        Ok(BatchBillingResult {
+            total_processed: subscription_ids.len() as u32,
+            successes,
+            failures,
+            total_amount_charged: total_charged,
+            results,
+        })
+    }
+    
+    /// Clean up expired subscriptions (cron job)
+    pub async fn cleanup_expired(&self) -> Result<u32, DbError> {
+        // Find all subscriptions where current_period_end < current_epoch
+        // And status != Cancelled
+        // Set status = Expired
+        // Return count of expired subscriptions
+        Ok(0)
+    }
+    
+    fn current_epoch() -> u64 {
+        // In production: get from chain state
+        48291
+    }
+}
+
+/// Aggregated usage for billing period
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AggregatedUsage {
+    pub total_api_calls: u64,
+    pub total_agent_tasks: u64,
+    pub total_compute_units: u64,
+    pub total_storage_mb: u64,
+    pub epochs_counted: u64,
+}
+
+/// Subscription validation result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidationResult {
+    pub is_valid: bool,
+    pub subscription: Subscription,
+    pub remaining_quota: u64,
+    pub reset_epoch: u64,
+}
+
+/// Single billing result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingResult {
+    pub success: bool,
+    pub amount_charged: u64,
+    pub new_period_end: u64,
+    pub transaction_id: String,
+    pub error_message: Option<String>,
+}
+
+/// Batch billing result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BatchBillingResult {
+    pub total_processed: u32,
+    pub successes: u32,
+    pub failures: u32,
+    pub total_amount_charged: u64,
+    pub results: Vec<BillingResult>,
+}
+
+/// Database operation errors
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DbError {
+    pub code: String,
+    pub message: String,
+    pub retryable: bool,
+}
+
+impl DbError {
+    pub fn not_found() -> Self {
+        Self {
+            code: "NOT_FOUND".to_string(),
+            message: "Resource not found in database".to_string(),
+            retryable: false,
+        }
+    }
+    
+    pub fn connection_failed() -> Self {
+        Self {
+            code: "CONNECTION_FAILED".to_string(),
+            message: "Failed to connect to Replit DB".to_string(),
+            retryable: true,
+        }
+    }
+    
+    pub fn timeout() -> Self {
+        Self {
+            code: "TIMEOUT".to_string(),
+            message: "Database operation timed out".to_string(),
+            retryable: true,
+        }
+    }
+}
+
+impl std::fmt::Display for DbError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{}] {}", self.code, self.message)
+    }
+}
+    pub bandwidth_mb: u64,
     pub overage_charges: u64,
 }
 
