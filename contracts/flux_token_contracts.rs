@@ -1,13 +1,96 @@
 // FLUX Token Smart Contract Stubs - AeTHer Chain
 // Production-ready contract structures for blockchain deployment
-// Sprint 6 - Backend Contract Development
+// Sprint 6 + Sprint 22 - Enhanced with events, logging, fee mechanisms
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 // ============================================================================
+// FLUX TOKEN EVENTS & LOGS
+// ============================================================================
+
+/// Transfer event (emitted on every transfer)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransferEvent {
+    pub from: String,
+    pub to: String,
+    pub amount: u128,
+    pub epoch: u64,
+    pub tx_hash: String,
+    pub gas_used: u64,
+}
+
+/// Approval event (emitted on approve/transfer_from)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ApprovalEvent {
+    pub owner: String,
+    pub spender: String,
+    pub amount: u128,
+    pub epoch: u64,
+    pub tx_hash: String,
+}
+
+/// Mint event (emitted when new tokens created)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MintEvent {
+    pub to: String,
+    pub amount: u128,
+    pub epoch: u64,
+    pub tx_hash: String,
+    pub reason: String,
+}
+
+/// Burn event (emitted when tokens destroyed)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BurnEvent {
+    pub from: String,
+    pub amount: u128,
+    pub epoch: u64,
+    pub tx_hash: String,
+    pub reason: String,
+}
+
+/// Fee collection event
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FeeCollectionEvent {
+    pub from: String,
+    pub fee_amount: u128,
+    pub fee_percentage: f64,
+    pub recipient: String,
+    pub epoch: u64,
+}
+
+// ============================================================================
+// FLUX TOKEN CONTRACT - Enhanced with Fees and Events
+// ============================================================================
+
+// ============================================================================
 // FLUX TOKEN CONTRACT - Main ERC20-like Implementation
 // ============================================================================
+
+/// Fee configuration for FLUX transfers
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FeeConfig {
+    pub transfer_fee_percent: f64,    // e.g., 0.01 = 1%
+    pub burn_fee_percent: f64,        // e.g., 0.005 = 0.5% burned
+    pub treasury_fee_percent: f64,    // e.g., 0.005 = 0.5% to treasury
+    pub fee_recipient: String,
+    pub min_fee: u128,                // Minimum fee in smallest units
+    pub max_fee: Option<u128>,        // Cap on fees (None = uncapped)
+}
+
+impl Default for FeeConfig {
+    fn default() -> Self {
+        FeeConfig {
+            transfer_fee_percent: 0.01,    // 1% total fee
+            burn_fee_percent: 0.005,       // 0.5% burned
+            treasury_fee_percent: 0.005,   // 0.5% to treasury
+            fee_recipient: "treasury".to_string(),
+            min_fee: 1,
+            max_fee: None,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FluxToken {
@@ -15,10 +98,17 @@ pub struct FluxToken {
     pub symbol: String,
     pub decimals: u8,
     pub total_supply: u128,
+    pub burned_supply: u128,
     pub balances: HashMap<String, u128>,
     pub allowances: HashMap<String, HashMap<String, u128>>,
     pub paused: bool,
     pub owner: String,
+    pub fee_config: FeeConfig,
+    pub transfer_events: Vec<TransferEvent>,
+    pub mint_events: Vec<MintEvent>,
+    pub burn_events: Vec<BurnEvent>,
+    pub fee_collections: Vec<FeeCollectionEvent>,
+    pub max_events_kept: usize,
 }
 
 impl FluxToken {
@@ -31,14 +121,90 @@ impl FluxToken {
             symbol: "FLUX".to_string(),
             decimals: 18,
             total_supply: initial_supply,
+            burned_supply: 0,
             balances,
             allowances: HashMap::new(),
             paused: false,
             owner,
+            fee_config: FeeConfig::default(),
+            transfer_events: Vec::new(),
+            mint_events: Vec::new(),
+            burn_events: Vec::new(),
+            fee_collections: Vec::new(),
+            max_events_kept: 1000,
         }
     }
     
-    pub fn transfer(&mut self, from: String, to: String, amount: u128) -> Result<bool, String> {
+    fn add_transfer_event(&mut self, from: String, to: String, amount: u128, tx_hash: String, gas_used: u64) {
+        self.transfer_events.push(TransferEvent {
+            from,
+            to,
+            amount,
+            epoch: Self::current_epoch(),
+            tx_hash,
+            gas_used,
+        });
+        // Trim old events
+        if self.transfer_events.len() > self.max_events_kept {
+            self.transfer_events.remove(0);
+        }
+    }
+    
+    fn add_mint_event(&mut self, to: String, amount: u128, tx_hash: String, reason: String) {
+        self.mint_events.push(MintEvent {
+            to,
+            amount,
+            epoch: Self::current_epoch(),
+            tx_hash,
+            reason,
+        });
+        if self.mint_events.len() > self.max_events_kept {
+            self.mint_events.remove(0);
+        }
+    }
+    
+    fn add_burn_event(&mut self, from: String, amount: u128, tx_hash: String, reason: String) {
+        self.burn_events.push(BurnEvent {
+            from,
+            amount,
+            epoch: Self::current_epoch(),
+            tx_hash,
+            reason,
+        });
+        if self.burn_events.len() > self.max_events_kept {
+            self.burn_events.remove(0);
+        }
+    }
+    
+    fn add_fee_event(&mut self, from: String, fee_amount: u128, recipient: String) {
+        self.fee_collections.push(FeeCollectionEvent {
+            from,
+            fee_amount,
+            fee_percentage: self.fee_config.transfer_fee_percent,
+            recipient,
+            epoch: Self::current_epoch(),
+        });
+        if self.fee_collections.len() > self.max_events_kept {
+            self.fee_collections.remove(0);
+        }
+    }
+    
+    fn calculate_fee(&self, amount: u128) -> (u128, u128, u128) {
+        let total_fee = ((amount as f64) * self.fee_config.transfer_fee_percent) as u128;
+        let total_fee = total_fee.max(self.fee_config.min_fee);
+        let total_fee = self.fee_config.max_fee.map(|max| total_fee.min(max)).unwrap_or(total_fee);
+        
+        let burn_fee = ((amount as f64) * self.fee_config.burn_fee_percent) as u128;
+        let treasury_fee = total_fee - burn_fee;
+        
+        (total_fee, burn_fee, treasury_fee)
+    }
+    
+    fn current_epoch() -> u64 {
+        48291
+    }
+    
+    pub fn transfer(&mut self, from: String, to: String, amount: u128) -> Result<(bool, u128), String> {
         if self.paused {
             return Err("Contract is paused".to_string());
         }
@@ -48,10 +214,33 @@ impl FluxToken {
             return Err("Insufficient balance".to_string());
         }
         
-        *self.balances.entry(from.clone()).or_insert(0) -= amount;
-        *self.balances.entry(to.clone()).or_insert(0) += amount;
+        // Calculate fees
+        let (total_fee, burn_fee, treasury_fee) = self.calculate_fee(amount);
+        let amount_after_fee = amount - total_fee;
         
-        Ok(true)
+        // Deduct from sender
+        *self.balances.entry(from.clone()).or_insert(0) -= amount;
+        
+        // Credit recipient (after fee)
+        *self.balances.entry(to.clone()).or_insert(0) += amount_after_fee;
+        
+        // Burn portion
+        if burn_fee > 0 {
+            self.burned_supply += burn_fee;
+            self.add_burn_event("fee_burn".to_string(), burn_fee, "fee".to_string(), "transfer_fee".to_string());
+        }
+        
+        // Treasury portion
+        if treasury_fee > 0 {
+            *self.balances.entry(self.fee_config.fee_recipient.clone()).or_insert(0) += treasury_fee;
+            self.add_fee_event(from.clone(), treasury_fee, self.fee_config.fee_recipient.clone());
+        }
+        
+        // Log event
+        let tx_hash = format!("tx_{}", Self::current_epoch());
+        self.add_transfer_event(from, to, amount_after_fee, tx_hash, 21000);
+        
+        Ok((true, total_fee))
     }
     
     pub fn approve(&mut self, owner: String, spender: String, amount: u128) -> Result<bool, String> {
