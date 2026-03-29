@@ -90,6 +90,29 @@ pub struct StakingPosition {
     pub rewards_claimed: i64,
     pub pending_rewards: i64,
     pub tier: Option<String>,
+    // Sprint 23: Enhanced staking tracking
+    pub compounded_rewards: i64,        // Total rewards auto-compounded
+    pub last_compound_epoch: u64,       // Epoch of last compounding
+    pub consecutive_epochs: u64,        // Streak for loyalty bonus
+    pub emergency_unstake_penalty: i64, // Penalty if unstaked early
+    pub validator_score: u32,           // Cached validator performance score
+}
+
+/// Validator performance metrics (enhanced)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidatorPerformance {
+    pub validator_id: String,
+    pub address: String,
+    pub performance_score: u32,         // 0-100 score
+    pub uptime_score: u32,              // 0-50 uptime component
+    pub consistency_score: u32,         // 0-50 no-slash component
+    pub total_delegated: i64,
+    pub delegator_count: u64,
+    pub commission_rate: f64,
+    pub slashing_events: u32,
+    pub epochs_active: u64,
+    pub last_updated_epoch: u64,
+    pub reputation_trend: f64,          // Moving average trend (-1 to 1)
 }
 
 /// FLUX mining reward record
