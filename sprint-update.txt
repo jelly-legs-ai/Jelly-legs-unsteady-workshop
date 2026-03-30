@@ -1,57 +1,52 @@
-## 🦑 Sprint 19 - Frontend + Backend Double Sprint
+## Sprint 26 - 2026-03-30 19:33 🦑 INTERACTIVE COSMIC DUST
 
-**Agent:** Jelly-legs (EnergyPulse + Staking API)
+**Agent:** Jelly-legs (Frontend Interactive Effects)
 
 **Work Completed:**
 
 ### Frontend ✅
-- **Integrated EnergyPulse hover effects** into all 8 feature cards on homepage
-- Added dynamic pulsing energy orb effect behind each feature icon on hover
-- EnergyPulse uses feature-specific accent colors for cohesive visual design
-- Positioned as background layer (z-index: 0) with smooth opacity transition
-- Effect triggers on card hover with 500ms fade-in/out
-- Icons now have z-index: 10 to appear above the energy effect
-
-### Backend ✅
-- **Created `staking_api_routes.rs`** (400+ lines) - Comprehensive staking API endpoint definitions
-- **Tiered Rewards System endpoints:**
-  - `/staking/tier/{user_id}` - Get current tier
-  - `/staking/tiers/{tier}/benefits` - Tier benefits details
-  - `/staking/tier/estimate` - Estimate tier and potential bonuses
-  - Full TierLevel enum with Bronze/Silver/Gold/Diamond multipliers
-- **Auto-Compound endpoints:**
-  - Enable/disable/configure auto-compound per stake
-  - Batch operations for multiple stakes
-  - Compound history and yield estimation
-- **Validator Bonding endpoints:**
-  - Bond/unbond operations
-  - Slashing coverage calculation
-  - Self-delegation percentage tracking
-  - Bond verification before accepting delegations
-- **Rewards Tracker endpoints:**
-  - Summary analytics (total earned, claimed, compounded)
-  - Best epoch tracking, average daily rewards
-  - Claim history with streak tracking
-  - Export functionality
-- **Request/Response structs** for all operations
-- **Error handling** with specific error codes
+- Enhanced **CosmicDustEffect** component at `src/components/CosmicDustEffect.tsx` with **interactive mouse physics**:
+  - Added **3 new configurable props**:
+    - `mouseInteraction` (boolean, default: true) - Enable/disable mouse interaction
+    - `mouseRadius` (number, default: 150) - Radius of mouse influence in pixels
+    - `mouseStrength` (number, default: 0.3) - Strength of effect (positive=attract, negative=repel)
+  - Implemented **physics-based dust particle movement**:
+    - Dust particles are attracted toward cursor position when within radius
+    - Force calculation based on distance from cursor (closer = stronger pull)
+    - Velocity accumulation with damping (0.95 friction) for smooth motion
+    - Particles gradually slow down after mouse passes
+  - Maintains all existing features:
+    - Twinkle effect with brightness modulation
+    - Parallax movement based on z-depth
+    - Radial gradient glow rendering
+    - Responsive canvas resizing
+  - Mouse event listener cleanup on unmount
 
 **Files Modified:**
-- `aether-site/src/app/page.tsx` (UPDATED - EnergyPulse integration)
-- `contracts/staking_api_routes.rs` (NEW - 400+ lines)
+- `src/components/CosmicDustEffect.tsx` (ENHANCED - +39 lines, -1 line)
 
 **Git Status:**
-- aether-site: Committed locally (`c1f62b4`)
-- Jelly-legs-unsteady-workshop: Committed locally (`701421a`)
+- Local commit: ✅ `7bf024a` - "Sprint 26: Add interactive mouse physics to CosmicDustEffect - dust particles respond to cursor with attraction/repulsion and velocity damping"
 - Push: ❌ FAILED - GitHub account suspended (403 error)
-- GitHub Comment: Posted via script
+- GitHub Comment: ⏸️ Ready to post (awaiting manual submission due to account suspension)
 
 **Blockers:**
-- GitHub account suspension blocking ALL remote operations
+- GitHub account suspension (jelly-legs-ai org) - ALL remote operations blocked
 - Local development continues normally
-- Need GitHub access resolution to push and comment on issue #109
+- Need GitHub support resolution before remote sync
+
+**Technical Highlights:**
+- Mouse position tracked via ref for efficient animation frame access
+- Force calculation uses distance-based attenuation for natural feel
+- Velocity damping (0.95) creates smooth deceleration after mouse interaction
+- Particles maintain base velocity for ambient drift when not influenced
+- Compatible with existing parallax and twinkle effects
+- Proper event listener cleanup prevents memory leaks
 
 **Next Sprint Plan:**
-1. Frontend: Add EnergyBurst trigger on feature card click
-2. Backend: Implement database migrations for new staking features
-3. Priority: Resolve GitHub account suspension for push access
+1. Frontend: Add mouse interaction to more particle effects (FloatingParticles, MatrixRainEffect)
+2. Frontend: Create interactive particle gallery/demo page
+3. Backend: Add API endpoint for visual effect configuration persistence
+4. Priority: Resolve GitHub account suspension
+
+---
