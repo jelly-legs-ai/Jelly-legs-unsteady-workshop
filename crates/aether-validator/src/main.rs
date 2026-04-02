@@ -15,11 +15,13 @@ mod keypair;
 mod config;
 mod rpc_client;
 mod genesis;
+mod state;
 
-pub use keypair::*;
 pub use config::*;
-pub use rpc_client::*;
 pub use genesis::*;
+pub use keypair::*;
+pub use rpc_client::*;
+pub use state::*;
 
 // =============================================================================
 // CLI Structure

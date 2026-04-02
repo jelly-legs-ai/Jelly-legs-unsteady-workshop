@@ -66,6 +66,58 @@ cargo build --release 2>&1 | tail -20
 
 ---
 
+## 3.5 Local Testnet (for Development/Testing)
+
+If you want to test the validator locally before connecting to the real testnet:
+
+### 3.5.1 Generate Genesis
+
+```bash
+# Generate genesis block and bootstrap validator identity
+node testnet/genesis/generate.js
+
+# This creates:
+#   testnet/genesis/genesis.json
+#   testnet/genesis/bootstrap-validator-1-identity.json
+```
+
+### 3.5.2 Start Bootstrap Validator
+
+```bash
+# Terminal 1: Start the bootstrap validator
+cargo run --bin aether-validator -- start --testnet
+```
+
+### 3.5.3 Check Status
+
+```bash
+# Terminal 2: Check validator status
+aether-cli validator status
+
+# Or query directly
+curl -X POST http://127.0.0.1:8899 -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"getSlot"}'
+```
+
+### 3.5.4 Show Connected Validators
+
+```bash
+# View all validators in the network
+cargo run --bin aether-validator -- show-validators
+
+# Or with aether-cli
+aether-cli validator show-validators
+```
+
+### 3.5.5 Stop and Restart
+
+```bash
+# Stop: Ctrl+C in the terminal running the validator
+# Restart: Re-run the start command
+```
+
+---
+
 ## 4. Node Setup
 
 ### 4.1 Build the Validator Binary

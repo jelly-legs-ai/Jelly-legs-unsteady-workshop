@@ -1,0 +1,39 @@
+{
+  "chain_id": "aether-testnet-1",
+  "genesis_hash": "bf11a436586df8e5e00bf04fc673577a196ee9c9857a2b188d865cfdcbfaffda",
+  "timestamp": 1775153603,
+  "slot_time_ms": 400,
+  "slots_per_epoch": 432000,
+  "min_stake": 100,
+  "bootstrap_multiplier": 2,
+  "consensus": {
+    "mode": "aetherflow",
+    "tower_finality": 12,
+    "poh_target_ticks_per_sec": 2500,
+    "poh_ticks_per_slot": 64
+  },
+  "bootstrap_validators": [
+    {
+      "identity_pubkey": "GfHq2tTVk9z4eXgyWrjNYBMSVa2Qa6ZhV1rtged15qNXDeXhtmcuzCgVLyRW",
+      "activated_stake": 10000000,
+      "commission": 10,
+      "active": true
+    }
+  ],
+  "rewards": {
+    "epoch_duration": 432000,
+    "base_reward_rate": 6,
+    "bootstrap_bonus": 100
+  },
+  "network": {
+    "p2p_port": 8001,
+    "rpc_port": 8899,
+    "gossip_port": 8000
+  },
+  "initial_accounts": [
+    {
+      "pubkey": "Faucet1111111111111111111111111111111111111",
+      "balance": 1000000000000
+    }
+  ]
+}
