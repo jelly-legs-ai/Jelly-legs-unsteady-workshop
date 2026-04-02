@@ -314,6 +314,261 @@ impl MigrationRunner {
 }
 
 // ============================================================================
+// POOL CONFIGURATIONS
+// ============================================================================
+
+/// Pool configuration for staking pools
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PoolConfig {
+    pub pool_id: String,
+    pub name: String,
+    pub description: String,
+    pub reward_token: String,
+    pub min_stake: u64,
+    pub max_stake: Option<u64>,
+    pub early_unstake_penalty: f64,
+    pub tier_boost_enabled: bool,
+    pub auto_compound_enabled: bool,
+    pub governance_enabled: bool,
+    pub max_validators: u32,
+    pub current_validators: u32,
+    pub total_staked: u64,
+    pub annual_percentage_yield: f64,
+    pub epoch_reward: u64,
+    pub last_reward_epoch: u64,
+    pub is_active: bool,
+    pub is_locked: bool,
+}
+
+impl PoolConfig {
+    /// Create new pool configuration
+    pub fn new(
+        pool_id: &str,
+        name: &str,
+        description: &str,
+        reward_token: &str,
+    ) -> Self {
+        PoolConfig {
+            pool_id: pool_id.to_string(),
+            name: name.to_string(),
+            description: description.to_string(),
+            reward_token: reward_token.to_string(),
+            min_stake: 100,
+            max_stake: None,
+            early_unstake_penalty: 0.05,
+            tier_boost_enabled: true,
+            auto_compound_enabled: true,
+            governance_enabled: true,
+            max_validators: 100,
+            current_validators: 0,
+            total_staked: 0,
+            annual_percentage_yield: 12.5,
+            epoch_reward: 0,
+            last_reward_epoch: 0,
+            is_active: true,
+            is_locked: false,
+        }
+    }
+
+    /// Get effective APY including tier boosts
+    pub fn get_effective_apy(&self, tier_multiplier: f64, lockup_discount: f64) -> f64 {
+        let base_apy = self.annual_percentage_yield;
+        let tier_boost = if self.tier_boost_enabled {
+            (tier_multiplier - 1.0) * 100.0
+        } else {
+            0.0
+        };
+        let lockup_bonus = lockup_discount * 100.0;
+        base_apy + tier_boost + lockup_bonus
+    }
+
+    /// Calculate unstake penalty based on lockup
+    pub fn calculate_unstake_penalty(&self, amount: u64, epochs_locked: u64, current_epoch: u64) -> u64 {
+        if current_epoch >= epochs_locked {
+            return 0; // No penalty if lockup expired
+        }
+        let epochs_remaining = epochs_locked - current_epoch;
+        let penalty_rate = self.early_unstake_penalty * (epochs_remaining as f64 / 100.0).min(1.0);
+        (amount as f64 * penalty_rate) as u64
+    }
+}
+
+/// Default pool configurations
+pub fn get_default_pools() -> Vec<PoolConfig> {
+    vec![
+        {
+            let mut pool = PoolConfig::new("aeth", "AeTHer Staking", "Stake AETH to become a validator and earn rewards", "AETH");
+            pool.min_stake = 100_000;
+            pool.max_stake = Some(10_000_000);
+            pool.annual_percentage_yield = 12.5;
+            pool.max_validators = 500;
+            pool
+        },
+        {
+            let mut pool = PoolConfig::new("flux", "FLUX Mining Pool", "Stake FLUX to support network operations", "FLUX");
+            pool.min_stake = 1_000;
+            pool.max_stake = Some(1_000_000);
+            pool.annual_percentage_yield = 8.5;
+            pool.max_validators = 1000;
+            pool
+        },
+        {
+            let mut pool = PoolConfig::new("lp", "LP Staking", "Stake liquidity provider tokens", "FLUX");
+            pool.min_stake = 500;
+            pool.max_stake = Some(500_000);
+            pool.annual_percentage_yield = 15.0;
+            pool.max_validators = 200;
+            pool.early_unstake_penalty = 0.08;
+            pool
+        },
+        {
+            let mut pool = PoolConfig::new("delegation", "Delegation Pool", "Delegate to validators without running a node", "AETH");
+            pool.min_stake = 100;
+            pool.max_stake = Some(100_000);
+            pool.annual_percentage_yield = 6.0;
+            pool.max_validators = 10000;
+            pool
+        },
+    ]
+}
+
+// ============================================================================
+// SLASH REDISTRIBUTION
+// ============================================================================
+
+/// Slash event record
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SlashEvent {
+    pub validator_address: String,
+    pub slash_epoch: u64,
+    pub slash_amount: u64,
+    pub slash_reason: SlashReason,
+    pub redistribution_batch: u64,
+    pub redistributed: bool,
+    pub redistribution_recipients: Vec<RedistributionRecipient>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum SlashReason {
+    DoubleSign,
+    Downtime,
+    InvalidBlock,
+    MissedVotes,
+    Corruption,
+}
+
+/// Redistribution recipient record
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RedistributionRecipient {
+    pub recipient_address: String,
+    pub stake_amount: u64,
+    pub redistribution_amount: u64,
+    pub percentage_of_slashed: f64,
+}
+
+/// Slash redistribution pool
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SlashRedistributionPool {
+    pub pool_id: String,
+    pub total_slashed_pending: u64,
+    pub total_redistributed: u64,
+    pub redistribution_batch: u64,
+    pub last_redistribution_epoch: u64,
+    pub redistribution_schedule: RedistributionSchedule,
+    pub affected_stakers: Vec<AffectedStaker>,
+    pub redistribution_percentage: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum RedistributionSchedule {
+    Immediate,
+    EpochBatch { epochs_per_batch: u64 },
+    Vesting { vesting_epochs: u64 },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AffectedStaker {
+    pub staker_address: String,
+    pub original_stake: u64,
+    pub slash_percentage: f64,
+    pub pending_redistribution: u64,
+    pub received_redistribution: u64,
+}
+
+impl SlashRedistributionPool {
+    /// Create new redistribution pool
+    pub fn new(pool_id: &str) -> Self {
+        SlashRedistributionPool {
+            pool_id: pool_id.to_string(),
+            total_slashed_pending: 0,
+            total_redistributed: 0,
+            redistribution_batch: 0,
+            last_redistribution_epoch: 0,
+            redistribution_schedule: RedistributionSchedule::EpochBatch { epochs_per_batch: 24 },
+            affected_stakers: Vec::new(),
+            redistribution_percentage: 0.25, // 25% of slashed gets redistributed
+        }
+    }
+
+    /// Add slashed amount to redistribution pool
+    pub fn add_slashed(&mut self, slash_amount: u64, reason: &SlashReason) -> u64 {
+        let redistributable = (slash_amount as f64 * self.redistribution_percentage) as u64;
+        self.total_slashed_pending += redistributable;
+        redistributable
+    }
+
+    /// Calculate redistribution for a staker
+    pub fn calculate_redistribution(&self, staker: &AffectedStaker, total_active_stake: u64) -> u64 {
+        if total_active_stake == 0 {
+            return 0;
+        }
+        let staker_share = staker.stake_amount as f64 / total_active_stake as f64;
+        (self.total_slashed_pending as f64 * staker_share) as u64
+    }
+
+    /// Process redistribution batch
+    pub fn process_batch(&mut self, current_epoch: u64, total_active_stake: u64) -> Vec<RedistributionRecipient> {
+        // Check if we should process based on schedule
+        let should_process = match &self.redistribution_schedule {
+            RedistributionSchedule::Immediate => true,
+            RedistributionSchedule::EpochBatch { epochs_per_batch } => {
+                current_epoch - self.last_redistribution_epoch >= *epochs_per_batch
+            }
+            RedistributionSchedule::Vesting { vesting_epochs } => {
+                current_epoch - self.last_redistribution_epoch >= *vesting_epochs
+            }
+        };
+
+        if !should_process || self.total_slashed_pending == 0 {
+            return Vec::new();
+        }
+
+        let mut recipients = Vec::new();
+
+        for staker in &mut self.affected_stakers {
+            let redistribution = self.calculate_redistribution(staker, total_active_stake);
+            if redistribution > 0 {
+                recipients.push(RedistributionRecipient {
+                    recipient_address: staker.staker_address.clone(),
+                    stake_amount: staker.stake_amount,
+                    redistribution_amount: redistribution,
+                    percentage_of_slashed: redistribution as f64 / self.total_slashed_pending as f64,
+                });
+                staker.received_redistribution += redistribution;
+                staker.pending_redistribution = staker.pending_redistribution.saturating_sub(redistribution);
+            }
+        }
+
+        self.total_redistributed += recipients.iter().map(|r| r.redistribution_amount).sum::<u64>();
+        self.total_slashed_pending = 0;
+        self.last_redistribution_epoch = current_epoch;
+        self.redistribution_batch += 1;
+
+        recipients
+    }
+}
+
+// ============================================================================
 // TESTS
 // ============================================================================
 
@@ -394,5 +649,99 @@ mod tests {
         assert_eq!(default_self_delegation_pct("silver"), 0.15);
         assert_eq!(default_self_delegation_pct("gold"), 0.20);
         assert_eq!(default_self_delegation_pct("diamond"), 0.25);
+    }
+
+    #[test]
+    fn test_pool_config_creation() {
+        let pool = PoolConfig::new("test", "Test Pool", "A test pool", "TEST");
+        assert_eq!(pool.pool_id, "test");
+        assert_eq!(pool.min_stake, 100);
+        assert_eq!(pool.annual_percentage_yield, 12.5);
+        assert!(pool.is_active);
+    }
+
+    #[test]
+    fn test_pool_effective_apy() {
+        let mut pool = PoolConfig::new("test", "Test", "Test", "TEST");
+        pool.annual_percentage_yield = 10.0;
+        pool.tier_boost_enabled = true;
+
+        // Tier multiplier of 1.2 = 20% boost
+        let apy = pool.get_effective_apy(1.2, 0.1);
+        assert_eq!(apy, 10.0 + 20.0 + 10.0); // base + tier + lockup
+    }
+
+    #[test]
+    fn test_early_unstake_penalty() {
+        let pool = PoolConfig::new("test", "Test", "Test", "TEST");
+        pool.early_unstake_penalty = 0.05;
+
+        // 50 epochs remaining, penalty should be 2.5%
+        let penalty = pool.calculate_unstake_penalty(10000, 50000, 49950);
+        assert!(penalty > 0);
+
+        // No penalty after lockup expires
+        let no_penalty = pool.calculate_unstake_penalty(10000, 50000, 50000);
+        assert_eq!(no_penalty, 0);
+    }
+
+    #[test]
+    fn test_default_pools() {
+        let pools = get_default_pools();
+        assert_eq!(pools.len(), 4);
+        assert_eq!(pools[0].pool_id, "aeth");
+        assert_eq!(pools[1].pool_id, "flux");
+        assert_eq!(pools[2].pool_id, "lp");
+        assert_eq!(pools[3].pool_id, "delegation");
+    }
+
+    #[test]
+    fn test_slash_redistribution_pool() {
+        let mut pool = SlashRedistributionPool::new("test_pool");
+        
+        // Add slashed amount
+        let redistributable = pool.add_slashed(1000, &SlashReason::DoubleSign);
+        assert_eq!(redistributable, 250); // 25% of 1000
+        
+        assert_eq!(pool.total_slashed_pending, 250);
+    }
+
+    #[test]
+    fn test_redistribution_calculation() {
+        let mut pool = SlashRedistributionPool::new("test_pool");
+        pool.total_slashed_pending = 1000;
+        
+        let staker = AffectedStaker {
+            staker_address: "0x1234".to_string(),
+            original_stake: 5000,
+            slash_percentage: 0.0,
+            pending_redistribution: 0,
+            received_redistribution: 0,
+        };
+        
+        // Staker has 50% of total stake
+        let redistribution = pool.calculate_redistribution(&staker, 10000);
+        assert_eq!(redistribution, 500);
+    }
+
+    #[test]
+    fn test_batch_redistribution() {
+        let mut pool = SlashRedistributionPool::new("test_pool");
+        pool.total_slashed_pending = 1000;
+        
+        pool.affected_stakers.push(AffectedStaker {
+            staker_address: "0x1234".to_string(),
+            original_stake: 5000,
+            slash_percentage: 0.0,
+            pending_redistribution: 500,
+            received_redistribution: 0,
+        });
+        
+        // Process batch
+        let recipients = pool.process_batch(100, 10000);
+        
+        assert!(!recipients.is_empty());
+        assert_eq!(pool.total_redistributed, 500);
+        assert_eq!(pool.total_slashed_pending, 0);
     }
 }
