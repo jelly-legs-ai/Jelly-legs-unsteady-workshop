@@ -5,7 +5,9 @@
 pub mod constants;
 pub mod types;
 pub mod crypto;
+pub mod utils;
 
 pub use constants::*;
 pub use types::*;
 pub use crypto::*;
+pub use utils::*;

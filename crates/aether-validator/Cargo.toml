@@ -22,11 +22,11 @@ tracing-subscriber = { workspace = true }
 # CLI
 clap = { version = "4.4", features = ["derive", "env"] }
 
-# Local crates
-aether-core = { path = "../aether-core" }
-aether-consensus = { path = "../aether-consensus" }
-aether-network = { path = "../aether-network" }
-aether-storage = { path = "../aether-storage" }
+# Local crates (at repo root, two levels up)
+aether-core = { path = "../../aether-core" }
+aether-consensus = { path = "../../aether-consensus" }
+aether-network = { path = "../../aether-network" }
+aether-storage = { path = "../../aether-storage" }
 
 # Gossip & P2P
 libp2p = { workspace = true }
