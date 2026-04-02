@@ -202,6 +202,294 @@ impl GovernanceContract {
         id
     }
     
+    pub fn vote(&mut self, proposal_id: u64, voter: &str, voting_power: u64, vote: VoteChoice) -> Result<(), &'static str> {
+        let proposal = self.proposals.get_mut(&proposal_id)
+            .ok_or("Proposal not found")?;
+        
+        if proposal.status != ProposalStatus::Active {
+            return Err("Voting not active");
+        }
+        
+        match vote {
+            VoteChoice::For => proposal.votes_for += voting_power,
+            VoteChoice::Against => proposal.votes_against += voting_power,
+            VoteChoice::Abstain => proposal.votes_abstain += voting_power,
+        }
+        
+        Ok(())
+    }
+    
+    pub fn finalize_proposal(&mut self, proposal_id: u64, total_stake: u64) -> Result<ProposalStatus, &'static str> {
+        let proposal = self.proposals.get_mut(&proposal_id)
+            .ok_or("Proposal not found")?;
+        
+        let total_votes = proposal.votes_for + proposal.votes_against + proposal.votes_abstain;
+        let quorum_met = (total_votes as f64 / total_stake as f64) >= (self.quorum_percent / 100.0);
+        
+        if !quorum_met {
+            proposal.status = ProposalStatus::Rejected;
+            return Ok(ProposalStatus::Rejected);
+        }
+        
+        let passed = proposal.votes_for > proposal.votes_against;
+        proposal.status = if passed { ProposalStatus::Passed } else { ProposalStatus::Rejected };
+        
+        Ok(proposal.status.clone())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum VoteChoice {
+    For,
+    Against,
+    Abstain,
+}
+
+// =============================================================================
+// SPRINT 25: TREASURY CONTRACT
+// =============================================================================
+
+/// Treasury contract for managing protocol funds
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TreasuryContract {
+    pub contract_address: String,
+    pub version: String,
+    pub aeth_balance: u64,
+    pub flux_balance: u64,
+    pub ath_balance: u64,
+    pub allocated_funds: HashMap<String, Allocation>,
+    pub spending_proposals: HashMap<u64, SpendingProposal>,
+    pub next_spending_id: u64,
+    pub guardians: Vec<String>,
+    pub multi_sig_threshold: u32,
+    pub daily_spending_limit: u64,
+    pub spent_today: u64,
+    pub last_reset_epoch: u64,
+}
+
+/// Fund allocation record
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Allocation {
+    pub id: String,
+    pub recipient: String,
+    pub amount: u64,
+    pub token: Token,
+    pub purpose: String,
+    pub approved_at: u64,
+    pub claimed: bool,
+    pub claimed_at: Option<u64>,
+}
+
+/// Spending proposal for treasury funds
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpendingProposal {
+    pub id: u64,
+    pub title: String,
+    pub description: String,
+    pub requester: String,
+    pub amount: u64,
+    pub token: Token,
+    pub recipient: String,
+    pub created_at: u64,
+    pub approvals: Vec<String>,
+    pub status: SpendingStatus,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum SpendingStatus {
+    Pending,
+    Approved,
+    Rejected,
+    Executed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum Token {
+    AETH,
+    FLUX,
+    ATH,
+}
+
+impl TreasuryContract {
+    pub fn new() -> Self {
+        TreasuryContract {
+            contract_address: "0xTreasuryContract".to_string(),
+            version: "1.0.0".to_string(),
+            aeth_balance: 50_000_000, // 50M initial treasury
+            flux_balance: 100_000_000,
+            ath_balance: 500_000_000,
+            allocated_funds: HashMap::new(),
+            spending_proposals: HashMap::new(),
+            next_spending_id: 1,
+            guardians: vec!["0xGuardian1".to_string(), "0xGuardian2".to_string(), "0xGuardian3".to_string()],
+            multi_sig_threshold: 2, // 2 of 3 guardians must approve
+            daily_spending_limit: 1_000_000, // 1M per day limit
+            spent_today: 0,
+            last_reset_epoch: 0,
+        }
+    }
+    
+    /// Create spending proposal
+    pub fn create_spending_proposal(&mut self, title: String, description: String, requester: String, amount: u64, token: Token, recipient: String, current_epoch: u64) -> u64 {
+        let id = self.next_spending_id;
+        self.next_spending_id += 1;
+        
+        let proposal = SpendingProposal {
+            id,
+            title,
+            description,
+            requester,
+            amount,
+            token,
+            recipient,
+            created_at: current_epoch,
+            approvals: vec![],
+            status: SpendingStatus::Pending,
+        };
+        
+        self.spending_proposals.insert(id, proposal);
+        id
+    }
+    
+    /// Guardian approves spending proposal
+    pub fn approve_spending(&mut self, proposal_id: u64, guardian: &str) -> Result<(), &'static str> {
+        if !self.guardians.contains(&guardian.to_string()) {
+            return Err("Not a guardian");
+        }
+        
+        let proposal = self.spending_proposals.get_mut(&proposal_id)
+            .ok_or("Proposal not found")?;
+        
+        if proposal.status != SpendingStatus::Pending {
+            return Err("Proposal not pending");
+        }
+        
+        if !proposal.approvals.contains(&guardian.to_string()) {
+            proposal.approvals.push(guardian.to_string());
+        }
+        
+        // Auto-approve if threshold met
+        if proposal.approvals.len() as u32 >= self.multi_sig_threshold {
+            proposal.status = SpendingStatus::Approved;
+        }
+        
+        Ok(())
+    }
+    
+    /// Execute approved spending proposal
+    pub fn execute_spending(&mut self, proposal_id: u64, current_epoch: u64) -> Result<(), &'static str> {
+        let proposal = self.spending_proposals.get_mut(&proposal_id)
+            .ok_or("Proposal not found")?;
+        
+        if proposal.status != SpendingStatus::Approved {
+            return Err("Proposal not approved");
+        }
+        
+        // Check daily limit
+        if current_epoch != self.last_reset_epoch + 24 {
+            self.spent_today = 0;
+            self.last_reset_epoch = current_epoch;
+        }
+        
+        if self.spent_today + proposal.amount > self.daily_spending_limit {
+            return Err("Daily spending limit exceeded");
+        }
+        
+        // Deduct from treasury
+        match proposal.token {
+            Token::AETH => {
+                if self.aeth_balance < proposal.amount {
+                    return Err("Insufficient AETH balance");
+                }
+                self.aeth_balance -= proposal.amount;
+            }
+            Token::FLUX => {
+                if self.flux_balance < proposal.amount {
+                    return Err("Insufficient FLUX balance");
+                }
+                self.flux_balance -= proposal.amount;
+            }
+            Token::ATH => {
+                if self.ath_balance < proposal.amount {
+                    return Err("Insufficient ATH balance");
+                }
+                self.ath_balance -= proposal.amount;
+            }
+        }
+        
+        self.spent_today += proposal.amount;
+        proposal.status = SpendingStatus::Executed;
+        
+        // Create allocation record
+        let allocation = Allocation {
+            id: format!("alloc_{}", proposal_id),
+            recipient: proposal.recipient.clone(),
+            amount: proposal.amount,
+            token: proposal.token.clone(),
+            purpose: proposal.description.clone(),
+            approved_at: current_epoch,
+            claimed: true,
+            claimed_at: Some(current_epoch),
+        };
+        
+        self.allocated_funds.insert(allocation.id.clone(), allocation);
+        
+        Ok(())
+    }
+    
+    /// Get treasury balance summary
+    pub fn get_balance_summary(&self) -> TreasuryBalance {
+        TreasuryBalance {
+            aeth: self.aeth_balance,
+            flux: self.flux_balance,
+            ath: self.ath_balance,
+            total_allocated: self.allocated_funds.values()
+                .filter(|a| !a.claimed)
+                .map(|a| a.amount)
+                .sum(),
+            spent_today: self.spent_today,
+            daily_limit_remaining: self.daily_spending_limit.saturating_sub(self.spent_today),
+        }
+    }
+    
+    /// Deposit funds into treasury
+    pub fn deposit(&mut self, token: Token, amount: u64) -> Result<(), &'static str> {
+        match token {
+            Token::AETH => self.aeth_balance += amount,
+            Token::FLUX => self.flux_balance += amount,
+            Token::ATH => self.ath_balance += amount,
+        }
+        Ok(())
+    }
+}
+
+/// Treasury balance summary
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TreasuryBalance {
+    pub aeth: u64,
+    pub flux: u64,
+    pub ath: u64,
+    pub total_allocated: u64,
+    pub spent_today: u64,
+    pub daily_limit_remaining: u64,
+}
+            id,
+            title,
+            description,
+            proposer,
+            created_at: current_epoch,
+            voting_ends_at: current_epoch + self.voting_period_epochs,
+            votes_for: 0,
+            votes_against: 0,
+            votes_abstain: 0,
+            status: ProposalStatus::Pending,
+            executed: false,
+        };
+        
+        self.proposals.insert(id, proposal);
+        id
+    }
+    
     pub fn vote(&mut self, proposal_id: u64, voter: &str, amount: u64, vote: Vote) -> Result<(), &'static str> {
         let proposal = self.proposals.get_mut(&proposal_id)
             .ok_or("Proposal not found")?;

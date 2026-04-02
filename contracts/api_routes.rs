@@ -239,6 +239,46 @@ pub mod bridge {
     pub const HISTORY: &str = "/bridge/history/{address}";
 }
 
+/// Treasury endpoints (Sprint 25)
+pub mod treasury {
+    pub const BALANCE: &str = "/treasury/balance";
+    pub const SUMMARY: &str = "/treasury/summary";
+    pub const DEPOSIT: &str = "/treasury/deposit";
+    pub const WITHDRAW: &str = "/treasury/withdraw";
+    pub const PROPOSALS: &str = "/treasury/proposals";
+    pub const PROPOSAL_GET: &str = "/treasury/proposals/{id}";
+    pub const PROPOSAL_CREATE: &str = "/treasury/proposals/create";
+    pub const PROPOSAL_APPROVE: &str = "/treasury/proposals/{id}/approve";
+    pub const PROPOSAL_EXECUTE: &str = "/treasury/proposals/{id}/execute";
+    pub const ALLOCATIONS: &str = "/treasury/allocations";
+    pub const ALLOCATION_GET: &str = "/treasury/allocations/{id}";
+    pub const GUARDIANS: &str = "/treasury/guardians";
+    pub const GUARDIAN_ADD: &str = "/treasury/guardians/add";
+    pub const GUARDIAN_REMOVE: &str = "/treasury/guardians/remove";
+    pub const SPENDING_LIMIT: &str = "/treasury/spending-limit";
+    pub const SPENDING_HISTORY: &str = "/treasury/spending/history";
+    pub const DAILY_STATS: &str = "/treasury/daily-stats";
+}
+
+/// Token endpoints
+pub mod tokens {
+    pub const LIST: &str = "/tokens";
+    pub const AETH: &str = "/tokens/aeth";
+    pub const FLUX: &str = "/tokens/flux";
+    pub const ATH: &str = "/tokens/ath";
+    pub const AETH_BALANCE: &str = "/tokens/aeth/balance/{address}";
+    pub const FLUX_BALANCE: &str = "/tokens/flux/balance/{address}";
+    pub const ATH_BALANCE: &str = "/tokens/ath/balance/{address}";
+    pub const AETH_TRANSFER: &str = "/tokens/aeth/transfer";
+    pub const FLUX_TRANSFER: &str = "/tokens/flux/transfer";
+    pub const ATH_TRANSFER: &str = "/tokens/ath/transfer";
+    pub const AETH_SUPPLY: &str = "/tokens/aeth/supply";
+    pub const FLUX_SUPPLY: &str = "/tokens/flux/supply";
+    pub const ATH_SUPPLY: &str = "/tokens/ath/supply";
+    pub const BURN: &str = "/tokens/burn";
+    pub const BURN_HISTORY: &str = "/tokens/burn/history";
+}
+
 /// Transaction endpoints
 pub mod transactions {
     pub const LIST: &str = "/transactions";

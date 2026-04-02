@@ -58,6 +58,58 @@ pub struct ValidatorMetrics {
     pub commission_rate: f64,
     pub uptime_percent: f64,
     pub slashing_events: u64,
+    pub last_update_epoch: u64,
+}
+
+/// Staking tier for bonus rewards
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum StakingTier {
+    Bronze,    // < 1000 staked
+    Silver,    // 1000-10000 staked  
+    Gold,      // 10000-100000 staked
+    Platinum,  // > 100000 staked
+}
+
+/// Tier bonus rates
+impl StakingTier {
+    pub fn bonus_multiplier(&self) -> f64 {
+        match self {
+            StakingTier::Bronze => 1.0,
+            StakingTier::Silver => 1.25,  // 25% bonus
+            StakingTier::Gold => 1.5,     // 50% bonus
+            StakingTier::Platinum => 2.0,  // 100% bonus
+        }
+    }
+    
+    pub fn from_stake_amount(amount: u64) -> Self {
+        if amount >= 100000 {
+            StakingTier::Platinum
+        } else if amount >= 10000 {
+            StakingTier::Gold
+        } else if amount >= 1000 {
+            StakingTier::Silver
+        } else {
+            StakingTier::Bronze
+        }
+    }
+}
+
+/// Auto-compounding configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutoCompoundConfig {
+    pub enabled: bool,
+    pub frequency_hours: u32,
+    pub reinvest_percentage: f64,  // 0.0 to 1.0
+    pub last_compound_epoch: u64,
+}
+
+/// Slashing event record
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SlashingEvent {
+    pub epoch: u64,
+    pub reason: String,
+    pub slash_amount: u64,
+    pub validator: String,
 }
 
 /// Staking contract state
@@ -197,7 +249,136 @@ impl StakingContract {
     pub fn redelegate_rewards(&mut self, delegator: &str, pool_id: &str) -> Result<u64, &'static str> {
         let rewards = self.claim_delegation_rewards(delegator, pool_id)?;
         
+        // Auto-compound: add rewards to existing delegation
         let delegations = self.delegations.get_mut(delegator)
+            .ok_or("No delegations found")?;
+        
+        for delegation in delegations.iter_mut() {
+            if delegation.pool_id == pool_id && rewards > 0 {
+                delegation.amount += rewards;
+                // Update pool total
+                if let Some(pool) = self.pools.get_mut(&delegation.pool_id) {
+                    pool.total_staked += rewards;
+                }
+                return Ok(rewards);
+            }
+        }
+        
+        Err("No active delegation found for compounding")
+    }
+    
+    /// Emergency unstake (with penalty if before lock end)
+    pub fn emergency_unstake(&mut self, delegator: &str, pool_id: &str) -> Result<u64, &'static str> {
+        let delegations = self.delegations.get_mut(delegator)
+            .ok_or("No delegations found")?;
+        
+        let mut unstake_amount = 0u64;
+        let mut penalty_applied = 0u64;
+        
+        for delegation in delegations.iter_mut() {
+            if delegation.pool_id == pool_id {
+                if let Some(pool) = self.pools.get(&delegation.pool_id) {
+                    let epochs_remaining = if delegation.start_epoch + pool.lockup_epochs > self.current_epoch {
+                        (delegation.start_epoch + pool.lockup_epochs) - self.current_epoch
+                    } else {
+                        0
+                    };
+                    
+                    // Apply 10% penalty per epoch remaining if early withdrawal
+                    if epochs_remaining > 0 {
+                        let penalty_rate = 0.1 * epochs_remaining as f64;
+                        penalty_applied = (delegation.amount as f64 * penalty_rate.min(0.5)) as u64;
+                        unstake_amount = delegation.amount - penalty_applied;
+                        
+                        // Slash penalty from pool
+                        if let Some(pool) = self.pools.get_mut(&delegation.pool_id) {
+                            pool.total_staked -= penalty_applied;
+                        }
+                    } else {
+                        unstake_amount = delegation.amount;
+                    }
+                    
+                    if let Some(pool) = self.pools.get_mut(&delegation.pool_id) {
+                        pool.total_staked -= unstake_amount;
+                        pool.active_stakers -= 1;
+                    }
+                    
+                    delegation.amount = 0;
+                }
+            }
+        }
+        
+        if unstake_amount > 0 {
+            Ok(unstake_amount)
+        } else {
+            Err("No stake found to unstake")
+        }
+    }
+    
+    /// Get estimated APY for a pool (dynamic based on total staked)
+    pub fn get_estimated_apy(&self, pool_id: &str) -> f64 {
+        if let Some(pool) = self.pools.get(pool_id) {
+            // Base rate adjusted by utilization
+            let base_rate = pool.reward_rate;
+            let utilization_factor = if pool.total_staked > 0 {
+                1.0 / (1.0 + (pool.total_staked as f64 / 1_000_000.0))
+            } else {
+                1.0
+            };
+            base_rate * utilization_factor
+        } else {
+            0.0
+        }
+    }
+    
+    /// Batch claim rewards for multiple pools
+    pub fn batch_claim_rewards(&mut self, delegator: &str, pool_ids: &[String]) -> Result<u64, &'static str> {
+        let mut total_rewards = 0u64;
+        
+        for pool_id in pool_ids {
+            match self.claim_delegation_rewards(delegator, pool_id) {
+                Ok(rewards) => total_rewards += rewards,
+                Err(_) => continue, // Skip pools with no active delegation
+            }
+        }
+        
+        if total_rewards > 0 {
+            Ok(total_rewards)
+        } else {
+            Err("No rewards to claim")
+        }
+    }
+    
+    /// Get validator performance score (0-100)
+    pub fn get_validator_score(&self, validator: &str) -> u32 {
+        if let Some(metrics) = self.validator_metrics.get(validator) {
+            let uptime_score = (metrics.uptime_percent / 100.0 * 50.0) as u32;
+            let consistency_score = if metrics.slashing_events == 0 { 50 } else { 50 - (metrics.slashing_events * 10).min(50) };
+            uptime_score + consistency_score
+        } else {
+            0
+        }
+    }
+    
+    /// Update validator metrics (call after each epoch)
+    pub fn update_validator_metrics(&mut self, validator: &str, uptime: f64, slashed: bool) {
+        let metrics = self.validator_metrics.entry(validator.to_string())
+            .or_insert(ValidatorMetrics {
+                validator_address: validator.to_string(),
+                total_delegated: 0,
+                delegator_count: 0,
+                commission_rate: 0.05,
+                uptime_percent: 100.0,
+                slashing_events: 0,
+            });
+        
+        // Moving average for uptime (70% current, 30% historical)
+        metrics.uptime_percent = metrics.uptime_percent * 0.3 + uptime * 0.7;
+        
+        if slashed {
+            metrics.slashing_events += 1;
+        }
+    }
             .ok_or("No delegations found")?;
         
         for delegation in delegations.iter_mut() {

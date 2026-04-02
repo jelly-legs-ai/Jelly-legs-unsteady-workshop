@@ -1,20 +1,49 @@
 // Cross-Chain Bridge Contract for AeTHer Chain
 // Enables asset transfers between AeTHer and other major blockchains
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 // Bridge transaction status
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum BridgeStatus {
     Pending,
+    Confirming,
     Confirmed,
+    Executing,
     Completed,
     Failed,
     Refunded,
 }
 
+// Bridge transaction priority
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum BridgePriority {
+    Standard,
+    Fast,
+    Instant,
+}
+
+impl BridgePriority {
+    pub fn multiplier(&self) -> f64 {
+        match self {
+            BridgePriority::Standard => 1.0,
+            BridgePriority::Fast => 1.5,
+            BridgePriority::Instant => 3.0,
+        }
+    }
+    
+    pub fn estimated_time_minutes(&self) -> u32 {
+        match self {
+            BridgePriority::Standard => 30,
+            BridgePriority::Fast => 10,
+            BridgePriority::Instant => 2,
+        }
+    }
+}
+
 // Bridge transaction record
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BridgeTransaction {
     pub id: String,
     pub source_chain: String,
@@ -24,14 +53,20 @@ pub struct BridgeTransaction {
     pub token: String,
     pub amount: u64,
     pub fee: u64,
+    pub priority: BridgePriority,
     pub status: BridgeStatus,
     pub timestamp: u64,
     pub confirmations: u32,
+    pub required_confirmations: u32,
     pub destination_tx: Option<String>,
+    pub source_tx_hash: Option<String>,
+    pub destination_tx_hash: Option<String>,
+    pub refund_address: Option<String>,
+    pub metadata: HashMap<String, String>,
 }
 
 // Bridge pool information
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BridgePool {
     pub chain: String,
     pub token: String,
@@ -40,7 +75,37 @@ pub struct BridgePool {
     pub locked_liquidity: u64,
     pub utilization_rate: f64,
     pub daily_volume: u64,
+    pub weekly_volume: u64,
+    pub total_volume: u64,
     pub last_update: u64,
+    pub liquidity_providers: Vec<String>,
+    pub apr: f64,
+}
+
+// Liquidity provider share
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LiquidityProvider {
+    pub address: String,
+    pub pool_id: String,
+    pub contributed_amount: u64,
+    pub share_percent: f64,
+    pub rewards_earned: u64,
+    pub pending_rewards: u64,
+    pub joined_at: u64,
+    pub last_claim: u64,
+}
+
+// Bridge analytics and stats
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BridgeStats {
+    pub total_transactions: u64,
+    pub total_volume: u64,
+    pub total_fees_collected: u64,
+    pub avg_transfer_time_minutes: f64,
+    pub success_rate: f64,
+    pub top_source_chain: String,
+    pub top_destination_chain: String,
+    pub top_token: String,
 }
 
 // Cross-chain bridge state
