@@ -9,7 +9,6 @@ use std::path::PathBuf;
 use tokio::net::TcpListener;
 use tokio::time::{sleep, Duration};
 use tracing::{info, warn, error, Level};
-use tracing_subscriber::FmtFormatter;
 
 mod keypair;
 mod config;
@@ -164,7 +163,7 @@ async fn main() -> anyhow::Result<()> {
         _ => Level::TRACE,
     };
 
-    tracing_subscriber::builder()
+    tracing_subscriber::fmt()
         .with_max_level(log_level)
         .with_target(true)
         .with_thread_ids(true)
@@ -196,15 +195,17 @@ async fn main() -> anyhow::Result<()> {
 // =============================================================================
 
 async fn run_validator(cli: Cli) -> anyhow::Result<()> {
-    let start_cmd = match &cli.command {
-        Commands::Start(s) => s,
+    let (testnet, rpc_addr, p2p_addr, identity_path, vote_account_path, no_stake) = match &cli.command {
+        Commands::Start { testnet, rpc_addr, p2p_addr, identity, vote_account, no_stake } => {
+            (testnet, rpc_addr, p2p_addr, identity, vote_account, no_stake)
+        }
         _ => unreachable!(),
     };
 
     info!("Starting AETHER Validator...");
 
     // Load or generate identity
-    let identity = if let Some(path) = &start_cmd.identity {
+    let identity = if let Some(path) = identity_path {
         load_or_create_identity(path)?
     } else {
         let default_path = PathBuf::from("validator-identity.json");
@@ -227,7 +228,6 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
         .context("Failed to create ledger directory")?;
 
     // Bind RPC listener
-    let rpc_addr = &start_cmd.rpc_addr;
     info!("Binding RPC to {}", rpc_addr);
     let rpc_listener = TcpListener::bind(rpc_addr)
         .await
@@ -235,13 +235,12 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
     let rpc_port = rpc_listener.local_addr()?.port();
 
     // Bind P2P listener
-    let p2p_addr = &start_cmd.p2p_addr;
     info!("Binding P2P gossip to {}", p2p_addr);
 
     // Initialize consensus
     let validator_state = ValidatorState::new(
         identity,
-        start_cmd.testnet,
+        *testnet,
         ledger_path,
     )?;
 
@@ -321,15 +320,13 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
 // =============================================================================
 
 async fn check_status(cli: Cli) -> anyhow::Result<()> {
-    let status_cmd = match &cli.command {
-        Commands::Status(s) => s,
+    let (rpc_url, details) = match &cli.command {
+        Commands::Status { rpc_url, details } => (rpc_url.clone(), *details),
         _ => unreachable!(),
     };
 
-    let rpc_url = &status_cmd.rpc_url;
-
     // Query RPC
-    let client = RpcClient::new(rpc_url);
+    let client = RpcClient::new(&rpc_url);
     
     let slot_height = client.get_slot().await.unwrap_or(0);
     let block_height = client.get_block_height().await.unwrap_or(0);
@@ -374,7 +371,7 @@ async fn check_status(cli: Cli) -> anyhow::Result<()> {
         println!("     Absolute Slot:      {:>12}", epoch_info.absolute_slot);
         println!();
         
-        if status_cmd.details {
+        if details {
             let bp = client.get_block_production().await.unwrap_or_default();
             println!("  📦 Block Production");
             println!("     Blocks in Epoch:    {:>12}", bp.blocks_produced);
@@ -394,17 +391,16 @@ async fn check_status(cli: Cli) -> anyhow::Result<()> {
 // =============================================================================
 
 async fn show_validators(cli: Cli) -> anyhow::Result<()> {
-    let show_cmd = match &cli.command {
-        Commands::ShowValidators(s) => s,
+    let rpc_url = match &cli.command {
+        Commands::ShowValidators { rpc_url, json } => (rpc_url.clone(), *json),
         _ => unreachable!(),
     };
 
-    let rpc_url = &show_cmd.rpc_url;
-    let client = RpcClient::new(rpc_url);
+    let client = RpcClient::new(&rpc_url.0);
 
     let validators = client.get_validators().await?;
 
-    if show_cmd.json || cli.json {
+    if rpc_url.1 || cli.json {
         println!("{}", serde_json::to_string_pretty(&validators)?);
     } else {
         println!();
@@ -442,19 +438,19 @@ async fn show_validators(cli: Cli) -> anyhow::Result<()> {
 // =============================================================================
 
 async fn create_identity(cli: Cli) -> anyhow::Result<()> {
-    let id_cmd = match &cli.command {
-        Commands::CreateValidatorIdentity(s) => s,
+    let (out_path, force) = match &cli.command {
+        Commands::CreateValidatorIdentity { out, force } => (out.clone(), *force),
         _ => unreachable!(),
     };
 
-    if id_cmd.out.exists() && !id_cmd.force {
+    if out_path.exists() && !force {
         anyhow::bail!("Identity file already exists. Use --force to overwrite.");
     }
 
     let keypair = generate_keypair();
-    save_identity(&id_cmd.out, &keypair)?;
+    save_identity(&out_path, &keypair)?;
 
-    println!("✅ Validator identity created: {}", id_cmd.out.display());
+    println!("✅ Validator identity created: {}", out_path.display());
     println!("   Public key: {}", keypair.pubkey());
     println!();
     println!("⚠️  BACKUP THIS FILE - it controls your validator identity!");
@@ -468,21 +464,23 @@ async fn create_identity(cli: Cli) -> anyhow::Result<()> {
 // =============================================================================
 
 async fn create_vote_account(cli: Cli) -> anyhow::Result<()> {
-    let vote_cmd = match &cli.command {
-        Commands::CreateVoteAccount(s) => s,
+    let (validator_keypair_path, out_path, commission) = match &cli.command {
+        Commands::CreateVoteAccount { validator_keypair, out, commission } => {
+            (validator_keypair.clone(), out.clone(), *commission)
+        }
         _ => unreachable!(),
     };
 
     // Load validator identity
-    let validator_identity = load_identity(&vote_cmd.validator_keypair)?;
+    let validator_identity = load_identity(&validator_keypair_path)?;
     
     // Generate vote keypair (in production, this would create a proper vote account)
     let vote_keypair = generate_keypair();
 
     // Save vote account
-    save_vote_account(&vote_cmd.out, &vote_keypair, &validator_identity.pubkey(), vote_cmd.commission)?;
+    save_vote_account(&out_path, &vote_keypair, &validator_identity.pubkey(), commission)?;
 
-    println!("✅ Vote account created: {}", vote_cmd.out.display());
+    println!("✅ Vote account created: {}", out_path.display());
     println!("   Vote public key: {}", vote_keypair.pubkey());
     println!("   Validator: {}", validator_identity.pubkey());
     println!("   Commission: {}%", vote_cmd.commission);
@@ -497,12 +495,14 @@ async fn create_vote_account(cli: Cli) -> anyhow::Result<()> {
 // =============================================================================
 
 async fn create_genesis(cli: Cli) -> anyhow::Result<()> {
-    let genesis_cmd = match &cli.command {
-        Commands::CreateGenesis(g) => g,
+    let (out_path, chain_id, timestamp, bootstrap_validator) = match &cli.command {
+        Commands::CreateGenesis { out, chain_id, timestamp, bootstrap_validator } => {
+            (out.clone(), chain_id.clone(), *timestamp, bootstrap_validator.clone())
+        }
         _ => unreachable!(),
     };
 
-    let timestamp = genesis_cmd.timestamp.unwrap_or_else(|| {
+    let ts = timestamp.unwrap_or_else(|| {
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -511,11 +511,11 @@ async fn create_genesis(cli: Cli) -> anyhow::Result<()> {
 
     // Load bootstrap validators
     let mut bootstrap_validators = Vec::new();
-    for path in &genesis_cmd.bootstrap_validator {
+    for path in &bootstrap_validator {
         let identity = load_identity(path)?;
         bootstrap_validators.push(GenesisValidator {
             identity_pubkey: identity.pubkey(),
-            stake: 10_000_000, // 10M AETH minimum for bootstrap
+            stake: 10_000_000,
             commission: 10,
         });
     }
@@ -533,8 +533,8 @@ async fn create_genesis(cli: Cli) -> anyhow::Result<()> {
     }
 
     let genesis = GenesisBlock {
-        chain_id: genesis_cmd.chain_id.clone(),
-        timestamp,
+        chain_id,
+        timestamp: ts,
         genesis_hash: generate_genesis_hash(),
         bootstrap_validators: bootstrap_validators.clone(),
         consensus: ConsensusConfig {
@@ -544,14 +544,14 @@ async fn create_genesis(cli: Cli) -> anyhow::Result<()> {
             target_stake: 1_000_000,
         },
         rewards: RewardsConfig {
-            epoch_duration: 432_000, // ~2 days at 400ms slots
-            base_reward_rate: 6,      // 6% APY base
+            epoch_duration: 432_000,
+            base_reward_rate: 6,
         },
     };
 
     // Save genesis
     let json = serde_json::to_string_pretty(&genesis)?;
-    std::fs::write(&genesis_cmd.out, json)
+    std::fs::write(&out_path, json)
         .context("Failed to write genesis file")?;
 
     println!();

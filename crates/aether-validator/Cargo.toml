@@ -9,27 +9,34 @@ homepage.workspace = true
 description = "AETHER Validator - Node binary for participating in AETHER consensus"
 
 [dependencies]
-# Workspace dependencies
-solana-sdk = { workspace = true }
+# Async runtime
 tokio = { workspace = true, features = ["full"] }
+
+# Serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+
+# Error handling
 thiserror = { workspace = true }
 anyhow = { workspace = true }
+
+# Logging
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 # CLI
 clap = { version = "4.4", features = ["derive", "env"] }
 
-# Local crates (at repo root, two levels up)
-aether-core = { path = "../../aether-core" }
-aether-consensus = { path = "../../aether-consensus" }
-aether-network = { path = "../../aether-network" }
-aether-storage = { path = "../../aether-storage" }
-
-# Gossip & P2P
+# P2P Gossip (libp2p is only needed by consensus, not by Solana SDK)
 libp2p = { workspace = true }
+
+# Cryptography (for keypairs)
+bs58 = { workspace = true }
+rand = { workspace = true }
+
+# HTTP client for RPC
+reqwest = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3.8"

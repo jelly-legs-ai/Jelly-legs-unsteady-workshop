@@ -1,11 +1,5 @@
 [workspace]
 members = [
-    "aether-core",
-    "aether-consensus",
-    "aether-poh",
-    "aether-ai-lanes",
-    "aether-network",
-    "aether-storage",
     "crates/aether-validator",
 ]
 resolver = "2"
@@ -22,29 +16,21 @@ categories = ["cryptography", "network-programming"]
 rust-version = "1.75"
 
 [workspace.dependencies]
-# Agave/Solana dependencies
-solana-sdk = "^1.18"
-solana-program = "^1.18"
-solana-runtime = "^1.18"
-solana-ledger = "^1.18"
-solana-poh = "^1.18"
-solana-core = "^1.18"
-solana-gossip = "^1.18"
-solana-streamer = "^1.18"
-
-# Core dependencies
+# Async runtime
 tokio = { version = "1.35", features = ["full"] }
+
+# Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
+
+# Error handling
 thiserror = { version = "1.0" }
 anyhow = { version = "1.0" }
+
+# Logging
 tracing = "0.1"
 tracing-subscriber = "0.3"
-async-trait = "0.1"
-futures = "0.3"
-log = "0.4"
-borsh = "1.5"
 
 # CLI
 clap = { version = "4.4", features = ["derive", "env"] }
@@ -59,14 +45,9 @@ sha2 = "0.10"
 blake3 = "1.5"
 ed25519-dalek = { version = "2.1", default-features = false, features = ["std", "serde"] }
 
-# Consensus
+# P2P
 libp2p = { version = "0.55", features = ["tokio", "tcp", "dns", "noise", "yamux", "gossipsub", "mdns", "kad"] }
 
-# AI/ML
-burn = "0.13"
-ndarray = "0.15"
-
-# Testing
 [profile.dev]
 opt-level = 0
 debug = true
