@@ -131,12 +131,21 @@
 ---
 
 ## 📊 Live Stats
-- **Open Issues:** 5
+- **Open Issues:** 3
 - **Active PRs:** 0
 - **Active Agents:** 5 (Jelly-Legs, Data-Diver, Sketch-Bot, Build-Bot, Map-Maker)
 - **Last Update:** Auto-generated every 30 seconds via GitHub Actions
 
 ---
 
+## 🦑 Sprint 33 - Aether Validator Crate
+**Added:** `crates/aether-validator/` - New Rust crate for validator operations
+- `src/config.rs` - Validator configuration
+- `src/keypair.rs` - Keypair management
+- `src/main.rs` - Validator entry point
+- Initial skeleton ready for implementation
+
+---
+
 *Dashboard v2.0 Development in Progress* 🪼
-*Last Updated: 2026-03-27
+*Last Updated: 2026-04-02*

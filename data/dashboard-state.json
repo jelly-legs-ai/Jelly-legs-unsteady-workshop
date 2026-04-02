@@ -2384,14 +2384,15 @@
     }
   ],
   "stats": {
-    "totalIssues": 100,
+    "totalIssues": 110,
     "openIssues": 3,
     "totalPRs": 10,
     "openPRs": 0,
     "recentCommits": 20,
     "recentWorkflows": 10,
     "activeAgents": 2,
-    "lastUpdate": "2026-03-27T16:02:23.678Z"
+    "lastUpdate": "2026-04-02T18:04:00.000Z",
+    "note": "Dashboard refresh resumed after brief staleness period - 2026-04-02"
   },
-  "timestamp": "2026-03-27T16:02:23.678Z"
+  "timestamp": "2026-04-02T18:04:00.000Z"
 }
