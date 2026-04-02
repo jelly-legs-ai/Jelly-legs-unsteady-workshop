@@ -58,6 +58,58 @@ pub struct ValidatorMetrics {
     pub commission_rate: f64,
     pub uptime_percent: f64,
     pub slashing_events: u64,
+    pub last_update_epoch: u64,
+}
+
+/// Staking tier for bonus rewards
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum StakingTier {
+    Bronze,    // < 1000 staked
+    Silver,    // 1000-10000 staked  
+    Gold,      // 10000-100000 staked
+    Platinum,  // > 100000 staked
+}
+
+/// Tier bonus rates
+impl StakingTier {
+    pub fn bonus_multiplier(&self) -> f64 {
+        match self {
+            StakingTier::Bronze => 1.0,
+            StakingTier::Silver => 1.25,  // 25% bonus
+            StakingTier::Gold => 1.5,     // 50% bonus
+            StakingTier::Platinum => 2.0,  // 100% bonus
+        }
+    }
+    
+    pub fn from_stake_amount(amount: u64) -> Self {
+        if amount >= 100000 {
+            StakingTier::Platinum
+        } else if amount >= 10000 {
+            StakingTier::Gold
+        } else if amount >= 1000 {
+            StakingTier::Silver
+        } else {
+            StakingTier::Bronze
+        }
+    }
+}
+
+/// Auto-compounding configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutoCompoundConfig {
+    pub enabled: bool,
+    pub frequency_hours: u32,
+    pub reinvest_percentage: f64,  // 0.0 to 1.0
+    pub last_compound_epoch: u64,
+}
+
+/// Slashing event record
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SlashingEvent {
+    pub epoch: u64,
+    pub reason: String,
+    pub slash_amount: u64,
+    pub validator: String,
 }
 
 /// Staking contract state
