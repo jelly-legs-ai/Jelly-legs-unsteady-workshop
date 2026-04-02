@@ -71,6 +71,26 @@ pub mod users {
     pub const PAYMENT_METHODS: &str = "/users/{user_id}/payment-methods";
 }
 
+/// Subscription tier management endpoints
+pub mod subscriptions {
+    pub const LIST_TIERS: &str = "/subscriptions/tiers";
+    pub const GET_TIER: &str = "/subscriptions/tiers/{tier_id}";
+    pub const FEATURES: &str = "/subscriptions/tiers/{tier_id}/features";
+    pub const COMPARE: &str = "/subscriptions/tiers/compare";
+    pub const ACTIVATE: &str = "/subscriptions/activate";
+    pub const CANCEL: &str = "/subscriptions/cancel";
+    pub const UPGRADE: &str = "/subscriptions/upgrade";
+    pub const DOWNGRADE: &str = "/subscriptions/downgrade";
+    pub const RENEW: &str = "/subscriptions/renew";
+    pub const USAGE: &str = "/subscriptions/usage";
+    pub const LIMITS: &str = "/subscriptions/limits";
+    pub const WEBHOOKS: &str = "/subscriptions/webhooks";
+    pub const NOTIFICATIONS: &str = "/subscriptions/notifications";
+    pub const HISTORY: &str = "/subscriptions/history";
+    pub const TRIAL: &str = "/subscriptions/trial";
+    pub const GRACE_PERIOD: &str = "/subscriptions/grace-period";
+}
+
 /// KYC verification endpoints
 pub mod kyc {
     pub const SUBMIT: &str = "/kyc/submit";
