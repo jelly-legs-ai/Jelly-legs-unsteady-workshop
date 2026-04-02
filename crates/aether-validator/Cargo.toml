@@ -26,7 +26,7 @@ clap = { version = "4.4", features = ["derive", "env"] }
 aether-core = { path = "../aether-core" }
 aether-consensus = { path = "../aether-consensus" }
 aether-network = { path = "../aether-network" }
-aether-storage = { path = "../../aether-storage" }
+aether-storage = { path = "../aether-storage" }
 
 # Gossip & P2P
 libp2p = { workspace = true }
