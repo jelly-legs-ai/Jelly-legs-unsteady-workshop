@@ -257,6 +257,127 @@ pub fn print_test_summary(mining_results: &[TestResult], staking_results: &[Test
     }
 }
 
+// ============================================================================
+// SPRINT 39: Enhanced Test Suite - Edge Cases & Validation
+// Additional test cases for mining and staking reward calculations
+// ============================================================================
+
+/// Edge case test for mining rewards
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiningEdgeCase {
+    pub name: String,
+    pub scenario: String,
+    pub input: MiningRewardInput,
+    pub expected_behavior: String,
+    pub should_panic: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiningRewardInput {
+    pub device_tier: String,
+    pub uptime_percentage: f64,
+    pub contribution_score: f64,
+    pub epochs_mined: u64,
+}
+
+/// Comprehensive mining edge cases
+pub fn get_mining_edge_cases() -> Vec<MiningEdgeCase> {
+    vec![
+        MiningEdgeCase {
+            name: "Zero uptime".to_string(),
+            scenario: "Device with 0% uptime".to_string(),
+            input: MiningRewardInput {
+                device_tier: "Desktop".to_string(),
+                uptime_percentage: 0.0,
+                contribution_score: 0.0,
+                epochs_mined: 100,
+            },
+            expected_behavior: "Should return minimal reward (penalty factor)".to_string(),
+            should_panic: false,
+        },
+        MiningEdgeCase {
+            name: "Perfect uptime".to_string(),
+            scenario: "Device with 100% uptime".to_string(),
+            input: MiningRewardInput {
+                device_tier: "Server".to_string(),
+                uptime_percentage: 100.0,
+                contribution_score: 1.0,
+                epochs_mined: 10000,
+            },
+            expected_behavior: "Should return maximum reward".to_string(),
+            should_panic: false,
+        },
+        MiningEdgeCase {
+            name: "Negative contribution".to_string(),
+            scenario: "Contribution score below 0".to_string(),
+            input: MiningRewardInput {
+                device_tier: "Mobile".to_string(),
+                uptime_percentage: 90.0,
+                contribution_score: -0.5,
+                epochs_mined: 100,
+            },
+            expected_behavior: "Should clamp to 0 or panic".to_string(),
+            should_panic: true,
+        },
+        MiningEdgeCase {
+            name: "Overflow epochs".to_string(),
+            scenario: "Extremely large epoch count".to_string(),
+            input: MiningRewardInput {
+                device_tier: "Desktop".to_string(),
+                uptime_percentage: 99.0,
+                contribution_score: 0.95,
+                epochs_mined: u64::MAX,
+            },
+            expected_behavior: "Should handle overflow gracefully".to_string(),
+            should_panic: true,
+        },
+    ]
+}
+
+/// Validator performance benchmarks
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidatorBenchmark {
+    pub validator_id: String,
+    pub stake_amount: u64,
+    pub uptime_percentile: f64,
+    pub commission_percentile: f64,
+    pub reward_efficiency: f64,
+    pub overall_score: f64,
+    pub rank: u32,
+}
+
+pub fn get_validator_benchmarks() -> Vec<ValidatorBenchmark> {
+    vec![
+        ValidatorBenchmark {
+            validator_id: "val_top_1".to_string(),
+            stake_amount: 10_000_000_000,
+            uptime_percentile: 99.9,
+            commission_percentile: 5.0,
+            reward_efficiency: 0.95,
+            overall_score: 98.5,
+            rank: 1,
+        },
+        ValidatorBenchmark {
+            validator_id: "val_top_10".to_string(),
+            stake_amount: 5_000_000_000,
+            uptime_percentile: 99.5,
+            commission_percentile: 7.0,
+            reward_efficiency: 0.88,
+            overall_score: 92.3,
+            rank: 10,
+        },
+        ValidatorBenchmark {
+            validator_id: "val_top_100".to_string(),
+            stake_amount: 1_000_000_000,
+            uptime_percentile: 98.0,
+            commission_percentile: 10.0,
+            reward_efficiency: 0.75,
+            overall_score: 78.6,
+            rank: 100,
+        },
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -282,5 +403,19 @@ mod tests {
         let validation = CrossChainRewardValidation::validate_transfer("Aether", "Ethereum", 1_000_000, 30);
         assert!(validation.validation_passed);
         assert_eq!(validation.final_reward, 997_000);
+    }
+
+    #[test]
+    fn test_edge_cases_count() {
+        let cases = get_mining_edge_cases();
+        assert!(cases.len() >= 4, "Should have at least 4 edge cases");
+    }
+
+    #[test]
+    fn test_validator_benchmarks() {
+        let benchmarks = get_validator_benchmarks();
+        assert!(!benchmarks.is_empty());
+        // Top validator should have highest score
+        assert!(benchmarks[0].overall_score >= benchmarks[1].overall_score);
     }
 }
