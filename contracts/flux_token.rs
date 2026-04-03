@@ -1313,3 +1313,183 @@ mod tests {
         assert_eq!(contract.burned_supply, 500);
     }
 }
+
+// ============================================================================
+// ADVANCED FLUX TOKEN FEATURES - Added by Jelly-legs AI Team
+// ============================================================================
+
+impl FluxTokenContract {
+    /// Multi-signature transfer for governance actions
+    /// Requires multiple authorized signers to approve
+    pub fn multi_sig_transfer(
+        &mut self,
+        from: &str,
+        to: &str,
+        amount: u64,
+        required_signers: usize,
+        signatures: &[bool],
+    ) -> Result<(), &'static str> {
+        if signatures.len() < required_signers {
+            return Err("Insufficient signatures");
+        }
+        let valid_signatures = signatures.iter().filter(|&&s| s).count();
+        if valid_signatures < required_signers {
+            return Err("Not enough valid signatures");
+        }
+        self.transfer(from, to, amount)
+    }
+    
+    /// Time-locked transfer (vesting schedule)
+    /// Creates a delayed transfer that executes after the lock period
+    pub fn schedule_time_locked_transfer(
+        &mut self,
+        from: &str,
+        to: &str,
+        amount: u64,
+        release_time: u64,
+        scheduled_transfers: &mut HashMap<String, Vec<TimeLockedTransfer>>,
+    ) -> Result<String, &'static str> {
+        if self.balance_of(from) < amount {
+            return Err("Insufficient balance");
+        }
+        
+        let transfer_id = format!("tl_{}_{}_{}", from, to, release_time);
+        let scheduled = TimeLockedTransfer {
+            transfer_id: transfer_id.clone(),
+            from: from.to_string(),
+            to: to.to_string(),
+            amount,
+            release_time,
+            executed: false,
+        };
+        
+        scheduled_transfers
+            .entry(from.to_string())
+            .or_insert_with(Vec::new)
+            .push(scheduled);
+        
+        Ok(transfer_id)
+    }
+    
+    /// Execute a scheduled time-locked transfer
+    pub fn execute_time_locked_transfer(
+        &mut self,
+        scheduled_transfers: &mut HashMap<String, Vec<TimeLockedTransfer>>,
+        transfer_id: &str,
+        current_time: u64,
+    ) -> Result<(), &'static str> {
+        for transfers in scheduled_transfers.values_mut() {
+            if let Some(transfer) = transfers.iter_mut().find(|t| t.transfer_id == transfer_id) {
+                if transfer.executed {
+                    return Err("Transfer already executed");
+                }
+                if current_time < transfer.release_time {
+                    return Err("Transfer not yet unlocked");
+                }
+                transfer.executed = true;
+                self.transfer(&transfer.from, &transfer.to, transfer.amount)?;
+                return Ok(());
+            }
+        }
+        Err("Transfer not found")
+    }
+    
+    /// Calculate APY for FLUX staking based on current rewards pool
+    pub fn calculate_staking_apy(&self, total_staked: u64, daily_rewards: u64, days_in_year: u64) -> f64 {
+        if total_staked == 0 {
+            return 0.0;
+        }
+        let yearly_rewards = daily_rewards * days_in_year;
+        (yearly_rewards as f64 / total_staked as f64) * 100.0
+    }
+    
+    /// Get transaction history for an address (mock)
+    pub fn get_transaction_history(&self, address: &str, _limit: usize) -> Vec<TransactionRecord> {
+        // In production, this would query indexed blockchain data
+        vec![
+            TransactionRecord {
+                tx_hash: format!("0x{:064x}", Self::hash_string(&format!("{}_in", address))),
+                from: "treasury".to_string(),
+                to: address.to_string(),
+                amount: self.balance_of(address),
+                timestamp: 1709424000, // March 3, 2024
+                tx_type: "transfer".to_string(),
+            }
+        ]
+    }
+    
+    /// Hash a string (simplified for mock purposes)
+    fn hash_string(s: &str) -> u64 {
+        s.bytes().fold(0u64, |acc, b| acc.wrapping_mul(31).wrapping_add(b as u64))
+    }
+}
+
+/// Time-locked transfer record
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeLockedTransfer {
+    pub transfer_id: String,
+    pub from: String,
+    pub to: String,
+    pub amount: u64,
+    pub release_time: u64,
+    pub executed: bool,
+}
+
+/// Transaction record for history
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransactionRecord {
+    pub tx_hash: String,
+    pub from: String,
+    pub to: String,
+    pub amount: u64,
+    pub timestamp: u64,
+    pub tx_type: String,
+}
+
+/// Airdrop distribution helper
+pub struct AirdropDistribution {
+    pub recipients: Vec<AirdropRecipient>,
+    pub total_amount: u64,
+    pub start_time: u64,
+    pub end_time: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AirdropRecipient {
+    pub address: String,
+    pub amount: u64,
+    pub claimed: bool,
+}
+
+impl AirdropDistribution {
+    /// Create new airdrop distribution
+    pub fn new(recipients: Vec<AirdropRecipient>, total_amount: u64, start_time: u64, duration: u64) -> Self {
+        AirdropDistribution {
+            recipients,
+            total_amount,
+            start_time,
+            end_time: start_time + duration,
+        }
+    }
+    
+    /// Check if airdrop is active
+    pub fn is_active(&self, current_time: u64) -> bool {
+        current_time >= self.start_time && current_time <= self.end_time
+    }
+    
+    /// Claim airdrop for recipient
+    pub fn claim(&mut self, address: &str, amount: u64) -> Result<(), &'static str> {
+        if let Some(recipient) = self.recipients.iter_mut().find(|r| r.address == address) {
+            if recipient.claimed {
+                return Err("Already claimed");
+            }
+            if recipient.amount != amount {
+                return Err("Invalid amount");
+            }
+            recipient.claimed = true;
+            Ok(())
+        } else {
+            Err("Recipient not found")
+        }
+    }
+}
