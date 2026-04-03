@@ -1,0 +1,10 @@
+## Sprint 40 Update 🦑
+
+**Frontend (aether-site):**
+- Fixed inconsistent key naming in blockchain-stats API: changed Chinese `活跃节点` → English `activeNodes`
+
+**Backend (Jelly-legs-unsteady-workshop):**
+- Added `anyhow::Context` import to validator config.rs
+- Fixed async write lock: changed `write().await` → `blocking_write()` in peer pubkeys state management
+
+Both fixes pushed to main. Chain code is building toward stability.

@@ -2616,6 +2616,307 @@ pub struct WithdrawalPlan {
     pub potential_gain_from_waiting: u64,
 }
 
+// =============================================================================
+// SPRINT 23: Advanced Staking Analytics & Optimization Engine
+// =============================================================================
+
+/// Staking optimizer - analyzes best staking strategies across pools
+pub struct StakingOptimizer;
+
+impl StakingOptimizer {
+    /// Find optimal staking allocation for a given budget
+    pub fn optimize_allocation(
+        pools: &HashMap<String, StakingPool>,
+        budget: u64,
+        risk_tolerance: f64,  // 0.0 = conservative, 1.0 = aggressive
+        lockup_preference: u64,  // max lockup epochs acceptable
+    ) -> Vec<AllocationRecommendation> {
+        let mut recommendations = Vec::new();
+        
+        for (pool_id, pool) in pools {
+            if pool.total_staked >= budget && pool.lockup_epochs <= lockup_preference {
+                let allocation = (budget as f64 * risk_tolerance.min(1.0)) as u64;
+                let projected_apy = pool.reward_rate * 100.0 * risk_tolerance;
+                
+                recommendations.push(AllocationRecommendation {
+                    pool_id: pool_id.clone(),
+                    pool_name: pool.name.clone(),
+                    allocation_amount: allocation,
+                    percentage_of_budget: (allocation as f64 / budget as f64) * 100.0,
+                    projected_apy,
+                    projected_annual_reward: (allocation as f64 * projected_apy / 100.0) as u64,
+                    lockup_epochs: pool.lockup_epochs,
+                    risk_score: Self::calculate_pool_risk(pool),
+                    liquidity_score: Self::calculate_pool_liquidity(pool),
+                });
+            }
+        }
+        
+        // Sort by projected reward
+        recommendations.sort_by(|a, b| b.projected_annual_reward.cmp(&a.projected_annual_reward));
+        recommendations
+    }
+    
+    /// Calculate pool risk score (0-100)
+    fn calculate_pool_risk(pool: &StakingPool) -> f64 {
+        let mut risk = 50.0;  // Base risk
+        
+        // Higher lockup = higher risk
+        risk += (pool.lockup_epochs as f64 / 30.0) * 20.0;
+        
+        // Lower staker count = higher risk
+        if pool.active_stakers < 10 {
+            risk += 20.0;
+        } else if pool.active_stakers < 50 {
+            risk += 10.0;
+        }
+        
+        // Higher APY = higher risk (sustainability concern)
+        risk += (pool.reward_rate * 100.0 / 30.0) * 10.0;
+        
+        risk.min(100.0)
+    }
+    
+    /// Calculate pool liquidity score (0-100)
+    fn calculate_pool_liquidity(pool: &StakingPool) -> f64 {
+        let mut liquidity = 50.0;
+        
+        // More stakers = better liquidity
+        liquidity += (pool.active_stakers as f64 / 100.0).min(30.0);
+        
+        // Lower lockup = better liquidity
+        liquidity += ((30.0 - pool.lockup_epochs as f64) / 30.0) * 20.0;
+        
+        liquidity.min(100.0)
+    }
+    
+    /// Rebalancing recommendation
+    pub fn suggest_rebalancing(
+        current_allocations: &HashMap<String, u64>,
+        pools: &HashMap<String, StakingPool>,
+        target_apy: f64,
+    ) -> Vec<RebalanceAction> {
+        let mut actions = Vec::new();
+        let total_staked: u64 = current_allocations.values().sum();
+        
+        for (pool_id, current_amount) in current_allocations {
+            if let Some(pool) = pools.get(pool_id) {
+                let current_apy = (*current_amount as f64 / total_staked as f64) * pool.reward_rate * 100.0;
+                let target_diff = target_apy - current_apy;
+                
+                if target_diff.abs() > 2.0 {  // More than 2% deviation
+                    let adjustment = if target_diff > 0.0 {
+                        let deficit = (target_diff / 100.0 * total_staked as f64) as u64;
+                        AdjustmentType::Increase(deficit.min(pool.min_stake * 10))
+                    } else {
+                        AdjustmentType::Decrease((*current_amount as f64 * 0.1) as u64)
+                    };
+                    
+                    actions.push(RebalanceAction {
+                        pool_id: pool_id.clone(),
+                        current_amount: *current_amount,
+                        action: adjustment,
+                        reason: if target_diff > 0.0 { "Below target APY".to_string() } else { "Above target APY".to_string() },
+                        expected_apy_change: target_diff.min(5.0),
+                    });
+                }
+            }
+        }
+        
+        actions
+    }
+}
+
+/// Allocation recommendation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AllocationRecommendation {
+    pub pool_id: String,
+    pub pool_name: String,
+    pub allocation_amount: u64,
+    pub percentage_of_budget: f64,
+    pub projected_apy: f64,
+    pub projected_annual_reward: u64,
+    pub lockup_epochs: u64,
+    pub risk_score: f64,
+    pub liquidity_score: f64,
+}
+
+/// Rebalance action
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RebalanceAction {
+    pub pool_id: String,
+    pub current_amount: u64,
+    pub action: AdjustmentType,
+    pub reason: String,
+    pub expected_apy_change: f64,
+}
+
+/// Adjustment type for rebalancing
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AdjustmentType {
+    Increase(u64),
+    Decrease(u64),
+    NoChange,
+}
+
+/// Staking health check result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StakingHealthCheck {
+    pub overall_score: f64,
+    pub diversification_score: f64,
+    pub lockup_distribution_score: f64,
+    pub reward_optimization_score: f64,
+    pub issues: Vec<StakingIssue>,
+    pub recommendations: Vec<String>,
+    pub estimated_improvement: f64,
+}
+
+/// Staking issue
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StakingIssue {
+    pub severity: String,  // "low", "medium", "high"
+    pub category: String,
+    pub description: String,
+    pub affected_pool: Option<String>,
+}
+
+impl StakingContract {
+    /// Perform comprehensive staking health check for an address
+    pub fn staking_health_check(&self, address: &str) -> StakingHealthCheck {
+        let stakes = self.get_address_stakes(address);
+        let delegations = self.get_delegator_delegations(address);
+        
+        let mut issues = Vec::new();
+        let mut recommendations = Vec::new();
+        
+        // Check diversification
+        let total_staked: u64 = stakes.iter().map(|s| s.amount).sum();
+        let stake_count = stakes.len() + delegations.len();
+        
+        let diversification_score = if stake_count == 0 {
+            0.0
+        } else if stake_count == 1 {
+            20.0
+        } else if stake_count == 2 {
+            60.0
+        } else {
+            100.0
+        };
+        
+        if stake_count < 2 {
+            issues.push(StakingIssue {
+                severity: "high".to_string(),
+                category: "diversification".to_string(),
+                description: "Only one staking position detected".to_string(),
+                affected_pool: stakes.first().map(|s| s.token_type.to_string()),
+            });
+            recommendations.push("Consider diversifying across multiple pools to reduce risk".to_string());
+        }
+        
+        // Check lockup distribution
+        let locked_stakes: u64 = stakes.iter().filter(|s| self.is_stake_locked(s)).map(|s| s.amount).sum();
+        let lockup_ratio = if total_staked > 0 { locked_stakes as f64 / total_staked as f64 } else { 0.0 };
+        
+        let lockup_distribution_score = if lockup_ratio > 0.8 {
+            30.0  // Too locked up
+        } else if lockup_ratio > 0.5 {
+            70.0  // Good balance
+        } else {
+            90.0  // Very liquid
+        };
+        
+        if lockup_ratio > 0.8 {
+            issues.push(StakingIssue {
+                severity: "medium".to_string(),
+                category: "liquidity".to_string(),
+                description: "More than 80% of stake is locked".to_string(),
+                affected_pool: None,
+            });
+            recommendations.push("Consider maintaining more liquid positions for flexibility".to_string());
+        }
+        
+        // Check reward optimization
+        let avg_apy = if !self.pools.is_empty() {
+            self.pools.values().map(|p| p.reward_rate * 100.0).sum::<f64>() / self.pools.len() as f64
+        } else {
+            0.0
+        };
+        
+        let reward_optimization_score = 70.0;  // Placeholder - would need historical data
+        
+        // Overall score
+        let overall_score = (diversification_score + lockup_distribution_score + reward_optimization_score) / 3.0;
+        
+        // Estimated improvement from following recommendations
+        let estimated_improvement = if diversification_score < 50.0 { 15.0 } else { 5.0 };
+        
+        StakingHealthCheck {
+            overall_score,
+            diversification_score,
+            lockup_distribution_score,
+            reward_optimization_score,
+            issues,
+            recommendations,
+            estimated_improvement,
+        }
+    }
+    
+    /// Get historical staking performance for an address
+    pub fn get_staking_performance_history(&self, address: &str, epochs: u64) -> StakingPerformanceHistory {
+        let stakes = self.get_address_stakes(address);
+        let mut epoch_data = Vec::new();
+        
+        for i in 0..epochs {
+            let epoch = self.current_epoch.saturating_sub(i);
+            let epoch_rewards: u64 = stakes.iter()
+                .filter(|s| s.last_claim_epoch <= epoch)
+                .map(|s| {
+                    let pool = self.get_pool_by_token(&s.token_type);
+                    pool.map(|p| (s.amount as f64 * p.reward_rate / 365.0) as u64).unwrap_or(0)
+                })
+                .sum();
+            
+            epoch_data.push(EpochPerformance {
+                epoch,
+                rewards: epoch_rewards,
+                cumulative_rewards: epoch_rewards,  // Would need actual cumulative tracking
+                apy_at_epoch: 0.0,  // Would need price data
+            });
+        }
+        
+        epoch_data.reverse();  // Oldest first
+        
+        StakingPerformanceHistory {
+            address: address.to_string(),
+            epochs_analyzed: epochs,
+            data: epoch_data,
+            average_reward_per_epoch: epoch_data.iter().map(|e| e.rewards).sum::<u64>() / epochs.max(1),
+            best_epoch: epoch_data.iter().max_by(|a, b| a.rewards.cmp(&b.rewards)).map(|e| e.epoch).unwrap_or(0),
+            total_rewards: epoch_data.iter().map(|e| e.rewards).sum(),
+        }
+    }
+}
+
+/// Epoch performance data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EpochPerformance {
+    pub epoch: u64,
+    pub rewards: u64,
+    pub cumulative_rewards: u64,
+    pub apy_at_epoch: f64,
+}
+
+/// Staking performance history
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StakingPerformanceHistory {
+    pub address: String,
+    pub epochs_analyzed: u64,
+    pub data: Vec<EpochPerformance>,
+    pub average_reward_per_epoch: u64,
+    pub best_epoch: u64,
+    pub total_rewards: u64,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

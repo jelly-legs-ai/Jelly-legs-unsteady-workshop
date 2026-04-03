@@ -1,0 +1,15 @@
+Sprint 42 Update:
+
+**Frontend - Subscribe Page Enhanced:**
+- Added tier selection (Free/Pro/Enterprise) with visual cards
+- Added countdown timer for Pro/Enterprise launch
+- Added optional name field
+- Improved tier indicator and benefits section
+- Enhanced responsive grid layout
+
+**Backend - API Updated:**
+- Extended /api/subscribe to accept name and tier fields
+- Added tier tracking and tier counts in response
+- Returns tier information on duplicate subscription
+
+Both repos pushed to GitHub.
