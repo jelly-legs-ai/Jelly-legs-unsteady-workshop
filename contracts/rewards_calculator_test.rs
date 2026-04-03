@@ -331,6 +331,42 @@ pub fn get_mining_edge_cases() -> Vec<MiningEdgeCase> {
             expected_behavior: "Should handle overflow gracefully".to_string(),
             should_panic: true,
         },
+        MiningEdgeCase {
+            name: "Quantum tier extreme".to_string(),
+            scenario: "Quantum computer with maximum settings".to_string(),
+            input: MiningRewardInput {
+                device_tier: "Quantum".to_string(),
+                uptime_percentage: 99.99,
+                contribution_score: 1.0,
+                epochs_mined: 50000,
+            },
+            expected_behavior: "Should apply quantum tier multiplier".to_string(),
+            should_panic: false,
+        },
+        MiningEdgeCase {
+            name: "Very long staking".to_string(),
+            scenario: "5+ years of continuous mining".to_string(),
+            input: MiningRewardInput {
+                device_tier: "Server".to_string(),
+                uptime_percentage: 99.5,
+                contribution_score: 0.98,
+                epochs_mined: 500000,
+            },
+            expected_behavior: "Should handle longevity bonus cap".to_string(),
+            should_panic: false,
+        },
+        MiningEdgeCase {
+            name: "Near-zero stake".to_string(),
+            scenario: "Minimum possible stake amount".to_string(),
+            input: MiningRewardInput {
+                device_tier: "Mobile".to_string(),
+                uptime_percentage: 50.0,
+                contribution_score: 0.1,
+                epochs_mined: 1,
+            },
+            expected_behavior: "Should not crash, return minimal reward".to_string(),
+            should_panic: false,
+        },
     ]
 }
 
@@ -375,6 +411,114 @@ pub fn get_validator_benchmarks() -> Vec<ValidatorBenchmark> {
             overall_score: 78.6,
             rank: 100,
         },
+        ValidatorBenchmark {
+            validator_id: "val_cosmic_001".to_string(),
+            stake_amount: 980_000_000,
+            uptime_percentile: 99.82,
+            commission_percentile: 7.0,
+            reward_efficiency: 0.85,
+            overall_score: 88.4,
+            rank: 45,
+        },
+        ValidatorBenchmark {
+            validator_id: "val_nebula_001".to_string(),
+            stake_amount: 720_000_000,
+            uptime_percentile: 99.65,
+            commission_percentile: 8.0,
+            reward_efficiency: 0.82,
+            overall_score: 84.2,
+            rank: 78,
+        },
+        ValidatorBenchmark {
+            validator_id: "val_quantum_001".to_string(),
+            stake_amount: 1_450_000_000,
+            uptime_percentile: 99.92,
+            commission_percentile: 5.0,
+            reward_efficiency: 0.92,
+            overall_score: 95.1,
+            rank: 5,
+        },
+        ValidatorBenchmark {
+            validator_id: "val_aurora_001".to_string(),
+            stake_amount: 540_000_000,
+            uptime_percentile: 99.55,
+            commission_percentile: 9.0,
+            reward_efficiency: 0.78,
+            overall_score: 79.8,
+            rank: 156,
+        },
+    ]
+}
+
+/// Staking edge case test
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StakingEdgeCase {
+    pub name: String,
+    pub scenario: String,
+    pub stake_amount: u64,
+    pub lock_days: u64,
+    pub early_withdrawal: bool,
+    pub expected_penalty: f64,
+    pub description: String,
+}
+
+/// Comprehensive staking edge cases
+pub fn get_staking_edge_cases() -> Vec<StakingEdgeCase> {
+    vec![
+        StakingEdgeCase {
+            name: "No lock period".to_string(),
+            scenario: "Flexible staking with no lock".to_string(),
+            stake_amount: 100_000_000,
+            lock_days: 0,
+            early_withdrawal: false,
+            expected_penalty: 0.0,
+            description: "No penalty for flexible withdrawal".to_string(),
+        },
+        StakingEdgeCase {
+            name: "7 day lock expiry".to_string(),
+            scenario: "7-day lock just completed".to_string(),
+            stake_amount: 500_000_000,
+            lock_days: 7,
+            early_withdrawal: false,
+            expected_penalty: 0.0,
+            description: "No penalty after lock expires".to_string(),
+        },
+        StakingEdgeCase {
+            name: "Early withdrawal penalty".to_string(),
+            scenario: "Withdraw before lock expires".to_string(),
+            stake_amount: 1_000_000_000,
+            lock_days: 30,
+            early_withdrawal: true,
+            expected_penalty: 0.05,
+            description: "5% penalty for early withdrawal".to_string(),
+        },
+        StakingEdgeCase {
+            name: "90-day aggressive lock".to_string(),
+            scenario: "90-day lock with maximum APY".to_string(),
+            stake_amount: 5_000_000_000,
+            lock_days: 90,
+            early_withdrawal: false,
+            expected_penalty: 0.0,
+            description: "Higher APY for longer lock".to_string(),
+        },
+        StakingEdgeCase {
+            name: "Slashing scenario".to_string(),
+            scenario: "Validator gets slashed while staked".to_string(),
+            stake_amount: 2_000_000_000,
+            lock_days: 30,
+            early_withdrawal: false,
+            expected_penalty: 0.01,
+            description: "1% penalty from slashing event".to_string(),
+        },
+        StakingEdgeCase {
+            name: "Maximum lock 180 days".to_string(),
+            scenario: "Maximum lock period for governance".to_string(),
+            stake_amount: 10_000_000_000,
+            lock_days: 180,
+            early_withdrawal: false,
+            expected_penalty: 0.0,
+            description: "Maximum APY boost with governance rights".to_string(),
+        },
     ]
 }
 
@@ -407,15 +551,28 @@ mod tests {
 
     #[test]
     fn test_edge_cases_count() {
-        let cases = get_mining_edge_cases();
-        assert!(cases.len() >= 4, "Should have at least 4 edge cases");
+        let mining_cases = get_mining_edge_cases();
+        let staking_cases = get_staking_edge_cases();
+        assert!(mining_cases.len() >= 6, "Should have at least 6 mining edge cases");
+        assert!(staking_cases.len() >= 5, "Should have at least 5 staking edge cases");
     }
 
     #[test]
     fn test_validator_benchmarks() {
         let benchmarks = get_validator_benchmarks();
         assert!(!benchmarks.is_empty());
+        assert!(benchmarks.len() >= 6, "Should have at least 6 validator benchmarks");
         // Top validator should have highest score
         assert!(benchmarks[0].overall_score >= benchmarks[1].overall_score);
+    }
+
+    #[test]
+    fn test_staking_edge_cases() {
+        let cases = get_staking_edge_cases();
+        // No penalty cases
+        assert_eq!(cases[0].expected_penalty, 0.0);
+        assert_eq!(cases[1].expected_penalty, 0.0);
+        // Early withdrawal penalty
+        assert!(cases[2].expected_penalty > 0.0);
     }
 }

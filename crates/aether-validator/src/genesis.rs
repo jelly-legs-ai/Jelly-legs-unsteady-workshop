@@ -2,6 +2,8 @@
 //!
 //! Handles generation of testnet genesis blocks with bootstrap validators.
 
+use ed25519_dalek::SigningKey;
+use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 

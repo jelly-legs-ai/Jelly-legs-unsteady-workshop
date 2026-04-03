@@ -4,12 +4,10 @@
 //! for validator identity and vote accounts.
 
 use anyhow::{Context, Result};
-use ed25519_dalek::{SigningKey, VerifyingKey};
+use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::path::Path;
-use std::sync::atomic::{AtomicU64, Ordering};
 use tracing::info;
 
 /// Validator identity keypair
@@ -27,7 +25,7 @@ impl ValidatorIdentity {
 
     /// Sign a message
     pub fn sign(&self, message: &[u8]) -> Vec<u8> {
-        self.signing_key.sign(message, &mut OsRng).to_bytes().to_vec()
+        self.signing_key.sign(message).to_bytes().to_vec()
     }
 }
 
@@ -41,7 +39,11 @@ struct VoteAccountJson {
 
 /// Generate a new Ed25519 keypair
 pub fn generate_keypair() -> ValidatorIdentity {
-    let signing_key = SigningKey::generate(&mut OsRng);
+    let signing_key = SigningKey::from_bytes({
+        let mut bytes = [0u8; 32];
+        OsRng.fill_bytes(&mut bytes);
+        &bytes
+    });
     let verifying_key = signing_key.verifying_key();
     
     ValidatorIdentity {
