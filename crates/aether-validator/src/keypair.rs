@@ -7,7 +7,6 @@ use anyhow::{Context, Result};
 use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
 use rand::rngs::OsRng;
 use rand::RngCore;
-use serde::{Deserialize, Serialize};
 use std::path::Path;
 use tracing::info;
 
@@ -28,14 +27,6 @@ impl ValidatorIdentity {
     pub fn sign(&self, message: &[u8]) -> Vec<u8> {
         self.signing_key.sign(message).to_bytes().to_vec()
     }
-}
-
-/// Vote account keypair with validator reference
-#[derive(Serialize, Deserialize)]
-struct VoteAccountJson {
-    pubkey: String,
-    validator_pubkey: String,
-    commission: u8,
 }
 
 /// Generate a new Ed25519 keypair

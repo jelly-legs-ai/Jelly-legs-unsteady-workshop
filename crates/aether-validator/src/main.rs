@@ -196,7 +196,7 @@ async fn main() -> anyhow::Result<()> {
 
 async fn run_validator(cli: Cli) -> anyhow::Result<()> {
     // Extract all values we need before any async moves
-    let (testnet, rpc_addr, p2p_addr, identity_path, no_stake) = match &cli.command {
+    let (testnet, rpc_addr, p2p_addr, identity_path, _no_stake) = match &cli.command {
         Commands::Start { testnet, rpc_addr, p2p_addr, identity, vote_account: _, no_stake } => {
             (testnet, rpc_addr.clone(), p2p_addr.clone(), identity.clone(), no_stake)
         }
@@ -294,7 +294,7 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
                 slot += 1;
                 validator_state.increment_slot();
                 
-                if slot % 100 == 0 {
+                if slot.is_multiple_of(100) {
                     info!(
                         "Slot {} | Votes: {} | Peers: {} | Blocks produced: {}",
                         slot,

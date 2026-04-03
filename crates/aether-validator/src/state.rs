@@ -17,6 +17,7 @@ pub struct ValidatorState {
 
 struct ValidatorStateInner {
     // Identity
+    #[allow(dead_code)]
     identity: RwLock<Option<ValidatorIdentity>>,
     
     // Chain state
@@ -37,9 +38,11 @@ struct ValidatorStateInner {
     vote_count: AtomicU64,
     
     // Ledger
+    #[allow(dead_code)]
     ledger_path: PathBuf,
     
     // Testnet mode
+    #[allow(dead_code)]
     testnet: bool,
 }
 
@@ -95,7 +98,7 @@ impl ValidatorState {
         self.inner.epoch.store(slot / 432_000, Ordering::Relaxed);
         self.inner.transaction_count.fetch_add(1, Ordering::Relaxed);
         
-        if slot % 32 == 0 {
+        if slot.is_multiple_of(32) {
             self.inner.blocks_produced.fetch_add(1, Ordering::Relaxed);
             self.inner.vote_count.fetch_add(1, Ordering::Relaxed);
         }
