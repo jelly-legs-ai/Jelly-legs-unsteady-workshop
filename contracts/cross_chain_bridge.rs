@@ -421,3 +421,115 @@ mod tests {
         assert_eq!(completed_tx.destination_tx, Some("0x123abc".to_string()));
     }
 }
+
+// ============================================================================
+// BRIDGE ANALYTICS & REPORTING - Extended Utility Functions
+// ============================================================================
+
+impl CrossChainBridge {
+    /// Get comprehensive bridge statistics
+    pub fn get_bridge_stats(&self) -> BridgeStats {
+        let total_transfers = self.transactions.len();
+        let completed = self.transactions.values()
+            .filter(|tx| tx.status == BridgeStatus::Completed)
+            .count();
+        let pending = self.transactions.values()
+            .filter(|tx| tx.status == BridgeStatus::Pending)
+            .count();
+        let failed = self.transactions.values()
+            .filter(|tx| tx.status == BridgeStatus::Failed)
+            .count();
+        
+        let total_volume: u64 = self.transactions.values()
+            .map(|tx| tx.amount)
+            .sum();
+        
+        let avg_transfer_time = if completed > 0 {
+            let total_time: u64 = self.transactions.values()
+                .filter(|tx| tx.status == BridgeStatus::Completed)
+                .map(|tx| tx.completed_at.unwrap_or(tx.timestamp) - tx.timestamp)
+                .sum();
+            total_time / completed as u64
+        } else {
+            0
+        };
+        
+        BridgeStats {
+            total_transfers,
+            completed_transfers: completed,
+            pending_transfers: pending,
+            failed_transfers: failed,
+            total_volume,
+            average_transfer_time_seconds: avg_transfer_time,
+            success_rate: if total_transfers > 0 {
+                (completed as f64 / total_transfers as f64) * 100.0
+            } else {
+                0.0
+            },
+        }
+    }
+    
+    /// Get volume statistics by chain pair
+    pub fn get_volume_by_chain_pair(&self) -> HashMap<(String, String), ChainPairVolume> {
+        let mut volumes: HashMap<(String, String), ChainPairVolume> = HashMap::new();
+        
+        for tx in self.transactions.values() {
+            let pair = (tx.source_chain.clone(), tx.dest_chain.clone());
+            let entry = volumes.entry(pair).or_insert_with(|| ChainPairVolume {
+                source_chain: tx.source_chain.clone(),
+                dest_chain: tx.dest_chain.clone(),
+                transfer_count: 0,
+                total_volume: 0,
+                avg_transfer_time: 0,
+                success_rate: 0.0,
+            });
+            
+            entry.transfer_count += 1;
+            entry.total_volume += tx.amount;
+            
+            if tx.status == BridgeStatus::Completed {
+                if let (Some(completed), Some(started)) = (tx.completed_at, Some(tx.timestamp)) {
+                    entry.avg_transfer_time += completed - started;
+                }
+            }
+        }
+        
+        // Calculate averages
+        for volume in volumes.values_mut() {
+            if volume.transfer_count > 0 {
+                let completed = self.transactions.values()
+                    .filter(|tx| tx.source_chain == volume.source_chain 
+                        && tx.dest_chain == volume.dest_chain 
+                        && tx.status == BridgeStatus::Completed)
+                    .count() as u64;
+                volume.avg_transfer_time /= completed.max(1);
+                volume.success_rate = (completed as f64 / volume.transfer_count as f64) * 100.0;
+            }
+        }
+        
+        volumes
+    }
+}
+
+/// Bridge statistics summary
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BridgeStats {
+    pub total_transfers: usize,
+    pub completed_transfers: usize,
+    pub pending_transfers: usize,
+    pub failed_transfers: usize,
+    pub total_volume: u64,
+    pub average_transfer_time_seconds: u64,
+    pub success_rate: f64,
+}
+
+/// Volume statistics per chain pair
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChainPairVolume {
+    pub source_chain: String,
+    pub dest_chain: String,
+    pub transfer_count: u64,
+    pub total_volume: u64,
+    pub avg_transfer_time: u64,
+    pub success_rate: f64,
+}
