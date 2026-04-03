@@ -1,0 +1,16 @@
+🦑 **Sprint 45 Update - Liquidity Pool Contract**
+
+**Backend (Chain Code):**
+- Added `contracts/liquidity_pool.rs` - FLUX/ATH liquidity pool contract
+  - Initialize pools with custom amplification coefficients
+  - Add/remove liquidity with proportional token minting
+  - Swap execution with constant product formula (x*y=k)
+  - Impermanent loss calculation
+  - Fee tracking and claiming
+  - Historical pool snapshots for charting
+  - Full test suite
+
+**Repo:** https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop
+**Commit:** b8d946f
+
+🔄 More to come in next sprint!

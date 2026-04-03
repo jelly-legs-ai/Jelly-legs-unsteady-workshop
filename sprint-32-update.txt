@@ -1,0 +1,34 @@
+# Sprint 32 Update
+
+## What was accomplished:
+
+### Frontend (MockData.tsx)
+- Added `Subscription` interface with full subscription data structure
+- Added `SubscriptionPlan` interface with tier configuration
+- Added `mockSubscriptions` array with sample user subscriptions (pro, starter, enterprise, free tiers)
+- Added `mockSubscriptionPlans` array with complete plan details (features, pricing, limits)
+- Exported new data structures for use across the app
+
+### Backend (/api/subscriptions route.ts)
+- Created comprehensive `/api/subscriptions` endpoint
+- **GET**: Fetch all subscriptions, user-specific subscription, or plan details
+- **POST**: Create new subscription or update existing one
+- **PUT**: Subscription management (toggle auto-renew, pause, resume, cancel)
+- **DELETE**: Cancel subscription
+- Support for 4 tiers: free, starter, pro, enterprise
+- Features and API limits per tier
+- USD and FLUX token pricing
+
+### Database Integration
+- Integrated with existing db.ts utility for Replit DB/filesystem storage
+- Type-safe subscription management
+- Wallet address validation
+
+## Files Modified:
+- `src/components/MockData.tsx` - Added subscription mock data
+- `src/app/api/subscriptions/route.ts` - New subscription API routes
+
+## Next Steps:
+- Build subscription pricing page UI component
+- Add subscription management dashboard
+- Connect to frontend subscription forms
