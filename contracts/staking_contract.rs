@@ -198,6 +198,36 @@ pub fn calculate_early_withdrawal_penalty(
     lockup_epochs: u64,
     principal: u64,
 ) -> u64 {
+    // Penalty decreases over time as you approach lockup end
+    if stake_epochs >= lockup_epochs {
+        return 0; // No penalty after lockup ends
+    }
+    
+    let remaining_epochs = lockup_epochs - stake_epochs;
+    let penalty_rate = remaining_epochs as f64 / lockup_epochs as f64;
+    
+    // Early withdrawal penalty: up to 50% of principal
+    let max_penalty = (principal as f64 * 0.5) as u64;
+    (max_penalty as f64 * penalty_rate) as u64
+}
+
+/// Calculate projected rewards for a given stake amount and duration
+pub fn calculate_projected_rewards(
+    principal: u64,
+    apy: f64,
+    duration_days: u64,
+    tier: StakingTier,
+    compound: bool,
+) -> RewardCalculation {
+    calculate_staking_rewards(
+        principal,
+        apy,
+        duration_days,
+        tier.bonus_multiplier(),
+        1.0, // uptime multiplier (assume 100%)
+        compound,
+    )
+}
     if stake_epochs >= lockup_epochs {
         return 0; // No penalty
     }
