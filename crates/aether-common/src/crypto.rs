@@ -23,7 +23,7 @@ pub fn verify_ed25519(
 ) -> Result<bool, Box<dyn std::error::Error>> {
     let pubkey = VerifyingKey::from_bytes(public_key.into())?;
     let sig = Signature::from_bytes(signature);
-    Ok(pubkey.verify(message, &sig).is_ok())
+    Ok(pubkey.verify_strict(message, &sig).is_ok())
 }
 
 /// Calculate Merkle root from leaves
