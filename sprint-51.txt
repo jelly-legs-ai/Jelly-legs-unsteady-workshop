@@ -1,0 +1,24 @@
+Sprint 51 Update - AeTHer Chain Development
+===========================================
+
+Backend - Mining Rewards Module (NEW!)
+--------------------------------------
+✅ Added `mining.rs` module to aether-tokens crate
+- DeviceTier enum: Mobile, Laptop, Desktop, Server with reward multipliers
+- MiningDevice struct tracking uptime, reputation, pending rewards
+- MiningContract with:
+  - Device registration
+  - Heartbeat processing with contribution scoring
+  - Reputation system (uptime bonuses, missed heartbeat penalties)
+  - Reward calculation based on tier × reputation × contribution
+  - Epoch advancement and stats tracking
+- Full test coverage included
+
+Frontend
+--------
+Website repo already up to date from previous sprints
+
+GitHub
+------
+Pushed to: jelly-legs-ai/Jelly-legs-unsteady-workshop
+Commit: 7d3c726 - Add mining rewards module for PoC mobile mining consensus
