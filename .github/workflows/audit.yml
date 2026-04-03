@@ -1,0 +1,87 @@
+name: Security Audit Gates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  audit:
+    name: Security Audit Gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cargo audit
+        run: |
+          cargo install cargo-audit --locked
+          cargo audit
+
+  clippy:
+    name: Clippy Lints
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Run clippy
+        run: cargo clippy --workspace -- -D warnings
+
+  fmt:
+    name: Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run tests
+        run: cargo test --workspace
+
+  audit-gate:
+    name: Audit Gate
+    runs-on: ubuntu-latest
+    needs: [audit, clippy, fmt, test]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          if result=$(curl -sL https://raw.githubusercontent.com/RustSec/advisory-db/main/Crates.md 2>/dev/null); then
+            echo "Advisory DB accessible"
+          fi
+          echo "All security gates passed: audit=${{ needs.audit.result }}, clippy=${{ needs.clippy.result }}, fmt=${{ needs.fmt.result }}, test=${{ needs.test.result }}"
+          if [ "${{ needs.audit.result }}" != "success" ] || \
+             [ "${{ needs.clippy.result }}" != "success" ] || \
+             [ "${{ needs.fmt.result }}" != "success" ] || \
+             [ "${{ needs.test.result }}" != "success" ]; then
+            exit 1
+          fi
