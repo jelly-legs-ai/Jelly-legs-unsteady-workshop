@@ -394,6 +394,65 @@ impl StakingOptimizer {
             recommendations,
         }
     }
+
+    /// Calculate compound growth projection over time
+    pub fn compound_projection(
+        &self,
+        wallet: &str,
+        months: u64,
+        monthly_contribution: u64,
+    ) -> CompoundProjection {
+        let positions = self.positions.get(wallet).cloned().unwrap_or_default();
+        
+        let monthly_rate = positions.iter()
+            .map(|p| {
+                let effective_apy = p.tier.apy() * p.tier.reward_multiplier();
+                let validator = self.validators.get(&p.validator_id);
+                let commission = validator.map(|v| v.commission).unwrap_or(0.05);
+                effective_apy * (1.0 - commission) / 12.0
+            })
+            .sum::<f64>() / positions.len().max(1) as f64;
+
+        let current_stake: u64 = positions.iter().map(|p| p.amount).sum();
+        
+        let mut balance = current_stake as f64;
+        let mut projections = Vec::new();
+        
+        for month in 0..=months {
+            projections.push(ProjectionPoint {
+                month,
+                balance: balance as u64,
+                rewards_accrued: (balance - current_stake as f64).max(0.0) as u64,
+            });
+            balance = balance * (1.0 + monthly_rate) + monthly_contribution as f64;
+        }
+
+        CompoundProjection {
+            monthly_rate,
+            current_stake,
+            final_balance: balance as u64,
+            total_rewards: (balance - current_stake as f64 - (monthly_contribution as f64 * months as f64)).max(0.0) as u64,
+            monthly_contribution,
+            projections,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompoundProjection {
+    pub monthly_rate: f64,
+    pub current_stake: u64,
+    pub final_balance: u64,
+    pub total_rewards: u64,
+    pub monthly_contribution: u64,
+    pub projections: Vec<ProjectionPoint>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectionPoint {
+    pub month: u64,
+    pub balance: u64,
+    pub rewards_accrued: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
