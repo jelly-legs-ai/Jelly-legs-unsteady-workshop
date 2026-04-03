@@ -821,6 +821,7 @@ mod tests {
         let staking = EnhancedStakingContract::new();
         assert_eq!(staking.staking_pools.len(), 2);
         assert_eq!(staking.contract_state, StakingState::Active);
+        assert_eq!(staking.supported_tokens.len(), 2);
     }
     
     #[test]
@@ -840,5 +841,95 @@ mod tests {
         
         let rewards = staking.calculate_rewards("user1", "pos_user1_0").unwrap();
         assert!(rewards.total_rewards > 0);
+    }
+    
+    #[test]
+    fn test_multi_token_staking() {
+        let mut staking = EnhancedStakingContract::new();
+        
+        // Stake FLUX
+        let flux_pos = staking.stake("user1", "flux_flexible", "flux_30d", 1000, false).unwrap();
+        assert!(flux_pos.contains("flux"));
+        
+        // Stake ATH
+        let ath_pos = staking.stake("user1", "ath_flexible", "ath_30d", 500, false).unwrap();
+        assert!(ath_pos.contains("ath"));
+        
+        // Check user has 2 positions
+        let positions = staking.get_user_positions("user1");
+        assert_eq!(positions.len(), 2);
+    }
+    
+    #[test]
+    fn test_lock_period_multipliers() {
+        let mut staking = EnhancedStakingContract::new();
+        
+        // 7-day lock (1.0x multiplier)
+        staking.stake("user_a", "flux_flexible", "flux_7d", 1000, false).unwrap();
+        
+        // 365-day lock (2.5x multiplier)
+        staking.stake("user_b", "flux_flexible", "flux_365d", 1000, false).unwrap();
+        
+        let rewards_a = staking.calculate_rewards("user_a", "pos_user_a_0").unwrap();
+        let rewards_b = staking.calculate_rewards("user_b", "pos_user_b_0").unwrap();
+        
+        // 365d should have ~2.5x more rewards than 7d
+        assert!(rewards_b.total_rewards > rewards_a.total_rewards);
+    }
+    
+    #[test]
+    fn test_auto_compound_enabled() {
+        let mut staking = EnhancedStakingContract::new();
+        
+        // Stake with auto-compound enabled
+        let position_id = staking.stake("user1", "flux_flexible", "flux_30d", 1000, true).unwrap();
+        
+        let positions = staking.get_user_positions("user1");
+        let position = positions.iter().find(|p| p.position_id == position_id).unwrap();
+        assert!(position.auto_compound);
+    }
+    
+    #[test]
+    fn test_get_available_pools() {
+        let staking = EnhancedStakingContract::new();
+        
+        let flux_pools = staking.get_pools_for_token("flux");
+        assert!(!flux_pools.is_empty());
+        assert!(flux_pools.iter().all(|p| p.token_id == "flux" && p.is_active));
+    }
+    
+    #[test]
+    fn test_recommend_lock_period() {
+        let staking = EnhancedStakingContract::new();
+        
+        // Target 30% APY (30 / 12 base = 2.5x multiplier needed)
+        let recommended = staking.recommend_lock_period("flux_flexible", 0.30);
+        assert!(recommended.is_some());
+        assert!(recommended.unwrap().reward_multiplier >= 2.0);
+    }
+    
+    #[test]
+    fn test_pause_and_resume() {
+        let mut staking = EnhancedStakingContract::new();
+        
+        assert_eq!(staking.contract_state, StakingState::Active);
+        
+        staking.pause_staking();
+        assert_eq!(staking.contract_state, StakingState::Paused);
+        
+        staking.resume_staking();
+        assert_eq!(staking.contract_state, StakingState::Active);
+    }
+    
+    #[test]
+    fn test_emergency_stop() {
+        let mut staking = EnhancedStakingContract::new();
+        
+        staking.emergency_stop();
+        assert_eq!(staking.contract_state, StakingState::EmergencyStop);
+        
+        // Emergency stop should prevent new stakes
+        let result = staking.stake("user1", "flux_flexible", "flux_30d", 1000, false);
+        assert!(result.is_err());
     }
 }
