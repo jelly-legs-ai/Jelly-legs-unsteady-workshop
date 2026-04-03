@@ -106,7 +106,7 @@ impl ValidatorState {
     }
 
     pub fn add_peer(&self, pubkey: String) {
-        let mut peers = self.inner.peer_pubkeys.write().await;
+        let mut peers = self.inner.peer_pubkeys.blocking_write();
         if !peers.contains(&pubkey) {
             peers.push(pubkey);
             self.inner.peer_count.store(peers.len() as u64, Ordering::Relaxed);

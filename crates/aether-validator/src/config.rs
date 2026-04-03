@@ -2,6 +2,7 @@
 //!
 //! YAML configuration for validator node settings.
 
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
