@@ -199,7 +199,7 @@ impl MiningContract {
     pub fn heartbeat(
         &mut self,
         device_id: &[u8; 32],
-        contribution_score: f64, // 0.0 - 1.0
+        contribution_score: f64,
     ) -> Result<u64, &'static str> {
         let device = self.devices.get_mut(device_id)
             .ok_or("Device not found")?;
@@ -208,42 +208,20 @@ impl MiningContract {
         let epochs_since_last = ((now - device.last_heartbeat) / self.config.epoch_duration_secs)
             .max(1);
         
-        // Update mining statistics
         device.total_mining_epochs += epochs_since_last;
-        device.total_uptime_epochs += epochs_since_last; // Assuming heartbeat = uptime
+        device.total_uptime_epochs += epochs_since_last;
         device.last_heartbeat = now;
         
-        // Calculate and accumulate rewards
-        let rewards = self.calculate_epoch_rewards(device, contribution_score);
+        // Calculate rewards using config copy (avoids borrow conflict)
+        let rewards = calculate_epoch_rewards_impl(&self.config, device, contribution_score);
         device.pending_rewards += rewards;
         
         Ok(rewards)
     }
     
-    /// Calculate rewards for an epoch
+    /// Calculate rewards for an epoch (impl helper, avoids borrow conflict)
     fn calculate_epoch_rewards(&self, device: &MiningDevice, contribution_score: f64) -> u64 {
-        // Check minimum reputation
-        if device.reputation < self.config.min_reputation_for_rewards {
-            return 0;
-        }
-        
-        // Base reward
-        let mut reward = self.config.base_reward_per_epoch;
-        
-        // Apply device tier multiplier
-        reward = (reward as f64 * device.tier.reward_multiplier()) as u64;
-        
-        // Apply reputation multiplier (50-100 -> 0.5x-1.0x)
-        let reputation_multiplier = 0.5 + (device.reputation as f64 / 200.0);
-        reward = (reward as f64 * reputation_multiplier) as u64;
-        
-        // Apply contribution score
-        reward = (reward as f64 * contribution_score.clamp(0.0, 1.0)) as u64;
-        
-        // Cap at daily max (distributed per epoch, so divide by epochs per day)
-        let epochs_per_day = 86400 / self.config.epoch_duration_secs;
-        let daily_cap = self.config.max_daily_rewards / epochs_per_day;
-        reward.min(daily_cap)
+        calculate_epoch_rewards_impl(&self.config, device, contribution_score)
     }
     
     /// Update device reputation
@@ -384,6 +362,21 @@ pub struct MiningStats {
     pub total_flux_distributed: u64,
     pub current_epoch: u64,
     pub avg_uptime: f64,
+}
+
+/// Standalone reward calculation (avoids borrow conflicts with &mut self)
+fn calculate_epoch_rewards_impl(config: &MiningConfig, device: &MiningDevice, contribution_score: f64) -> u64 {
+    if device.reputation < config.min_reputation_for_rewards {
+        return 0;
+    }
+    let mut reward = config.base_reward_per_epoch;
+    reward = (reward as f64 * device.tier.reward_multiplier()) as u64;
+    let reputation_multiplier = 0.5 + (device.reputation as f64 / 200.0);
+    reward = (reward as f64 * reputation_multiplier) as u64;
+    reward = (reward as f64 * contribution_score.clamp(0.0, 1.0)) as u64;
+    let epochs_per_day = 86400 / config.epoch_duration_secs;
+    let daily_cap = config.max_daily_rewards / epochs_per_day;
+    reward.min(daily_cap)
 }
 
 #[cfg(test)]

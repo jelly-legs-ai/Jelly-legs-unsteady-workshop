@@ -1,7 +1,7 @@
 //! AETHER Cryptographic Utilities
 
 use sha2::{Sha256, Digest};
-use ed25519_dalek::{PublicKey, Signature, Verifier};
+use ed25519_dalek::{Signature, VerifyingKey};
 
 /// Hash data using SHA-256
 pub fn hash_sha256(data: &[u8]) -> [u8; 32] {
@@ -21,7 +21,7 @@ pub fn verify_ed25519(
     signature: &[u8; 64],
     public_key: &[u8; 32],
 ) -> Result<bool, Box<dyn std::error::Error>> {
-    let pubkey = PublicKey::from_bytes(public_key)?;
+    let pubkey = VerifyingKey::from_bytes(public_key.into())?;
     let sig = Signature::from_bytes(signature);
     Ok(pubkey.verify(message, &sig).is_ok())
 }
@@ -47,7 +47,7 @@ pub fn calculate_merkle_root(leaves: &[[u8; 32]]) -> [u8; 32] {
             if chunk.len() == 2 {
                 combined[32..].copy_from_slice(&chunk[1]);
             } else {
-                combined[32..].copy_from_slice(&chunk[0]); // Duplicate last element
+                combined[32..].copy_from_slice(&chunk[0]);
             }
             
             next_level.push(hash_sha256(&combined));
