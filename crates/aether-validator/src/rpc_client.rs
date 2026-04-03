@@ -3,7 +3,6 @@
 //! Provides a minimal JSON-RPC client to query local validator state.
 
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Epoch information
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

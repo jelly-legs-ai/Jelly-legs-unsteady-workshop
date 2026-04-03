@@ -6,6 +6,7 @@
 use anyhow::{Context, Result};
 use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
 use rand::rngs::OsRng;
+use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use tracing::info;
@@ -39,11 +40,9 @@ struct VoteAccountJson {
 
 /// Generate a new Ed25519 keypair
 pub fn generate_keypair() -> ValidatorIdentity {
-    let signing_key = SigningKey::from_bytes({
-        let mut bytes = [0u8; 32];
-        OsRng.fill_bytes(&mut bytes);
-        &bytes
-    });
+    let mut bytes = [0u8; 32];
+    OsRng.fill_bytes(&mut bytes);
+    let signing_key = SigningKey::from_bytes(&bytes);
     let verifying_key = signing_key.verifying_key();
     
     ValidatorIdentity {

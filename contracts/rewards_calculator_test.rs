@@ -148,6 +148,11 @@ impl MiningRewardTestSuite {
 /// Staking reward test suite
 pub struct StakingRewardTestSuite;
 
+// ============================================================================
+// SPRINT 44 ENHANCEMENT: Extended Staking Reward Test Cases
+// Additional test scenarios for multi-pool staking and tier-based rewards
+// ============================================================================
+
 impl StakingRewardTestSuite {
     /// Get standard test cases for staking rewards
     pub fn get_test_cases() -> Vec<StakingRewardTestCase> {
@@ -522,8 +527,116 @@ pub fn get_staking_edge_cases() -> Vec<StakingEdgeCase> {
     ]
 }
 
+// ============================================================================
+// SPRINT 44 ENHANCEMENT: Extended Test Cases for Multi-Tier Staking
+// Additional edge cases for tier-based rewards and auto-compounding
+// ============================================================================
+
+/// Multi-tier staking test case
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MultiTierStakingTest {
+    pub name: String,
+    pub tier: String,
+    pub stake_amount: u64,
+    pub auto_compound: bool,
+    pub expected_tier_multiplier: f64,
+    pub expected_apy_boost: f64,
+}
+
+/// Auto-compounding scenario
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutoCompoundScenario {
+    pub name: String,
+    pub initial_stake: u64,
+    pub compound_frequency_hours: u64,
+    pub duration_epochs: u64,
+    pub expected_final_amount: u64,
+    pub apy: f64,
+}
+
+pub fn get_multi_tier_tests() -> Vec<MultiTierStakingTest> {
+    vec![
+        MultiTierStakingTest {
+            name: "Bronze tier minimum".to_string(),
+            tier: "Bronze".to_string(),
+            stake_amount: 100,
+            auto_compound: false,
+            expected_tier_multiplier: 1.0,
+            expected_apy_boost: 0.0,
+        },
+        MultiTierStakingTest {
+            name: "Silver tier mid-range".to_string(),
+            tier: "Silver".to_string(),
+            stake_amount: 25_000,
+            auto_compound: false,
+            expected_tier_multiplier: 1.05,
+            expected_apy_boost: 0.05,
+        },
+        MultiTierStakingTest {
+            name: "Gold tier with auto-compound".to_string(),
+            tier: "Gold".to_string(),
+            stake_amount: 75_000,
+            auto_compound: true,
+            expected_tier_multiplier: 1.10,
+            expected_apy_boost: 0.10,
+        },
+        MultiTierStakingTest {
+            name: "Platinum tier maximum benefits".to_string(),
+            tier: "Platinum".to_string(),
+            stake_amount: 500_000,
+            auto_compound: true,
+            expected_tier_multiplier: 1.20,
+            expected_apy_boost: 0.20,
+        },
+        MultiTierStakingTest {
+            name: "Validator exclusive pool access".to_string(),
+            tier: "Platinum".to_string(),
+            stake_amount: 1_000_000,
+            auto_compound: true,
+            expected_tier_multiplier: 1.25,
+            expected_apy_boost: 0.25,
+        },
+    ]
+}
+
+pub fn get_auto_compound_scenarios() -> Vec<AutoCompoundScenario> {
+    vec![
+        AutoCompoundScenario {
+            name: "Daily compounding basic".to_string(),
+            initial_stake: 100_000_000,
+            compound_frequency_hours: 24,
+            duration_epochs: 365,
+            expected_final_amount: 112_000_000,
+            apy: 0.12,
+        },
+        AutoCompoundScenario {
+            name: "Hourly compounding premium".to_string(),
+            initial_stake: 500_000_000,
+            compound_frequency_hours: 1,
+            duration_epochs: 8760,
+            expected_final_amount: 565_000_000,
+            apy: 0.12,
+        },
+        AutoCompoundScenario {
+            name: "Weekly compounding standard".to_string(),
+            initial_stake: 250_000_000,
+            compound_frequency_hours: 168,
+            duration_epochs: 52,
+            expected_final_amount: 280_000_000,
+            apy: 0.12,
+        },
+        AutoCompoundScenario {
+            name: "Epoch-level compounding".to_string(),
+            initial_stake: 1_000_000_000,
+            compound_frequency_hours: 1,
+            duration_epochs: 8760,
+            expected_final_amount: 1_127_000_000,
+            apy: 0.12,
+        },
+    ]
+}
+
 #[cfg(test)]
-mod tests {
     use super::*;
 
     #[test]

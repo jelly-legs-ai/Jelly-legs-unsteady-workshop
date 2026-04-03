@@ -195,9 +195,10 @@ async fn main() -> anyhow::Result<()> {
 // =============================================================================
 
 async fn run_validator(cli: Cli) -> anyhow::Result<()> {
-    let (testnet, rpc_addr, p2p_addr, identity_path, vote_account_path, no_stake) = match &cli.command {
-        Commands::Start { testnet, rpc_addr, p2p_addr, identity, vote_account, no_stake } => {
-            (testnet, rpc_addr, p2p_addr, identity, vote_account, no_stake)
+    // Extract all values we need before any async moves
+    let (testnet, rpc_addr, p2p_addr, identity_path, no_stake) = match &cli.command {
+        Commands::Start { testnet, rpc_addr, p2p_addr, identity, vote_account: _, no_stake } => {
+            (testnet, rpc_addr.clone(), p2p_addr.clone(), identity.clone(), no_stake)
         }
         _ => unreachable!(),
     };
@@ -205,7 +206,7 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
     info!("Starting AETHER Validator...");
 
     // Load or generate identity
-    let identity = if let Some(path) = identity_path {
+    let identity = if let Some(path) = &identity_path {
         load_or_create_identity(path)?
     } else {
         let default_path = PathBuf::from("validator-identity.json");
@@ -270,8 +271,9 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
     // Start P2P gossip
     let gossip_handle = {
         let validator_state = validator_state.clone();
+        let p2p_addr_clone = p2p_addr.clone();
         tokio::spawn(async move {
-            if let Err(e) = run_gossip(p2p_addr, validator_state).await {
+            if let Err(e) = run_gossip(&p2p_addr_clone, validator_state).await {
                 error!("Gossip error: {}", e);
             }
         })
@@ -416,7 +418,7 @@ async fn show_validators(cli: Cli) -> anyhow::Result<()> {
                 "Status", "Validator Identity", "Stake", "Commission");
             println!("  {}", "-".repeat(76));
             
-            for v in validators {
+            for v in &validators {
                 let status = if v.active { "● ACTIVE" } else { "○ INACTIVE" };
                 println!("  {:<8} {:<44} {:>8} {:>10}%", 
                     status, 
@@ -579,7 +581,7 @@ async fn create_genesis(cli: Cli) -> anyhow::Result<()> {
 // =============================================================================
 
 async fn handle_rpc_request(
-    socket: tokio::net::TcpStream,
+    mut socket: tokio::net::TcpStream,
     state: ValidatorState,
 ) -> anyhow::Result<()> {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};

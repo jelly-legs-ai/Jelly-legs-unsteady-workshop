@@ -4,6 +4,7 @@
 
 use ed25519_dalek::SigningKey;
 use rand::rngs::OsRng;
+use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -83,10 +84,9 @@ pub fn create_testnet_genesis() -> GenesisBlock {
 
 /// Bootstrap validator keypair generation (for testnet setup)
 pub fn generate_bootstrap_keypair() -> (String, Vec<u8>) {
-    use ed25519_dalek::SigningKey;
-    use rand::rngs::OsRng;
-    
-    let signing_key = SigningKey::generate(&mut OsRng);
+    let mut bytes = [0u8; 32];
+    OsRng.fill_bytes(&mut bytes);
+    let signing_key = SigningKey::from_bytes(&bytes);
     let pubkey = bs58::encode(signing_key.verifying_key().as_bytes()).into_string();
     
     (pubkey, signing_key.to_bytes().to_vec())
