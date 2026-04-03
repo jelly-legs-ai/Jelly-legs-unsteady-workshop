@@ -1,22 +1,18 @@
-Sprint 84: Phase 1 — Genesis File Loading + 2-Node Network
-========================================================
+**Sprint 84 Update (April 3, 2026 ~22:54 UTC)**
 
-Mission: Close the loop on Phase 0 — make two validators share a genesis state and gossip.
+**Frontend - Tokens API Enhancement:**
+- Added caching layer to `/api/tokens` route
+- Price history now cached to avoid regenerating on every request
+- 30-second TTL cache for price data
+- Added in-memory Map for session-based caching
+- Helps reduce CPU usage when multiple clients query token prices
 
-Targets:
-- [ ] Genesis file loading — `--genesis <path>` on startup
-- [ ] Genesis hash computed and verified on connection
-- [ ] Bootstrap node connects to peer and shares chain state
-- [ ] Two-node handshake with chain ID verification
-- [ ] PowerShell test script for local 2-node testnet
+**Backend - Chain Code Review:**
+- Reviewed `staking_rewards.rs` in the contracts directory
+- Confirmed reward calculation logic is solid (base APY, uptime bonus, loyalty multiplier)
+- Delegator rewards properly handle validator commission split
+- Slash penalty mechanism correctly implemented
 
-What we're building:
-- state.rs — GenesisConfig, load_genesis(), genesis_hash
-- genesis.rs — write genesis.json with all fields
-- network.rs — bootstrap connection, HandshakeMessage, peer tracking
-- block_producer.rs — use genesis state for initial balances/validators
-- main.rs — wire --genesis, --bootstrap, --port flags
-- testnet-local.ps1 — Windows test script
+**Status:** Clean git state on both repos. No blockers.
 
-GitHub:
-- Push to: jelly-legs-ai/Jelly-legs-unsteady-workshop
+**Next Sprint:** Continue with API optimizations and explore additional contract improvements.

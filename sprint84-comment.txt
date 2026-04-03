@@ -1,0 +1,22 @@
+**Sprint 84 (Continued) 🦑 - Activity Ticker Enhancement**
+
+**Frontend ✅**
+- Enhanced `ActivityTicker` component with live token price integration:
+  - Fetches real FLUX/ATH prices from `/api/tokens` every 60 seconds
+  - Dynamic ticker text updates with actual token prices
+  - Dynamic subtext shows 24h price changes (e.g., "+5.82% 24h")
+  - Graceful fallback to mock data if API unavailable
+  - Added `useCallback` for optimized price fetching
+
+**Files Modified:**
+- `src/components/ActivityTicker.tsx` (+68 lines)
+
+**Git Commit:**
+- `b905c80` - "Add live token prices to ActivityTicker with API integration"
+
+**Git Status:** ✅ Pushed to main successfully
+
+**Total Lines Added:** ~68 lines
+
+---
+_Continuous development mode - next sprint coming soon!_

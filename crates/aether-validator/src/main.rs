@@ -5,7 +5,8 @@
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
-use std::path::PathBuf;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use tracing::{info, warn, error, Level};
@@ -60,6 +61,18 @@ struct Cli {
 enum Commands {
     /// Start the validator node
     Start {
+        /// Genesis configuration file (JSON)
+        #[arg(long)]
+        genesis: Option<PathBuf>,
+
+        /// P2P listen port (default: 8001)
+        #[arg(long, default_value = "8001")]
+        port: u16,
+
+        /// Bootstrap node address (for joining existing network)
+        #[arg(long)]
+        bootstrap: Option<String>,
+
         /// Start in testnet mode (local testnet genesis)
         #[arg(long)]
         testnet: bool,
@@ -67,10 +80,6 @@ enum Commands {
         /// Bind address for RPC
         #[arg(long, default_value = "127.0.0.1:8899")]
         rpc_addr: String,
-
-        /// Bind address for P2P gossip
-        #[arg(long, default_value = "0.0.0.0:8001")]
-        p2p_addr: String,
 
         /// Identity keypair path
         #[arg(long)]
@@ -150,6 +159,10 @@ enum Commands {
         /// Bootstrap validator identity (can be repeated)
         #[arg(long)]
         bootstrap_validator: Vec<PathBuf>,
+
+        /// Initial token balances (pubkey=amount, repeatable)
+        #[arg(long)]
+        initial_balance: Vec<String>,
     },
 }
 
@@ -202,14 +215,45 @@ async fn main() -> anyhow::Result<()> {
 
 async fn run_validator(cli: Cli) -> anyhow::Result<()> {
     // Extract all values we need before any async moves
-    let (testnet, rpc_addr, p2p_addr, identity_path, _no_stake) = match &cli.command {
-        Commands::Start { testnet, rpc_addr, p2p_addr, identity, vote_account: _, no_stake } => {
-            (testnet, rpc_addr.clone(), p2p_addr.clone(), identity.clone(), no_stake)
-        }
-        _ => unreachable!(),
-    };
+    let (genesis_path, port, bootstrap_addr, testnet, rpc_addr, identity_path, _no_stake) =
+        match &cli.command {
+            Commands::Start {
+                genesis,
+                port,
+                bootstrap,
+                testnet,
+                rpc_addr,
+                identity,
+                vote_account: _,
+                no_stake,
+            } => (
+                genesis.clone(),
+                *port,
+                bootstrap.clone(),
+                *testnet,
+                rpc_addr.clone(),
+                identity.clone(),
+                *no_stake,
+            ),
+            _ => unreachable!(),
+        };
 
     info!("Starting AETHER Validator...");
+
+    // Load genesis if provided
+    let genesis_config = if let Some(ref path) = genesis_path {
+        info!("Loading genesis from: {}", path.display());
+        Some(crate::genesis::load_genesis(path)?)
+    } else {
+        info!("No genesis file provided, using internal genesis");
+        None
+    };
+
+    // Print genesis hash on startup
+    if let Some(ref config) = genesis_config {
+        info!("Genesis hash: {}", config.genesis_hash);
+        info!("Chain ID: {}", config.chain_id);
+    }
 
     // Load or generate identity
     let identity = if let Some(path) = &identity_path {
@@ -234,14 +278,19 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
     std::fs::create_dir_all(&ledger_path)
         .context("Failed to create ledger directory")?;
 
-    // Initialize consensus
-    let validator_state = ValidatorState::new(
-        identity,
-        *testnet,
-        ledger_path,
-    )?;
+    // Initialize validator state with genesis
+    let validator_state = if let Some(ref config) = genesis_config {
+        ValidatorState::with_genesis_file(
+            identity,
+            *testnet,
+            ledger_path,
+            genesis_path.as_ref().unwrap(),
+        )?
+    } else {
+        ValidatorState::new(identity, *testnet, ledger_path, None)?
+    };
 
-    // Create block producer
+    // Create block producer (genesis-aware)
     let block_producer = Arc::new(BlockProducer::new(validator_state.clone()));
 
     // Start block producer
@@ -265,45 +314,70 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
         })
     };
 
-    // Start P2P gossip
-    let network_state = Arc::new(network::NetworkState::new());
-    let p2p_addr_for_spawn = p2p_addr.clone();
-    let gossip_handle = {
+    // Start P2P gossip with optional bootstrap
+    let network_state = Arc::new(network::NetworkState::new(
+        validator_state.get_genesis_hash(),
+    ));
+    let p2p_listen = format!("0.0.0.0:{}", port);
+
+    let p2p_handle = {
         let state = validator_state.clone();
         let ns = network_state.clone();
-        tokio::spawn(async move {
-            if let Err(e) = start_p2p(&p2p_addr_for_spawn, state, ns).await {
-                error!("P2P gossip error: {}", e);
-            }
-        })
+
+        if let Some(ref bootstrap_addr) = bootstrap_addr {
+            // Connect to bootstrap node first, then listen
+            tokio::spawn(async move {
+                if let Err(e) = start_p2p_with_bootstrap(&p2p_listen, bootstrap_addr, state, ns).await {
+                    error!("P2P with bootstrap error: {}", e);
+                }
+            })
+        } else {
+            // Start as seed/genesis node
+            tokio::spawn(async move {
+                if let Err(e) = start_p2p(&p2p_listen, state, ns).await {
+                    error!("P2P gossip error: {}", e);
+                }
+            })
+        }
     };
 
     // Main validator loop
     info!("Validator running. Press Ctrl+C to stop.");
-    info!("RPC HTTP: http://127.0.0.1:{}/", rpc_addr.split(':').last().unwrap_or("8899"));
-    info!("Gossip: {}", p2p_addr);
+    info!(
+        "RPC HTTP: http://127.0.0.1:{}/",
+        rpc_addr.split(':').last().unwrap_or("8899")
+    );
+    info!("P2P Listen: {}", p2p_listen);
+    if let Some(ref bootstrap) = bootstrap_addr {
+        info!("Bootstrap Node: {}", bootstrap);
+    } else {
+        info!("Mode: Seed/Genesis Node");
+    }
 
     // Status logging every 100 slots
     let state_for_logging = validator_state.clone();
     let logging_handle = tokio::spawn(async move {
-        let mut slot = 0u64;
+        let mut last_slot = 0u64;
         loop {
             sleep(Duration::from_secs(10)).await;
-            slot = state_for_logging.current_slot();
-            info!(
-                "Slot {} | Blocks produced: {} | TXs: {} | Peers: {}",
-                slot,
-                state_for_logging.blocks_produced(),
-                state_for_logging.transaction_count(),
-                state_for_logging.peer_count(),
-            );
+            let slot = state_for_logging.current_slot();
+            if slot != last_slot {
+                last_slot = slot;
+                info!(
+                    "Slot {} | Blocks produced: {} | TXs: {} | Peers: {}",
+                    slot,
+                    state_for_logging.blocks_produced(),
+                    state_for_logging.transaction_count(),
+                    state_for_logging.peer_count(),
+                );
+            }
         }
     });
 
     // Wait for any handle to complete
     tokio::select! {
         _ = rpc_handle => {}
-        _ = gossip_handle => {}
+        _ = p2p_handle => {}
         _ = bp_handle => {}
         _ = logging_handle => {}
     }
@@ -323,7 +397,7 @@ async fn check_status(cli: Cli) -> anyhow::Result<()> {
 
     // Query RPC
     let client = RpcClient::new(&rpc_url);
-    
+
     let slot_height = client.get_slot().await.unwrap_or(0);
     let block_height = client.get_block_height().await.unwrap_or(0);
     let peer_count = client.get_peer_count().await.unwrap_or(0);
@@ -360,13 +434,17 @@ async fn check_status(cli: Cli) -> anyhow::Result<()> {
         println!("     Peer Count:         {:>12}", peer_count);
         println!();
         println!("  📈 Epoch {}", epoch_info.epoch);
-        println!("     Progress:          {:>11.1}%", 
+        println!(
+            "     Progress:          {:>11.1}%",
             if epoch_info.slots_in_epoch > 0 {
                 (epoch_info.slot_index as f64 / epoch_info.slots_in_epoch as f64) * 100.0
-            } else { 0.0 });
+            } else {
+                0.0
+            }
+        );
         println!("     Absolute Slot:      {:>12}", epoch_info.absolute_slot);
         println!();
-        
+
         if details {
             let bp = client.get_block_production().await.unwrap_or_default();
             println!("  📦 Block Production");
@@ -374,7 +452,7 @@ async fn check_status(cli: Cli) -> anyhow::Result<()> {
             println!("     Entries in Epoch:   {:>12}", bp.entries_produced);
             println!();
         }
-        
+
         println!("  ✅ Validator is running normally");
         println!();
     }
@@ -392,7 +470,7 @@ async fn show_validators(cli: Cli) -> anyhow::Result<()> {
         _ => unreachable!(),
     };
 
-    let client = RpcClient::new(&rpc_url.0);
+    let client = RpcClient::new(&rpc_url);
 
     let validators = client.get_validators().await?;
 
@@ -404,21 +482,25 @@ async fn show_validators(cli: Cli) -> anyhow::Result<()> {
         println!("  ║              AETHER NETWORK VALIDATORS                      ║");
         println!("  ╚════════════════════════════════════════════════════════════╝");
         println!();
-        
+
         if validators.is_empty() {
             println!("  No validators found on testnet");
         } else {
-            println!("  {:<8} {:<44} {:>8} {:>10}", 
-                "Status", "Validator Identity", "Stake", "Commission");
+            println!(
+                "  {:<8} {:<44} {:>8} {:>10}",
+                "Status", "Validator Identity", "Stake", "Commission"
+            );
             println!("  {}", "-".repeat(76));
-            
+
             for v in &validators {
                 let status = if v.active { "● ACTIVE" } else { "○ INACTIVE" };
-                println!("  {:<8} {:<44} {:>8} {:>10}%", 
-                    status, 
+                println!(
+                    "  {:<8} {:<44} {:>8} {:>10}%",
+                    status,
                     v.identity_pubkey.chars().take(44).collect::<String>(),
                     v.activated_stake,
-                    v.commission);
+                    v.commission
+                );
             }
         }
         println!();
@@ -461,20 +543,27 @@ async fn create_identity(cli: Cli) -> anyhow::Result<()> {
 
 async fn create_vote_account(cli: Cli) -> anyhow::Result<()> {
     let (validator_keypair_path, out_path, commission) = match &cli.command {
-        Commands::CreateVoteAccount { validator_keypair, out, commission } => {
-            (validator_keypair.clone(), out.clone(), *commission)
-        }
+        Commands::CreateVoteAccount {
+            validator_keypair,
+            out,
+            commission,
+        } => (validator_keypair.clone(), out.clone(), *commission),
         _ => unreachable!(),
     };
 
     // Load validator identity
     let validator_identity = load_identity(&validator_keypair_path)?;
-    
+
     // Generate vote keypair (in production, this would create a proper vote account)
     let vote_keypair = generate_keypair();
 
     // Save vote account
-    save_vote_account(&out_path, &vote_keypair, &validator_identity.pubkey(), commission)?;
+    save_vote_account(
+        &out_path,
+        &vote_keypair,
+        &validator_identity.pubkey(),
+        commission,
+    )?;
 
     println!("✅ Vote account created: {}", out_path.display());
     println!("   Vote public key: {}", vote_keypair.pubkey());
@@ -491,10 +580,14 @@ async fn create_vote_account(cli: Cli) -> anyhow::Result<()> {
 // =============================================================================
 
 async fn create_genesis(cli: Cli) -> anyhow::Result<()> {
-    let (out_path, chain_id, timestamp, bootstrap_validator) = match &cli.command {
-        Commands::CreateGenesis { out, chain_id, timestamp, bootstrap_validator } => {
-            (out.clone(), chain_id.clone(), *timestamp, bootstrap_validator.clone())
-        }
+    let (out_path, chain_id, timestamp, bootstrap_validator, initial_balances) = match &cli.command {
+        Commands::CreateGenesis {
+            out,
+            chain_id,
+            timestamp,
+            bootstrap_validator,
+            initial_balance,
+        } => (out.clone(), chain_id.clone(), *timestamp, bootstrap_validator.clone(), initial_balance.clone()),
         _ => unreachable!(),
     };
 
@@ -506,51 +599,50 @@ async fn create_genesis(cli: Cli) -> anyhow::Result<()> {
     });
 
     // Load bootstrap validators
-    let mut bootstrap_validators = Vec::new();
+    let mut validators: Vec<GenesisValidator> = Vec::new();
     for path in &bootstrap_validator {
         let identity = load_identity(path)?;
-        bootstrap_validators.push(GenesisValidator {
+        validators.push(GenesisValidator {
             identity_pubkey: identity.pubkey(),
             stake: 10_000_000,
             commission: 10,
+            vote_pubkey: None,
         });
     }
 
     // If no validators provided, create a default one
-    if bootstrap_validators.is_empty() {
+    if validators.is_empty() {
         let keypair = generate_keypair();
-        bootstrap_validators.push(GenesisValidator {
+        validators.push(GenesisValidator {
             identity_pubkey: keypair.pubkey(),
             stake: 10_000_000,
             commission: 10,
+            vote_pubkey: None,
         });
-        save_identity(&PathBuf::from("bootstrap-validator-identity.json"), &keypair)?;
+        save_identity(
+            &PathBuf::from("bootstrap-validator-identity.json"),
+            &keypair,
+        )?;
         println!("📝 Created default bootstrap validator identity");
     }
 
-    let genesis = GenesisBlock {
-        chain_id,
-        timestamp: ts,
-        genesis_hash: generate_genesis_hash(),
-        bootstrap_validators: bootstrap_validators.clone(),
-        consensus: ConsensusConfig {
-            slot_time_ms: 400,
-            tower_finality: 12,
-            min_stake: 100,
-            target_stake: 1_000_000,
-        },
-        rewards: RewardsConfig {
-            epoch_duration: 432_000,
-            base_reward_rate: 6,
-        },
-    };
+    // Parse initial balances (format: pubkey=amount)
+    let mut balances: HashMap<String, u64> = HashMap::new();
+    for item in &initial_balances {
+        if let Some((pubkey, amount_str)) = item.split_once('=') {
+            if let Ok(amount) = amount_str.parse::<u64>() {
+                balances.insert(pubkey.to_string(), amount);
+            }
+        }
+    }
 
-    // Save genesis JSON
-    let json = serde_json::to_string_pretty(&genesis)?;
-    std::fs::write(&out_path, json)
-        .context("Failed to write genesis file")?;
+    // Create genesis config
+    let config = create_genesis_config(chain_id.clone(), ts, validators.clone(), balances);
 
-    // Save genesis.toml for testnet
+    // Write genesis JSON
+    write_genesis_config(&config, &out_path)?;
+
+    // Also write genesis.toml for compatibility
     let toml_path = PathBuf::from("genesis.toml");
     let toml_content = format!(
         r#"# AETHER Testnet Genesis Configuration
@@ -561,8 +653,11 @@ chain_id = "{}"
 genesis_hash = "{}"
 timestamp = {}
 
+[poh]
+slot_time_ms = {}
+hashes_per_tick = {}
+
 [consensus]
-slot_time_ms = 400
 tower_finality = 12
 min_stake = 100
 target_stake = 1_000_000
@@ -573,9 +668,11 @@ base_reward_rate = 6
 
 [bootstrap_validators]
 "#,
-        genesis.chain_id,
-        genesis.genesis_hash,
-        genesis.timestamp
+        config.chain_id,
+        config.genesis_hash,
+        config.genesis_timestamp,
+        config.poh_config.slot_time_ms,
+        config.poh_config.hashes_per_tick,
     );
     std::fs::write(&toml_path, toml_content)
         .context("Failed to write genesis.toml")?;
@@ -585,16 +682,19 @@ base_reward_rate = 6
     println!("  ║              AETHER GENESIS BLOCK CREATED                   ║");
     println!("  ╚════════════════════════════════════════════════════════════╝");
     println!();
-    println!("  Chain ID:     {}", genesis.chain_id);
-    println!("  Timestamp:    {}", genesis.timestamp);
-    println!("  Genesis Hash: {}", genesis.genesis_hash);
+    println!("  Chain ID:        {}", config.chain_id);
+    println!("  Timestamp:      {}", config.genesis_timestamp);
+    println!("  Genesis Hash:   {}", config.genesis_hash);
     println!();
     println!("  Bootstrap Validators:");
-    for v in &bootstrap_validators {
+    for v in &validators {
         println!("    • {} (stake: {} AETH)", v.identity_pubkey, v.stake);
     }
     println!();
+    println!("  Initial Balances: {} accounts", balances.len());
+    println!();
     println!("  Saved to: {}", out_path.display());
+    println!("  Also saved: {}", toml_path.display());
     println!();
 
     Ok(())
@@ -616,86 +716,81 @@ async fn handle_rpc_request(
         return Ok(());
     }
 
-    let request: serde_json::Value = serde_json::from_slice(&buf[..n])
-        .context("Invalid JSON-RPC request")?;
+    let request: serde_json::Value =
+        serde_json::from_slice(&buf[..n]).context("Invalid JSON-RPC request")?;
 
-    let method = request.get("method")
+    let method = request
+        .get("method")
         .and_then(|m| m.as_str())
         .unwrap_or("unknown");
 
     let id = request.get("id").cloned();
 
     let response = match method {
-        "getSlot" => {
-            serde_json::json!({
-                "jsonrpc": "2.0",
-                "id": id,
-                "result": state.current_slot(),
-            })
-        }
-        "getBlockHeight" => {
-            serde_json::json!({
-                "jsonrpc": "2.0",
-                "id": id,
-                "result": state.block_height(),
-            })
-        }
-        "getTransactionCount" => {
-            serde_json::json!({
-                "jsonrpc": "2.0",
-                "id": id,
-                "result": state.transaction_count(),
-            })
-        }
-        "getEpochInfo" => {
-            serde_json::json!({
-                "jsonrpc": "2.0",
-                "id": id,
-                "result": state.epoch_info(),
-            })
-        }
-        "getBlockProduction" => {
-            serde_json::json!({
-                "jsonrpc": "2.0",
-                "id": id,
-                "result": state.block_production(),
-            })
-        }
-        "getClusterNodes" | "getValidators" => {
-            serde_json::json!({
-                "jsonrpc": "2.0",
-                "id": id,
-                "result": state.get_connected_validators(),
-            })
-        }
-        "getVoteAccounts" => {
-            serde_json::json!({
-                "jsonrpc": "2.0",
-                "id": id,
-                "result": state.get_vote_accounts(),
-            })
-        }
-        "health" => {
-            serde_json::json!({
-                "jsonrpc": "2.0",
-                "id": id,
-                "result": "ok",
-            })
-        }
-        _ => {
-            serde_json::json!({
-                "jsonrpc": "2.0",
-                "id": id,
-                "error": {
-                    "code": -32601,
-                    "message": format!("Method not found: {}", method),
-                }
-            })
-        }
+        "getSlot" => serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "result": state.current_slot(),
+        }),
+        "getBlockHeight" => serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "result": state.block_height(),
+        }),
+        "getTransactionCount" => serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "result": state.transaction_count(),
+        }),
+        "getEpochInfo" => serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "result": state.epoch_info(),
+        }),
+        "getBlockProduction" => serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "result": state.block_production(),
+        }),
+        "getClusterNodes" | "getValidators" => serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "result": state.get_connected_validators(),
+        }),
+        "getVoteAccounts" => serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "result": state.get_vote_accounts(),
+        }),
+        "getGenesis" => serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "result": state.get_genesis(),
+        }),
+        "getGenesisHash" => serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "result": state.get_genesis_hash(),
+        }),
+        "health" => serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "result": "ok",
+        }),
+        _ => serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "error": {
+                "code": -32601,
+                "message": format!("Method not found: {}", method),
+            }
+        }),
     };
 
     let mut socket = socket;
-    socket.write_all(serde_json::to_vec(&response)?.as_slice()).await?;
+    socket
+        .write_all(serde_json::to_vec(&response)?.as_slice())
+        .await?;
     socket.flush().await?;
 
     Ok(())
