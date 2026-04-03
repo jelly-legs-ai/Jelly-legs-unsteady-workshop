@@ -188,10 +188,13 @@ impl StakingPool {
 
     /// Distribute rewards to all stakes
     pub fn distribute_rewards(&mut self) {
-        for stake in &mut self.stakes {
-            if stake.amount > 0 && !stake.pending_withdrawal {
-                let reward = self.calculate_reward(stake);
-                stake.accumulated_rewards += reward;
+        // Collect stake IDs first to avoid borrow conflict
+        let stake_ids: Vec<usize> = (0..self.stakes.len()).collect();
+        
+        for stake_id in stake_ids {
+            if self.stakes[stake_id].amount > 0 && !self.stakes[stake_id].pending_withdrawal {
+                let reward = self.calculate_reward(&self.stakes[stake_id]);
+                self.stakes[stake_id].accumulated_rewards += reward;
                 self.total_rewards += reward;
             }
         }

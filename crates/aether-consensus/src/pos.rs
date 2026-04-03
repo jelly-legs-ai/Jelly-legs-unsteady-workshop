@@ -192,8 +192,8 @@ impl LeaderSchedule {
         }
 
         // Create weighted list based on stake
-        let mut weighted_producers: Vec<(&[u8; 32], u64)> = block_producers.iter()
-            .map(|v| (&v.pubkey,
+        let mut weighted_producers: Vec<(Vec<u8>, u64)> = block_producers.iter()
+            .map(|v| (v.pubkey.to_vec(),
                 // Use effective stake for weighting
                 v.effective_stake()
             ))
@@ -202,7 +202,7 @@ impl LeaderSchedule {
         // Sort by stake (highest first)
         weighted_producers.sort_by_key(|(_, stake)| std::cmp::Reverse(*stake));
 
-        let total_stake: u64 = weighted_producers.iter().map(|(_, s)| s).sum();
+        let total_stake: u64 = weighted_producers.iter().map(|(_, s)| *s).sum();
         
         let mut leaders = Vec::with_capacity(num_slots as usize);
         let mut rng_seed = hash_seed(epoch, &stake_pool);
@@ -214,7 +214,7 @@ impl LeaderSchedule {
                 total_stake,
                 &mut rng_seed,
             );
-            leaders.push(*leader);
+            leaders.push(leader);
         }
 
         Self { leaders, epoch }
@@ -243,7 +243,7 @@ fn hash_seed(epoch: u64, stake_pool: &StakePool) -> [u8; 32] {
 /// Simple deterministic RNG
 fn next_random(seed: &mut [u8; 32]) -> u64 {
     let mut hasher = Sha256::new();
-    hasher.update(seed);
+    hasher.update(&mut *seed);
     let hash: [u8; 32] = hasher.finalize().into();
     *seed = hash;
     

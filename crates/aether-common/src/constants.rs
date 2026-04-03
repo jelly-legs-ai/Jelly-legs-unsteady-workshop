@@ -65,3 +65,6 @@ pub const BRIDGE_DAILY_LIMIT: u64 = 10_000_000_000_000_000;
 
 /// Maximum single bridge transfer (1M AETH)
 pub const BRIDGE_MAX_SINGLE_TRANSFER: u64 = 1_000_000_000_000_000;
+
+/// Stake lock period in epochs (~2 days per epoch)
+pub const STAKE_LOCK_EPOCHS: u64 = 2;

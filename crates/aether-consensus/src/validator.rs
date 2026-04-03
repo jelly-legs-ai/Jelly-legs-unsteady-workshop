@@ -76,7 +76,7 @@ impl ValidatorNode {
             ConsensusError::TowerError("Consensus lock poisoned".to_string())
         })?;
 
-        let current_slot = consensus.current_slot;
+        let current_slot = consensus.current_slot();
         drop(consensus);
 
         if current_slot <= self.last_slot {
@@ -150,7 +150,7 @@ impl ValidatorNode {
             Err(_) => return 0,
         };
 
-        consensus.stake_pool.get_stake_weight(&self.identity.pubkey) as u64
+        consensus.stake_pool().get_stake_weight(&self.identity.pubkey) as u64
     }
 
     /// Get next slot time

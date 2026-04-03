@@ -5,7 +5,7 @@
 use crate::{ConsensusError, ConsensusResult};
 use crate::poh::{PoHGenerator, PoHEntry, verify_poh_chain, HASHES_PER_TICK};
 use crate::pos::{StakePool, LeaderSchedule, ValidatorStake};
-use aether_common::{AIPriorityLane, AITransactionMeta, ValidatorTier, SLOT_TIME_MS};
+use aether_common::{AIPriorityLane, AITransactionMeta, ValidatorTier, SLOT_TIME_MS, SignatureBytes};
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::{Arc, RwLock};
 use serde::{Serialize, Deserialize};
@@ -70,7 +70,7 @@ pub struct AetherBlock {
     /// Transactions in priority order
     pub transactions: Vec<AetherTransaction>,
     /// Block signature
-    pub signature: [u8; 64],
+    pub signature: SignatureBytes,
 }
 
 /// Transaction with AETHER metadata
@@ -81,7 +81,7 @@ pub struct AetherTransaction {
     /// AI priority metadata
     pub ai_meta: AITransactionMeta,
     /// Sender signature
-    pub signature: [u8; 64],
+    pub signature: SignatureBytes,
     /// Compute units consumed
     pub compute_units_consumed: u64,
 }
@@ -126,17 +126,30 @@ impl AIPriorityQueue {
         let mut result = Vec::new();
         let mut total_compute: u64 = 0;
 
+        // Take lanes out to avoid borrow conflicts
+        let mut critical_lane = VecDeque::new();
+        std::mem::swap(&mut critical_lane, &mut self.critical);
+        let mut high_lane = VecDeque::new();
+        std::mem::swap(&mut high_lane, &mut self.high);
+        let mut standard_lane = VecDeque::new();
+        std::mem::swap(&mut standard_lane, &mut self.standard);
+
         // Critical lane gets 40% of block space
         let critical_limit = self.max_tx_per_block * 4 / 10;
-        self.drain_lane(&mut result, &mut total_compute, &mut self.critical, critical_limit);
+        self.drain_lane(&mut result, &mut total_compute, &mut critical_lane, critical_limit);
 
         // High lane gets 30% of block space
         let high_limit = self.max_tx_per_block * 3 / 10;
-        self.drain_lane(&mut result, &mut total_compute, &mut self.high, high_limit);
+        self.drain_lane(&mut result, &mut total_compute, &mut high_lane, high_limit);
 
         // Standard lane gets remaining 30%
         let remaining = self.max_tx_per_block - result.len();
-        self.drain_lane(&mut result, &mut total_compute, &mut self.standard, remaining);
+        self.drain_lane(&mut result, &mut total_compute, &mut standard_lane, remaining);
+
+        // Put remaining transactions back
+        std::mem::swap(&mut self.critical, &mut critical_lane);
+        std::mem::swap(&mut self.high, &mut high_lane);
+        std::mem::swap(&mut self.standard, &mut standard_lane);
 
         result
     }
@@ -238,7 +251,7 @@ impl AetherFlow {
             header,
             poh_entries: vec![genesis_entry, poh_entry],
             transactions: vec![],
-            signature: [0u8; 64],
+            signature: SignatureBytes([0u8; 64]),
         };
 
         self.blocks.insert(0, block.clone());
@@ -342,7 +355,7 @@ impl AetherFlow {
         };
 
         // Sign block (simplified - would use actual keypair)
-        let signature = [0u8; 64];
+        let signature = SignatureBytes([0u8; 64]);
 
         let block = AetherBlock {
             header,
@@ -440,7 +453,7 @@ impl AetherFlow {
             if (last_lane == AIPriorityLane::Critical && tx.ai_meta.lane == AIPriorityLane::Standard) ||
                (last_lane == AIPriorityLane::High && tx.ai_meta.lane == AIPriorityLane::Standard) {
                 // Standard can come after Critical or High
-            } else if tx.ai_meta.lane as u8 < last_lane as u8 {
+            } else if (tx.ai_meta.lane as u8) < (last_lane as u8) {
                 // Lower priority lane should not come before higher priority
                 return Ok(false);
             }
@@ -458,6 +471,16 @@ impl AetherFlow {
     /// Get current height
     pub fn block_height(&self) -> u64 {
         self.block_height
+    }
+
+    /// Get current slot
+    pub fn current_slot(&self) -> u64 {
+        self.current_slot
+    }
+
+    /// Get stake pool
+    pub fn stake_pool(&self) -> &StakePool {
+        &self.stake_pool
     }
 
     /// Get queue stats
@@ -506,7 +529,7 @@ mod tests {
                 compute_units: 200_000,
                 priority_fee: fee,
             },
-            signature: [0u8; 64],
+            signature: SignatureBytes([0u8; 64]),
             compute_units_consumed: 200_000,
         }
     }

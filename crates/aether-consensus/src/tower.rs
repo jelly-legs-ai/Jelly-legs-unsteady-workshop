@@ -59,7 +59,7 @@ impl TowerConsensus {
         validator: [u8; 32],
         slot: u64,
         stake: u64,
-    ) -&gt; ConsensusResult<()> {
+    ) -> ConsensusResult<()> {
         let vote_state = self.validator_votes.entry(validator).or_default();
 
         // Check if vote is on top of current tower
