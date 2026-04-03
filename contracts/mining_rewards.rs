@@ -537,4 +537,36 @@ mod tests {
         assert!(monthly > daily * 28);
         assert!(monthly < daily * 32);
     }
+
+    #[test]
+    fn test_batch_reward_calculation() {
+        let config = MiningRewardConfig::default();
+        let calculator = MiningCalculator::new(config);
+        
+        let mut miners = vec![
+            Miner::new("miner_001".to_string(), 4, 4),   // Mobile
+            Miner::new("miner_002".to_string(), 16, 8), // Desktop
+            Miner::new("miner_003".to_string(), 64, 16), // Server
+        ];
+        
+        // Set high contribution scores
+        for miner in &mut miners {
+            miner.contribution_score = 0.95;
+            miner.uptime_percentage = 98.0;
+        }
+        
+        let miner_refs: Vec<&Miner> = miners.iter().collect();
+        let rewards = calculator.batch_calculate_rewards(&miner_refs);
+        
+        assert_eq!(rewards.len(), 3);
+        
+        // Verify server tier earns more than mobile
+        let mobile_reward = rewards.iter().find(|(id, _)| id == "miner_001").unwrap().1;
+        let server_reward = rewards.iter().find(|(id, _)| id == "miner_003").unwrap().1;
+        
+        println!("Mobile reward: {} FLUX", mobile_reward);
+        println!("Server reward: {} FLUX", server_reward);
+        
+        assert!(server_reward > mobile_reward * 8);
+    }
 }
