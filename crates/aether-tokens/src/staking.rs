@@ -314,4 +314,132 @@ mod tests {
         staking.begin_unstake(&owner, 500_000_000_000).unwrap();
         assert_eq!(staking.total_staked, 500_000_000_000);
     }
+
+    #[test]
+    fn test_reward_accumulation() {
+        let mut staking = StakingContract::new(StakingConfig::default());
+        let owner = [1u8; 32];
+        let validator = [2u8; 32];
+        
+        // Stake 1000 ATH
+        staking.stake(&owner, &validator, 1000_000_000_000).unwrap();
+        
+        // Advance through warmup
+        staking.advance_epoch();
+        staking.advance_epoch();
+        
+        // Check stake is active
+        let total = staking.total_staked_for(&owner);
+        assert_eq!(total, 1000_000_000_000);
+        
+        // Distribute some rewards
+        let distributed = staking.distribute_rewards(&validator).unwrap();
+        assert!(distributed > 0, "Should distribute rewards");
+    }
+
+    #[test]
+    fn test_slashing() {
+        let mut staking = StakingContract::new(StakingConfig::default());
+        let validator = [2u8; 32];
+        let owner1 = [1u8; 32];
+        let owner2 = [3u8; 32];
+        
+        // Two stakers
+        staking.stake(&owner1, &validator, 1000_000_000_000).unwrap();
+        staking.stake(&owner2, &validator, 1000_000_000_000).unwrap();
+        
+        // Advance through warmup
+        staking.advance_epoch();
+        staking.advance_epoch();
+        
+        let initial_total = staking.total_staked;
+        
+        // Slash for downtime
+        staking.slash(&validator, "downtime").unwrap();
+        
+        // Total should be reduced
+        assert!(staking.total_staked < initial_total);
+    }
+
+    #[test]
+    fn test_multi_delegation() {
+        let mut staking = StakingContract::new(StakingConfig::default());
+        let owner = [1u8; 32];
+        let validator1 = [2u8; 32];
+        let validator2 = [3u8; 32];
+        
+        // Stake to two validators
+        staking.stake(&owner, &validator1, 500_000_000_000).unwrap();
+        staking.stake(&owner, &validator2, 500_000_000_000).unwrap();
+        
+        let total = staking.total_staked_for(&owner);
+        assert_eq!(total, 1_000_000_000_000);
+    }
+
+    #[test]
+    fn test_pending_unstake_claim() {
+        let mut staking = StakingContract::new(StakingConfig::default());
+        let owner = [1u8; 32];
+        let validator = [2u8; 32];
+        
+        staking.stake(&owner, &validator, 1000_000_000_000).unwrap();
+        
+        // Advance through warmup
+        staking.advance_epoch();
+        staking.advance_epoch();
+        
+        // Begin unstake
+        staking.begin_unstake(&owner, 1000_000_000_000).unwrap();
+        
+        // Can't claim yet (cooldown)
+        let claimable = staking.claim_unstake(&owner).unwrap();
+        assert_eq!(claimable, 0);
+        
+        // Advance through cooldown
+        for _ in 0..4 {
+            staking.advance_epoch();
+        }
+        
+        // Now can claim
+        let claimable = staking.claim_unstake(&owner).unwrap();
+        assert_eq!(claimable, 1000_000_000_000);
+    }
+
+    #[test]
+    fn test_min_stake_validation() {
+        let mut staking = StakingContract::new(StakingConfig::default());
+        let owner = [1u8; 32];
+        let validator = [2u8; 32];
+        
+        // Below minimum
+        let result = staking.stake(&owner, &validator, 1000);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_double_sign_slash_harsher() {
+        let mut staking = StakingContract::new(StakingConfig::default());
+        let validator = [2u8; 32];
+        let owner = [1u8; 32];
+        
+        staking.stake(&owner, &validator, 10_000_000_000_000).unwrap();
+        
+        // Advance through warmup
+        staking.advance_epoch();
+        staking.advance_epoch();
+        
+        let initial = staking.total_staked;
+        
+        // Downtime slash (0.5%)
+        let downtime_slash = staking.slash(&validator, "downtime").unwrap();
+        
+        // Double sign slash (1%) - should be more
+        staking.advance_epoch();
+        staking.advance_epoch();
+        let double_sign_slash = staking.slash(&validator, "double_sign").unwrap();
+        
+        // Double sign should be ~2x downtime slash
+        assert!(double_sign_slash > downtime_slash);
+        assert!(staking.total_staked < initial);
+    }
 }
