@@ -1,0 +1,22 @@
+Sprint 84: Phase 1 — Genesis File Loading + 2-Node Network
+========================================================
+
+Mission: Close the loop on Phase 0 — make two validators share a genesis state and gossip.
+
+Targets:
+- [ ] Genesis file loading — `--genesis <path>` on startup
+- [ ] Genesis hash computed and verified on connection
+- [ ] Bootstrap node connects to peer and shares chain state
+- [ ] Two-node handshake with chain ID verification
+- [ ] PowerShell test script for local 2-node testnet
+
+What we're building:
+- state.rs — GenesisConfig, load_genesis(), genesis_hash
+- genesis.rs — write genesis.json with all fields
+- network.rs — bootstrap connection, HandshakeMessage, peer tracking
+- block_producer.rs — use genesis state for initial balances/validators
+- main.rs — wire --genesis, --bootstrap, --port flags
+- testnet-local.ps1 — Windows test script
+
+GitHub:
+- Push to: jelly-legs-ai/Jelly-legs-unsteady-workshop
