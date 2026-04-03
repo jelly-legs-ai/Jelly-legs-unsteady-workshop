@@ -1,6 +1,14 @@
 [workspace]
 members = [
+    "crates/aether-common",
+    "crates/aether-consensus",
+    "crates/aether-ai-priority",
+    "crates/aether-mobile",
+    "crates/aether-core",
+    "crates/aether-governance",
+    "crates/aether-privacy",
     "crates/aether-validator",
+    "crates/aether-tokens",
 ]
 resolver = "2"
 
@@ -18,11 +26,14 @@ rust-version = "1.75"
 [workspace.dependencies]
 # Async runtime
 tokio = { version = "1.35", features = ["full"] }
+async-trait = "0.1"
+futures = "0.3"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
+borsh = "1.6"
 
 # Error handling
 thiserror = { version = "1.0" }
@@ -31,6 +42,8 @@ anyhow = { version = "1.0" }
 # Logging
 tracing = "0.1"
 tracing-subscriber = "0.3"
+log = "0.4"
+env_logger = "0.11"
 
 # CLI
 clap = { version = "4.4", features = ["derive", "env"] }
@@ -47,6 +60,12 @@ ed25519-dalek = { version = "2.1", default-features = false, features = ["std", 
 
 # P2P
 libp2p = { version = "0.55", features = ["tokio", "tcp", "dns", "noise", "yamux", "gossipsub", "mdns", "kad"] }
+
+# Time
+chrono = "0.4"
+
+# Benchmarking
+criterion = "0.5"
 
 [profile.dev]
 opt-level = 0
