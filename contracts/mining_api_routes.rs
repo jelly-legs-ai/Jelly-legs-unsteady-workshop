@@ -301,3 +301,120 @@ pub struct AllocationPercentages {
     pub ath_holdings: f64,
     pub mining: f64,
 }
+
+// ============================================================================
+// MINER TIER PROGRESSION & PERFORMANCE TRACKING (Sprint 51)
+// ============================================================================
+
+/// Historical tier progression record
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MinerTierHistory {
+    pub miner_id: String,
+    pub previous_tier: MiningTier,
+    pub new_tier: MiningTier,
+    pub reason: TierChangeReason,
+    pub timestamp: u64,
+    pub effective_epoch: u64,
+    pub threshold_met: u64,
+    pub next_tier_threshold: Option<u64>,
+}
+
+/// Reason for tier change
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TierChangeReason {
+    HashrateIncrease,
+    UptimeMilestone,
+    StakeBonusApplied,
+    LoyaltyBonusApplied,
+    CombinedScoreBoost,
+    HalvingAdjustment,
+    ManualUpgrade,
+}
+
+/// Miner performance metrics (rolling averages)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MinerPerformanceMetrics {
+    pub miner_id: String,
+    pub current_epoch: u64,
+    // Rolling 7-day metrics
+    pub avg_hashrate_7d: f64,
+    pub avg_uptime_7d: f64,
+    pub avg_rewards_7d: u64,
+    pub share_rate_7d: f64,
+    // Rolling 30-day metrics
+    pub avg_hashrate_30d: f64,
+    pub avg_uptime_30d: f64,
+    pub avg_rewards_30d: u64,
+    pub share_rate_30d: f64,
+    // Lifetime totals
+    pub total_blocks_found: u64,
+    pub total_rewards_earned: u64,
+    pub total_epochs_mined: u64,
+    pub best_epoch_hashrate: f64,
+    pub longest_uptime_streak: u64,
+    // Performance scores
+    pub efficiency_score: f64,      // rewards / hashrate ratio
+    pub consistency_score: f64,      // how stable the hashrate is
+    pub reliability_score: f64,       // uptime percentage
+    pub tier_score: f64,            // combined tier bonus factor
+}
+
+/// Epoch-by-epoch reward summary
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EpochRewardsSummary {
+    pub epoch: u64,
+    pub start_time: u64,
+    pub end_time: u64,
+    pub total_network_rewards: u64,
+    pub miner_reward: u64,
+    pub pool_reward: Option<u64>,
+    pub base_reward: u64,
+    pub tier_bonus: u64,
+    pub stake_bonus: u64,
+    pub loyalty_bonus: u64,
+    pub penalty: u64,
+    pub net_reward: u64,
+    pub shares_submitted: u64,
+    pub effective_hashrate: f64,
+    pub miner_participation_rate: f64,
+}
+
+/// Miner streak tracking
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MinerStreakData {
+    pub miner_id: String,
+    pub current_uptime_streak: u64,     // consecutive epochs with >99% uptime
+    pub current_hashrate_streak: u64,   // consecutive epochs meeting hashrate quota
+    pub current_consistency_streak: u64, // consecutive epochs with <5% variance
+    pub longest_uptime_streak_ever: u64,
+    pub longest_hashrate_streak_ever: u64,
+    pub longest_consistency_streak_ever: u64,
+    pub streak_multiplier: f64,         // bonus applied for active streaks
+    pub streak_tier: StreakTier,
+}
+
+/// Streak tiers for bonuses
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum StreakTier {
+    None,       // No active streak
+    Bronze,     // 7+ epochs
+    Silver,     // 30+ epochs
+    Gold,       // 100+ epochs
+    Diamond,    // 365+ epochs
+}
+
+/// Miner projected position at next epoch
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MinerProjectedPosition {
+    pub miner_id: String,
+    pub current_tier: MiningTier,
+    pub projected_tier: MiningTier,
+    pub current_score: f64,
+    pub projected_score: f64,
+    pub score_delta: f64,
+    pub epochs_to_upgrade: Option<u64>,
+    pub epochs_to_downgrade: Option<u64>,
+    pub upgrade_requirements: Vec<String>,
+    pub projected_rewards_delta: u64,
+    pub next_halving_impact: f64,
+}
