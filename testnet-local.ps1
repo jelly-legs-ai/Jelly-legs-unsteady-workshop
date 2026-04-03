@@ -1,93 +1,65 @@
-# Aether Testnet - Local 2-Node Setup (PowerShell)
-# Terminal 1: Start seed node (genesis block producer)
-# Terminal 2: Start second node (connects to seed)
+# Aether Testnet - Local 2-Node Network
+# Run this from the target/release directory
 
-$ScriptDir = $PSScriptRoot
-if (-not $ScriptDir) { $ScriptDir = Get-Location }
+# ============================================
+# TERMINAL 1 - Bootstrap Node (Genesis Seed)
+# ============================================
+# This creates the genesis block and starts the first validator
+Write-Host "=== TERMINAL 1: Starting Bootstrap Node ===" -ForegroundColor Green
 
-Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host "  Aether Local Testnet - 2 Node Setup" -ForegroundColor Cyan
-Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host ""
-
-# Check if genesis exists, create if not
-if (-not (Test-Path "genesis.json")) {
-    Write-Host "📝 Genesis file not found, creating..." -ForegroundColor Yellow
-    & "$ScriptDir\target\release\aether-validator.exe" create-genesis
-} else {
-    Write-Host "✅ Using existing genesis.json" -ForegroundColor Green
+# Generate genesis if not exists
+if (!(Test-Path "genesis.json")) {
+    .\aether-validator.exe create-genesis
+    Write-Host "Genesis created. Check genesis.json and bootstrap-validator-identity.json" -ForegroundColor Yellow
 }
 
-# Create identities if they don't exist
-if (-not (Test-Path "node1.json")) {
-    Write-Host "📝 Creating node1 identity..." -ForegroundColor Yellow
-    & "$ScriptDir\target\release\aether-validator.exe" create-validator-identity --out node1.json --force
-} else {
-    Write-Host "✅ Using existing node1.json" -ForegroundColor Green
-}
+# Start bootstrap validator
+# --testnet: use testnet mode
+# --genesis genesis.json: load the shared genesis
+# --port 8001: P2P gossip port
+.\aether-validator.exe start --testnet --genesis genesis.json --p2p-addr "0.0.0.0:8001"
 
-if (-not (Test-Path "node2.json")) {
-    Write-Host "📝 Creating node2 identity..." -ForegroundColor Yellow
-    & "$ScriptDir\target\release\aether-validator.exe" create-validator-identity --out node2.json --force
-} else {
-    Write-Host "✅ Using existing node2.json" -ForegroundColor Green
-}
+# ============================================
+# TERMINAL 2 - Connecting Node
+# ============================================
+# Connect to the bootstrap node using --bootstrap
+Write-Host "=== TERMINAL 2: Starting Connecting Node ===" -ForegroundColor Cyan
 
-Write-Host ""
-Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host "  Starting Node 1 (Seed/Genesis Node)" -ForegroundColor Cyan
-Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host "  Port: 8001"
-Write-Host "  RPC:  localhost:8899"
-Write-Host "  Genesis: genesis.json"
-Write-Host ""
-Write-Host "Run this command:" -ForegroundColor Yellow
-Write-Host '  .\aether-validator.exe start --genesis genesis.json --port 8001 --identity node1.json'
-Write-Host ""
+# Start second validator, connect to bootstrap
+# --bootstrap localhost:8001: connect to first node's P2P port
+.\aether-validator.exe start --testnet --genesis genesis.json --p2p-addr "0.0.0.0:8002" --bootstrap "localhost:8001"
 
-# For automated testing, start node 1 in background
-if ($env:AUTO_START -eq "true") {
-    $node1Job = Start-Job -ScriptBlock {
-        Set-Location $using:ScriptDir
-        & "$using:ScriptDir\target\release\aether-validator.exe" start --genesis genesis.json --port 8001 --identity node1.json
-    }
+# ============================================
+# TERMINAL 3 - Query the Network
+# ============================================
+Write-Host "=== TERMINAL 3: Querying Chain ===" -ForegroundColor Yellow
 
-    Write-Host "Node 1 started with Job ID: $($node1Job.Id)" -ForegroundColor Green
+# Check health
+Write-Host "`n--- Health Check ---" -ForegroundColor White
+curl http://localhost:8899/health
 
-    # Wait for node to start
-    Start-Sleep -Seconds 3
+# Check current slot
+Write-Host "`n--- Current Slot ---" -ForegroundColor White
+curl http://localhost:8899/v1/slot
 
-    Write-Host ""
-    Write-Host "==========================================" -ForegroundColor Cyan
-    Write-Host "  Starting Node 2 (Bootstrap Client)" -ForegroundColor Cyan
-    Write-Host "==========================================" -ForegroundColor Cyan
-    Write-Host "  Port: 8002"
-    Write-Host "  Bootstrap: localhost:8001"
-    Write-Host ""
+# Check genesis info
+Write-Host "`n--- Genesis Info ---" -ForegroundColor White
+curl http://localhost:8899/v1/genesis
 
-    $node2Job = Start-Job -ScriptBlock {
-        Set-Location $using:ScriptDir
-        & "$using:ScriptDir\target\release\aether-validator.exe" start --genesis genesis.json --port 8002 --bootstrap localhost:8001 --identity node2.json
-    }
+# Check epoch
+Write-Host "`n--- Epoch Info ---" -ForegroundColor White
+curl http://localhost:8899/v1/epoch
 
-    Write-Host "Node 2 started with Job ID: $($node2Job.Id)" -ForegroundColor Green
+# Check validators
+Write-Host "`n--- Validators ---" -ForegroundColor White
+curl http://localhost:8899/v1/validators
 
-    Write-Host ""
-    Write-Host "==========================================" -ForegroundColor Cyan
-    Write-Host "  Testnet Running" -ForegroundColor Cyan
-    Write-Host "==========================================" -ForegroundColor Cyan
-    Write-Host "  Node 1 Job ID: $($node1Job.Id)"
-    Write-Host "  Node 2 Job ID: $($node2Job.Id)"
-    Write-Host ""
-    Write-Host "Press Ctrl+C to stop both nodes" -ForegroundColor Yellow
+# Check block production
+Write-Host "`n--- Block Production ---" -ForegroundColor White
+curl http://localhost:8899/v1/block_production
 
-    # Wait for interrupt
-    try {
-        Wait-Job -Job $node1Job, $node2Job -Timeout -1
-    } catch {
-        # Interrupted
-    }
+# Get a specific block
+Write-Host "`n--- Block at Slot 10 ---" -ForegroundColor White
+curl "http://localhost:8899/v1/block?slot=10"
 
-    Stop-Job -Job $node1Job, $node2Job -ErrorAction SilentlyContinue
-    Remove-Job -Job $node1Job, $node2Job -ErrorAction SilentlyContinue
-}
+Write-Host "`nDone!" -ForegroundColor Green

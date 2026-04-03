@@ -1,0 +1,23 @@
+## Phase 1: Genesis + 2-Node Network
+
+Make two validators share a genesis state and establish peer-to-peer communication.
+
+### Goals
+- [ ] Load genesis.json on startup (`--genesis <path>`)
+- [ ] Genesis hash computed and verified on peer connection
+- [ ] Bootstrap node connects to peer and shares chain state
+- [ ] Two-node handshake with chain ID verification
+- [ ] PowerShell test script for local 2-node testnet
+
+### What's built
+- `genesis.rs` — GenesisConfig, load_genesis(), compute_genesis_hash()
+- `state.rs` — Genesis loading, ValidatorState.with_genesis()
+- `network.rs` — Bootstrap connection, HandshakeMessage
+- `block_producer.rs` — Uses genesis state for initial balances/validators
+- `main.rs` — Wired --genesis, --bootstrap, --port flags
+- `testnet-local.ps1` — Windows test script
+
+### Status
+In progress — genesis.rs and state.rs updated locally, need to build and push.
+
+**See also:** PR #112 (Phase 0 block production + RPC + P2P)

@@ -77,9 +77,21 @@ enum Commands {
         #[arg(long)]
         testnet: bool,
 
+        /// Genesis file to load (JSON format)
+        #[arg(long)]
+        genesis: Option<PathBuf>,
+
         /// Bind address for RPC
         #[arg(long, default_value = "127.0.0.1:8899")]
         rpc_addr: String,
+
+        /// Bind address for P2P gossip
+        #[arg(long, default_value = "0.0.0.0:8001")]
+        p2p_addr: String,
+
+        /// Bootstrap node address (e.g. /ip4/127.0.0.1/tcp/8001)
+        #[arg(long)]
+        bootstrap: Option<String>,
 
         /// Identity keypair path
         #[arg(long)]
@@ -215,28 +227,12 @@ async fn main() -> anyhow::Result<()> {
 
 async fn run_validator(cli: Cli) -> anyhow::Result<()> {
     // Extract all values we need before any async moves
-    let (genesis_path, port, bootstrap_addr, testnet, rpc_addr, identity_path, _no_stake) =
-        match &cli.command {
-            Commands::Start {
-                genesis,
-                port,
-                bootstrap,
-                testnet,
-                rpc_addr,
-                identity,
-                vote_account: _,
-                no_stake,
-            } => (
-                genesis.clone(),
-                *port,
-                bootstrap.clone(),
-                *testnet,
-                rpc_addr.clone(),
-                identity.clone(),
-                *no_stake,
-            ),
-            _ => unreachable!(),
-        };
+    let (testnet, genesis_path, rpc_addr, p2p_addr, bootstrap_addr, identity_path, _no_stake) = match &cli.command {
+        Commands::Start { testnet, genesis, rpc_addr, p2p_addr, bootstrap, identity, vote_account: _, no_stake } => {
+            (testnet, genesis.clone(), rpc_addr.clone(), p2p_addr.clone(), bootstrap.clone(), identity.clone(), *no_stake)
+        }
+        _ => unreachable!(),
+    };
 
     info!("Starting AETHER Validator...");
 
@@ -278,17 +274,22 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
     std::fs::create_dir_all(&ledger_path)
         .context("Failed to create ledger directory")?;
 
-    // Initialize validator state with genesis
-    let validator_state = if let Some(ref config) = genesis_config {
-        ValidatorState::with_genesis_file(
-            identity,
-            *testnet,
-            ledger_path,
-            genesis_path.as_ref().unwrap(),
-        )?
+<<<<<<< HEAD
+    // Initialize consensus - with or without genesis
+    let validator_state = if let Some(genesis_path) = &genesis_path {
+        let path = genesis_path.as_path();
+        info!("Loading genesis from: {}", path.display());
+        let genesis = load_genesis_from_file(path)?;
+        info!("Genesis loaded: chain_id={}, genesis_hash={}", genesis.chain_id, genesis.genesis_hash);
+        ValidatorState::with_genesis(identity, *testnet, ledger_path, path)?
     } else {
-        ValidatorState::new(identity, *testnet, ledger_path, None)?
+        info!("No genesis file specified - starting with internal genesis");
+        ValidatorState::new(identity, *testnet, ledger_path)?
     };
+
+    // Print chain info
+    info!("Chain ID: {}", validator_state.get_chain_id());
+    info!("Genesis Hash: {}", validator_state.get_genesis_hash());
 
     // Create block producer (genesis-aware)
     let block_producer = Arc::new(BlockProducer::new(validator_state.clone()));
@@ -314,31 +315,27 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
         })
     };
 
-    // Start P2P gossip with optional bootstrap
-    let network_state = Arc::new(network::NetworkState::new(
-        validator_state.get_genesis_hash(),
+    // Start P2P gossip (with optional bootstrap)
+    let network_state = Arc::new(network::NetworkState::with_genesis(
+        &validator_state.get_genesis_hash(),
+        &validator_state.get_chain_id(),
     ));
-    let p2p_listen = format!("0.0.0.0:{}", port);
-
-    let p2p_handle = {
+    let p2p_addr_for_spawn = p2p_addr.clone();
+    let bootstrap_addr_for_spawn = bootstrap_addr.clone();
+    let gossip_handle = {
         let state = validator_state.clone();
         let ns = network_state.clone();
-
-        if let Some(ref bootstrap_addr) = bootstrap_addr {
-            // Connect to bootstrap node first, then listen
-            tokio::spawn(async move {
-                if let Err(e) = start_p2p_with_bootstrap(&p2p_listen, bootstrap_addr, state, ns).await {
-                    error!("P2P with bootstrap error: {}", e);
-                }
-            })
-        } else {
-            // Start as seed/genesis node
-            tokio::spawn(async move {
-                if let Err(e) = start_p2p(&p2p_listen, state, ns).await {
+        tokio::spawn(async move {
+            if let Some(bootstrap) = &bootstrap_addr_for_spawn {
+                if let Err(e) = start_p2p_with_bootstrap(&p2p_addr_for_spawn, bootstrap, state, ns).await {
                     error!("P2P gossip error: {}", e);
                 }
-            })
-        }
+            } else {
+                if let Err(e) = start_p2p(&p2p_addr_for_spawn, state, ns).await {
+                    error!("P2P gossip error: {}", e);
+                }
+            }
+        })
     };
 
     // Main validator loop
@@ -347,7 +344,7 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
         "RPC HTTP: http://127.0.0.1:{}/",
         rpc_addr.split(':').last().unwrap_or("8899")
     );
-    info!("P2P Listen: {}", p2p_listen);
+    info!("P2P Listen: {}", p2p_addr);
     if let Some(ref bootstrap) = bootstrap_addr {
         info!("Bootstrap Node: {}", bootstrap);
     } else {
@@ -377,7 +374,7 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
     // Wait for any handle to complete
     tokio::select! {
         _ = rpc_handle => {}
-        _ = p2p_handle => {}
+        _ = gossip_handle => {}
         _ = bp_handle => {}
         _ = logging_handle => {}
     }
