@@ -299,6 +299,332 @@ impl RewardCalculator {
 }
 
 // ============================================================================
+// SLASH RECOVERY & PERFORMANCE TRACKING - Sprint 76 Enhancement
+// ============================================================================
+
+/// Tracks validator performance metrics over time
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidatorPerformance {
+    pub validator_id: String,
+    pub blocks_produced: u64,
+    pub blocks_missed: u64,
+    pub attestations_total: u64,
+    pub attestations_missed: u64,
+    pub uptime_percentage: f64,
+    pub avg_response_time_ms: u64,
+    pub last_heartbeat: u64,
+    pub performance_score: f64,  // 0-100 based on all metrics
+    pub tier: PerformanceTier,
+    pub consecutive_uptime_epochs: u64,
+    pub slash_history: Vec<SlashEvent>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum PerformanceTier {
+    Bronze,
+    Silver,
+    Gold,
+    Platinum,
+    Elite,
+}
+
+impl PerformanceTier {
+    pub fn from_score(score: f64) -> Self {
+        if score >= 95.0 {
+            PerformanceTier::Elite
+        } else if score >= 85.0 {
+            PerformanceTier::Platinum
+        } else if score >= 70.0 {
+            PerformanceTier::Gold
+        } else if score >= 50.0 {
+            PerformanceTier::Silver
+        } else {
+            PerformanceTier::Bronze
+        }
+    }
+    
+    pub fn reward_boost(&self) -> f64 {
+        match self {
+            PerformanceTier::Elite => 0.15,   // 15% bonus
+            PerformanceTier::Platinum => 0.10, // 10% bonus
+            PerformanceTier::Gold => 0.05,    // 5% bonus
+            PerformanceTier::Silver => 0.0,    // No bonus
+            PerformanceTier::Bronze => -0.05,  // 5% penalty
+        }
+    }
+}
+
+/// Records a slash event for audit trail
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SlashEvent {
+    pub epoch: u64,
+    pub reason: SlashReason,
+    pub amount_slashed: u64,
+    pub can_recover: bool,
+    pub recovery_start_epoch: Option<u64>,
+    pub fully_recovered: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum SlashReason {
+    DoubleSign,
+    Downtime,
+    InvalidAttestation,
+    MissedCommitteeDuty,
+    Corruption,
+}
+
+/// Slash recovery configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SlashRecoveryConfig {
+    pub recovery_epochs: u64,           // Epochs before recovery can start
+    pub recovery_rate_per_epoch: f64,   // Portion of slashed amount recovered per epoch
+    pub max_recovery_percent: f64,       // Maximum percent of slashed amount recoverable
+    pub good_behavior_periods_required: u64,  // Consecutive good epochs needed
+    pub recovery_start_bond_percent: f64, // Minimum bond percent to start recovery
+}
+
+impl Default for SlashRecoveryConfig {
+    fn default() -> Self {
+        Self {
+            recovery_epochs: 43200,        // ~30 days (at 60s/epoch)
+            recovery_rate_per_epoch: 0.0001, // 0.01% per epoch = ~50 epochs for full recovery
+            max_recovery_percent: 0.75,    // Max 75% recoverable
+            good_behavior_periods_required: 100, // 100 consecutive good epochs
+            recovery_start_bond_percent: 0.50, // Must have 50%+ of original bond
+        }
+    }
+}
+
+/// Slash recovery manager
+pub struct SlashRecoveryManager {
+    config: SlashRecoveryConfig,
+}
+
+impl SlashRecoveryManager {
+    pub fn new(config: SlashRecoveryConfig) -> Self {
+        Self { config }
+    }
+    
+    /// Check if a validator can start slash recovery
+    pub fn can_start_recovery(&self, validator: &ValidatorStake, last_slash: Option<&SlashEvent>) -> bool {
+        // Must not be currently slashed
+        if validator.is_slashed && last_slash.map(|s| !s.fully_recovered).unwrap_or(false) {
+            return false;
+        }
+        
+        // Must meet recovery bond requirement
+        let original_bond = validator.staked_amount + last_slash.map(|s| s.amount_slashed).unwrap_or(0);
+        let current_percent = original_bond as f64 / validator.staked_amount as f64;
+        if current_percent < self.config.recovery_start_bond_percent {
+            return false;
+        }
+        
+        // Must have served good behavior periods
+        if let Some(slash) = last_slash {
+            if validator.epochs_active - slash.epoch < self.config.good_behavior_periods_required {
+                return false;
+            }
+        }
+        
+        true
+    }
+    
+    /// Calculate recovery amount for current epoch
+    pub fn calculate_recovery_amount(&self, slash: &SlashEvent, current_epoch: u64) -> u64 {
+        if slash.fully_recovered {
+            return 0;
+        }
+        
+        let recovery_start = match slash.recovery_start_epoch {
+            Some(epoch) => epoch,
+            None => return 0,
+        };
+        
+        let epochs_in_recovery = current_epoch.saturating_sub(recovery_start);
+        let max_recoverable = (slash.amount_slashed as f64 * self.config.max_recovery_percent) as u64;
+        let recovery_amount = (epochs_in_recovery as f64 * self.config.recovery_rate_per_epoch * slash.amount_slashed as f64) as u64;
+        
+        recovery_amount.min(max_recoverable)
+    }
+    
+    /// Check if recovery is complete
+    pub fn is_recovery_complete(&self, slash: &SlashEvent, total_recovered: u64) -> bool {
+        let max_recoverable = (slash.amount_slashed as f64 * self.config.max_recovery_percent) as u64;
+        total_recovered >= max_recoverable
+    }
+    
+    /// Process slash event and determine recovery eligibility
+    pub fn process_slash(&self, validator: &mut ValidatorStake, reason: SlashReason, amount: u64, current_epoch: u64) -> SlashEvent {
+        let can_recover = match &reason {
+            SlashReason::Downtime | SlashReason::MissedCommitteeDuty => true,
+            SlashReason::DoubleSign | SlashReason::InvalidAttestation | SlashReason::Corruption => false,
+        };
+        
+        let event = SlashEvent {
+            epoch: current_epoch,
+            reason,
+            amount_slashed: amount,
+            can_recover,
+            recovery_start_epoch: None,
+            fully_recovered: false,
+        };
+        
+        // Apply slash to validator
+        validator.total_stake = validator.total_stake.saturating_sub(amount);
+        validator.staked_amount = validator.staked_amount.saturating_sub(amount);
+        validator.is_slashed = true;
+        validator.slash_epoch = Some(current_epoch);
+        
+        event
+    }
+    
+    /// Start recovery process for eligible slash
+    pub fn start_recovery(&self, slash: &mut SlashEvent, current_epoch: u64) -> bool {
+        if !slash.can_recover || slash.recovery_start_epoch.is_some() {
+            return false;
+        }
+        
+        slash.recovery_start_epoch = Some(current_epoch);
+        true
+    }
+    
+    /// Calculate performance score based on all metrics
+    pub fn calculate_performance_score(perf: &ValidatorPerformance) -> f64 {
+        // Uptime contributes 40% of score
+        let uptime_score = perf.uptime_percentage * 0.40;
+        
+        // Block production contributes 30% of score
+        let total_blocks = perf.blocks_produced + perf.blocks_missed;
+        let block_score = if total_blocks > 0 {
+            (perf.blocks_produced as f64 / total_blocks as f64) * 100.0 * 0.30
+        } else {
+            0.0
+        };
+        
+        // Attestation accuracy contributes 20% of score
+        let total_atts = perf.attestations_total + perf.attestations_missed;
+        let att_score = if total_atts > 0 {
+            (perf.attestations_total as f64 / total_atts as f64) * 100.0 * 0.20
+        } else {
+            0.0
+        };
+        
+        // Response time contributes 10% of score (lower is better)
+        let response_score = if perf.avg_response_time_ms < 100 {
+            10.0
+        } else if perf.avg_response_time_ms < 500 {
+            10.0 - ((perf.avg_response_time_ms - 100) as f64 / 400.0 * 10.0)
+        } else {
+            0.0
+        };
+        
+        uptime_score + block_score + att_score + response_score
+    }
+}
+
+/// Validator performance tracker
+pub struct ValidatorPerformanceTracker {
+    history: Vec<ValidatorPerformance>,
+}
+
+impl ValidatorPerformanceTracker {
+    pub fn new() -> Self {
+        Self { history: Vec::new() }
+    }
+    
+    /// Record a block produced
+    pub fn record_block_produced(&mut self, validator_id: &str, epoch: u64) {
+        if let Some(perf) = self.history.iter_mut().find(|p| p.validator_id == validator_id) {
+            perf.blocks_produced += 1;
+            perf.last_heartbeat = epoch;
+        }
+    }
+    
+    /// Record a block missed
+    pub fn record_block_missed(&mut self, validator_id: &str, epoch: u64) {
+        if let Some(perf) = self.history.iter_mut().find(|p| p.validator_id == validator_id) {
+            perf.blocks_missed += 1;
+            perf.last_heartbeat = epoch;
+        }
+    }
+    
+    /// Record an attestation
+    pub fn record_attestation(&mut self, validator_id: &str, success: bool) {
+        if let Some(perf) = self.history.iter_mut().find(|p| p.validator_id == validator_id) {
+            perf.attestations_total += 1;
+            if !success {
+                perf.attestations_missed += 1;
+            }
+        }
+    }
+    
+    /// Update uptime percentage
+    pub fn update_uptime(&mut self, validator_id: &str, uptime: f64) {
+        if let Some(perf) = self.history.iter_mut().find(|p| p.validator_id == validator_id) {
+            perf.uptime_percentage = uptime;
+            if uptime >= 95.0 {
+                perf.consecutive_uptime_epochs += 1;
+            } else {
+                perf.consecutive_uptime_epochs = 0;
+            }
+        }
+    }
+    
+    /// Update performance score
+    pub fn refresh_score(&mut self, validator_id: &str) {
+        if let Some(perf) = self.history.iter_mut().find(|p| p.validator_id == validator_id) {
+            perf.performance_score = SlashRecoveryManager::calculate_performance_score(perf);
+            perf.tier = PerformanceTier::from_score(perf.performance_score);
+        }
+    }
+    
+    /// Get or create performance record
+    pub fn get_or_create(&mut self, validator_id: &str) -> &mut ValidatorPerformance {
+        if let Some(perf) = self.history.iter_mut().find(|p| p.validator_id == validator_id) {
+            return perf;
+        }
+        
+        self.history.push(ValidatorPerformance {
+            validator_id: validator_id.to_string(),
+            blocks_produced: 0,
+            blocks_missed: 0,
+            attestations_total: 0,
+            attestations_missed: 0,
+            uptime_percentage: 100.0,
+            avg_response_time_ms: 0,
+            last_heartbeat: 0,
+            performance_score: 100.0,
+            tier: PerformanceTier::Gold,
+            consecutive_uptime_epochs: 0,
+            slash_history: Vec::new(),
+        });
+        
+        self.history.last_mut().unwrap()
+    }
+    
+    /// Get top performers
+    pub fn get_top_performers(&self, limit: usize) -> Vec<&ValidatorPerformance> {
+        let mut sorted = self.history.clone();
+        sorted.sort_by(|a, b| b.performance_score.partial_cmp(&a.performance_score).unwrap());
+        sorted.into_iter().take(limit).collect()
+    }
+    
+    /// Get validators eligible for elite tier rewards
+    pub fn get_elite_eligible(&self, min_epochs: u64) -> Vec<&ValidatorPerformance> {
+        self.history.iter()
+            .filter(|p| p.tier == PerformanceTier::Elite && p.epochs_active >= min_epochs)
+            .collect()
+    }
+}
+
+impl Default for ValidatorPerformanceTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// ============================================================================
 // AUTO-COMPOUND MANAGER - Sprint 60 Enhancement
 // ============================================================================
 
@@ -1187,5 +1513,168 @@ mod staking_edge_cases {
         assert!(base_reward > 0);
         assert!(uptime_bonus > 0);
         assert!(loyalty_mult >= 1.0);
+    }
+
+    // ========================================================================
+    // Sprint 76: Slash Recovery & Performance Tracking Tests
+    // ========================================================================
+    
+    #[test]
+    fn test_slash_recovery_config_default() {
+        let config = SlashRecoveryConfig::default();
+        
+        assert_eq!(config.recovery_epochs, 43200);
+        assert_eq!(config.max_recovery_percent, 0.75);
+        assert_eq!(config.good_behavior_periods_required, 100);
+    }
+    
+    #[test]
+    fn test_performance_tier_from_score() {
+        assert_eq!(PerformanceTier::from_score(96.0), PerformanceTier::Elite);
+        assert_eq!(PerformanceTier::from_score(90.0), PerformanceTier::Platinum);
+        assert_eq!(PerformanceTier::from_score(75.0), PerformanceTier::Gold);
+        assert_eq!(PerformanceTier::from_score(55.0), PerformanceTier::Silver);
+        assert_eq!(PerformanceTier::from_score(30.0), PerformanceTier::Bronze);
+    }
+    
+    #[test]
+    fn test_performance_tier_reward_boost() {
+        assert_eq!(PerformanceTier::Elite.reward_boost(), 0.15);
+        assert_eq!(PerformanceTier::Platinum.reward_boost(), 0.10);
+        assert_eq!(PerformanceTier::Gold.reward_boost(), 0.05);
+        assert_eq!(PerformanceTier::Silver.reward_boost(), 0.0);
+        assert_eq!(PerformanceTier::Bronze.reward_boost(), -0.05);
+    }
+    
+    #[test]
+    fn test_slash_event_recovery_eligibility() {
+        let manager = SlashRecoveryManager::new(SlashRecoveryConfig::default());
+        
+        // Downtime can be recovered
+        let mut validator = ValidatorStake::new("test_val".to_string(), 1000);
+        let event = manager.process_slash(
+            &mut validator, 
+            SlashReason::Downtime, 
+            50,  // 5% of 1000
+            1000
+        );
+        
+        assert!(event.can_recover);
+        assert!(!event.fully_recovered);
+        
+        // Double sign cannot be recovered
+        let mut validator2 = ValidatorStake::new("test_val2".to_string(), 1000);
+        let event2 = manager.process_slash(
+            &mut validator2, 
+            SlashReason::DoubleSign, 
+            50,
+            1000
+        );
+        
+        assert!(!event2.can_recover);
+    }
+    
+    #[test]
+    fn test_slash_recovery_calculation() {
+        let config = SlashRecoveryConfig::default();
+        let manager = SlashRecoveryManager::new(config);
+        
+        let mut slash = SlashEvent {
+            epoch: 1000,
+            reason: SlashReason::Downtime,
+            amount_slashed: 1000,
+            can_recover: true,
+            recovery_start_epoch: Some(2000),
+            fully_recovered: false,
+        };
+        
+        // At epoch 2100, recovery rate should accumulate
+        let recovery = manager.calculate_recovery_amount(&slash, 2100);
+        assert!(recovery > 0);
+        assert!(recovery <= 750); // Max 75% of 1000
+    }
+    
+    #[test]
+    fn test_performance_score_calculation() {
+        let perf = ValidatorPerformance {
+            validator_id: "test".to_string(),
+            blocks_produced: 950,
+            blocks_missed: 50,
+            attestations_total: 980,
+            attestations_missed: 20,
+            uptime_percentage: 98.0,
+            avg_response_time_ms: 80,
+            last_heartbeat: 0,
+            performance_score: 0.0,
+            tier: PerformanceTier::Bronze,
+            consecutive_uptime_epochs: 0,
+            slash_history: Vec::new(),
+        };
+        
+        let score = SlashRecoveryManager::calculate_performance_score(&perf);
+        assert!(score > 80.0); // Good performance should score high
+    }
+    
+    #[test]
+    fn test_validator_performance_tracker() {
+        let mut tracker = ValidatorPerformanceTracker::new();
+        
+        // Get or create should add new validator
+        let perf = tracker.get_or_create("val_1");
+        assert_eq!(perf.validator_id, "val_1");
+        assert_eq!(perf.performance_score, 100.0);
+        
+        // Record some activity
+        tracker.record_block_produced("val_1", 100);
+        tracker.record_block_missed("val_1", 101);
+        tracker.record_attestation("val_1", true);
+        tracker.record_attestation("val_1", false);
+        tracker.update_uptime("val_1", 95.0);
+        
+        // Refresh score
+        tracker.refresh_score("val_1");
+        
+        let updated = tracker.get_or_create("val_1");
+        assert_eq!(updated.blocks_produced, 1);
+        assert_eq!(updated.blocks_missed, 1);
+        assert!(updated.consecutive_uptime_epochs >= 1);
+    }
+    
+    #[test]
+    fn test_top_performers_ranking() {
+        let mut tracker = ValidatorPerformanceTracker::new();
+        
+        // Create multiple validators with different scores
+        let perf1 = tracker.get_or_create("val_1");
+        perf1.performance_score = 75.0;
+        
+        let perf2 = tracker.get_or_create("val_2");
+        perf2.performance_score = 95.0;
+        
+        let perf3 = tracker.get_or_create("val_3");
+        perf3.performance_score = 85.0;
+        
+        let tops = tracker.get_top_performers(2);
+        assert_eq!(tops.len(), 2);
+        assert_eq!(tops[0].validator_id, "val_2"); // Highest first
+        assert_eq!(tops[1].validator_id, "val_3");
+    }
+    
+    #[test]
+    fn test_slash_amount_calculation() {
+        let manager = SlashRecoveryManager::new(SlashRecoveryConfig::default());
+        let mut validator = ValidatorStake::new("test_val".to_string(), 10000);
+        
+        let slash_amount = manager.process_slash(
+            &mut validator,
+            SlashReason::MissedCommitteeDuty,
+            500,  // Slash amount
+            100
+        );
+        
+        // Validator should be slashed
+        assert!(validator.is_slashed);
+        assert_eq!(validator.total_stake, 9500); // 10000 - 500
+        assert!(slash_amount.can_recover);
     }
 }
