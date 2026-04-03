@@ -383,6 +383,47 @@ impl MiningCalculator {
             hardware_component: tier_score,
         }
     }
+    
+    /// Calculate compound mining bonus - extra rewards when mining + staking FLUX
+    pub fn calculate_compound_mining_bonus(&self, miner: &Miner, staked_flux: u64) -> f64 {
+        if staked_flux == 0 {
+            return 1.0;
+        }
+        
+        // Base stake multiplier from config
+        let base_mult = self.config.bonus_multipliers.stake_multiplier;
+        
+        // Scale with stake amount (diminishing returns after 100k FLUX)
+        let stake_scale = if staked_flux < 100_000 {
+            staked_flux as f64 / 100_000.0
+        } else {
+            1.0 + (0.1 * (1.0 - ((staked_flux - 100_000) as f64 / 900_000.0).min(1.0)))
+        };
+        
+        // Combined with uptime bonus
+        let uptime_mult = if miner.uptime_percentage >= 99.0 {
+            1.1 // 10% extra for excellent uptime
+        } else if miner.uptime_percentage >= 95.0 {
+            1.05
+        } else {
+            1.0
+        };
+        
+        base_mult * stake_scale * uptime_mult
+    }
+    
+    /// Auto-reinvest mining rewards into staking
+    pub fn calculate_reinvest_amount(&self, miner: &Miner, current_epoch: u64, min_threshold: u64) -> u64 {
+        let pending = miner.pending_rewards;
+        
+        if pending < min_threshold {
+            return 0;
+        }
+        
+        // Auto-compound 80% of rewards, keep 20% for claiming
+        let reinvest = (pending * 80) / 100;
+        reinvest
+    }
 }
 
 /// Reward projection with trend analysis
@@ -414,6 +455,18 @@ pub struct EfficiencyScore {
     pub uptime_component: f64,
     pub contribution_component: f64,
     pub hardware_component: f64,
+}
+
+/// Mining + Staking Combined Position for compound rewards
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiningStakePosition {
+    pub miner_id: String,
+    pub staked_flux: u64,
+    pub stake_start_epoch: u64,
+    pub mining_rewards_accrued: u64,
+    pub auto_compound_enabled: bool,
+    pub last_reinvest_epoch: u64,
+    pub reinvest_count: u64,
 }
 
 /// Mining pool for combined mining operations
