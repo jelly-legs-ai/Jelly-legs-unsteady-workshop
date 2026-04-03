@@ -186,6 +186,46 @@ pub fn calculate_staking_reward(
 pub struct DualTokenReward {
     pub aeth_reward: u64,
     pub flux_reward: u64,
+    pub bonus_flux: u64,
+}
+
+pub fn calculate_dual_token_reward(
+    staked_amount: u64,
+    lock_days: u64,
+    network_tier: NetworkTier,
+    network_participation: f64,
+) -> DualTokenReward {
+    let base_reward = calculate_staking_reward(staked_amount, lock_days, network_tier);
+    
+    let aeth_portion = match network_tier {
+        NetworkTier::Bronze => 0.70,
+        NetworkTier::Silver => 0.72,
+        NetworkTier::Gold => 0.75,
+        NetworkTier::Platinum => 0.80,
+    };
+    
+    let flux_base = (staked_amount as f64 * 0.03 * (lock_days as f64 / 365.0)) as u64;
+    let participation_bonus = (flux_base as f64 * network_participation) as u64;
+    
+    let tier_bonus = match network_tier {
+        NetworkTier::Bronze => 0.0,
+        NetworkTier::Silver => 0.05,
+        NetworkTier::Gold => 0.10,
+        NetworkTier::Platinum => 0.20,
+    };
+    
+    DualTokenReward {
+        aeth_reward: (base_reward as f64 * aeth_portion) as u64,
+        flux_reward: flux_base + participation_bonus,
+        bonus_flux: (flux_base as f64 * tier_bonus) as u64,
+    }
+}
+
+/// Dual-token staking reward calculation (returns both AETH and FLUX)
+/// AETH rewards are for staking, FLUX rewards are for participation
+pub struct DualTokenReward {
+    pub aeth_reward: u64,
+    pub flux_reward: u64,
     pub bonus_flux: u64,  // Extra FLUX for early participation
 }
 
