@@ -119,7 +119,7 @@ impl RewardCalculator {
     }
 
     /// Calculate loyalty multiplier based on staking duration
-    pub fn calculate_oyalty_multiplier(&self, epochs_staked: u64) -> f64 {
+    pub fn calculate_loyalty_multiplier(&self, epochs_staked: u64) -> f64 {
         // 1.0 for <100 epochs, 1.05 for 100-500, 1.1 for 500-1000, 1.15 for 1000+
         if epochs_staked < 100 {
             1.0
