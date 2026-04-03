@@ -478,6 +478,357 @@ impl AutoCompoundManager {
     }
 }
 
+// ============================================================================
+// STAKING ANALYTICS & REPORTING - Sprint 62
+// ============================================================================
+
+/// Historical reward record for analytics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RewardRecord {
+    pub epoch: u64,
+    pub stake_amount: u64,
+    pub reward_type: RewardType,
+    pub gross_reward: u64,
+    pub fee: u64,
+    pub net_reward: u64,
+    pub validator_id: String,
+    pub timestamp: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum RewardType {
+    ValidatorReward,
+    DelegatorReward,
+    AutoCompound,
+    ManualClaim,
+    LoyaltyBonus,
+    UptimeBonus,
+}
+
+/// Staking analytics summary
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StakingAnalytics {
+    pub total_staked: u64,
+    pub total_rewards_earned: u64,
+    pub total_fees_paid: u64,
+    pub average_apy: f64,
+    pub best_validator: String,
+    pub worst_validator: String,
+    pub total_epochs_staked: u64,
+    pub current_tier: StakingTier,
+    pub next_tier: Option<StakingTier>,
+    pub epochs_until_next_tier: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
+pub enum StakingTier {
+    Bronze,
+    Silver,
+    Gold,
+    Platinum,
+    Diamond,
+}
+
+impl StakingTier {
+    pub fn from_stake_amount(amount: u64) -> Self {
+        if amount >= 1_000_000_000_000 { // 10,000 AETH
+            StakingTier::Diamond
+        } else if amount >= 100_000_000_000 { // 1,000 AETH
+            StakingTier::Platinum
+        } else if amount >= 10_000_000_000 { // 100 AETH
+            StakingTier::Gold
+        } else if amount >= 1_000_000_000 { // 10 AETH
+            StakingTier::Silver
+        } else {
+            StakingTier::Bronze
+        }
+    }
+
+    pub fn tier_name(&self) -> &'static str {
+        match self {
+            StakingTier::Bronze => "Bronze",
+            StakingTier::Silver => "Silver",
+            StakingTier::Gold => "Gold",
+            StakingTier::Platinum => "Platinum",
+            StakingTier::Diamond => "Diamond",
+        }
+    }
+
+    pub fn tier_color(&self) -> &'static str {
+        match self {
+            StakingTier::Bronze => "#cd7f32",
+            StakingTier::Silver => "#c0c0c0",
+            StakingTier::Gold => "#ffd700",
+            StakingTier::Platinum => "#e5e4e2",
+            StakingTier::Diamond => "#b9f2ff",
+        }
+    }
+
+    pub fn tier_multiplier(&self) -> f64 {
+        match self {
+            StakingTier::Bronze => 1.0,
+            StakingTier::Silver => 1.1,
+            StakingTier::Gold => 1.25,
+            StakingTier::Platinum => 1.5,
+            StakingTier::Diamond => 2.0,
+        }
+    }
+}
+
+/// Calculate tier progress percentage
+pub fn calculate_tier_progress(current_stake: u64) -> (StakingTier, f64, Option<StakingTier>, u64) {
+    let current_tier = StakingTier::from_stake_amount(current_stake);
+    
+    let tier_thresholds = [
+        (StakingTier::Bronze, 0),
+        (StakingTier::Silver, 1_000_000_000),      // 10 AETH
+        (StakingTier::Gold, 10_000_000_000),        // 100 AETH
+        (StakingTier::Platinum, 100_000_000_000),  // 1,000 AETH
+        (StakingTier::Diamond, 1_000_000_000_000), // 10,000 AETH
+    ];
+
+    let next_tier_index = match current_tier {
+        StakingTier::Bronze => 1,
+        StakingTier::Silver => 2,
+        StakingTier::Gold => 3,
+        StakingTier::Platinum => 4,
+        StakingTier::Diamond => 5, // No next tier
+    };
+
+    if next_tier_index >= tier_thresholds.len() {
+        return (current_tier, 100.0, None, 0);
+    }
+
+    let current_threshold = tier_thresholds.iter()
+        .find(|(t, _)| *t == current_tier)
+        .map(|(_, v)| v)
+        .unwrap_or(&0);
+
+    let next_threshold = tier_thresholds[next_tier_index].1;
+    let next_tier = tier_thresholds[next_tier_index].0;
+
+    let tier_range = next_threshold - current_threshold;
+    let progress_in_tier = current_stake.saturating_sub(*current_threshold);
+    let progress_percent = (progress_in_tier as f64 / tier_range as f64) * 100.0;
+    let epochs_to_next = ((next_threshold - current_stake) / 100_000_000).max(0); // Rough estimate
+
+    (current_tier, progress_percent, Some(next_tier), epochs_to_next)
+}
+
+/// Generate reward projection with multiple scenarios
+pub fn generate_reward_scenarios(
+    stake_amount: u64,
+    epochs: u64,
+    config: &StakingRewardConfig,
+) -> Vec<RewardScenario> {
+    let mut scenarios = Vec::new();
+    
+    // Conservative scenario (90% uptime, no loyalty)
+    let conservative = RewardScenario {
+        name: "Conservative".to_string(),
+        description: "90% uptime, new staker".to_string(),
+        apy: config.base_apy * 0.9,
+        projected_rewards: 0,
+        risk_level: "Low".to_string(),
+    };
+    scenarios.push(conservative);
+
+    // Moderate scenario (95% uptime, some loyalty)
+    let moderate = RewardScenario {
+        name: "Moderate".to_string(),
+        description: "95% uptime, 500+ epochs staked".to_string(),
+        apy: config.base_apy * 1.05,
+        projected_rewards: 0,
+        risk_level: "Medium".to_string(),
+    };
+    scenarios.push(moderate);
+
+    // Optimistic scenario (98% uptime, diamond tier)
+    let optimistic = RewardScenario {
+        name: "Optimistic".to_string(),
+        description: "98% uptime, Diamond tier".to_string(),
+        apy: config.base_apy * 1.5,
+        projected_rewards: 0,
+        risk_level: "High".to_string(),
+    };
+    scenarios.push(optimistic);
+
+    // Calculate projected rewards for each
+    let calculator = RewardCalculator::new(config.clone());
+    for scenario in &mut scenarios {
+        let epoch_rate = scenario.apy / (365.0 * 288.0);
+        scenario.projected_rewards = ((stake_amount as f64 * epoch_rate * epochs as f64) as u64);
+    }
+
+    scenarios
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RewardScenario {
+    pub name: String,
+    pub description: String,
+    pub apy: f64,
+    pub projected_rewards: u64,
+    pub risk_level: String,
+}
+
+/// Validator performance tracker
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidatorPerformance {
+    pub validator_id: String,
+    pub uptime_history: Vec<f64>,
+    pub reward_history: Vec<u64>,
+    pub slash_count: u64,
+    pub avg_response_time: u64,
+    pub rank: u32,
+}
+
+impl ValidatorPerformance {
+    pub fn new(validator_id: String) -> Self {
+        Self {
+            validator_id,
+            uptime_history: Vec::new(),
+            reward_history: Vec::new(),
+            slash_count: 0,
+            avg_response_time: 0,
+            rank: 0,
+        }
+    }
+
+    pub fn calculate_avg_uptime(&self) -> f64 {
+        if self.uptime_history.is_empty() {
+            return 0.0;
+        }
+        self.uptime_history.iter().sum::<f64>() / self.uptime_history.len() as f64
+    }
+
+    pub fn calculate_reward_volatility(&self) -> f64 {
+        if self.reward_history.len() < 2 {
+            return 0.0;
+        }
+        let mean = self.reward_history.iter().sum::<u64>() as f64 / self.reward_history.len() as f64;
+        let variance = self.reward_history.iter()
+            .map(|r| (*r as f64 - mean).powi(2))
+            .sum::<f64>() / self.reward_history.len() as f64;
+        variance.sqrt()
+    }
+
+    pub fn is_healthy(&self) -> bool {
+        self.slash_count == 0 && self.calculate_avg_uptime() >= 95.0
+    }
+}
+
+/// Risk assessment for staking positions
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StakingRiskAssessment {
+    pub overall_risk_score: f64,      // 0-100, lower is safer
+    pub validator_risk: f64,
+    pub concentration_risk: f64,
+    pub tier_risk: f64,
+    pub recommendations: Vec<String>,
+}
+
+impl StakingRiskAssessment {
+    pub fn assess(
+        positions: &[DelegatorStake],
+        validators: &[ValidatorStake],
+        total_stake: u64,
+    ) -> Self {
+        let mut recommendations = Vec::new();
+        
+        // Validator risk
+        let avg_uptime: f64 = validators.iter()
+            .map(|v| v.uptime_percentage)
+            .sum::<f64>() / validators.len().max(1) as f64;
+        let validator_risk = if avg_uptime >= 98.0 { 10.0 } 
+            else if avg_uptime >= 95.0 { 30.0 }
+            else if avg_uptime >= 90.0 { 60.0 }
+            else { 90.0 };
+
+        // Concentration risk (too much in one validator)
+        let max_concentration = validators.iter()
+            .map(|v| v.total_stake as f64 / total_stake as f64)
+            .fold(0.0f64, f64::max);
+        let concentration_risk = if max_concentration > 0.5 { 80.0 }
+            else if max_concentration > 0.3 { 50.0 }
+            else if max_concentration > 0.15 { 30.0 }
+            else { 10.0 };
+
+        // Tier risk (lower tier = higher risk of volatility)
+        let avg_tier = positions.iter()
+            .map(|p| StakingTier::from_stake_amount(p.staked_amount))
+            .collect::<Vec<_>>();
+        let tier_risk = if avg_tier.contains(&StakingTier::Diamond) { 10.0 }
+            else if avg_tier.contains(&StakingTier::Platinum) { 25.0 }
+            else if avg_tier.contains(&StakingTier::Gold) { 50.0 }
+            else { 75.0 };
+
+        // Generate recommendations
+        if concentration_risk > 50.0 {
+            recommendations.push("Consider diversifying your stake across more validators".to_string());
+        }
+        if validator_risk > 50.0 {
+            recommendations.push("Some validators have lower uptime - consider switching".to_string());
+        }
+        if tier_risk > 50.0 {
+            recommendations.push("Consider increasing your stake to reach a higher tier".to_string());
+        }
+
+        let overall_risk_score = (validator_risk * 0.4 + concentration_risk * 0.35 + tier_risk * 0.25).min(100.0);
+
+        Self {
+            overall_risk_score,
+            validator_risk,
+            concentration_risk,
+            tier_risk,
+            recommendations,
+        }
+    }
+}
+
+#[cfg(test)]
+mod analytics_tests {
+    use super::*;
+
+    #[test]
+    fn test_tier_calculation() {
+        assert_eq!(StakingTier::from_stake_amount(500_000_000), StakingTier::Bronze);
+        assert_eq!(StakingTier::from_stake_amount(5_000_000_000), StakingTier::Silver);
+        assert_eq!(StakingTier::from_stake_amount(50_000_000_000), StakingTier::Gold);
+        assert_eq!(StakingTier::from_stake_amount(500_000_000_000), StakingTier::Platinum);
+        assert_eq!(StakingTier::from_stake_amount(5_000_000_000_000), StakingTier::Diamond);
+    }
+
+    #[test]
+    fn test_tier_progress() {
+        let (tier, progress, next, epochs) = calculate_tier_progress(5_000_000_000);
+        assert_eq!(tier, StakingTier::Silver);
+        assert!(progress > 0.0 && progress < 100.0);
+        assert_eq!(next, Some(StakingTier::Gold));
+    }
+
+    #[test]
+    fn test_reward_scenarios() {
+        let config = StakingRewardConfig::default();
+        let scenarios = generate_reward_scenarios(100_000_000, 2880, &config);
+        
+        assert_eq!(scenarios.len(), 3);
+        assert!(scenarios[0].apy < scenarios[1].apy);
+        assert!(scenarios[1].apy < scenarios[2].apy);
+    }
+
+    #[test]
+    fn test_validator_performance() {
+        let mut perf = ValidatorPerformance::new("validator1".to_string());
+        perf.uptime_history.push(98.5);
+        perf.uptime_history.push(99.0);
+        perf.uptime_history.push(97.8);
+        
+        assert!((perf.calculate_avg_uptime() - 98.433).abs() < 0.01);
+        assert!(perf.is_healthy());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
