@@ -269,35 +269,40 @@ impl MiningContract {
         let mut total_uptime: f64 = 0.0;
         let mut active_count = 0u64;
         
-        for device in self.devices.values_mut() {
-            // Penalize devices that missed heartbeats
+        // First: collect missed epochs per device, update uptime stats
+        let missed: Vec<_> = {
             let now = utils::now();
-            let epochs_missed = ((now - device.last_heartbeat) / self.config.epoch_duration_secs)
-                .saturating_sub(1);
-            
-            if epochs_missed > 0 {
-                device.total_uptime_epochs = device.total_uptime_epochs
-                    .saturating_sub(epochs_missed.min(device.total_uptime_epochs));
-                self.update_reputation(&[0u8; 32], epochs_missed).ok();
-            }
-            
-            if device.is_active {
-                active_count += 1;
-                total_uptime += device.uptime_percentage();
+            self.devices.iter_mut()
+                .map(|(id, d)| {
+                    let em = ((now - d.last_heartbeat) / self.config.epoch_duration_secs)
+                        .saturating_sub(1);
+                    if em > 0 {
+                        d.total_uptime_epochs = d.total_uptime_epochs
+                            .saturating_sub(em.min(d.total_uptime_epochs));
+                    }
+                    if d.is_active {
+                        active_count += 1;
+                        total_uptime += d.uptime_percentage();
+                    }
+                    (*id, em)
+                })
+                .collect()
+        };
+        
+        // Second: apply reputation penalties (after borrow released)
+        for (id, em) in &missed {
+            if *em > 0 {
+                let _ = self.update_reputation(id, *em);
             }
         }
         
-        let avg_uptime = if active_count > 0 {
-            total_uptime / active_count as f64
-        } else {
-            0.0
-        };
+        let avg_uptime = if active_count > 0 { total_uptime / active_count as f64 } else { 0.0 };
         
         let stats = EpochStats {
             epoch: self.current_epoch,
             total_devices: self.devices.len() as u64,
             active_devices: active_count,
-            total_rewards_distributed: 0, // Calculated during reward distribution
+            total_rewards_distributed: 0,
             avg_uptime,
         };
         
