@@ -44,9 +44,10 @@ impl BlockProducer {
 
     /// Start the block production loop
     pub async fn run(self: Arc<Self>) {
-        info!("Block producer started (slot time: {}ms)", SLOT_TIME_MS);
+        let slot_time_ms = self.state.get_slot_time_ms();
+        info!("Block producer started (slot time: {}ms from genesis)", slot_time_ms);
         
-        let mut slot_timer = interval(Duration::from_millis(SLOT_TIME_MS));
+        let mut slot_timer = interval(Duration::from_millis(slot_time_ms));
         slot_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         
         let mut current_slot = self.state.current_slot();

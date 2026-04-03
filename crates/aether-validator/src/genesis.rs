@@ -1,12 +1,14 @@
 //! Genesis block creation and management
 //!
-//! Handles generation of testnet genesis blocks with bootstrap validators.
+//! Handles generation and loading of testnet genesis blocks.
 
 use ed25519_dalek::SigningKey;
 use rand::rngs::OsRng;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::fs;
+use std::path::Path;
 
 /// Genesis block configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,7 +45,44 @@ pub struct RewardsConfig {
     pub base_reward_rate: u64,
 }
 
-/// Generate genesis hash from configuration
+/// Load genesis block from file (JSON)
+pub fn load_genesis_from_file(path: &Path) -> anyhow::Result<GenesisBlock> {
+    let content = fs::read_to_string(path)
+        .with_context(|| format!("Failed to read genesis file: {}", path.display()))?;
+    
+    let genesis: GenesisBlock = serde_json::from_str(&content)
+        .with_context(|| "Failed to parse genesis JSON")?;
+    
+    Ok(genesis)
+}
+
+/// Load genesis block from JSON string
+pub fn load_genesis_from_json(json: &str) -> anyhow::Result<GenesisBlock> {
+    let genesis: GenesisBlock = serde_json::from_str(json)
+        .with_context(|| "Failed to parse genesis JSON")?;
+    Ok(genesis)
+}
+
+/// Generate genesis hash from configuration bytes
+pub fn compute_genesis_hash(genesis: &GenesisBlock) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(genesis.chain_id.as_bytes());
+    hasher.update(genesis.timestamp.to_le_bytes());
+    for v in &genesis.bootstrap_validators {
+        hasher.update(v.identity_pubkey.as_bytes());
+        hasher.update(v.stake.to_le_bytes());
+    }
+    let result = hasher.finalize();
+    bs58::encode(result).into_string()
+}
+
+/// Verify genesis hash matches
+pub fn verify_genesis_hash(genesis: &GenesisBlock) -> bool {
+    let computed = compute_genesis_hash(genesis);
+    computed == genesis.genesis_hash
+}
+
+/// Generate genesis hash from raw bytes (for in-memory genesis)
 pub fn generate_genesis_hash() -> String {
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -82,6 +121,37 @@ pub fn create_testnet_genesis() -> GenesisBlock {
     }
 }
 
+/// Create genesis with specific chain ID and validators
+pub fn create_genesis_with(
+    chain_id: &str,
+    validators: Vec<GenesisValidator>,
+) -> GenesisBlock {
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
+    
+    let mut genesis = GenesisBlock {
+        chain_id: chain_id.to_string(),
+        timestamp,
+        genesis_hash: String::new(),
+        bootstrap_validators: validators,
+        consensus: ConsensusConfig {
+            slot_time_ms: 400,
+            tower_finality: 12,
+            min_stake: 100,
+            target_stake: 1_000_000,
+        },
+        rewards: RewardsConfig {
+            epoch_duration: 432_000,
+            base_reward_rate: 6,
+        },
+    };
+    
+    genesis.genesis_hash = compute_genesis_hash(&genesis);
+    genesis
+}
+
 /// Bootstrap validator keypair generation (for testnet setup)
 pub fn generate_bootstrap_keypair() -> (String, Vec<u8>) {
     let mut bytes = [0u8; 32];
@@ -91,3 +161,6 @@ pub fn generate_bootstrap_keypair() -> (String, Vec<u8>) {
     
     (pubkey, signing_key.to_bytes().to_vec())
 }
+
+// Needed for anyhow context
+use anyhow::{Context, Result};
