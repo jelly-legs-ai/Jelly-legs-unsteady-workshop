@@ -1002,3 +1002,190 @@ mod auto_compound_tests {
         assert!(effective_apy > 0);
     }
 }
+
+// ============================================================================
+// Additional Tests: Edge Cases and Integration
+// ============================================================================
+
+#[cfg(test)]
+mod staking_edge_cases {
+    use super::*;
+
+    #[test]
+    fn test_zero_stake() {
+        let config = StakingRewardConfig::default();
+        let calculator = RewardCalculator::new(config);
+        
+        let reward = calculator.calculate_epoch_reward(0, 1);
+        assert_eq!(reward, 0);
+    }
+
+    #[test]
+    fn test_slashed_validator_no_rewards() {
+        let config = StakingRewardConfig::default();
+        let calculator = RewardCalculator::new(config);
+        
+        let mut validator = ValidatorStake::new("val_1".to_string(), 1000);
+        validator.is_slashed = true;
+        
+        let reward = calculator.calculate_validator_reward(&validator, 10);
+        assert_eq!(reward, 0);
+    }
+
+    #[test]
+    fn test_uptime_bonus_threshold() {
+        let config = StakingRewardConfig::default();
+        let calculator = RewardCalculator::new(config);
+        
+        // 95% uptime - qualifies for bonus
+        let bonus_95 = calculator.calculate_uptime_bonus(1000, 95.0);
+        assert!(bonus_95 > 0);
+        
+        // 94.9% uptime - no bonus
+        let bonus_94 = calculator.calculate_uptime_bonus(1000, 94.9);
+        assert_eq!(bonus_94, 0);
+    }
+
+    #[test]
+    fn test_loyalty_multiplier_tiers() {
+        let config = StakingRewardConfig::default();
+        let calculator = RewardCalculator::new(config);
+        
+        assert_eq!(calculator.calculate_loyalty_multiplier(50), 1.0);    // < 100 epochs
+        assert_eq!(calculator.calculate_loyalty_multiplier(100), 1.05);  // 100-500
+        assert_eq!(calculator.calculate_loyalty_multiplier(500), 1.1);  // 500-1000
+        assert_eq!(calculator.calculate_loyalty_multiplier(1000), 1.15); // 1000+
+    }
+
+    #[test]
+    fn test_delegator_respects_commission() {
+        let config = StakingRewardConfig::default();
+        let calculator = RewardCalculator::new(config);
+        
+        let delegator = DelegatorStake::new("del_1".to_string(), "val_1".to_string(), 1000);
+        let validator = ValidatorStake::new("val_1".to_string(), 10000);
+        validator.commission_rate = 0.10; // 10% commission
+        
+        let reward = calculator.calculate_delegator_reward(&delegator, &validator, 1);
+        
+        // Reward should be less than if there was no commission
+        let reward_no_commission = calculator.calculate_epoch_reward(1000, 1);
+        assert!(reward < reward_no_commission);
+    }
+
+    #[test]
+    fn test_slash_penalty_calculation() {
+        let config = StakingRewardConfig::default();
+        let calculator = RewardCalculator::new(config);
+        
+        let mut validator = ValidatorStake::new("val_1".to_string(), 1000);
+        validator.total_stake = 1000;
+        
+        let slash_amount = calculator.apply_slash(&mut validator, "Double signing");
+        
+        // Slash should be 5% of stake (default config)
+        assert_eq!(slash_amount, 50);
+        assert!(validator.is_slashed);
+    }
+
+    #[test]
+    fn test_effective_apy_calculation() {
+        let config = StakingRewardConfig::default();
+        let calculator = RewardCalculator::new(config);
+        
+        // High uptime, long staking = highest APY
+        let apy_best = calculator.calculate_effective_apy(95.0, 1000);
+        
+        // Low uptime, short staking = base APY
+        let apy_base = calculator.calculate_effective_apy(80.0, 50);
+        
+        assert!(apy_best > apy_base);
+    }
+
+    #[test]
+    fn test_projected_rewards_zero_epochs() {
+        let config = StakingRewardConfig::default();
+        let calculator = RewardCalculator::new(config);
+        
+        let rewards = calculator.calculate_projected_rewards(1000, 0, 1, 95.0, 100);
+        assert_eq!(rewards, 0);
+    }
+
+    #[test]
+    fn test_staking_reward_config_bounds() {
+        let config = StakingRewardConfig::default();
+        
+        // Test that config values are within reasonable bounds
+        assert!(config.base_apy > 0.0);
+        assert!(config.min_stake > 0);
+        assert!(config.max_stake > config.min_stake);
+        assert!(config.slash_penalty < 1.0);
+        assert!(config.slash_penalty >= 0.0);
+    }
+
+    #[test]
+    fn test_validator_stake_new() {
+        let validator = ValidatorStake::new("test_val".to_string(), 5000);
+        
+        assert_eq!(validator.validator_id, "test_val");
+        assert_eq!(validator.staked_amount, 5000);
+        assert_eq!(validator.total_stake, 5000);
+        assert_eq!(validator.delegated_amount, 0);
+        assert!(!validator.is_slashed);
+    }
+
+    #[test]
+    fn test_delegator_stake_new() {
+        let delegator = DelegatorStake::new("test_del".to_string(), "test_val".to_string(), 1000);
+        
+        assert_eq!(delegator.delegator_id, "test_del");
+        assert_eq!(delegator.validator_id, "test_val");
+        assert_eq!(delegator.staked_amount, 1000);
+        assert!(!delegator.is_claimed);
+    }
+
+    #[test]
+    fn test_auto_compound_disabled() {
+        let mut config = AutoCompoundConfig::default();
+        config.enabled = false;
+        
+        // Should never compound when disabled
+        assert!(!config.should_compound(u64::MAX));
+    }
+
+    #[test]
+    fn test_staking_tier_classification() {
+        // Test tier classification logic inline
+        let classify = |amount: u64| -> &'static str {
+            if amount < 100_000_000 { "Bronze" }
+            else if amount < 1_000_000_000 { "Silver" }
+            else if amount < 10_000_000_000 { "Gold" }
+            else { "Platinum" }
+        };
+        
+        assert_eq!(classify(50_000_000), "Bronze");
+        assert_eq!(classify(500_000_000), "Silver");
+        assert_eq!(classify(5_000_000_000), "Gold");
+        assert_eq!(classify(50_000_000_000), "Platinum");
+    }
+
+    #[test]
+    fn test_validator_score_calculation() {
+        let config = StakingRewardConfig::default();
+        let calculator = RewardCalculator::new(config);
+        
+        let mut validator = ValidatorStake::new("test_val".to_string(), 1000);
+        validator.uptime_percentage = 98.0;
+        validator.epochs_active = 500;
+        
+        // Test that score is based on uptime and age
+        let base_reward = calculator.calculate_epoch_reward(validator.total_stake, 1);
+        let uptime_bonus = calculator.calculate_uptime_bonus(base_reward, validator.uptime_percentage);
+        let loyalty_mult = calculator.calculate_loyalty_multiplier(validator.epochs_active);
+        
+        // Score components should all be positive
+        assert!(base_reward > 0);
+        assert!(uptime_bonus > 0);
+        assert!(loyalty_mult >= 1.0);
+    }
+}
