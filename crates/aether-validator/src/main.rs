@@ -6,7 +6,7 @@
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
-use tokio::net::TcpListener;
+use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use tracing::{info, warn, error, Level};
 
@@ -15,11 +15,17 @@ mod config;
 mod rpc_client;
 mod genesis;
 mod state;
+mod block_producer;
+mod rpc_server;
+mod network;
 
+pub use block_producer::*;
 pub use config::*;
 pub use genesis::*;
 pub use keypair::*;
+pub use network::*;
 pub use rpc_client::*;
+pub use rpc_server::*;
 pub use state::*;
 
 // =============================================================================
@@ -228,16 +234,6 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
     std::fs::create_dir_all(&ledger_path)
         .context("Failed to create ledger directory")?;
 
-    // Bind RPC listener
-    info!("Binding RPC to {}", rpc_addr);
-    let rpc_listener = TcpListener::bind(rpc_addr)
-        .await
-        .context("Failed to bind RPC address")?;
-    let rpc_port = rpc_listener.local_addr()?.port();
-
-    // Bind P2P listener
-    info!("Binding P2P gossip to {}", p2p_addr);
-
     // Initialize consensus
     let validator_state = ValidatorState::new(
         identity,
@@ -245,73 +241,71 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
         ledger_path,
     )?;
 
-    // Start RPC server in background
-    let rpc_handle = {
-        let validator_state = validator_state.clone();
+    // Create block producer
+    let block_producer = Arc::new(BlockProducer::new(validator_state.clone()));
+
+    // Start block producer
+    let bp_for_rpc = block_producer.clone();
+    let bp_handle = {
+        let bp = block_producer.clone();
         tokio::spawn(async move {
-            info!("RPC server listening on 0.0.0.0:{}", rpc_port);
-            loop {
-                match rpc_listener.accept().await {
-                    Ok((socket, addr)) => {
-                        let state = validator_state.clone();
-                        tokio::spawn(async move {
-                            if let Err(e) = handle_rpc_request(socket, state).await {
-                                warn!("RPC error from {}: {}", addr, e);
-                            }
-                        });
-                    }
-                    Err(e) => {
-                        error!("RPC accept error: {}", e);
-                    }
-                }
+            bp.run().await;
+        })
+    };
+
+    // Start RPC HTTP server
+    let rpc_addr_for_spawn = rpc_addr.clone();
+    let rpc_handle = {
+        let state = validator_state.clone();
+        let bp = bp_for_rpc;
+        tokio::spawn(async move {
+            if let Err(e) = start_rpc_server(&rpc_addr_for_spawn, state, bp).await {
+                error!("RPC server error: {}", e);
             }
         })
     };
 
     // Start P2P gossip
+    let network_state = Arc::new(network::NetworkState::new());
+    let p2p_addr_for_spawn = p2p_addr.clone();
     let gossip_handle = {
-        let validator_state = validator_state.clone();
-        let p2p_addr_clone = p2p_addr.clone();
+        let state = validator_state.clone();
+        let ns = network_state.clone();
         tokio::spawn(async move {
-            if let Err(e) = run_gossip(&p2p_addr_clone, validator_state).await {
-                error!("Gossip error: {}", e);
+            if let Err(e) = start_p2p(&p2p_addr_for_spawn, state, ns).await {
+                error!("P2P gossip error: {}", e);
             }
         })
     };
 
     // Main validator loop
     info!("Validator running. Press Ctrl+C to stop.");
-    info!("RPC: http://127.0.0.1:{}/", rpc_port);
+    info!("RPC HTTP: http://127.0.0.1:{}/", rpc_addr.split(':').last().unwrap_or("8899"));
     info!("Gossip: {}", p2p_addr);
 
-    // Simulate block production for MVP
-    let block_handle = {
-        let validator_state = validator_state.clone();
-        tokio::spawn(async move {
-            let mut slot = 0u64;
-            loop {
-                sleep(Duration::from_millis(400)).await; // 400ms slot time
-                slot += 1;
-                validator_state.increment_slot();
-                
-                if slot.is_multiple_of(100) {
-                    info!(
-                        "Slot {} | Votes: {} | Peers: {} | Blocks produced: {}",
-                        slot,
-                        validator_state.vote_count(),
-                        validator_state.peer_count(),
-                        validator_state.blocks_produced(),
-                    );
-                }
-            }
-        })
-    };
+    // Status logging every 100 slots
+    let state_for_logging = validator_state.clone();
+    let logging_handle = tokio::spawn(async move {
+        let mut slot = 0u64;
+        loop {
+            sleep(Duration::from_secs(10)).await;
+            slot = state_for_logging.current_slot();
+            info!(
+                "Slot {} | Blocks produced: {} | TXs: {} | Peers: {}",
+                slot,
+                state_for_logging.blocks_produced(),
+                state_for_logging.transaction_count(),
+                state_for_logging.peer_count(),
+            );
+        }
+    });
 
     // Wait for any handle to complete
     tokio::select! {
         _ = rpc_handle => {}
         _ = gossip_handle => {}
-        _ = block_handle => {}
+        _ = bp_handle => {}
+        _ = logging_handle => {}
     }
 
     Ok(())
@@ -551,10 +545,40 @@ async fn create_genesis(cli: Cli) -> anyhow::Result<()> {
         },
     };
 
-    // Save genesis
+    // Save genesis JSON
     let json = serde_json::to_string_pretty(&genesis)?;
     std::fs::write(&out_path, json)
         .context("Failed to write genesis file")?;
+
+    // Save genesis.toml for testnet
+    let toml_path = PathBuf::from("genesis.toml");
+    let toml_content = format!(
+        r#"# AETHER Testnet Genesis Configuration
+# Generated by aether-validator create-genesis
+
+[chain]
+chain_id = "{}"
+genesis_hash = "{}"
+timestamp = {}
+
+[consensus]
+slot_time_ms = 400
+tower_finality = 12
+min_stake = 100
+target_stake = 1_000_000
+
+[rewards]
+epoch_duration = 432_000
+base_reward_rate = 6
+
+[bootstrap_validators]
+"#,
+        genesis.chain_id,
+        genesis.genesis_hash,
+        genesis.timestamp
+    );
+    std::fs::write(&toml_path, toml_content)
+        .context("Failed to write genesis.toml")?;
 
     println!();
     println!("  ╔════════════════════════════════════════════════════════════╗");

@@ -6,8 +6,7 @@ use crate::keypair::ValidatorIdentity;
 use crate::{BlockProduction, EpochInfo, ValidatorInfo, VoteAccountInfo};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
-use tokio::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 /// Thread-safe validator state shared across all async tasks
 #[derive(Clone)]
@@ -36,6 +35,7 @@ struct ValidatorStateInner {
     // Block production
     blocks_produced: AtomicU64,
     vote_count: AtomicU64,
+    block_hash: RwLock<String>,
     
     // Ledger
     #[allow(dead_code)]
@@ -60,6 +60,7 @@ impl ValidatorState {
                 peer_pubkeys: RwLock::new(Vec::new()),
                 blocks_produced: AtomicU64::new(0),
                 vote_count: AtomicU64::new(0),
+                block_hash: RwLock::new("0000000000000000000000000000000000000000000000000000000000000000".to_string()),
                 ledger_path,
                 testnet,
             }),
@@ -109,10 +110,11 @@ impl ValidatorState {
     }
 
     pub fn add_peer(&self, pubkey: String) {
-        let mut peers = self.inner.peer_pubkeys.blocking_write();
+        let mut peers = self.inner.peer_pubkeys.write().unwrap();
         if !peers.contains(&pubkey) {
             peers.push(pubkey);
-            self.inner.peer_count.store(peers.len() as u64, Ordering::Relaxed);
+            drop(peers);
+            self.inner.peer_count.store(self.inner.peer_pubkeys.read().unwrap().len() as u64, Ordering::Relaxed);
         }
     }
 
@@ -147,5 +149,33 @@ impl ValidatorState {
     pub fn get_vote_accounts(&self) -> Vec<VoteAccountInfo> {
         // Return empty for MVP
         Vec::new()
+    }
+
+    pub fn set_current_slot(&self, slot: u64) {
+        self.inner.current_slot.store(slot, Ordering::Relaxed);
+        self.inner.slot_index.store(slot % 432_000, Ordering::Relaxed);
+        self.inner.epoch.store(slot / 432_000, Ordering::Relaxed);
+    }
+
+    pub fn set_block_hash(&self, hash: String) {
+        let mut bh = self.inner.block_hash.write().unwrap();
+        *bh = hash;
+    }
+
+    pub fn get_last_block_hash(&self) -> String {
+        self.inner.block_hash.read().unwrap().clone()
+    }
+
+    pub fn increment_produced_blocks(&self) {
+        self.inner.blocks_produced.fetch_add(1, Ordering::Relaxed);
+        self.inner.transaction_count.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub fn get_chain_id(&self) -> String {
+        "aether-testnet-1".to_string()
+    }
+
+    pub fn get_genesis_hash(&self) -> String {
+        crate::genesis::generate_genesis_hash()
     }
 }

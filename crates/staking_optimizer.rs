@@ -477,3 +477,140 @@ mod tests {
         assert!(score > 0.5); // High concentration = high risk
     }
 }
+
+// ============================================================================
+// Additional Utility Functions for Production Use
+// ============================================================================
+
+impl StakingOptimizer {
+    /// Calculate compound growth projection over time periods
+    pub fn project_compound_growth(
+        &self,
+        principal: u64,
+        apy: f64,
+        periods: u32,
+        compounds_per_year: u32,
+    ) -> CompoundProjection {
+        let rate_per_period = apy / compounds_per_year as f64;
+        let periods_f = compounds_per_year as f64 * periods as f64;
+        
+        // A = P(1 + r/n)^(nt)
+        let growth_factor = (1.0 + rate_per_period).powf(periods_f);
+        let final_amount = (principal as f64 * growth_factor) as u64;
+        let total_earned = final_amount.saturating_sub(principal);
+
+        CompoundProjection {
+            principal,
+            final_amount,
+            total_earned,
+            growth_factor,
+            periods,
+            apy,
+            compounds_per_year,
+        }
+    }
+
+    /// Calculate time to reach a target amount with compound interest
+    pub fn time_to_target(&self, principal: u64, target: u64, apy: f64) -> Option<u32> {
+        if principal >= target || apy <= 0.0 {
+            return None;
+        }
+        
+        let rate = apy / 365.0; // Daily compounding
+        let target_ratio = target as f64 / principal as f64;
+        
+        // ln(target/principal) / ln(1 + rate)
+        let days = (target_ratio.ln() / (1.0 + rate).ln()).ceil() as u32;
+        
+        Some(days.max(1))
+    }
+
+    /// Calculate optimal staking split across tiers for a given amount
+    pub fn calculate_optimal_split(&self, total_amount: u64) -> Vec<(StakingTier, u64)> {
+        let mut remaining = total_amount;
+        let mut splits = Vec::new();
+        
+        // Priority: Diamond -> Platinum -> Gold -> Silver -> Bronze
+        let tiers = [
+            StakingTier::Diamond,
+            StakingTier::Platinum,
+            StakingTier::Gold,
+            StakingTier::Silver,
+            StakingTier::Bronze,
+        ];
+        
+        for tier in tiers {
+            let min = tier.min_stake();
+            if remaining >= min {
+                // Allocate minimum for this tier, rest continues
+                splits.push((tier, min));
+                remaining = remaining.saturating_sub(min);
+            }
+        }
+        
+        // If we have remaining after minimum allocations, put in highest tier
+        if remaining > 0 {
+            if let Some((last_tier, _)) = splits.last_mut() {
+                *last_tier = StakingTier::Diamond;
+            }
+            if let Some((tier, amount)) = splits.last_mut() {
+                *amount += remaining;
+            }
+        }
+        
+        splits
+    }
+
+    /// Get recommended validators for a given tier
+    pub fn get_recommended_validators(&self, tier: &StakingTier, limit: usize) -> Vec<ValidatorInfo> {
+        self.validators
+            .values()
+            .filter(|v| {
+                v.is_active && 
+                v.uptime > 0.98 && 
+                v.total_stake >= tier.min_stake()
+            })
+            .take(limit)
+            .cloned()
+            .collect()
+    }
+}
+
+/// Compound growth projection result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompoundProjection {
+    pub principal: u64,
+    pub final_amount: u64,
+    pub total_earned: u64,
+    pub growth_factor: f64,
+    pub periods: u32,
+    pub apy: f64,
+    pub compounds_per_year: u32,
+}
+
+impl CompoundProjection {
+    /// Get monthly breakdown for year 1
+    pub fn monthly_breakdown_year1(&self) -> Vec<MonthlySnapshot> {
+        let monthly_rate = self.apy / 12.0;
+        let mut snapshots = Vec::new();
+        let mut current = self.principal as f64;
+        
+        for month in 1..=12 {
+            current *= 1.0 + monthly_rate;
+            snapshots.push(MonthlySnapshot {
+                month,
+                amount: current as u64,
+                earned: current as u64 - self.principal,
+            });
+        }
+        
+        snapshots
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MonthlySnapshot {
+    pub month: u32,
+    pub amount: u64,
+    pub earned: u64,
+}
