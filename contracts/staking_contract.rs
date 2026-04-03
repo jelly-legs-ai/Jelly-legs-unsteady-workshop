@@ -228,22 +228,6 @@ pub fn calculate_projected_rewards(
         compound,
     )
 }
-    if stake_epochs >= lockup_epochs {
-        return 0; // No penalty
-    }
-    
-    // Penalty scales from 50% to 0% based on how close to lockup end
-    let progress = stake_epochs as f64 / lockup_epochs as f64;
-    let penalty_rate = 0.5 * (1.0 - progress);
-    
-    (principal as f64 * penalty_rate) as u64
-}
-
-use std::collections::HashMap;
-    pub frequency_hours: u32,
-    pub reinvest_percentage: f64,  // 0.0 to 1.0
-    pub last_compound_epoch: u64,
-}
 
 /// Slashing event record
 #[derive(Debug, Clone, Serialize, Deserialize)]
