@@ -9,12 +9,8 @@ use borsh::{BorshSerialize, BorshDeserialize};
 pub struct SignatureBytes(pub [u8; 64]);
 
 impl SignatureBytes {
-    pub fn new(bytes: [u8; 64]) -> Self {
-        Self(bytes)
-    }
-    pub fn as_slice(&self) -> &[u8; 64] {
-        &self.0
-    }
+    pub fn new(bytes: [u8; 64]) -> Self { Self(bytes) }
+    pub fn as_slice(&self) -> &[u8; 64] { &self.0 }
 }
 
 impl std::fmt::Debug for SignatureBytes {
@@ -43,11 +39,10 @@ impl<'de> Deserialize<'de> for SignatureBytes {
 
 /// AI Priority Lane for transaction ordering
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
-#[repr(u8)]
 pub enum AIPriorityLane {
-    Critical = 0,
-    High = 1,
-    Standard = 2,
+    Critical,
+    High,
+    Standard,
 }
 
 impl AIPriorityLane {
@@ -68,18 +63,15 @@ impl AIPriorityLane {
 }
 
 impl Default for AIPriorityLane {
-    fn default() -> Self {
-        AIPriorityLane::Standard
-    }
+    fn default() -> Self { AIPriorityLane::Standard }
 }
 
 /// Validator tier classification
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
-#[repr(u8)]
 pub enum ValidatorTier {
-    AI = 0,
-    Standard = 1,
-    Light = 2,
+    AI,
+    Standard,
+    Light,
 }
 
 impl ValidatorTier {
@@ -99,9 +91,7 @@ impl ValidatorTier {
 }
 
 impl Default for ValidatorTier {
-    fn default() -> Self {
-        ValidatorTier::Standard
-    }
+    fn default() -> Self { ValidatorTier::Standard }
 }
 
 /// Transaction metadata with AI priority
@@ -137,23 +127,21 @@ pub enum ProposalType {
 
 /// Vote decision for governance
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
-#[repr(i8)]
 pub enum VoteDecision {
-    Against = -1,
-    For = 1,
-    Abstain = 0,
+    Against,
+    Abstain,
+    For,
 }
 
 /// Proposal status
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
-#[repr(u8)]
 pub enum ProposalStatus {
-    Pending = 0,
-    Active = 1,
-    Succeeded = 2,
-    Defeated = 3,
-    Executed = 4,
-    Cancelled = 5,
+    Pending,
+    Active,
+    Succeeded,
+    Defeated,
+    Executed,
+    Cancelled,
 }
 
 /// AI vote data structure
