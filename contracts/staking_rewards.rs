@@ -197,6 +197,105 @@ impl RewardCalculator {
         
         (base + uptime_bonus) * loyalty_mult
     }
+
+    /// Calculate projected rewards over a number of epochs with compounding
+    pub fn calculate_projected_rewards(
+        &self,
+        stake_amount: u64,
+        epochs: u64,
+        compound_frequency: u64,
+        uptime: f64,
+        epochs_staked: u64,
+    ) -> u64 {
+        if stake_amount == 0 || epochs == 0 {
+            return 0;
+        }
+
+        let mut current_stake = stake_amount as f64;
+        let apy = self.calculate_effective_apy(uptime, epochs_staked);
+        let epoch_rate = apy / (365 * 288); // ~288 epochs per day
+
+        for epoch in 0..epochs {
+            // Calculate reward for this epoch
+            let epoch_reward = current_stake * epoch_rate;
+            current_stake += epoch_reward;
+
+            // Compound at specified frequency
+            if compound_frequency > 0 && (epoch + 1) % compound_frequency == 0 {
+                // Rewards already added to stake, nothing to do
+            }
+        }
+
+        (current_stake - stake_amount as f64) as u64
+    }
+
+    /// Find optimal compound frequency to maximize rewards
+    pub fn find_optimal_compound_frequency(
+        &self,
+        stake_amount: u64,
+        total_epochs: u64,
+        min_frequency: u64,
+        max_frequency: u64,
+        uptime: f64,
+        epochs_staked: u64,
+    ) -> (u64, u64) {
+        let mut best_frequency = max_frequency;
+        let mut best_rewards = 0;
+
+        for freq in (min_frequency..=max_frequency).step_by(1) {
+            let rewards = self.calculate_projected_rewards(
+                stake_amount,
+                total_epochs,
+                freq,
+                uptime,
+                epochs_staked,
+            );
+            if rewards > best_rewards {
+                best_rewards = rewards;
+                best_frequency = freq;
+            }
+        }
+
+        (best_frequency, best_rewards)
+    }
+
+    /// Calculate break-even epoch for auto-compound vs manual claim
+    pub fn calculate_auto_compound_breakeven(
+        &self,
+        stake_amount: u64,
+        claim_frequency: u64,
+        compound_fee_percent: f64,
+        uptime: f64,
+        epochs_staked: u64,
+    ) -> u64 {
+        // With auto-compound, rewards compound continuously (frequency = 1)
+        // vs manual claiming at claim_frequency
+        // The fee is paid on each compound
+
+        let apy = self.calculate_effective_apy(uptime, epochs_staked);
+        let epoch_rate = apy / (365 * 288);
+
+        // For manual: claim and don't reinvest until claim_frequency
+        let mut manual_stake = stake_amount as f64;
+        let mut auto_stake = stake_amount as f64;
+
+        let mut epoch = 0;
+        while manual_stake < auto_stake * (1.0 - compound_fee_percent / 100.0) && epoch < 365 * 288 {
+            let manual_reward = if epoch > 0 && epoch % claim_frequency == 0 {
+                manual_stake * epoch_rate
+            } else {
+                0.0
+            };
+
+            let auto_reward = auto_stake * epoch_rate * (1.0 - compound_fee_percent / 100.0);
+
+            manual_stake += manual_reward;
+            auto_stake += auto_reward;
+            epoch += 1;
+        }
+
+        epoch
+    }
 }
 
 #[cfg(test)]
