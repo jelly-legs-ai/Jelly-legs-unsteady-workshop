@@ -514,6 +514,96 @@ impl MiningPool {
     }
 }
 
+/// Dashboard summary for mining network overview
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiningDashboardSummary {
+    pub total_miners: u64,
+    pub active_miners: u64,
+    pub total_rewards_distributed: u64,
+    pub avg_contribution_score: f64,
+    pub network_hashrate_equivalent: f64,
+    pub tier_breakdown: TierBreakdown,
+    pub recent_rewards: Vec<MinerRewardSnapshot>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TierBreakdown {
+    pub mobile: u64,
+    pub laptop: u64,
+    pub desktop: u64,
+    pub server: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MinerRewardSnapshot {
+    pub miner_id: String,
+    pub reward: u64,
+    pub epoch: u64,
+    pub timestamp: u64,
+}
+
+impl MiningCalculator {
+    /// Generate dashboard summary from a list of miners
+    pub fn generate_dashboard_summary(&self, miners: &[Miner]) -> MiningDashboardSummary {
+        let active_miners = miners.iter().filter(|m| m.is_active).count() as u64;
+        
+        let total_rewards = miners.iter().map(|m| m.total_rewards_earned).sum::<u64>();
+        
+        let avg_score = if miners.is_empty() {
+            0.0
+        } else {
+            miners.iter().map(|m| m.contribution_score).sum::<f64>() / miners.len() as f64
+        };
+        
+        // Calculate network hashrate equivalent (TH/s simplified)
+        let network_hashrate: f64 = miners.iter()
+            .filter(|m| m.is_active)
+            .map(|m| m.device_tier.multiplier() * m.uptime_percentage / 100.0)
+            .sum();
+        
+        let mut tier_breakdown = TierBreakdown {
+            mobile: 0,
+            laptop: 0,
+            desktop: 0,
+            server: 0,
+        };
+        
+        for miner in miners {
+            match miner.device_tier {
+                DeviceTier::Mobile => tier_breakdown.mobile += 1,
+                DeviceTier::Laptop => tier_breakdown.laptop += 1,
+                DeviceTier::Desktop => tier_breakdown.desktop += 1,
+                DeviceTier::Server => tier_breakdown.server += 1,
+            }
+        }
+        
+        // Recent rewards (last 10)
+        let mut recent_rewards: Vec<MinerRewardSnapshot> = miners
+            .iter()
+            .filter(|m| m.total_rewards_earned > 0)
+            .take(10)
+            .map(|m| MinerRewardSnapshot {
+                miner_id: m.miner_id.clone(),
+                reward: m.pending_rewards,
+                epoch: m.last_claim_epoch,
+                timestamp: 0,
+            })
+            .collect();
+        
+        recent_rewards.sort_by(|a, b| b.epoch.cmp(&a.epoch));
+        
+        MiningDashboardSummary {
+            total_miners: miners.len() as u64,
+            active_miners,
+            total_rewards_distributed: total_rewards,
+            avg_contribution_score: avg_score,
+            network_hashrate_equivalent: network_hashrate,
+            tier_breakdown,
+            recent_rewards,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -621,5 +711,39 @@ mod tests {
         println!("Server reward: {} FLUX", server_reward);
         
         assert!(server_reward > mobile_reward * 8);
+    }
+    
+    #[test]
+    fn test_dashboard_summary() {
+        let config = MiningRewardConfig::default();
+        let calculator = MiningCalculator::new(config);
+        
+        let mut miners = vec![
+            Miner::new("miner_001".to_string(), 4, 4),   // Mobile
+            Miner::new("miner_002".to_string(), 16, 8), // Laptop
+            Miner::new("miner_003".to_string(), 32, 8), // Desktop
+            Miner::new("miner_004".to_string(), 128, 32), // Server
+        ];
+        
+        for miner in &mut miners {
+            miner.contribution_score = 0.85;
+            miner.uptime_percentage = 95.0;
+            miner.total_rewards_earned = 1_000_000_000;
+        }
+        miners[0].is_active = true;
+        miners[1].is_active = true;
+        miners[2].is_active = false;
+        miners[3].is_active = true;
+        
+        let summary = calculator.generate_dashboard_summary(&miners);
+        
+        assert_eq!(summary.total_miners, 4);
+        assert_eq!(summary.active_miners, 3);
+        assert_eq!(summary.tier_breakdown.mobile, 1);
+        assert_eq!(summary.tier_breakdown.laptop, 1);
+        assert_eq!(summary.tier_breakdown.desktop, 1);
+        assert_eq!(summary.tier_breakdown.server, 1);
+        
+        println!("Dashboard Summary: {:?}", summary);
     }
 }
