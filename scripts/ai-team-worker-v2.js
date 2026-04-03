@@ -767,7 +767,15 @@ async function main() {
   }
   
   // Process up to 2 issues per run
-  for (const issue of issues.slice(0, 2)) {
+  // Sort: phase-0 (testnet) first, then phase-1, then by creation date
+  const sorted = [...issues].sort((a, b) => {
+    const aPhase = a.labels.find(l => l.name === 'phase-0') ? 0 : a.labels.find(l => l.name === 'phase-1') ? 1 : 2;
+    const bPhase = b.labels.find(l => l.name === 'phase-0') ? 0 : b.labels.find(l => l.name === 'phase-1') ? 1 : 2;
+    if (aPhase !== bPhase) return aPhase - bPhase;
+    return new Date(a.created_at) - new Date(b.created_at);
+  });
+  
+  for (const issue of sorted.slice(0, 2)) {
     if (issue.labels.some(l => l.name === 'in-progress')) {
       console.log(`⏭️  Issue #${issue.number} already in progress`);
       continue;
