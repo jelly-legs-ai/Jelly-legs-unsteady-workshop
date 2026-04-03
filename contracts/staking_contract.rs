@@ -98,6 +98,118 @@ impl StakingTier {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutoCompoundConfig {
     pub enabled: bool,
+}
+
+/// Staking reward calculation result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RewardCalculation {
+    pub principal: u64,
+    pub daily_reward: u64,
+    pub weekly_reward: u64,
+    pub monthly_reward: u64,
+    pub yearly_reward: u64,
+    pub effective_apy: f64,
+    pub compound_frequency: String,
+    pub tier_bonus: f64,
+    pub uptime_bonus: f64,
+    pub total_multiplier: f64,
+}
+
+/// Calculate staking rewards with detailed breakdown
+pub fn calculate_staking_rewards(
+    principal: u64,
+    apy: f64,
+    stake_days: u64,
+    tier_multiplier: f64,
+    uptime_multiplier: f64,
+    compound_daily: bool,
+) -> RewardCalculation {
+    let daily_rate = apy / 365.0;
+    let base_daily = principal as f64 * daily_rate;
+    
+    // Apply multipliers
+    let total_multiplier = tier_multiplier * uptime_multiplier;
+    let effective_daily = base_daily * total_multiplier;
+    
+    // Calculate compound vs simple interest
+    let (daily_reward, monthly_reward, yearly_reward) = if compound_daily {
+        // Compound daily - each day's reward becomes part of principal
+        let mut amount = principal as f64;
+        for _ in 0..stake_days.min(365) {
+            let day_reward = amount * daily_rate * total_multiplier;
+            amount += day_reward;
+        }
+        let daily = effective_daily;
+        let monthly = amount * (1.0 + daily_rate * total_multiplier).powi(30) - amount;
+        let yearly = amount * (1.0 + daily_rate * total_multiplier).powi(365.min(stake_days as i32)) - amount;
+        (daily as u64, monthly as u64, yearly as u64)
+    } else {
+        // Simple interest - rewards don't compound
+        let daily = effective_daily as u64;
+        let weekly = (effective_daily * 7.0) as u64;
+        let monthly = (effective_daily * 30.0) as u64;
+        let yearly = (effective_daily * 365.0) as u64;
+        (daily, monthly, yearly)
+    };
+    
+    let compound_frequency = if compound_daily { "Daily" } else { "Simple" }.to_string();
+    
+    RewardCalculation {
+        principal,
+        daily_reward,
+        weekly_reward: daily_reward * 7,
+        monthly_reward,
+        yearly_reward,
+        effective_apy: apy * total_multiplier,
+        compound_frequency,
+        tier_bonus: tier_multiplier,
+        uptime_bonus: uptime_multiplier,
+        total_multiplier,
+    }
+}
+
+/// Calculate delegation rewards with commission
+pub fn calculate_delegation_rewards(
+    stake_amount: u64,
+    validator_commission: f64,
+    network_apy: f64,
+    uptime_percent: f64,
+) -> (u64, u64) {
+    // Base rewards from staking
+    let daily_rate = network_apy / 365.0;
+    let base_daily = stake_amount as f64 * daily_rate;
+    
+    // Uptime adjustment
+    let uptime_mult = if uptime_percent >= 99.0 { 1.5 }
+        else if uptime_percent >= 95.0 { 1.25 }
+        else if uptime_percent >= 90.0 { 1.0 }
+        else { 0.75 };
+    
+    let gross_daily = base_daily * uptime_mult;
+    let commission = gross_daily * validator_commission;
+    let net_daily = gross_daily - commission;
+    
+    (net_daily as u64, commission as u64)
+}
+
+/// Calculate penalty for early unstaking
+pub fn calculate_early_withdrawal_penalty(
+    stake_epochs: u64,
+    lockup_epochs: u64,
+    principal: u64,
+) -> u64 {
+    if stake_epochs >= lockup_epochs {
+        return 0; // No penalty
+    }
+    
+    // Penalty scales from 50% to 0% based on how close to lockup end
+    let progress = stake_epochs as f64 / lockup_epochs as f64;
+    let penalty_rate = 0.5 * (1.0 - progress);
+    
+    (principal as f64 * penalty_rate) as u64
+}
+
+use std::collections::HashMap;
     pub frequency_hours: u32,
     pub reinvest_percentage: f64,  // 0.0 to 1.0
     pub last_compound_epoch: u64,

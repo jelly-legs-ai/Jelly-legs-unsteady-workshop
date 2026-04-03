@@ -483,7 +483,7 @@ async fn create_vote_account(cli: Cli) -> anyhow::Result<()> {
     println!("✅ Vote account created: {}", out_path.display());
     println!("   Vote public key: {}", vote_keypair.pubkey());
     println!("   Validator: {}", validator_identity.pubkey());
-    println!("   Commission: {}%", vote_cmd.commission);
+    println!("   Commission: {}%", commission);
     println!();
     println!("⚠️  Fund the vote account with stake to start validating.");
 
@@ -568,7 +568,7 @@ async fn create_genesis(cli: Cli) -> anyhow::Result<()> {
         println!("    • {} (stake: {} AETH)", v.identity_pubkey, v.stake);
     }
     println!();
-    println!("  Saved to: {}", genesis_cmd.out.display());
+    println!("  Saved to: {}", out_path.display());
     println!();
 
     Ok(())

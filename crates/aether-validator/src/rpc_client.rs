@@ -93,7 +93,7 @@ impl RpcClient {
     }
 
     /// Generic JSON-RPC call
-    async fn call<T: for<'de> Deserialize<'de>>(&self, method: &str, params: serde_json::Value) -> anyhow::Result<T> {
+    async fn call<T: for<'de> Deserialize<'de> + Default>(&self, method: &str, params: serde_json::Value) -> anyhow::Result<T> {
         let client = reqwest::Client::new();
         
         let request = serde_json::json!({
@@ -127,79 +127,15 @@ impl RpcClient {
     }
 }
 
-/// Internal RPC response types
-mod bs58 {
-    use std::collections::VecDeque;
-    use std::fmt;
-
-    const ALPHABET: &[u8] = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-
-    /// Encode bytes to base58
+/// Base58 encoding/decoding using the bs58 crate
+pub mod base58 {
+    /// Encode bytes to base58 string
     pub fn encode(data: &[u8]) -> String {
-        let mut result = String::new();
-        let mut zeros = 0;
-        
-        for byte in data {
-            if *byte == 0 {
-                zeros += 1;
-            } else {
-                break;
-            }
-        }
-        
-        let mut chars: VecDeque<u8> = VecDeque::new();
-        for chunk in data.chunks_exact(4) {
-            let val = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
-            for i in (0..7).rev() {
-                chars.push_back(ALPHABET[((val / 58u32.pow(i)) % 58) as usize]);
-            }
-        }
-        
-        let base58 = chars.into_iter().collect::<String>();
-        
-        if zeros > 0 {
-            format!("{}{}", "1".repeat(zeros), base58)
-        } else {
-            base58
-        }
+        bs58::encode(data).into_string()
     }
 
-    /// Decode base58 to bytes
+    /// Decode base58 string to bytes
     pub fn decode(data: &str) -> Vec<u8> {
-        let mut result: Vec<u8> = Vec::new();
-        let mut leading_zeros = 0;
-        
-        for c in data.chars() {
-            if c == '1' {
-                leading_zeros += 1;
-            } else {
-                break;
-            }
-        }
-        
-        let mut num: Vec<u8> = Vec::new();
-        for c in data.chars() {
-            let idx = ALPHABET.iter().position(|&x| x == c as u8);
-            if let Some(pos) = idx {
-                let mut carry = pos as u16;
-                for byte in num.iter_mut().rev() {
-                    carry += (*byte as u16) * 58;
-                    *byte = (carry % 256) as u8;
-                    carry /= 256;
-                }
-                while carry > 0 {
-                    num.push((carry % 256) as u8);
-                    carry /= 256;
-                }
-            }
-        }
-        
-        for _ in 0..leading_zeros {
-            num.push(0);
-        }
-        
-        num.reverse();
-        result.extend(num);
-        result
+        bs58::decode(data).into_vec().unwrap_or_default()
     }
 }
