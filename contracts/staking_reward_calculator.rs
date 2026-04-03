@@ -212,6 +212,55 @@ impl StakingRewardCalculator {
         
         best_option
     }
+
+    /// Calculate rewards across multiple positions (portfolio view)
+    pub fn calculate_portfolio_rewards(
+        positions: &[StakePositionCalc],
+        pools: &[PoolInfo],
+        current_time: u64,
+    ) -> Vec<RewardProjection> {
+        let tiers = Self::default_tiers();
+        let mut projections = Vec::new();
+
+        for position in positions {
+            if let Some(pool) = pools.iter().find(|p| p.pool_id == position.pool_id) {
+                let tier_info = tiers.iter().find(|t| t.name == position.tier);
+                let tier_bonus = tier_info.map(|t| t.apy_base).unwrap_or(0.0);
+                let projection = Self::calculate_rewards(position, pool.apy, tier_bonus, current_time);
+                projections.push(projection);
+            }
+        }
+
+        projections
+    }
+
+    /// Summary of entire staking portfolio
+    pub fn calculate_portfolio_summary(
+        positions: &[StakePositionCalc],
+        pools: &[PoolInfo],
+        current_time: u64,
+    ) -> PortfolioSummary {
+        let projections = Self::calculate_portfolio_rewards(positions, pools, current_time);
+        let total_staked: u64 = positions.iter().map(|p| p.amount).sum();
+        let total_accrued: u64 = projections.iter().map(|p| p.current_rewards).sum();
+        let total_daily: u64 = projections.iter().map(|p| p.daily_rewards).sum();
+
+        PortfolioSummary {
+            total_staked,
+            total_accrued,
+            total_daily,
+            position_count: positions.len(),
+        }
+    }
+}
+
+/// Portfolio summary struct
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PortfolioSummary {
+    pub total_staked: u64,
+    pub total_accrued: u64,
+    pub total_daily: u64,
+    pub position_count: usize,
 }
 
 #[cfg(test)]
@@ -242,5 +291,42 @@ mod tests {
     fn test_compound_calculation() {
         let rewards = StakingRewardCalculator::calculate_compound_rewards(10_000, 0.10, 365, 12);
         assert!(rewards > 0);
+    }
+
+    #[test]
+    fn test_multi_pool_calculation() {
+        let pools = vec![
+            PoolInfo {
+                pool_id: "flux".to_string(),
+                name: "FLUX Staking".to_string(),
+                token_symbol: "FLUX".to_string(),
+                current_tvl: 5_000_000,
+                apy: 0.14,
+                is_active: true,
+            },
+            PoolInfo {
+                pool_id: "ath".to_string(),
+                name: "ATH Staking".to_string(),
+                token_symbol: "ATH".to_string(),
+                current_tvl: 3_000_000,
+                apy: 0.12,
+                is_active: true,
+            },
+        ];
+
+        let positions = vec![
+            StakePositionCalc {
+                position_id: "pos1".to_string(),
+                pool_id: "flux".to_string(),
+                amount: 50_000,
+                tier: "Gold".to_string(),
+                start_time: 1000000000,
+                lock_end_time: 1000000000 + (90 * 86400),
+                accumulated_rewards: 500,
+            },
+        ];
+
+        let result = Self::calculate_portfolio_rewards(&positions, &pools, 1000000000);
+        assert!(!result.is_empty());
     }
 }
