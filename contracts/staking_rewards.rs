@@ -298,6 +298,186 @@ impl RewardCalculator {
     }
 }
 
+// ============================================================================
+// AUTO-COMPOUND MANAGER - Sprint 60 Enhancement
+// ============================================================================
+
+/// Auto-compound configuration for a stake position
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutoCompoundConfig {
+    pub enabled: bool,
+    pub frequency_epochs: u64,     // How often to compound (1 = every epoch)
+    pub min_stake_threshold: u64,  // Minimum rewards before compounding
+    pub fee_percent: f64,          // Fee charged for auto-compound service
+    pub reinvest_ratio: f64,       // Percentage of rewards to reinvest (0.0-1.0)
+    pub last_compound_epoch: u64,
+    pub total_fees_paid: u64,
+    pub total_rewards_compounded: u64,
+}
+
+impl Default for AutoCompoundConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            frequency_epochs: 288, // Once per day (288 epochs)
+            min_stake_threshold: 1000, // 0.00001 AETH minimum
+            fee_percent: 0.1,          // 0.1% fee
+            reinvest_ratio: 1.0,       // 100% reinvest by default
+            last_compound_epoch: 0,
+            total_fees_paid: 0,
+            total_rewards_compounded: 0,
+        }
+    }
+}
+
+impl AutoCompoundConfig {
+    /// Check if enough epochs have passed to trigger compounding
+    pub fn should_compound(&self, current_epoch: u64) -> bool {
+        if !self.enabled {
+            return false;
+        }
+        current_epoch - self.last_compound_epoch >= self.frequency_epochs
+    }
+
+    /// Calculate fee for a given reward amount
+    pub fn calculate_fee(&self, reward_amount: u64) -> u64 {
+        (reward_amount as f64 * self.fee_percent / 100.0) as u64
+    }
+
+    /// Calculate net reward after fee
+    pub fn net_reward(&self, gross_reward: u64) -> (u64, u64) {
+        let fee = self.calculate_fee(gross_reward);
+        let net = gross_reward.saturating_sub(fee);
+        (net, fee)
+    }
+}
+
+/// Auto-compound manager handles automated reward compounding
+pub struct AutoCompoundManager {
+    config: StakingRewardConfig,
+}
+
+impl AutoCompoundManager {
+    pub fn new(config: StakingRewardConfig) -> Self {
+        Self { config }
+    }
+
+    /// Calculate optimal compound frequency based on fee structure
+    pub fn calculate_optimal_frequency(
+        &self,
+        stake_amount: u64,
+        fee_percent: f64,
+        total_epochs: u64,
+        uptime: f64,
+    ) -> u64 {
+        let apy = self.config.base_apy;
+        let epoch_rate = apy / (365 * 288);
+
+        let mut best_freq = 1;
+        let mut best_value = 0.0;
+
+        // Test frequencies from 1 (continuous) to 2880 (monthly)
+        for freq in [1, 6, 12, 24, 48, 72, 144, 288, 576, 1152, 2880].iter() {
+            let freq = *freq as u64;
+            if freq > total_epochs {
+                continue;
+            }
+
+            // Simulate compounding at this frequency
+            let mut stake = stake_amount as f64;
+            let mut total_fees = 0.0;
+
+            let epochs_per_period = freq;
+            let periods = total_epochs / epochs_per_period;
+
+            for _ in 0..periods {
+                // Earn rewards over the period
+                let period_reward = stake * epoch_rate * epochs_per_period as f64;
+                stake += period_reward;
+
+                // Pay fee on compounding
+                let fee = period_reward * fee_percent / 100.0;
+                stake -= fee;
+                total_fees += fee;
+            }
+
+            // Calculate effective value (stake minus fees)
+            let effective_value = stake;
+
+            if effective_value > best_value {
+                best_value = effective_value;
+                best_freq = freq;
+            }
+        }
+
+        best_freq
+    }
+
+    /// Calculate compound APY after fees
+    pub fn calculate_compound_apy(&self, base_apy: f64, fee_percent: f64, frequency: u64) -> f64 {
+        // Effective APY = base APY * (1 - fee%)^(epochs_per_year / compound_frequency)
+        let epochs_per_year = 365 * 288;
+        let compounds_per_year = epochs_per_year as f64 / frequency as f64;
+        let effective_apy = base_apy * (1.0 - fee_percent / 100.0).powf(compounds_per_year);
+        effective_apy
+    }
+
+    /// Generate compound schedule for a given time period
+    pub fn generate_compound_schedule(
+        &self,
+        start_epoch: u64,
+        end_epoch: u64,
+        frequency: u64,
+    ) -> Vec<u64> {
+        let mut epochs: Vec<u64> = Vec::new();
+        let mut next_compound = start_epoch + frequency;
+
+        while next_compound <= end_epoch {
+            epochs.push(next_compound);
+            next_compound += frequency;
+        }
+
+        epochs
+    }
+
+    /// Estimate total rewards with auto-compounding
+    pub fn estimate_total_rewards(
+        &self,
+        stake_amount: u64,
+        epochs: u64,
+        compound_freq: u64,
+        fee_percent: f64,
+        uptime: f64,
+        epochs_staked: u64,
+    ) -> (u64, u64, f64) {
+        let calculator = RewardCalculator::new(self.config.clone());
+        let apy = calculator.calculate_effective_apy(uptime, epochs_staked);
+        let epoch_rate = apy / (365 * 288);
+
+        let mut stake = stake_amount as f64;
+        let mut total_fees = 0.0;
+
+        // Simulate compounding periods
+        let periods = epochs / compound_freq;
+        for _ in 0..periods {
+            // Earn rewards
+            let period_reward = stake * epoch_rate * compound_freq as f64;
+            stake += period_reward;
+
+            // Pay fee
+            let fee = period_reward * fee_percent / 100.0;
+            stake -= fee;
+            total_fees += fee;
+        }
+
+        let final_stake = stake as u64;
+        let total_rewards = final_stake.saturating_sub(stake_amount);
+        let effective_apy = ((final_stake as f64 / stake_amount as f64 - 1.0) / epochs as f64 * (365 * 288) * 100.0);
+
+        (total_rewards, total_fees as u64, effective_apy)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -352,5 +532,122 @@ mod tests {
         // Base APY with low uptime and new staker
         let base_apy = calculator.calculate_effective_apy(90.0, 50);
         assert!((base_apy - 0.12).abs() < 0.001); // 12% base
+    }
+}
+
+// ============================================================================
+// AUTO-COMPOUND TESTS - Sprint 60
+// ============================================================================
+
+#[cfg(test)]
+mod auto_compound_tests {
+    use super::*;
+
+    #[test]
+    fn test_auto_compound_config_defaults() {
+        let config = AutoCompoundConfig::default();
+        assert!(!config.enabled);
+        assert_eq!(config.frequency_epochs, 288);
+        assert_eq!(config.fee_percent, 0.1);
+        assert_eq!(config.reinvest_ratio, 1.0);
+    }
+
+    #[test]
+    fn test_should_compound() {
+        let mut config = AutoCompoundConfig::default();
+        config.enabled = true;
+        config.frequency_epochs = 288;
+
+        // Should not compound yet
+        assert!(!config.should_compound(100));
+
+        // After 288 epochs, should compound
+        config.last_compound_epoch = 100;
+        assert!(config.should_compound(389)); // 100 + 289
+    }
+
+    #[test]
+    fn test_calculate_fee() {
+        let config = AutoCompoundConfig::default();
+
+        // 0.1% of 1000 = 1
+        let fee = config.calculate_fee(1000);
+        assert_eq!(fee, 1);
+    }
+
+    #[test]
+    fn test_net_reward() {
+        let config = AutoCompoundConfig::default();
+
+        // 1000 rewards with 0.1% fee = 999 net, 1 fee
+        let (net, fee) = config.net_reward(1000);
+        assert_eq!(net, 999);
+        assert_eq!(fee, 1);
+    }
+
+    #[test]
+    fn test_optimal_frequency() {
+        let config = StakingRewardConfig::default();
+        let manager = AutoCompoundManager::new(config);
+
+        // Find optimal frequency for 100 AETH over 1 year with 0.1% fee
+        let optimal = manager.calculate_optimal_frequency(
+            100_000_000, // 100 AETH
+            0.1,
+            365 * 288,   // 1 year
+            96.0,
+        );
+
+        println!("Optimal frequency: {} epochs", optimal);
+        assert!(optimal >= 1);
+    }
+
+    #[test]
+    fn test_compound_apy() {
+        let config = StakingRewardConfig::default();
+        let manager = AutoCompoundManager::new(config);
+
+        // Daily compounding (288 epochs) with 0.1% fee
+        let effective_apy = manager.calculate_compound_apy(0.12, 0.1, 288);
+        println!("Effective APY with daily compound: {:.4}%", effective_apy * 100.0);
+        assert!(effective_apy < 0.12); // Should be less than base APY due to fees
+        assert!(effective_apy > 0.11); // But not drastically less
+    }
+
+    #[test]
+    fn test_compound_schedule() {
+        let config = StakingRewardConfig::default();
+        let manager = AutoCompoundManager::new(config);
+
+        // Generate daily compound schedule for 1 week
+        let schedule = manager.generate_compound_schedule(0, 288 * 7, 288);
+
+        assert_eq!(schedule.len(), 7);
+        assert_eq!(schedule[0], 288);
+        assert_eq!(schedule[6], 288 * 7);
+    }
+
+    #[test]
+    fn test_estimate_total_rewards() {
+        let config = StakingRewardConfig::default();
+        let manager = AutoCompoundManager::new(config);
+
+        // 100 AETH, 30 days, daily compound, 0.1% fee, 96% uptime
+        let (rewards, fees, effective_apy) = manager.estimate_total_rewards(
+            100_000_000, // 100 AETH
+            288 * 30,    // 30 days
+            288,         // daily compound
+            0.1,
+            96.0,
+            100,         // epochs staked
+        );
+
+        println!("30-day estimated rewards: {}", rewards);
+        println!("Total fees: {}", fees);
+        println!("Effective APY: {:.4}%", effective_apy);
+
+        assert!(rewards > 0);
+        assert!(fees > 0);
+        assert!(effective_apy > 0);
     }
 }
