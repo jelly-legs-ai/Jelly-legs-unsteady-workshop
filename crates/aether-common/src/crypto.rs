@@ -22,7 +22,7 @@ pub fn verify_ed25519(
     public_key: &[u8; 32],
 ) -> Result<bool, Box<dyn std::error::Error>> {
     let pubkey = PublicKey::from_bytes(public_key)?;
-    let sig = Signature::from_bytes(signature)?;
+    let sig = Signature::from_bytes(signature);
     Ok(pubkey.verify(message, &sig).is_ok())
 }
 

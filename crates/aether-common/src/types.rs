@@ -3,20 +3,54 @@
 use serde::{Deserialize, Serialize};
 use borsh::{BorshSerialize, BorshDeserialize};
 
+/// Wrapper for 64-byte signatures with manual serde support
+/// (serde derive doesn't support arrays > 32 bytes)
+#[derive(Clone, Copy, PartialEq, Eq, Hash, BorshSerialize, BorshDeserialize)]
+pub struct SignatureBytes(pub [u8; 64]);
+
+impl SignatureBytes {
+    pub fn new(bytes: [u8; 64]) -> Self {
+        Self(bytes)
+    }
+    pub fn as_slice(&self) -> &[u8; 64] {
+        &self.0
+    }
+}
+
+impl std::fmt::Debug for SignatureBytes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SignatureBytes({:.8}...)", hex::encode(&self.0[..8]))
+    }
+}
+
+impl Serialize for SignatureBytes {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&hex::encode(self.0))
+    }
+}
+
+impl<'de> Deserialize<'de> for SignatureBytes {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let hex_str = <String as serde::Deserialize>::deserialize(deserializer)?;
+        let bytes = hex::decode(hex_str)
+            .map_err(|e| serde::de::Error::custom(format!("hex decode error: {}", e)))?;
+        let bytes: [u8; 64] = bytes.try_into().map_err(|_| {
+            serde::de::Error::custom("expected exactly 64 bytes")
+        })?;
+        Ok(SignatureBytes(bytes))
+    }
+}
+
 /// AI Priority Lane for transaction ordering
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 #[repr(u8)]
 pub enum AIPriorityLane {
-    /// Critical lane - AI governance decisions, emergency ops
     Critical = 0,
-    /// High lane - AI agent transactions, MEV protection
     High = 1,
-    /// Standard lane - Regular user transactions
     Standard = 2,
 }
 
 impl AIPriorityLane {
-    /// Get the multiplier for this lane
     pub fn multiplier(&self) -> u64 {
         match self {
             AIPriorityLane::Critical => 10,
@@ -24,12 +58,10 @@ impl AIPriorityLane {
             AIPriorityLane::Standard => 1,
         }
     }
-
-    /// Get the minimum priority fee for this lane
     pub fn min_priority_fee(&self) -> u64 {
         match self {
-            AIPriorityLane::Critical => 1_000_000, // 0.001 AETH
-            AIPriorityLane::High => 500_000,       // 0.0005 AETH
+            AIPriorityLane::Critical => 1_000_000,
+            AIPriorityLane::High => 500_000,
             AIPriorityLane::Standard => 0,
         }
     }
@@ -45,30 +77,22 @@ impl Default for AIPriorityLane {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 #[repr(u8)]
 pub enum ValidatorTier {
-    /// AI Validator - Full AI capabilities
     AI = 0,
-    /// Standard Validator - Block production, validation
     Standard = 1,
-    /// Light Validator - Vote verification only
     Light = 2,
 }
 
 impl ValidatorTier {
-    /// Get the reward multiplier for this tier
     pub fn reward_multiplier(&self) -> f64 {
         match self {
-            ValidatorTier::AI => 1.25,      // 25% bonus
+            ValidatorTier::AI => 1.25,
             ValidatorTier::Standard => 1.0,
-            ValidatorTier::Light => 0.5,    // 50% of base
+            ValidatorTier::Light => 0.5,
         }
     }
-
-    /// Check if validator can produce blocks
     pub fn can_produce_blocks(&self) -> bool {
         matches!(self, ValidatorTier::AI | ValidatorTier::Standard)
     }
-
-    /// Check if validator has AI capabilities
     pub fn has_ai_capabilities(&self) -> bool {
         matches!(self, ValidatorTier::AI)
     }
@@ -83,13 +107,10 @@ impl Default for ValidatorTier {
 /// Transaction metadata with AI priority
 #[derive(Debug, Clone, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct AITransactionMeta {
-    /// Priority lane for this transaction
     pub lane: AIPriorityLane,
-    /// AI oracle signature (if validated by AI)
-    pub ai_signature: Option<[u8; 64]>, // Ed25519 signature
-    /// Compute units requested
+    #[serde(skip)]
+    pub ai_signature: Option<SignatureBytes>,
     pub compute_units: u64,
-    /// Priority fee paid
     pub priority_fee: u64,
 }
 
@@ -98,7 +119,7 @@ impl Default for AITransactionMeta {
         Self {
             lane: AIPriorityLane::Standard,
             ai_signature: None,
-            compute_units: 200_000, // Default compute limit
+            compute_units: 200_000,
             priority_fee: 0,
         }
     }
@@ -107,25 +128,20 @@ impl Default for AITransactionMeta {
 /// Proposal types for governance
 #[derive(Debug, Clone, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub enum ProposalType {
-    /// Protocol upgrade proposal
     ProtocolUpgrade { bytecode_hash: [u8; 32] },
-    /// Parameter change proposal
     ParameterChange { param: String, value: u64 },
-    /// Treasury spend proposal
     TreasurySpend { amount: u64, recipient: [u8; 32] },
-    /// Emergency action proposal
     EmergencyAction { instruction: Vec<u8> },
-    /// AI model update proposal
     AIModelUpdate { model_hash: [u8; 32] },
 }
 
 /// Vote decision for governance
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
-#[repr(u8)]
+#[repr(i8)]
 pub enum VoteDecision {
-    Against = 0,
+    Against = -1,
     For = 1,
-    Abstain = 2,
+    Abstain = 0,
 }
 
 /// Proposal status
@@ -143,39 +159,27 @@ pub enum ProposalStatus {
 /// AI vote data structure
 #[derive(Debug, Clone, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct AIVoteData {
-    /// Individual AI oracle votes
     pub votes: Vec<AIVote>,
-    /// Consensus score (0.0 - 1.0)
     pub consensus_score: f64,
-    /// AI confidence metric
     pub confidence: f64,
 }
 
 /// Individual AI vote
 #[derive(Debug, Clone, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct AIVote {
-    /// Oracle public key
     pub oracle: [u8; 32],
-    /// Decision
     pub decision: VoteDecision,
-    /// Oracle weight
     pub weight: f64,
-    /// Confidence in decision
     pub confidence: f64,
-    /// Signature over vote
-    pub signature: [u8; 64],
+    pub signature: SignatureBytes,
 }
 
 /// Tokenomics configuration
 #[derive(Debug, Clone, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct TokenomicsConfig {
-    /// Total supply
     pub total_supply: u64,
-    /// Current circulating supply
     pub circulating_supply: u64,
-    /// Inflation rate (basis points, e.g., 450 = 4.5%)
     pub inflation_rate_bps: u64,
-    /// Burn rate (basis points of fees)
     pub burn_rate_bps: u64,
 }
 
@@ -184,8 +188,8 @@ impl Default for TokenomicsConfig {
         Self {
             total_supply: crate::TOTAL_SUPPLY_AETH,
             circulating_supply: 0,
-            inflation_rate_bps: 450, // 4.5% initial
-            burn_rate_bps: 5000,     // 50% of fees
+            inflation_rate_bps: 450,
+            burn_rate_bps: 5000,
         }
     }
 }

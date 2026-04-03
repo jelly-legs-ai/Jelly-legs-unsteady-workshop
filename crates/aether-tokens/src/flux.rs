@@ -52,9 +52,10 @@ pub struct FluxToken {
 impl FluxToken {
     /// Create a new FLUX token instance
     pub fn new(config: FluxConfig) -> Self {
+        let initial_supply = config.initial_supply;
         Self {
             config,
-            total_supply: config.initial_supply,
+            total_supply: initial_supply,
             balances: std::collections::HashMap::new(),
             allowances: std::collections::HashMap::new(),
             last_inflation_mint: utils::now(),
@@ -165,7 +166,8 @@ impl FluxToken {
         let inflation_amount = (self.total_supply as f64 * self.config.inflation_bps as f64 / 10000.0 * elapsed_years) as u64;
         
         if inflation_amount > 0 {
-            self.mint(&self.config.mining_rewards_address, inflation_amount)?;
+            let reward_addr = self.config.mining_rewards_address;
+            self.mint(&reward_addr, inflation_amount)?;
             self.last_inflation_mint = now;
         }
         

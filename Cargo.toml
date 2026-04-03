@@ -56,7 +56,7 @@ reqwest = { version = "0.12", features = ["json"] }
 # Cryptography
 sha2 = "0.10"
 blake3 = "1.5"
-ed25519-dalek = { version = "2.1", default-features = false, features = ["std", "serde"] }
+ed25519-dalek = { version = "2.1", default-features = false, features = ["std", "serde", "rand_core"] }
 
 # P2P
 libp2p = { version = "0.55", features = ["tokio", "tcp", "dns", "noise", "yamux", "gossipsub", "mdns", "kad"] }
