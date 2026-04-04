@@ -155,7 +155,7 @@ const COMMANDS = {
     handler: sdkCommand,
   },
   wallet: {
-    description: 'Wallet management — create, import, list, default',
+    description: 'Wallet management — create, import, list, default, connect',
     handler: () => {
       const { walletCommand } = require('./commands/wallet');
       walletCommand();

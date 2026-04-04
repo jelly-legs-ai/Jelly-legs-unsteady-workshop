@@ -12,6 +12,8 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const readline = require('readline');
+const crypto = require('crypto');
+const { execSync } = require('child_process');
 const bip39 = require('bip39');
 const nacl = require('tweetnacl');
 const bs58 = require('bs58').default;
@@ -105,6 +107,104 @@ function formatAddress(publicKey) {
 }
 
 // ---------------------------------------------------------------------------
+// Session management helpers
+// ---------------------------------------------------------------------------
+
+const CLI_VERSION = '1.0.3';
+
+function getSessionsDir() {
+  return path.join(getAetherDir(), 'sessions');
+}
+
+function ensureSessionsDir() {
+  const sd = getSessionsDir();
+  if (!fs.existsSync(sd)) fs.mkdirSync(sd, { recursive: true });
+}
+
+/** Generate a UUID v4 session token */
+function generateSessionToken() {
+  return crypto.randomUUID();
+}
+
+/** Save a new session file to ~/.aether/sessions/<token>.json */
+function saveSession(token, wallet_address, expires_in_minutes = 10) {
+  ensureSessionsDir();
+  const now = new Date();
+  const expires_at = new Date(now.getTime() + expires_in_minutes * 60 * 1000);
+  const session = {
+    wallet_address,
+    created_at: now.toISOString(),
+    expires_at: expires_at.toISOString(),
+    verified: false,
+    cli_version: CLI_VERSION,
+  };
+  fs.writeFileSync(
+    path.join(getSessionsDir(), `${token}.json`),
+    JSON.stringify(session, null, 2)
+  );
+  return session;
+}
+
+/** Load a session file, or return null if missing/expired */
+function getSession(token) {
+  const fp = path.join(getSessionsDir(), `${token}.json`);
+  if (!fs.existsSync(fp)) return null;
+  try {
+    const session = JSON.parse(fs.readFileSync(fp, 'utf8'));
+    // Check expiry
+    if (new Date(session.expires_at) < new Date()) {
+      return null;
+    }
+    return session;
+  } catch {
+    return null;
+  }
+}
+
+/** Mark a session as verified (called by external verification flow) */
+function markSessionVerified(token) {
+  const fp = path.join(getSessionsDir(), `${token}.json`);
+  if (!fs.existsSync(fp)) return false;
+  try {
+    const session = JSON.parse(fs.readFileSync(fp, 'utf8'));
+    session.verified = true;
+    fs.writeFileSync(fp, JSON.stringify(session, null, 2));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Delete a session file */
+function deleteSession(token) {
+  const fp = path.join(getSessionsDir(), `${token}.json`);
+  if (fs.existsSync(fp)) {
+    fs.unlinkSync(fp);
+  }
+}
+
+/** Poll until session is verified or timeout expires */
+function pollForVerification(token, timeout_ms = 600000) {
+  const interval_ms = 2000;
+  const max_retries = Math.floor(timeout_ms / interval_ms);
+
+  for (let i = 0; i < max_retries; i++) {
+    const session = getSession(token);
+    if (session && session.verified) {
+      return { verified: true, session };
+    }
+    // Check if session expired
+    if (!session) {
+      return { verified: false, reason: 'expired' };
+    }
+    // Sleep for interval
+    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+    sleep(interval_ms);
+  }
+  return { verified: false, reason: 'timeout' };
+}
+
+// ---------------------------------------------------------------------------
 // Wallet file helpers
 // ---------------------------------------------------------------------------
 
@@ -151,6 +251,154 @@ async function askMnemonic(rl, questionText) {
   console.log(`${C.dim}Enter your ${C.bright}12 or 24${C.reset}${C.dim}-word mnemonic phrase, one space-separated line:${C.reset}`);
   const raw = await question(rl, `  > ${C.reset}`);
   return raw.trim().toLowerCase();
+}
+
+// ---------------------------------------------------------------------------
+// Session management helpers
+// ---------------------------------------------------------------------------
+
+function getSessionsDir() {
+  return path.join(getAetherDir(), 'sessions');
+}
+
+function sessionFilePath(token) {
+  return path.join(getSessionsDir(), `${token}.json`);
+}
+
+/**
+ * Generate a UUID v4 session token
+ */
+function generateSessionToken() {
+  return crypto.randomUUID();
+}
+
+/**
+ * Save session to ~/.aether/sessions/<uuid>.json
+ */
+function saveSession(token, wallet_address, expires_in_minutes = 10) {
+  const sessionsDir = getSessionsDir();
+  if (!fs.existsSync(sessionsDir)) {
+    fs.mkdirSync(sessionsDir, { recursive: true });
+  }
+  
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + expires_in_minutes * 60 * 1000);
+  
+  const sessionData = {
+    wallet_address: wallet_address,
+    created_at: now.toISOString(),
+    expires_at: expiresAt.toISOString(),
+    verified: false,
+    cli_version: '1.0.3',
+  };
+  
+  fs.writeFileSync(sessionFilePath(token), JSON.stringify(sessionData, null, 2));
+  return sessionData;
+}
+
+/**
+ * Load session from file, returns null if not found
+ */
+function getSession(token) {
+  const fp = sessionFilePath(token);
+  if (!fs.existsSync(fp)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(fp, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Mark session as verified
+ */
+function markSessionVerified(token) {
+  const session = getSession(token);
+  if (!session) return false;
+  session.verified = true;
+  fs.writeFileSync(sessionFilePath(token), JSON.stringify(session, null, 2));
+  return true;
+}
+
+/**
+ * Delete session file
+ */
+function deleteSession(token) {
+  const fp = sessionFilePath(token);
+  if (fs.existsSync(fp)) {
+    fs.unlinkSync(fp);
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Check if session has expired
+ */
+function isSessionExpired(session) {
+  if (!session || !session.expires_at) return true;
+  return new Date(session.expires_at) < new Date();
+}
+
+/**
+ * Poll for verification until verified=true or expired
+ * Returns { verified: boolean, session: object|null }
+ */
+async function pollForVerification(token, timeout_ms = 600000) {
+  const startTime = Date.now();
+  const pollInterval = 2000; // 2 seconds
+  
+  while (Date.now() - startTime < timeout_ms) {
+    const session = getSession(token);
+    
+    if (!session) {
+      // Session file was deleted (possibly by website after verification)
+      return { verified: false, session: null };
+    }
+    
+    if (isSessionExpired(session)) {
+      return { verified: false, session };
+    }
+    
+    if (session.verified === true) {
+      return { verified: true, session };
+    }
+    
+    // Wait before next poll
+    await new Promise(resolve => setTimeout(resolve, pollInterval));
+  }
+  
+  // Timeout reached
+  return { verified: false, session: getSession(token) };
+}
+
+/**
+ * Get the site URL from env var or default
+ */
+function getSiteUrl() {
+  return process.env.AETHER_SITE_URL || 'https://jelly-legs-ai.github.io';
+}
+
+/**
+ * Open URL in default browser (cross-platform)
+ */
+function openBrowser(url) {
+  const platform = os.platform();
+  try {
+    if (platform === 'win32') {
+      execSync(`start "" "${url}"`, { shell: 'cmd' });
+    } else if (platform === 'darwin') {
+      execSync(`open "${url}"`);
+    } else {
+      execSync(`xdg-open "${url}"`);
+    }
+    return true;
+  } catch (e) {
+    console.log(`${C.yellow}⚠ Could not open browser automatically.${C.reset}`);
+    console.log(`${C.dim}  Please open this URL manually:${C.reset}`);
+    console.log(`  ${C.cyan}${url}${C.reset}\n`);
+    return false;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -371,6 +619,99 @@ async function defaultWallet(rl) {
 }
 
 // ---------------------------------------------------------------------------
+// CONNECT WALLET (session token + browser verification)
+// ---------------------------------------------------------------------------
+
+async function connectWallet(rl) {
+  console.log(`\n${C.bright}${C.cyan}── Wallet Connection ─────────────────────────────────────${C.reset}\n`);
+
+  // Get wallet address (default or specified via --address)
+  const args = process.argv.slice(4);
+  let targetAddress = null;
+  
+  const addrIndex = args.indexOf('--address');
+  if (addrIndex !== -1 && args[addrIndex + 1]) {
+    targetAddress = args[addrIndex + 1];
+  }
+  
+  // If no address specified, use default wallet
+  if (!targetAddress) {
+    const cfg = loadConfig();
+    targetAddress = cfg.defaultWallet;
+  }
+  
+  if (!targetAddress) {
+    console.log(`  ${C.red}✗ No wallet specified and no default wallet set.${C.reset}`);
+    console.log(`  ${C.dim}Create a wallet first:${C.reset} ${C.cyan}aether wallet create${C.reset}`);
+    console.log(`  ${C.dim}Or specify:${C.reset} ${C.cyan}aether wallet connect --address ATH...${C.reset}\n`);
+    return;
+  }
+  
+  // Verify wallet exists
+  const wallet = loadWallet(targetAddress);
+  if (!wallet) {
+    console.log(`  ${C.red}✗ Wallet not found:${C.reset} ${targetAddress}`);
+    console.log(`  ${C.dim}Run:${C.reset} ${C.cyan}aether wallet list${C.reset} ${C.dim}to see available wallets.${C.reset}\n`);
+    return;
+  }
+  
+  console.log(`  ${C.green}✓ Using wallet:${C.reset} ${C.bright}${targetAddress}${C.reset}\n`);
+  
+  // Generate session token
+  const token = generateSessionToken();
+  console.log(`  ${C.dim}Session token:${C.reset} ${token}`);
+  
+  // Save session
+  saveSession(token, targetAddress, 10);
+  console.log(`  ${C.green}✓ Session created (expires in 10 minutes)${C.reset}\n`);
+  
+  // Build verification URL
+  const siteUrl = getSiteUrl();
+  const verifyUrl = `${siteUrl}/wallet/verify?token=${token}&address=${encodeURIComponent(targetAddress)}`;
+  
+  console.log(`  ${C.dim}Opening verification page:${C.reset}`);
+  console.log(`  ${C.cyan}${verifyUrl}${C.reset}\n`);
+  
+  // Open browser
+  openBrowser(verifyUrl);
+  
+  // Start polling for verification
+  console.log(`  ${C.dim}Waiting for verification...${C.reset}`);
+  console.log(`  ${C.dim}(Press Ctrl+C to cancel)${C.reset}\n`);
+  
+  // Show progress dots while polling
+  const pollPromise = pollForVerification(token, 600000);
+  
+  // Animated dots
+  const dotInterval = setInterval(() => {
+    process.stdout.write('.');
+  }, 1000);
+  
+  const result = await pollPromise;
+  clearInterval(dotInterval);
+  console.log('\n');
+  
+  if (result.verified) {
+    console.log(`  ${C.green}${C.bright}✓ Wallet verified successfully!${C.reset}\n`);
+    console.log(`  ${C.green}★${C.reset} ${C.bright}${targetAddress}${C.reset}`);
+    console.log(`  ${C.dim}Session complete. You can now use this wallet for transactions.${C.reset}\n`);
+    
+    // Clean up session file
+    deleteSession(token);
+    process.exit(0);
+  } else {
+    console.log(`  ${C.red}✗ Session expired or verification failed.${C.reset}\n`);
+    console.log(`  ${C.dim}The verification page must be completed within 10 minutes.${C.reset}`);
+    console.log(`  ${C.dim}Run again to create a new session:${C.reset}\n`);
+    console.log(`    ${C.cyan}aether wallet connect${C.reset}\n`);
+    
+    // Clean up expired session
+    deleteSession(token);
+    process.exit(1);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main dispatcher
 // ---------------------------------------------------------------------------
 
@@ -394,6 +735,8 @@ async function walletCommand() {
       await importWallet(rl);
     } else if (subcmd === 'default') {
       await defaultWallet(rl);
+    } else if (subcmd === 'connect') {
+      await connectWallet(rl);
     } else {
       console.log(`\n  ${C.red}Unknown wallet subcommand:${C.reset} ${subcmd}`);
       console.log(`\n  Usage:`);
@@ -401,6 +744,7 @@ async function walletCommand() {
       console.log(`    ${C.cyan}aether wallet list${C.reset}     List all wallets`);
       console.log(`    ${C.cyan}aether wallet import${C.reset}   Import wallet from mnemonic`);
       console.log(`    ${C.cyan}aether wallet default${C.reset}  Show/set default wallet`);
+      console.log(`    ${C.cyan}aether wallet connect${C.reset}  Connect wallet to website (session token)`);
       console.log();
       process.exit(1);
     }
