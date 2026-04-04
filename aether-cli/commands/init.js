@@ -37,7 +37,11 @@ function createReadline() {
  * Ask a yes/no question
  */
 function askQuestion(rl, question, defaultValue = 'y') {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    if (rl.closed) {
+      reject(new Error('Readline interface closed'));
+      return;
+    }
     const suffix = defaultValue === 'y' ? ' [Y/n]' : ' [y/N]';
     rl.question(`${colors.cyan}${question}${suffix}: ${colors.reset}`, (answer) => {
       const normalized = answer.trim().toLowerCase();
@@ -208,25 +212,42 @@ async function checkPrerequisites(rl) {
 
 /**
  * Find the aether-validator binary (same logic as validator-start.js)
+ * Searches common locations based on OS and repo layout
  */
 function findValidatorBinary() {
   const platform = os.platform();
   const isWindows = platform === 'win32';
   const binaryName = isWindows ? 'aether-validator.exe' : 'aether-validator';
   
+  // Check common locations
   const locations = [
+    // Sibling repo: Jelly-legs-unsteady-workshop/target/debug/
     path.join(__dirname, '..', '..', 'Jelly-legs-unsteady-workshop', 'target', 'debug', binaryName),
     path.join(__dirname, '..', '..', 'Jelly-legs-unsteady-workshop', 'target', 'release', binaryName),
+    // Local build in aether-cli (if someone built here)
     path.join(__dirname, '..', 'target', 'debug', binaryName),
     path.join(__dirname, '..', 'target', 'release', binaryName),
+    // System PATH
+    'aether-validator' + (isWindows ? '.exe' : ''),
   ];
 
   for (const loc of locations) {
+    if (loc.startsWith('aether-validator')) {
+      // Check if it's in PATH
+      try {
+        const checkCmd = isWindows ? 'where' : 'which';
+        execSync(`${checkCmd} ${loc}`, { stdio: 'pipe' });
+        return { type: 'binary', path: loc, inPath: true };
+      } catch {
+        // Not in PATH, continue
+      }
+    }
     if (fs.existsSync(loc)) {
       return { type: 'binary', path: loc };
     }
   }
 
+  // Binary not found - offer to build it
   return { type: 'missing', path: null };
 }
 
@@ -246,6 +267,7 @@ function buildValidator() {
       shell: true,
     });
     
+    // Re-check for binary
     const result = findValidatorBinary();
     if (result.type === 'binary') {
       console.log(`  ${colors.green}✓ Build successful!${colors.reset}`);
@@ -262,25 +284,62 @@ function buildValidator() {
 
 /**
  * Run the validator binary with args
+ * Handles missing binary by offering to build it
  */
-function runValidatorBinary(args, options = {}) {
-  const result = findValidatorBinary();
+function runValidatorBinary(args, options = {}, rl = null) {
+  let result = findValidatorBinary();
   
+  // Handle missing binary
   if (result.type === 'missing') {
-    throw new Error('Validator binary not found. Run "cargo build --bin aether-validator" first.');
+    console.log(`  ${colors.yellow}⚠ Validator binary not found${colors.reset}`);
+    console.log(`  ${colors.cyan}Would you like to build it now? (cargo build --bin aether-validator)${colors.reset}`);
+    console.log();
+    
+    if (rl) {
+      return new Promise((resolve, reject) => {
+        rl.question('  Build now? [Y/n] ', (answer) => {
+          if (answer.toLowerCase() === 'n' || answer.toLowerCase() === 'no') {
+            reject(new Error('User declined to build validator'));
+            return;
+          }
+          
+          const built = buildValidator();
+          if (!built) {
+            reject(new Error('Build failed'));
+            return;
+          }
+          result = built;
+          resolve(runValidatorBinaryInternal(result, args, options));
+        });
+      });
+    } else {
+      // No readline available - try to build automatically
+      const built = buildValidator();
+      if (!built) {
+        throw new Error('Validator binary not found and build failed');
+      }
+      result = built;
+    }
   }
   
+  return runValidatorBinaryInternal(result, args, options);
+}
+
+/**
+ * Internal function to run the validator binary (assumes binary exists)
+ */
+function runValidatorBinaryInternal({ type, path: binaryPath, inPath }, args, options = {}) {
   const workspaceRoot = path.join(__dirname, '..', '..');
   const repoPath = path.join(workspaceRoot, 'Jelly-legs-unsteady-workshop');
   
-  execSync(`"${result.path}" ${args.join(' ')}`, {
-    cwd: repoPath,
+  const result = execSync(`"${binaryPath}" ${args.join(' ')}`, {
+    cwd: inPath ? undefined : repoPath,
     stdio: 'inherit',
     shell: true,
     ...options,
   });
   
-  return result;
+  return { type, path: binaryPath, inPath };
 }
 
 /**
@@ -294,8 +353,14 @@ async function generateIdentity(rl) {
   // Check if identity already exists
   if (fs.existsSync(identityPath)) {
     printWarning('Validator identity already exists at validator-identity.json');
-    const regenerate = await askQuestion(rl, 'Regenerate identity?', 'n');
-    if (!regenerate) {
+    try {
+      const regenerate = await askQuestion(rl, 'Regenerate identity?', 'n');
+      if (!regenerate) {
+        printSuccess('Using existing identity');
+        return identityPath;
+      }
+    } catch (err) {
+      // Readline may have closed - skip regeneration prompt
       printSuccess('Using existing identity');
       return identityPath;
     }
@@ -329,18 +394,27 @@ async function connectTestnet(rl) {
   console.log('The validator will connect to the AETHER testnet.');
   console.log('Testnet uses aether-testnet-1 chain ID with reduced stake requirements.\n');
   
-  const startNow = await askQuestion(rl, 'Start validator now?', 'y');
-  
-  if (startNow) {
-    console.log('\nStarting validator in testnet mode...\n');
+  try {
+    const startNow = await askQuestion(rl, 'Start validator now?', 'y');
     
-    const validatorStart = require('./validator-start');
-    validatorStart.validatorStart();
-  } else {
-    console.log();
-    printSuccess('You can start the validator later with:');
-    console.log(`  ${colors.bright}aether-cli validator start --testnet${colors.reset}`);
+    if (startNow) {
+      console.log('\nStarting validator in testnet mode...\n');
+      
+      // Close readline before handing off to validator (it manages its own stdin)
+      rl.close();
+      
+      const validatorStart = require('./validator-start');
+      validatorStart.validatorStart();
+      return true;
+    }
+  } catch (err) {
+    // Readline closed or error - skip the prompt
+    console.log(`  ${colors.yellow}⚠ Skipping prompt (interactive mode unavailable)${colors.reset}`);
   }
+  
+  console.log();
+  printSuccess('You can start the validator later with:');
+  console.log(`  ${colors.bright}aether-cli validator start --testnet${colors.reset}`);
   
   return true;
 }
