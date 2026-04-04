@@ -77,10 +77,6 @@ enum Commands {
         #[arg(long)]
         testnet: bool,
 
-        /// Genesis file to load (JSON format)
-        #[arg(long)]
-        genesis: Option<PathBuf>,
-
         /// Bind address for RPC
         #[arg(long, default_value = "127.0.0.1:8899")]
         rpc_addr: String,
@@ -88,10 +84,6 @@ enum Commands {
         /// Bind address for P2P gossip
         #[arg(long, default_value = "0.0.0.0:8001")]
         p2p_addr: String,
-
-        /// Bootstrap node address (e.g. /ip4/127.0.0.1/tcp/8001)
-        #[arg(long)]
-        bootstrap: Option<String>,
 
         /// Identity keypair path
         #[arg(long)]
@@ -228,7 +220,7 @@ async fn main() -> anyhow::Result<()> {
 async fn run_validator(cli: Cli) -> anyhow::Result<()> {
     // Extract all values we need before any async moves
     let (testnet, genesis_path, rpc_addr, p2p_addr, bootstrap_addr, identity_path, _no_stake) = match &cli.command {
-        Commands::Start { testnet, genesis, rpc_addr, p2p_addr, bootstrap, identity, vote_account: _, no_stake } => {
+        Commands::Start { testnet, genesis, rpc_addr, p2p_addr, bootstrap, identity, vote_account: _, no_stake, .. } => {
             (testnet, genesis.clone(), rpc_addr.clone(), p2p_addr.clone(), bootstrap.clone(), identity.clone(), *no_stake)
         }
         _ => unreachable!(),
@@ -239,7 +231,7 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
     // Load genesis if provided
     let genesis_config = if let Some(ref path) = genesis_path {
         info!("Loading genesis from: {}", path.display());
-        Some(crate::genesis::load_genesis(path)?)
+        Some(crate::genesis::load_genesis_from_file(path)?)
     } else {
         info!("No genesis file provided, using internal genesis");
         None
@@ -274,7 +266,6 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
     std::fs::create_dir_all(&ledger_path)
         .context("Failed to create ledger directory")?;
 
-<<<<<<< HEAD
     // Initialize consensus - with or without genesis
     let validator_state = if let Some(genesis_path) = &genesis_path {
         let path = genesis_path.as_path();
@@ -462,7 +453,7 @@ async fn check_status(cli: Cli) -> anyhow::Result<()> {
 // =============================================================================
 
 async fn show_validators(cli: Cli) -> anyhow::Result<()> {
-    let rpc_url = match &cli.command {
+    let (rpc_url, json) = match &cli.command {
         Commands::ShowValidators { rpc_url, json } => (rpc_url.clone(), *json),
         _ => unreachable!(),
     };
@@ -471,7 +462,7 @@ async fn show_validators(cli: Cli) -> anyhow::Result<()> {
 
     let validators = client.get_validators().await?;
 
-    if rpc_url.1 || cli.json {
+    if json || cli.json {
         println!("{}", serde_json::to_string_pretty(&validators)?);
     } else {
         println!();
@@ -577,23 +568,16 @@ async fn create_vote_account(cli: Cli) -> anyhow::Result<()> {
 // =============================================================================
 
 async fn create_genesis(cli: Cli) -> anyhow::Result<()> {
-    let (out_path, chain_id, timestamp, bootstrap_validator, initial_balances) = match &cli.command {
+    let (out_path, chain_id, bootstrap_validator) = match &cli.command {
         Commands::CreateGenesis {
             out,
             chain_id,
-            timestamp,
+            timestamp: _,
             bootstrap_validator,
-            initial_balance,
-        } => (out.clone(), chain_id.clone(), *timestamp, bootstrap_validator.clone(), initial_balance.clone()),
+            initial_balance: _,
+        } => (out.clone(), chain_id.clone(), bootstrap_validator.clone()),
         _ => unreachable!(),
     };
-
-    let ts = timestamp.unwrap_or_else(|| {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i64
-    });
 
     // Load bootstrap validators
     let mut validators: Vec<GenesisValidator> = Vec::new();
@@ -603,7 +587,6 @@ async fn create_genesis(cli: Cli) -> anyhow::Result<()> {
             identity_pubkey: identity.pubkey(),
             stake: 10_000_000,
             commission: 10,
-            vote_pubkey: None,
         });
     }
 
@@ -614,7 +597,6 @@ async fn create_genesis(cli: Cli) -> anyhow::Result<()> {
             identity_pubkey: keypair.pubkey(),
             stake: 10_000_000,
             commission: 10,
-            vote_pubkey: None,
         });
         save_identity(
             &PathBuf::from("bootstrap-validator-identity.json"),
@@ -623,21 +605,12 @@ async fn create_genesis(cli: Cli) -> anyhow::Result<()> {
         println!("📝 Created default bootstrap validator identity");
     }
 
-    // Parse initial balances (format: pubkey=amount)
-    let mut balances: HashMap<String, u64> = HashMap::new();
-    for item in &initial_balances {
-        if let Some((pubkey, amount_str)) = item.split_once('=') {
-            if let Ok(amount) = amount_str.parse::<u64>() {
-                balances.insert(pubkey.to_string(), amount);
-            }
-        }
-    }
-
     // Create genesis config
-    let config = create_genesis_config(chain_id.clone(), ts, validators.clone(), balances);
+    let config = create_genesis_with(&chain_id, validators);
 
     // Write genesis JSON
-    write_genesis_config(&config, &out_path)?;
+    let json = serde_json::to_string_pretty(&config)?;
+    std::fs::write(&out_path, json)?;
 
     // Also write genesis.toml for compatibility
     let toml_path = PathBuf::from("genesis.toml");
@@ -650,26 +623,25 @@ chain_id = "{}"
 genesis_hash = "{}"
 timestamp = {}
 
-[poh]
-slot_time_ms = {}
-hashes_per_tick = {}
-
 [consensus]
-tower_finality = 12
-min_stake = 100
-target_stake = 1_000_000
+tower_finality = {}
+min_stake = {}
+target_stake = {}
 
 [rewards]
-epoch_duration = 432_000
-base_reward_rate = 6
+epoch_duration = {}
+base_reward_rate = {}
 
 [bootstrap_validators]
 "#,
         config.chain_id,
         config.genesis_hash,
-        config.genesis_timestamp,
-        config.poh_config.slot_time_ms,
-        config.poh_config.hashes_per_tick,
+        config.timestamp,
+        config.consensus.tower_finality,
+        config.consensus.min_stake,
+        config.consensus.target_stake,
+        config.rewards.epoch_duration,
+        config.rewards.base_reward_rate,
     );
     std::fs::write(&toml_path, toml_content)
         .context("Failed to write genesis.toml")?;
@@ -680,15 +652,13 @@ base_reward_rate = 6
     println!("  ╚════════════════════════════════════════════════════════════╝");
     println!();
     println!("  Chain ID:        {}", config.chain_id);
-    println!("  Timestamp:      {}", config.genesis_timestamp);
+    println!("  Timestamp:      {}", config.timestamp);
     println!("  Genesis Hash:   {}", config.genesis_hash);
     println!();
     println!("  Bootstrap Validators:");
-    for v in &validators {
+    for v in &config.bootstrap_validators {
         println!("    • {} (stake: {} AETH)", v.identity_pubkey, v.stake);
     }
-    println!();
-    println!("  Initial Balances: {} accounts", balances.len());
     println!();
     println!("  Saved to: {}", out_path.display());
     println!("  Also saved: {}", toml_path.display());

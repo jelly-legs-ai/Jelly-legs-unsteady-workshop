@@ -1,0 +1,22 @@
+{
+  "chain_id": "aether-testnet-1",
+  "timestamp": 1775264121,
+  "genesis_hash": "9NpgtdyZHn14MS1MereDwu2ydjYajpPWMZvAMciSAg6Y",
+  "bootstrap_validators": [
+    {
+      "identity_pubkey": "CSQLoeZ9FwGpsZr94MvnQGbufuR9ux4ZiXikMGFL8asK",
+      "stake": 10000000,
+      "commission": 10
+    }
+  ],
+  "consensus": {
+    "slot_time_ms": 400,
+    "tower_finality": 12,
+    "min_stake": 100,
+    "target_stake": 1000000
+  },
+  "rewards": {
+    "epoch_duration": 432000,
+    "base_reward_rate": 6
+  }
+}
