@@ -51,6 +51,20 @@ pub struct MiningRewardConfig {
     pub bonus_multipliers: BonusMultipliers, // Special bonus conditions
 }
 
+impl MiningRewardConfig {
+    /// Calculate network growth bonus based on miner count change
+    pub fn network_growth_bonus(&self, previous_miner_count: u64, current_miner_count: u64) -> f64 {
+        // When network grows, early miners earn more (network effect bonus)
+        if current_miner_count > previous_miner_count && previous_miner_count > 0 {
+            let growth_rate = (current_miner_count as f64 / previous_miner_count as f64) - 1.0;
+            // Cap at 25% bonus for 50%+ growth
+            (growth_rate * 0.5).min(0.25)
+        } else {
+            0.0
+        }
+    }
+}
+
 /// Bonus multipliers for special mining conditions
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BonusMultipliers {
