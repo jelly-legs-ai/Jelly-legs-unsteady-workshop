@@ -43,5 +43,9 @@
     "darwin",
     "win32"
   ],
-  "preferGlobal": true
+  "preferGlobal": true,
+  "dependencies": {
+    "bs58": "^6.0.0",
+    "tweetnacl": "^1.0.3"
+  }
 }

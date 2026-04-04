@@ -8,6 +8,8 @@
 const fs = require('fs');
 const path = require('path');
 const { spawn, execSync } = require('child_process');
+const nacl = require('tweetnacl');
+const bs58 = require('bs58').default;
 const readline = require('readline');
 const os = require('os');
 
@@ -211,72 +213,134 @@ async function checkPrerequisites(rl) {
 }
 
 /**
- * Find the aether-validator binary (same logic as validator-start.js)
- * Searches common locations based on OS and repo layout
+ * Find the aether-validator binary
+ * Searches in order:
+ *   1. JELLY_LEGS_ROOT env var (for CI/automated setups)
+ *   2. Current working directory (when running from repo clone)
+ *   3. Platform-specific default install locations
+ *   4. Sibling repo relative path (when aether-cli is in node_modules)
+ *   5. System PATH
  */
 function findValidatorBinary() {
   const platform = os.platform();
   const isWindows = platform === 'win32';
   const binaryName = isWindows ? 'aether-validator.exe' : 'aether-validator';
-  
-  // Check common locations
-  const locations = [
-    // Sibling repo: Jelly-legs-unsteady-workshop/target/debug/
-    path.join(__dirname, '..', '..', 'Jelly-legs-unsteady-workshop', 'target', 'debug', binaryName),
-    path.join(__dirname, '..', '..', 'Jelly-legs-unsteady-workshop', 'target', 'release', binaryName),
-    // Local build in aether-cli (if someone built here)
-    path.join(__dirname, '..', 'target', 'debug', binaryName),
-    path.join(__dirname, '..', 'target', 'release', binaryName),
-    // System PATH
-    'aether-validator' + (isWindows ? '.exe' : ''),
-  ];
+  const execExt = isWindows ? '.exe' : '';
 
-  for (const loc of locations) {
-    if (loc.startsWith('aether-validator')) {
-      // Check if it's in PATH
-      try {
-        const checkCmd = isWindows ? 'where' : 'which';
-        execSync(`${checkCmd} ${loc}`, { stdio: 'pipe' });
-        return { type: 'binary', path: loc, inPath: true };
-      } catch {
-        // Not in PATH, continue
-      }
-    }
-    if (fs.existsSync(loc)) {
-      return { type: 'binary', path: loc };
-    }
+  // Helper to check a location and return it if it exists
+  const tryPath = (loc) => {
+    try {
+      if (fs.existsSync(loc)) return { type: 'binary', path: loc };
+    } catch {}
+    return null;
+  };
+
+  // 1. JELLY_LEGS_ROOT env var
+  const jellyRoot = process.env.JELLY_LEGS_ROOT;
+  if (jellyRoot) {
+    const r = tryPath(path.join(jellyRoot, 'target', 'debug', binaryName))
+           || tryPath(path.join(jellyRoot, 'target', 'release', binaryName));
+    if (r) return r;
   }
 
-  // Binary not found - offer to build it
+  // 2. Current working directory
+  const cwd = process.cwd();
+  const r = tryPath(path.join(cwd, 'target', 'debug', binaryName))
+         || tryPath(path.join(cwd, 'target', 'release', binaryName))
+         || tryPath(path.join(cwd, binaryName));
+  if (r) return r;
+
+  // 3. Platform-specific locations
+  if (isWindows) {
+    const r2 = tryPath('C:\\Users\\' + (process.env.USERNAME || 'User') + '\\.jelly-legs\\aether-validator.exe')
+           || tryPath('C:\\jelly-legs\\aether-validator.exe');
+    if (r2) return r2;
+  } else {
+    const r2 = tryPath(path.join(os.homedir(), '.jelly-legs', 'aether-validator'))
+           || tryPath('/usr/local/bin/aether-validator')
+           || tryPath('/usr/bin/aether-validator');
+    if (r2) return r2;
+  }
+
+  // 4. Sibling repo path (when aether-cli is inside node_modules of jelly-legs repo)
+  const siblingRepo = path.join(__dirname, '..', '..', 'Jelly-legs-unsteady-workshop');
+  const r3 = tryPath(path.join(siblingRepo, 'target', 'debug', binaryName))
+         || tryPath(path.join(siblingRepo, 'target', 'release', binaryName));
+  if (r3) return r3;
+
+  // 5. Local aether-cli target
+  const r4 = tryPath(path.join(__dirname, '..', 'target', 'debug', binaryName))
+         || tryPath(path.join(__dirname, '..', 'target', 'release', binaryName));
+  if (r4) return r4;
+
+  // 6. System PATH
+  try {
+    const checkCmd = isWindows ? 'where' : 'which';
+    const out = execSync(`${checkCmd} aether-validator${execExt}`, { stdio: 'pipe' }).toString().trim();
+    const firstLine = out.split('\n')[0];
+    if (firstLine && fs.existsSync(firstLine)) return { type: 'binary', path: firstLine, inPath: true };
+  } catch {}
+
+  // Not found
   return { type: 'missing', path: null };
 }
 
 /**
  * Build the validator binary if missing
+ * Returns the found binary path on success, null on failure.
  */
 function buildValidator() {
-  const workspaceRoot = path.join(__dirname, '..', '..');
-  const repoPath = path.join(workspaceRoot, 'Jelly-legs-unsteady-workshop');
-  
+  // Find the repo root (where Cargo.toml lives)
+  const repoPath = path.join(__dirname, '..', '..', 'Jelly-legs-unsteady-workshop');
+  const altRepoPath = path.join(__dirname, '..', '..'); // fallback: aether-cli itself
+
+  // Pick whichever has a Cargo.toml
+  const cargoToml = path.join(repoPath, 'Cargo.toml');
+  const effectiveRepo = fs.existsSync(cargoToml) ? repoPath : altRepoPath;
+
+  // Use explicit cargo path on Windows
+  const platform = os.platform();
+  const isWindows = platform === 'win32';
+  let cargoCmd = 'cargo';
+  if (isWindows) {
+    const explicitCargo = 'C:\\Users\\RM_Ga\\.cargo\\bin\\cargo.exe';
+    if (fs.existsSync(explicitCargo)) cargoCmd = explicitCargo;
+  }
+
   console.log(`  ${colors.cyan}Building aether-validator...${colors.reset}`);
-  
+  if (isWindows) console.log(`  (using ${cargoCmd})`);
+
   try {
-    execSync('cargo build --bin aether-validator', {
-      cwd: repoPath,
+    execSync(`${cargoCmd} build --bin aether-validator`, {
+      cwd: effectiveRepo,
       stdio: 'inherit',
-      shell: true,
+      shell: false,   // don't rely on shell for path lookup
     });
-    
+
     // Re-check for binary
     const result = findValidatorBinary();
     if (result.type === 'binary') {
       console.log(`  ${colors.green}✓ Build successful!${colors.reset}`);
       return result;
     }
-    
+
     console.error(`  ${colors.red}✗ Build completed but binary not found${colors.reset}`);
     return null;
   } catch (err) {
+    // Fallback: try once more with shell enabled (handles PATH issues on some systems)
+    try {
+      console.log(`  ${colors.yellow}Retry with shell fallback...${colors.reset}`);
+      execSync(`${cargoCmd} build --bin aether-validator`, {
+        cwd: effectiveRepo,
+        stdio: 'inherit',
+        shell: true,
+      });
+      const result = findValidatorBinary();
+      if (result.type === 'binary') {
+        console.log(`  ${colors.green}✓ Build successful!${colors.reset}`);
+        return result;
+      }
+    } catch {}
     console.error(`  ${colors.red}✗ Build failed: ${err.message}${colors.reset}`);
     return null;
   }
@@ -343,13 +407,43 @@ function runValidatorBinaryInternal({ type, path: binaryPath, inPath }, args, op
 }
 
 /**
- * Generate validator identity
+ * Generate a new validator Ed25519 keypair using TweetNaCl (pure JS, no Rust needed)
+ * Compatible with the Rust keypair format:
+ *   Rust SigningKey::from_bytes expects 32-byte seed
+ *   TweetNaCl secretKey is 64 bytes: seed(32) || publicKey(32)
+ *   We encode only the 32-byte seed as bs58 to match the Rust format
  */
+function generateEd25519Identity(outPath, force = false) {
+  const identityFile = outPath || path.join(process.cwd(), 'validator-identity.json');
+
+  if (fs.existsSync(identityFile) && !force) {
+    throw new Error(`Identity file already exists at ${identityFile}. Use --force to overwrite.`);
+  }
+
+  // Generate a new Ed25519 keypair using TweetNaCl
+  const keyPair = nacl.sign.keyPair();
+
+  // TweetNaCl secretKey is 64 bytes: seed(32) || publicKey(32)
+  // Rust SigningKey::from_bytes expects the 32-byte seed only
+  const seed32 = keyPair.secretKey.slice(0, 32);
+
+  const secretBs58 = bs58.encode(seed32);
+  const publicBs58 = bs58.encode(keyPair.publicKey);
+
+  const identity = {
+    pubkey: publicBs58,
+    secret: secretBs58,
+  };
+
+  fs.writeFileSync(identityFile, JSON.stringify(identity, null, 2));
+  return { identityFile, publicKey: publicBs58 };
+}
+
 async function generateIdentity(rl, tier = 'full') {
   printStep(3, 5, 'Generating Validator Identity');
-  
+
   const identityPath = path.join(process.cwd(), 'validator-identity.json');
-  
+
   // Check if identity already exists
   if (fs.existsSync(identityPath)) {
     printWarning('Validator identity already exists at validator-identity.json');
@@ -365,24 +459,24 @@ async function generateIdentity(rl, tier = 'full') {
       return identityPath;
     }
   }
-  
-  console.log('\nGenerating new Ed25519 keypair...');
+
+  console.log('\nGenerating new Ed25519 keypair (pure JS)...');
   console.log(`${colors.dim}Tier: ${tier.toUpperCase()}${colors.reset}`);
-  
+
   try {
-    runValidatorBinary(['create-validator-identity', '--out', identityPath, '--force']);
-    printSuccess(`Identity saved to validator-identity.json`);
+    const { identityFile, publicKey } = generateEd25519Identity(identityPath, true);
+    printSuccess(`Identity saved to ${path.basename(identityFile)}`);
+    console.log(`  ${colors.dim}Public key: ${publicKey}${colors.reset}`);
   } catch (e) {
     printError(`Failed to create identity: ${e.message}`);
-    printWarning('You can create it manually later with:');
-    console.log(`  aether-validator create-validator-identity --out validator-identity.json`);
+    printWarning('You can create it manually with: node -e "const nacl=require(\'tweetnacl\');..."');
     process.exit(1);
   }
-  
+
   console.log();
   printWarning('IMPORTANT: Backup your validator-identity.json file!');
   printWarning('If you lose this file, you lose your validator status.');
-  
+
   return identityPath;
 }
 

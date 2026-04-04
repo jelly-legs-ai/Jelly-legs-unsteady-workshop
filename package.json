@@ -7,9 +7,9 @@
     "test": "echo \"Tests not implemented yet\""
   },
   "dependencies": {
+    "@jellylegsai/aether-validator-cli": "https://registry.npmjs.org/@jellylegsai/aether-validator-cli/-/aether-validator-cli-1.0.2.tgz",
     "@octokit/rest": "^20.0.2"
   },
-  "devDependencies": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop.git"
