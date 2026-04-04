@@ -345,8 +345,8 @@ function runValidatorBinaryInternal({ type, path: binaryPath, inPath }, args, op
 /**
  * Generate validator identity
  */
-async function generateIdentity(rl) {
-  printStep(2, 4, 'Generating Validator Identity');
+async function generateIdentity(rl, tier = 'full') {
+  printStep(3, 5, 'Generating Validator Identity');
   
   const identityPath = path.join(process.cwd(), 'validator-identity.json');
   
@@ -367,6 +367,7 @@ async function generateIdentity(rl) {
   }
   
   console.log('\nGenerating new Ed25519 keypair...');
+  console.log(`${colors.dim}Tier: ${tier.toUpperCase()}${colors.reset}`);
   
   try {
     runValidatorBinary(['create-validator-identity', '--out', identityPath, '--force']);
@@ -388,11 +389,13 @@ async function generateIdentity(rl) {
 /**
  * Connect to testnet
  */
-async function connectTestnet(rl) {
-  printStep(3, 4, 'Connecting to Testnet');
+async function connectTestnet(rl, tier = 'full') {
+  printStep(4, 5, 'Connecting to Testnet');
   
   console.log('The validator will connect to the AETHER testnet.');
   console.log('Testnet uses aether-testnet-1 chain ID with reduced stake requirements.\n');
+  console.log(`${colors.dim}Selected tier: ${tier.toUpperCase()}${colors.reset}`);
+  console.log();
   
   try {
     const startNow = await askQuestion(rl, 'Start validator now?', 'y');
@@ -404,7 +407,7 @@ async function connectTestnet(rl) {
       rl.close();
       
       const validatorStart = require('./validator-start');
-      validatorStart.validatorStart();
+      validatorStart.validatorStart(tier);
       return true;
     }
   } catch (err) {
@@ -414,7 +417,7 @@ async function connectTestnet(rl) {
   
   console.log();
   printSuccess('You can start the validator later with:');
-  console.log(`  ${colors.bright}aether-cli validator start --testnet${colors.reset}`);
+  console.log(`  ${colors.bright}aether-cli validator start --testnet --tier ${tier}${colors.reset}`);
   
   return true;
 }
@@ -422,13 +425,14 @@ async function connectTestnet(rl) {
 /**
  * Print completion summary
  */
-async function printSummary() {
-  printStep(4, 4, 'Setup Complete');
+async function printSummary(tierBadge = '[FULL]') {
+  printStep(5, 5, 'Setup Complete');
   
   console.log(`
   ${colors.green}╔═══════════════════════════════════════════════════════════════╗
   ${colors.green}║                                                               ║
   ${colors.green}║   ${colors.bright}✅ VALIDATOR SETUP COMPLETE${colors.reset}${colors.green}                               ║
+  ${colors.green}║   ${colors.dim}Tier: ${tierBadge}${colors.reset}${colors.green}                                              ║
   ${colors.green}║                                                               ║
   ${colors.green}╚═══════════════════════════════════════════════════════════════╝${colors.reset}
   `);
@@ -500,6 +504,66 @@ function getDiskSpace() {
 }
 
 /**
+ * Select validator tier with hardware summary
+ */
+async function selectTier(rl) {
+  printStep(2, 5, 'Select Validator Tier');
+  
+  console.log('Choose your validator tier based on your hardware and stake:');
+  console.log();
+  console.log(`  ${colors.bright}[1] FULL${colors.reset}    - 10K AETH stake, 8 cores, 32GB RAM, 512GB SSD`);
+  console.log(`               Full consensus weight (1.0x), block production, voting rights`);
+  console.log();
+  console.log(`  ${colors.bright}[2] LITE${colors.reset}    - 1K AETH stake, 4 cores, 8GB RAM, 100GB SSD`);
+  console.log(`               Stake-based weight (stake/10000), voting only, no solo blocks`);
+  console.log();
+  console.log(`  ${colors.bright}[3] OBSERVER${colors.reset} - 0 AETH stake, 2 cores, 4GB RAM, 50GB disk`);
+  console.log(`               Relay-only, earns FLUX via data relay, no voting rights`);
+  console.log();
+  
+  const tierChoice = await askValue(rl, 'Select tier [1/2/3]', '1');
+  
+  let selectedTier = 'full';
+  let tierBadge = '[FULL]';
+  
+  switch (tierChoice.trim()) {
+    case '1':
+      selectedTier = 'full';
+      tierBadge = '[FULL]';
+      console.log(`\n  ${colors.green}✓ Selected: FULL Validator${colors.reset}`);
+      console.log(`  ${colors.dim}Hardware: 8+ cores, 32GB+ RAM, 512GB+ SSD, 100Mbps+${colors.reset}`);
+      console.log(`  ${colors.dim}Stake: 10,000 AETH minimum${colors.reset}`);
+      console.log(`  ${colors.dim}Consensus: 1.0x weight, full voting + block production${colors.reset}`);
+      break;
+    case '2':
+      selectedTier = 'lite';
+      tierBadge = '[LITE]';
+      console.log(`\n  ${colors.green}✓ Selected: LITE Validator${colors.reset}`);
+      console.log(`  ${colors.dim}Hardware: 4+ cores, 8GB+ RAM, 100GB+ SSD, 25Mbps+${colors.reset}`);
+      console.log(`  ${colors.dim}Stake: 1,000 AETH minimum${colors.reset}`);
+      console.log(`  ${colors.dim}Consensus: stake/10000 weight, voting only${colors.reset}`);
+      break;
+    case '3':
+      selectedTier = 'observer';
+      tierBadge = '[OBSERVER]';
+      console.log(`\n  ${colors.green}✓ Selected: OBSERVER Node${colors.reset}`);
+      console.log(`  ${colors.dim}Hardware: 2+ cores, 4GB+ RAM, 50GB+ disk, 10Mbps+${colors.reset}`);
+      console.log(`  ${colors.dim}Stake: 0 AETH (relay-only)${colors.reset}`);
+      console.log(`  ${colors.dim}Earnings: FLUX via data relay (0.000001 FLUX/byte)${colors.reset}`);
+      break;
+    default:
+      selectedTier = 'full';
+      tierBadge = '[FULL]';
+      console.log(`\n  ${colors.yellow}⚠ Invalid choice, defaulting to FULL${colors.reset}`);
+  }
+  
+  console.log();
+  printWarning('You can change tiers later by re-running init with a different selection.');
+  
+  return { tier: selectedTier, badge: tierBadge };
+}
+
+/**
  * Main init command
  */
 async function init() {
@@ -509,9 +573,10 @@ async function init() {
   
   try {
     await checkPrerequisites(rl);
-    await generateIdentity(rl);
-    await connectTestnet(rl);
-    await printSummary();
+    const { tier, badge } = await selectTier(rl);
+    await generateIdentity(rl, tier);
+    await connectTestnet(rl, tier);
+    await printSummary(badge);
   } finally {
     rl.close();
   }

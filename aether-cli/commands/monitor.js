@@ -178,6 +178,21 @@ async function getPeerCount() {
 }
 
 /**
+ * Fetch validator info (tier, consensus weight) from /v1/validator/info
+ */
+async function getValidatorInfo() {
+  try {
+    const result = await httpRequest('/v1/validator/info');
+    return {
+      tier: result.tier || null,
+      consensusWeight: result.consensus_weight || null,
+    };
+  } catch (e) {
+    return { tier: null, consensusWeight: null };
+  }
+}
+
+/**
  * Fetch TPS from /v1/slot (calculate from slot progression)
  */
 async function getTPS() {
@@ -237,13 +252,14 @@ function renderDashboard(data, error = null) {
   process.stdout.write(cursor.hide);
 
   // Header
+  const tierBadge = data.tier ? `[${data.tier.toUpperCase()}]` : '';
   const header = `
 ${colors.bright}${colors.cyan}
 ╔═══════════════════════════════════════════════════════════════╗
 ║                                                               ║
 ║   ${colors.bright}AETHER NETWORK MONITOR${colors.reset}${colors.cyan}                                  ║
 ║   ${colors.dim}Real-time Validator Dashboard${colors.reset}${colors.cyan}                             ║
-║                                                               ║
+║   ${colors.bright}${tierBadge}${colors.reset}${colors.cyan}                                              ║
 ╚═══════════════════════════════════════════════════════════════╝${colors.reset}
   `.trim();
 
@@ -260,13 +276,17 @@ ${colors.bright}${colors.cyan}
     return;
   }
 
-  const { slot, blockHeight, peerCount, tps, health } = data;
+  const { slot, blockHeight, peerCount, tps, health, tier, consensusWeight } = data;
 
   // Status indicator
   const statusIcon = health ? `${colors.green}●${colors.reset}` : `${colors.red}●${colors.reset}`;
   const statusText = health ? `${colors.green}HEALTHY${colors.reset}` : `${colors.red}UNHEALTHY${colors.reset}`;
 
   console.log(`  ${statusIcon} Status: ${statusText}`);
+  if (tier) {
+    const weightDisplay = consensusWeight !== undefined ? ` | Weight: ${consensusWeight.toFixed(2)}x` : '';
+    console.log(`  ${colors.dim}Tier: ${tier.toUpperCase()}${weightDisplay}${colors.reset}`);
+  }
   console.log();
 
   // Metrics grid
@@ -299,17 +319,24 @@ ${colors.bright}${colors.cyan}
  */
 async function monitorLoop() {
   let iteration = 0;
+  let validatorInfo = null;
 
   while (true) {
     try {
       const startTime = Date.now();
 
       // Fetch all metrics in parallel
-      const [slot, blockHeight, peerCountResult] = await Promise.all([
+      const [slot, blockHeight, peerCountResult, validatorInfoResult] = await Promise.all([
         getSlot().catch(() => null),
         getBlockHeight().catch(() => null),
         getPeerCount().catch(() => 0),
+        getValidatorInfo().catch(() => ({ tier: null, consensusWeight: null })),
       ]);
+
+      // Cache validator info (doesn't change often)
+      if (validatorInfoResult.tier) {
+        validatorInfo = validatorInfoResult;
+      }
 
       const currentTime = Date.now();
 
@@ -330,6 +357,8 @@ async function monitorLoop() {
         peerCount: peerCountResult || 0,
         tps,
         health,
+        tier: validatorInfo?.tier,
+        consensusWeight: validatorInfo?.consensusWeight,
       });
 
       iteration++;

@@ -74,6 +74,7 @@ function parseArgs() {
     p2pAddr: '0.0.0.0:8001',
     identity: null,
     verbose: false,
+    tier: 'full',
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -90,6 +91,9 @@ function parseArgs() {
       case '--identity':
         options.identity = args[++i];
         break;
+      case '--tier':
+        options.tier = args[++i];
+        break;
       case '-v':
       case '--verbose':
         options.verbose = true;
@@ -104,17 +108,21 @@ function parseArgs() {
  * Print startup banner
  */
 function printBanner(options) {
+  const tierBadge = options.tier.toUpperCase();
+  const tierLabel = `[${tierBadge}]`;
+  
   console.log(`
 ${colors.cyan}╔═══════════════════════════════════════════════════════════════╗
 ${colors.cyan}║                                                               ║
 ${colors.cyan}║   ${colors.bright}AETHER VALIDATOR${colors.reset}${colors.cyan}                                          ║
 ${colors.cyan}║   ${colors.bright}Starting Validator Node${colors.reset}${colors.cyan}                                 ║
-${colors.cyan}║                                                               ║
+${colors.cyan}║   ${colors.bright}${tierLabel}${colors.reset}${colors.cyan}                                              ║
 ${colors.cyan}╚═══════════════════════════════════════════════════════════════╝${colors.reset}
   `);
   
   console.log(`  ${colors.bright}Network:${colors.reset}`);
   console.log(`    Mode:      ${options.testnet ? colors.yellow + 'TESTNET' : colors.green + 'MAINNET (not implemented)'}`);
+  console.log(`    Tier:      ${tierLabel}`);
   console.log(`    RPC:       http://${options.rpcAddr}`);
   console.log(`    P2P:       ${options.p2pAddr}`);
   if (options.identity) {
@@ -158,8 +166,14 @@ function buildValidator() {
 /**
  * Main validator start command
  */
-function validatorStart() {
+function validatorStart(overrideTier = null) {
   const options = parseArgs();
+  
+  // Allow tier override from init.js
+  if (overrideTier) {
+    options.tier = overrideTier;
+  }
+  
   let result = findValidatorBinary();
 
   printBanner(options);
@@ -207,6 +221,7 @@ function startValidatorProcess({ type, path: binaryPath, inPath }, options) {
   if (options.testnet) {
     validatorArgs.push('--testnet');
   }
+  validatorArgs.push('--tier', options.tier);
   validatorArgs.push('--rpc-addr', options.rpcAddr);
   validatorArgs.push('--p2p-addr', options.p2pAddr);
   if (options.identity) {
