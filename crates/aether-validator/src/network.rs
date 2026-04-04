@@ -110,10 +110,11 @@ pub struct HandshakeMessage {
     pub chain_id: String,
     pub peer_id: String,
     pub timestamp: i64,
+    pub current_slot: u64,
 }
 
 impl HandshakeMessage {
-    pub fn new(genesis_hash: &str, chain_id: &str, peer_id: &str) -> Self {
+    pub fn new(genesis_hash: &str, chain_id: &str, peer_id: &str, current_slot: u64) -> Self {
         Self {
             protocol_version: "aether/1.0".to_string(),
             genesis_hash: genesis_hash.to_string(),
@@ -123,6 +124,7 @@ impl HandshakeMessage {
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_secs() as i64,
+            current_slot,
         }
     }
 
@@ -239,12 +241,21 @@ async fn handle_inbound_stream(
         &state.get_genesis_hash(),
         &state.get_chain_id(),
         &our_peer_id,
+        state.current_slot(),
     );
     let response = our_handshake.to_json();
     stream.write_all(response.as_bytes()).await?;
     stream.flush().await?;
 
-    info!("Inbound handshake successful with peer: {}", peer_handshake.peer_id);
+    // Slot sync: if we're ahead of the inbound peer, they should sync to us
+    let our_slot = state.current_slot();
+    if our_slot > peer_handshake.current_slot {
+        info!("Inbound peer at slot {}, our slot is {} - peer should sync", 
+            peer_handshake.current_slot, our_slot);
+        // Note: we can't force them to sync, but we log it for debugging
+    }
+    
+    info!("Inbound handshake successful with peer: {} (slot: {})", peer_handshake.peer_id, peer_handshake.current_slot);
     network_state.add_peer(peer_handshake.peer_id.clone()).await;
     state.add_peer(peer_handshake.peer_id);
 
@@ -290,6 +301,7 @@ pub async fn start_p2p_with_bootstrap(
                 &state.get_genesis_hash(),
                 &state.get_chain_id(),
                 &peer_id_str,
+                state.current_slot(),
             );
             
             let handshake_json = handshake.to_json();
@@ -313,8 +325,19 @@ pub async fn start_p2p_with_bootstrap(
                             return Ok(());
                         }
                         
-                        info!("Handshake successful with peer: {} (chain: {})", 
-                            peer_handshake.peer_id, peer_handshake.chain_id);
+                        // Slot sync: if bootstrap is ahead, sync our slot to theirs
+                        let our_slot = state.current_slot();
+                        if peer_handshake.current_slot > our_slot {
+                            info!("Slot sync: bootstrap at slot {}, we were at {} - syncing forward", 
+                                peer_handshake.current_slot, our_slot);
+                            state.sync_slot(peer_handshake.current_slot);
+                        } else {
+                            debug!("Slot sync: bootstrap at slot {}, we are at {} - no sync needed", 
+                                peer_handshake.current_slot, our_slot);
+                        }
+                        
+                        info!("Handshake successful with peer: {} (chain: {}, slot: {})", 
+                            peer_handshake.peer_id, peer_handshake.chain_id, peer_handshake.current_slot);
                         network_state.add_peer(peer_handshake.peer_id.clone()).await;
                         state.add_peer(peer_handshake.peer_id);
                         connected = true;

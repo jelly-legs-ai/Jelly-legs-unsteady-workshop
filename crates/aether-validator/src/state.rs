@@ -8,6 +8,7 @@ use crate::{BlockProduction, EpochInfo, ValidatorInfo, VoteAccountInfo};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
+use tracing::info;
 
 /// Thread-safe validator state shared across all async tasks
 #[derive(Clone)]
@@ -230,6 +231,12 @@ impl ValidatorState {
         self.inner.current_slot.store(slot, Ordering::Relaxed);
         self.inner.slot_index.store(slot % 432_000, Ordering::Relaxed);
         self.inner.epoch.store(slot / 432_000, Ordering::Relaxed);
+    }
+
+    /// Sync slot to a peer's slot (used when joining network behind)
+    pub fn sync_slot(&self, peer_slot: u64) {
+        info!("Syncing slot from {} to {}", self.current_slot(), peer_slot);
+        self.set_current_slot(peer_slot);
     }
 
     pub fn set_block_hash(&self, hash: String) {
