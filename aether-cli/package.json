@@ -1,6 +1,6 @@
 {
   "name": "@jellylegsai/aether-validator-cli",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "AeTHer Validator CLI — tiered validators (Full/Lite/Observer), system checks, onboarding, and node management",
   "main": "index.js",
   "bin": {
@@ -49,3 +49,4 @@
     "tweetnacl": "^1.0.3"
   }
 }
+
