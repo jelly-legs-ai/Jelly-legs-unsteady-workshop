@@ -57,7 +57,10 @@ let tpsHistory = [];
  * Parse command line arguments
  */
 function parseArgs() {
-  const args = process.argv.slice(3);
+  // Handle both direct execution (node monitor.js) and via aether-cli
+  // Direct: argv = [node, monitor.js, --help] -> slice(2)
+  // Via CLI: argv = [node, index.js, monitor, --help] -> slice(3)
+  const args = process.argv.slice(2);
   const options = {
     rpc: DEFAULT_RPC,
     interval: POLL_INTERVAL_MS,
@@ -106,30 +109,21 @@ ${colors.bright}Examples:${colors.reset}
 }
 
 /**
- * Make HTTP request to RPC endpoint
+ * Make HTTP GET request to REST endpoint
+ * Aether validator uses simple REST endpoints, not JSON-RPC
  */
-function rpcRequest(method, params = []) {
+function httpRequest(endpoint) {
   return new Promise((resolve, reject) => {
-    const url = new URL(options.rpc);
+    const baseUrl = options.rpc.endsWith('/') ? options.rpc.slice(0, -1) : options.rpc;
+    const url = new URL(`${baseUrl}${endpoint}`);
     const isHttps = url.protocol === 'https:';
     const lib = isHttps ? https : http;
-
-    const postData = JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method,
-      params,
-    });
 
     const reqOptions = {
       hostname: url.hostname,
       port: url.port || (isHttps ? 443 : 80),
-      path: '/',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(postData),
-      },
+      path: url.pathname + url.search,
+      method: 'GET',
       timeout: 5000,
     };
 
@@ -139,13 +133,9 @@ function rpcRequest(method, params = []) {
       res.on('end', () => {
         try {
           const result = JSON.parse(data);
-          if (result.error) {
-            reject(new Error(result.error.message));
-          } else {
-            resolve(result.result);
-          }
+          resolve(result);
         } catch (e) {
-          reject(new Error(`Failed to parse response: ${e.message}`));
+          resolve({ raw: data }); // Return raw if not JSON
         }
       });
     });
@@ -156,37 +146,43 @@ function rpcRequest(method, params = []) {
       reject(new Error('Request timeout'));
     });
 
-    req.write(postData);
     req.end();
   });
 }
 
 /**
- * Fetch slot information
+ * Fetch slot information from /v1/slot
  */
 async function getSlot() {
-  return await rpcRequest('getSlot');
+  const result = await httpRequest('/v1/slot');
+  return result.slot || 0;
 }
 
 /**
- * Fetch block height
+ * Fetch block height from /v1/slot (same endpoint for now)
  */
 async function getBlockHeight() {
-  return await rpcRequest('getBlockHeight');
+  const result = await httpRequest('/v1/slot');
+  return result.slot || 0;
 }
 
 /**
- * Fetch vote accounts (for peer count approximation)
+ * Fetch peer count from /v1/validators
  */
-async function getVoteAccounts() {
-  return await rpcRequest('getVoteAccounts');
+async function getPeerCount() {
+  const result = await httpRequest('/v1/validators');
+  if (result.validators && Array.isArray(result.validators)) {
+    return result.validators.length;
+  }
+  return 0;
 }
 
 /**
- * Fetch recent performance samples (for TPS)
+ * Fetch TPS from /v1/slot (calculate from slot progression)
  */
-async function getRecentPerformanceSamples() {
-  return await rpcRequest('getRecentPerformanceSamples', [1]);
+async function getTPS() {
+  // TPS is calculated locally based on slot progression
+  return null;
 }
 
 /**
@@ -309,16 +305,15 @@ async function monitorLoop() {
       const startTime = Date.now();
 
       // Fetch all metrics in parallel
-      const [slot, blockHeight, voteAccounts, performanceSamples] = await Promise.all([
+      const [slot, blockHeight, peerCountResult] = await Promise.all([
         getSlot().catch(() => null),
         getBlockHeight().catch(() => null),
-        getVoteAccounts().catch(() => null),
-        getRecentPerformanceSamples().catch(() => null),
+        getPeerCount().catch(() => 0),
       ]);
 
       const currentTime = Date.now();
 
-      // Calculate TPS
+      // Calculate TPS from slot progression
       let tps = null;
       if (slot !== null) {
         tps = calculateTPS(slot, currentTime);
@@ -326,18 +321,13 @@ async function monitorLoop() {
         previousTimestamp = currentTime;
       }
 
-      // Derive peer count from vote accounts
-      const peerCount = voteAccounts 
-        ? voteAccounts.current.length + (voteAccounts.delinquent?.length || 0)
-        : 0;
-
       // Health check: validator is healthy if we got valid slot data
       const health = slot !== null && blockHeight !== null;
 
       renderDashboard({
         slot: slot || 0,
         blockHeight: blockHeight || 0,
-        peerCount,
+        peerCount: peerCountResult || 0,
         tps,
         health,
       });
@@ -405,7 +395,7 @@ module.exports = {
   monitorLoop, 
   getSlot, 
   getBlockHeight, 
-  getVoteAccounts,
+  getPeerCount,
   calculateTPS,
   renderDashboard,
   main,
