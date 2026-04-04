@@ -1,15 +1,18 @@
-Sprint 87: Enhanced Staking Optimizer with Live Data Integration
+Sprint 87 Update:
 
-**Frontend (Aether-Chain):**
-- Enhanced staking-optimizer page with parallel API fetching from 3 endpoints
-- Added live blockchain epoch ticker that increments in real-time
-- Dynamic APY calculation from active pool data
-- Integrated blockchain-stats, staking-optimizer, and staking-v2 APIs
+**Backend (Contracts - Jelly-legs-unsteady-workshop):**
+- Enhanced `calculate_compound_mining_bonus` with VIP tier scaling
+- Added 4-tier staking system: 0-10K (linear), 10K-100K (linear), 100K-1M (exponential), 1M+ (VIP exponential)
+- VIP tier now gives 1.5x-2.0x bonus for large FLUX stakers
+- Enhanced uptime bonuses: 15% at 99%, 8% at 95%, 3% at 90%
+- Added comprehensive tests for all staking tiers
+- Total bonus capped at 3.0x to prevent abuse
 
-**Backend API:**
-- Added new `/api/staking-v2?action=summary` endpoint
-- Returns comprehensive network stats: totalStaked, totalStakers, avgStakePerUser, stakingApr
-- Includes pool performance metrics and recent activity feed
-- Weighted APY calculation across all active pools
+**Frontend (Website - Aether-Chain):**
+- Expanded agent generator from 30 to 50 agent names
+- Added 30 unique icons for visual variety
+- Expanded categories from 8 to 16 (added oracle, governance, defi, nft, gaming, social, storage, compute)
+- Expanded capabilities from 36 to 64 (added DeFi, governance, NFT, gaming, storage, ML capabilities)
+- Better mock data for agent marketplace and leaderboard
 
-**Status:** Complete - Pushed to main
+Both repos pushed successfully.

@@ -1,14 +1,12 @@
-**Sprint Update - Backend Merge Fix + Realistic Staking Values**
+**Sprint 26 Update** 🦑
 
-**Backend (Jelly-legs-unsteady-workshop):**
-- Resolved merge conflicts in `main.rs` and `testnet-local.ps1`
-- Unified p2p_addr parameter (replaced port with full address)
-- Added chain_id support in NetworkState initialization
-- Fixed P2P handle naming (gossip_handle vs p2p_handle)
+**Frontend - Added ProtocolStats component:**
+- New animated statistics section with 6 key metrics (TVL, Validators, TPS, Block Time, Active Agents, Chain Height)
+- Each stat card features animated counters that trigger on scroll into view
+- Cosmic-themed design with gradient glows and pulse animations
+- Live clock and status indicators
+- Fully responsive grid layout
 
-**Frontend (Aether-Chain):**
-- Updated staking-rewards API: Default FLUX price changed from $0.05 → **$2.47** (realistic)
-- Updated base APY from 12% → **14%** for more realistic yield calculations
-- Added DEFAULT_FLUX_PRICE constant to FluxStakingDashboard for consistency
-
-Both repos updated and pushed successfully.
+**Repo:** aether-site
+**Commit:** 4d78c4f
+**Status:** ✅ Pushed to main

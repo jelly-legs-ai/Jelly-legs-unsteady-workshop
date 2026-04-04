@@ -81,11 +81,11 @@ _Last updated: 2026-04-01_
 **Blockers:** GitHub push failed (account suspended), missing GITHUB_TOKEN for comments  
 **Files:** `contracts/mining_rewards.rs`, `SPRINT-22-MINING-REWARDS.md`
 
-### Sprint 23 (Next - Planned)
-- Replit DB integration for subscriptions
-- API routes for user/agent management
-- FLUX/ATH token contracts
-- Staking contract structure
+### Sprint 23 (In Progress — 2026-04-04)
+**Status:** Active (git log shows unified_staking.rs commit 04cc786)
+**Confirmed Work:** unified_staking.rs with get_pool accessors and calculate_pending_rewards
+**Next priorities:** Replit DB, API routes, FLUX/ATH token contracts, staking contract structure
+**Note:** Sprint 22 completed but MEMORY.md wasn't updated to reflect completion until 2026-04-04
 
 ---
 
@@ -96,16 +96,17 @@ _Last updated: 2026-04-01_
 - **Deploy:** GitHub Pages (dashboard), GitHub Actions (automation)
 - **AI Models:** Ollama (local), OpenRouter (cloud failover)
 - **Blockchain:** Solana fork + custom AetherFlow consensus
+- **Rust toolchain:** C:\Users\RM_Ga\.cargo\bin (rustc 1.94.1) — cargo not in exec PATH by default
 
 ---
 
 ## Open Issues / Blockers
 
-1. **GitHub Push Blocked** - account suspended, need to resolve before deploying
-2. **Missing GITHUB_TOKEN** - can't post PR comments automatically
-3. **Sprint 23 Not Started** - next priorities: Replit DB, API routes, FLUX/ATH tokens
-4. **Week 2 Audit Commissioning** - due ~2026-04-05 (needs budget $40-80K)
-5. **Validator Commitments** - need ≥10 founding validators confirmed
+1. **GitHub Push Issues** — Account status unclear (2026-04-03 noted suspended, but 2026-04-04 commits are appearing — possible intermittent or agent worker using different auth)
+2. **Week 2 Audit Due ~2026-04-05** — TOMORROW. Autonomous approach available: scope doc + Immunefi setup + cargo audit CI. Budget $1-2K if freelance review needed.
+3. **Missing GITHUB_TOKEN** — Can't post PR comments automatically (may be resolved — 2026-04-04 commits are succeeding)
+4. **Validator Commitments** — Need ≥10 founding validators confirmed (10K AETH each, 2x bootstrap rewards)
+5. **Sprint 23 Status Unclear** — Git log shows unified_staking.rs work (2026-04-04, commit 04cc786). MEMORY.md may be stale on Sprint 23. Verify actual sprint state.
 
 ---
 
@@ -136,4 +137,4 @@ C:\Users\RM_Ga\.openclaw\workspace\
 
 ---
 
-*Memory system established 2026-03-28, updated 2026-04-01*
+*Memory system established 2026-03-28, last full review 2026-04-04*
