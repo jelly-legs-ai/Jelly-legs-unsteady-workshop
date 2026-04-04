@@ -135,7 +135,7 @@ impl HandshakeMessage {
     }
 }
 
-/// Start the P2P network
+/// Start the P2P network (seed/genesis node with inbound listener)
 pub async fn start_p2p(
     listen_addr: &str,
     state: ValidatorState,
@@ -151,14 +151,102 @@ pub async fn start_p2p(
     info!("P2P node started with peer ID: {}", peer_id);
     info!("Subscribed to topics: {}, {}", BLOCKS_TOPIC, SLOT_TOPIC);
 
+    // Spawn inbound connection listener
+    let listen_parsed = listen_addr.to_string();
+    let state_clone = state.clone();
+    let ns_clone = network_state.clone();
+    tokio::spawn(async move {
+        if let Err(e) = run_inbound_listener(&listen_parsed, state_clone, ns_clone).await {
+            warn!("Inbound P2P listener error: {}", e);
+        }
+    });
+
     // Start gossip heartbeat for slot announcements (spawned, not blocking)
     let network_state_clone = network_state.clone();
-    
     tokio::spawn(async move {
         run_slot_gossip_loop(state, network_state_clone, peer_id_str).await;
     });
 
     // Return immediately — the gossip loop runs in background
+    Ok(())
+}
+
+/// Run TCP listener for inbound peer connections (seed/genesis node)
+async fn run_inbound_listener(
+    listen_addr: &str,
+    state: ValidatorState,
+    network_state: Arc<NetworkState>,
+) -> anyhow::Result<()> {
+    use tokio::net::TcpListener;
+
+    let listener = TcpListener::bind(listen_addr).await?;
+    info!("Inbound P2P listener started on {}", listen_addr);
+
+    loop {
+        match listener.accept().await {
+            Ok((stream, addr)) => {
+                info!("Inbound connection from: {}", addr);
+                let state_clone = state.clone();
+                let ns_clone = network_state.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = handle_inbound_stream(stream, state_clone, ns_clone).await {
+                        debug!("Inbound stream error: {}", e);
+                    }
+                });
+            }
+            Err(e) => {
+                warn!("Failed to accept inbound connection: {}", e);
+            }
+        }
+    }
+}
+
+/// Handle an inbound peer connection (respond to their handshake)
+async fn handle_inbound_stream(
+    stream: tokio::net::TcpStream,
+    state: ValidatorState,
+    network_state: Arc<NetworkState>,
+) -> anyhow::Result<()> {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let mut stream = stream;
+    let mut buf = vec![0u8; 1024];
+
+    // Read their handshake
+    let n = stream.read(&mut buf).await?;
+    if n == 0 {
+        return Ok(());
+    }
+
+    let peer_handshake = match HandshakeMessage::from_json(&String::from_utf8_lossy(&buf[..n])) {
+        Some(h) => h,
+        None => {
+            debug!("Invalid handshake from inbound peer");
+            return Ok(());
+        }
+    };
+
+    // Verify chain ID / genesis hash
+    if !network_state.verify_peer_chain(&peer_handshake.genesis_hash, &peer_handshake.chain_id).await {
+        warn!("Inbound peer chain mismatch - rejecting: {}", peer_handshake.peer_id);
+        return Ok(());
+    }
+
+    // Send our handshake back
+    let keypair = Keypair::generate_ed25519();
+    let our_peer_id = PeerId::from(keypair.public()).to_base58();
+    let our_handshake = HandshakeMessage::new(
+        &state.get_genesis_hash(),
+        &state.get_chain_id(),
+        &our_peer_id,
+    );
+    let response = our_handshake.to_json();
+    stream.write_all(response.as_bytes()).await?;
+    stream.flush().await?;
+
+    info!("Inbound handshake successful with peer: {}", peer_handshake.peer_id);
+    network_state.add_peer(peer_handshake.peer_id).await;
+
     Ok(())
 }
 
@@ -247,6 +335,16 @@ pub async fn start_p2p_with_bootstrap(
     } else {
         info!("Bootstrap connection established, peer count: 1");
     }
+
+    // Spawn inbound connection listener so other peers can connect to us
+    let listen_parsed = listen_addr.to_string();
+    let state_clone = state.clone();
+    let ns_clone = network_state.clone();
+    tokio::spawn(async move {
+        if let Err(e) = run_inbound_listener(&listen_parsed, state_clone, ns_clone).await {
+            warn!("Inbound P2P listener error: {}", e);
+        }
+    });
 
     // Start gossip heartbeat (spawned, not blocking)
     let network_state_clone = network_state.clone();

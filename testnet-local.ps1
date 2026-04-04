@@ -33,6 +33,8 @@ $RPC_1 = "127.0.0.1:8899"
 $RPC_2 = "127.0.0.1:8898"
 $P2P_1 = "127.0.0.1:8001"
 $P2P_2 = "127.0.0.1:8002"
+$PID_FILE_1 = "$BASE_DIR\testnet\node1.pid"
+$PID_FILE_2 = "$BASE_DIR\testnet\node2.pid"
 
 # ─── Colours ─────────────────────────────────────────────────────────────────
 function Write-Step { param($m) Write-Host "[TESTNET] $m" -ForegroundColor Cyan }
@@ -43,16 +45,20 @@ function Write-Info { param($m) Write-Host "[ INFO ] $m" -ForegroundColor Gray }
 # ─── Cleanup ─────────────────────────────────────────────────────────────────
 function Stop-Testnet {
     Write-Step "Stopping testnet..."
-    $jobs = @("node1", "node2")
-    foreach ($j in $jobs) {
-        $port = if ($j -eq "node1") { "8899" } else { "8898" }
-        $proc = Get-Process -Name "aether-validator" -ErrorAction SilentlyContinue |
-            Where-Object { $_.CommandLine -match $port }
-        if ($proc) {
-            $proc | Stop-Process -Force -ErrorAction SilentlyContinue
-        }
+    # Kill by PID files first
+    if (Test-Path $PID_FILE_1) {
+        $p1 = (Get-Content $PID_FILE_1).Trim()
+        $proc1 = Get-Process -Id $p1 -ErrorAction SilentlyContinue
+        if ($proc1) { $proc1 | Stop-Process -Force -ErrorAction SilentlyContinue }
+        Remove-Item $PID_FILE_1 -Force -ErrorAction SilentlyContinue
     }
-    # Kill any remaining
+    if (Test-Path $PID_FILE_2) {
+        $p2 = (Get-Content $PID_FILE_2).Trim()
+        $proc2 = Get-Process -Id $p2 -ErrorAction SilentlyContinue
+        if ($proc2) { $proc2 | Stop-Process -Force -ErrorAction SilentlyContinue }
+        Remove-Item $PID_FILE_2 -Force -ErrorAction SilentlyContinue
+    }
+    # Fallback: kill any remaining aether-validator processes
     Get-Process -Name "aether-validator" -ErrorAction SilentlyContinue |
         Stop-Process -Force -ErrorAction SilentlyContinue
     Write-Info "Cleanup done."
@@ -149,6 +155,7 @@ if ($node1Proc.HasExited) {
     Get-Content $node1Log -ErrorAction SilentlyContinue | Select-Object -First 20
     Stop-Testnet; exit 1
 }
+$node1Proc.Id.ToString() | Set-Content $PID_FILE_1 -NoNewline -Force
 Write-Pass "Node 1 running (PID: $($node1Proc.Id))"
 
 # ─── Node 2 (Bootstrap from Node 1) ──────────────────────────────────────────
@@ -178,6 +185,7 @@ if ($node2Proc.HasExited) {
     Get-Content $node2Log -ErrorAction SilentlyContinue | Select-Object -First 20
     Stop-Testnet; exit 1
 }
+$node2Proc.Id.ToString() | Set-Content $PID_FILE_2 -NoNewline -Force
 Write-Pass "Node 2 running (PID: $($node2Proc.Id))"
 
 # ─── Wait for slot progress ─────────────────────────────────────────────────
@@ -187,8 +195,8 @@ Start-Sleep -Seconds 15
 # ─── RPC checks ──────────────────────────────────────────────────────────────
 function Http-Get($url) {
     try {
-        $resp = Invoke-WebRequest -Uri $url -Method GET -TimeoutSec 5 -ErrorAction SilentlyContinue
-        if ($resp.StatusCode -eq 200) { return $resp.Content | ConvertFrom-Json }
+        $output = curl.exe -s $url 2>$null
+        if ($LASTEXITCODE -eq 0 -and $output) { return $output | ConvertFrom-Json }
     } catch {}
     return $null
 }
