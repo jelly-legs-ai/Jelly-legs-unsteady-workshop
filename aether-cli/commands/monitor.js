@@ -400,7 +400,7 @@ if (require.main === module) {
   main();
 }
 
-// Export for testing
+// Export for testing and CLI integration
 module.exports = { 
   monitorLoop, 
   getSlot, 
@@ -408,4 +408,5 @@ module.exports = {
   getVoteAccounts,
   calculateTPS,
   renderDashboard,
+  main,
 };
