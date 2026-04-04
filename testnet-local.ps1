@@ -106,6 +106,11 @@ if (-not (Test-Path $VALIDATOR_BIN)) {
 # ─── Genesis generation ───────────────────────────────────────────────────────
 Write-Step "Generating fresh genesis block..."
 Remove-TestnetDirs
+# Ensure genesis output directory exists
+$genesisDir = Split-Path $GENESIS_FILE -Parent
+if (-not (Test-Path $genesisDir)) {
+    New-Item -ItemType Directory -Path $genesisDir -Force | Out-Null
+}
 $genesisOut = & $VALIDATOR_BIN create-genesis `
     --out $GENESIS_FILE `
     --chain-id "aether-testnet-local" 2>&1 | Out-String
