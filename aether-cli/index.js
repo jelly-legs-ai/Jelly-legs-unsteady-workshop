@@ -29,7 +29,15 @@ const COMMANDS = {
     handler: () => {
       const args = getCommandArgs();
       const autoFix = args.includes('--fix') || args.includes('-f');
-      doctorCommand({ autoFix });
+      
+      // Parse --tier flag
+      let tier = 'full';
+      const tierIndex = args.findIndex(arg => arg === '--tier');
+      if (tierIndex !== -1 && args[tierIndex + 1]) {
+        tier = args[tierIndex + 1].toLowerCase();
+      }
+      
+      doctorCommand({ autoFix, tier });
     },
   },
   init: {
