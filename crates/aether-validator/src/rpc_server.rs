@@ -42,6 +42,15 @@ pub struct HealthResponse {
     pub status: String,
 }
 
+/// Validator info response (tier, consensus weight)
+#[derive(Debug, Serialize)]
+pub struct ValidatorInfoResponse {
+    pub tier: String,
+    pub consensus_weight: f64,
+    pub can_produce_blocks: bool,
+    pub can_vote: bool,
+}
+
 /// Vote accounts response
 #[derive(Debug, Serialize)]
 pub struct VoteAccountsResponse {
@@ -63,12 +72,14 @@ pub async fn start_rpc_server(addr: &str, state: ValidatorState, block_producer:
     let port = listener.local_addr()?.port();
     info!("RPC HTTP server listening on http://0.0.0.0:{}/", port);
     info!("Available endpoints:");
-    info!("  GET /health          - Health check");
-    info!("  GET /v1/slot         - Current slot info");
-    info!("  GET /v1/block?slot=N - Get block by slot");
-    info!("  GET /v1/genesis      - Genesis configuration");
-    info!("  GET /v1/validators  - Connected validators");
-    info!("  GET /v1/epoch        - Epoch information");
+    info!("  GET /health               - Health check");
+    info!("  GET /v1/slot              - Current slot info");
+    info!("  GET /v1/block?slot=N      - Get block by slot");
+    info!("  GET /v1/genesis           - Genesis configuration");
+    info!("  GET /v1/validators        - Connected validators");
+    info!("  GET /v1/epoch             - Epoch information");
+    info!("  GET /v1/block_production  - Block production stats");
+    info!("  GET /v1/validator/info    - Current validator tier and consensus weight");
 
     loop {
         match listener.accept().await {
@@ -180,6 +191,21 @@ async fn handle_http_request(
         "/v1/block_production" => {
             let bp = state.block_production();
             (200, serde_json::to_string(&bp).unwrap_or_default())
+        }
+        "/v1/validator/info" => {
+            let tier = state.tier();
+            let tier_str = match tier {
+                crate::genesis::ValidatorTier::Full => "full",
+                crate::genesis::ValidatorTier::Lite => "lite",
+                crate::genesis::ValidatorTier::Observer => "observer",
+            };
+            let resp = ValidatorInfoResponse {
+                tier: tier_str.to_string(),
+                consensus_weight: state.consensus_weight(),
+                can_produce_blocks: state.can_produce_blocks(),
+                can_vote: state.can_vote(),
+            };
+            (200, serde_json::to_string(&resp).unwrap_or_default())
         }
         path if path.starts_with("/v1/block?slot=") => {
             // Parse ?slot=N
