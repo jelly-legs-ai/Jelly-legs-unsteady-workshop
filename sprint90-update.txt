@@ -1,0 +1,9 @@
+Sprint 90 Update (2026-04-04 09:14 UTC):
+- Created new GlobalNetworkMap component with animated world map
+- Shows validator distribution across 7 global regions (NA, EU, AP, SA, AF, ME, AU)
+- Live hashrate visualization per region with animated pulse points
+- Real-time stats: total validators, hashrate, latency, active nodes
+- Expandable region cards with detailed metrics (latency, uptime %)
+- Decentralization index indicator in footer
+- Integrated into homepage between NetworkCongestion and LiveActivityFeed
+- Frontend complete, pushed to main branch

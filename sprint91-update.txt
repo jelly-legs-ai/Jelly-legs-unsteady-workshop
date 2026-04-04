@@ -1,0 +1,19 @@
+## 🦑 Sprint 91 Update - April 4, 2026
+
+### Frontend (Aether-Chain)
+- **GlobalNetworkMap**: Added loading skeleton states with animated pulse placeholders
+- **API route**: Enhanced network-map endpoint with live data and decentralization metrics
+- Added data age tracker showing seconds since last update
+- Made map/region list conditional on loading state
+
+### Backend (Jelly-legs-unsteady-workshop)
+- **mining_rewards.rs**: Added `estimate_network_hashrate()` function
+  - Calculates network hashrate from active miners and device tier distribution
+  - Returns tier breakdown (mobile/laptop/desktop/server percentages)
+  - Includes decentralization score and network health indicator
+- Added `NetworkHashrateEstimate` and `TierDistribution` structs
+
+### Next Sprint
+- Continue polishing GlobalNetworkMap with more interactions
+- Add FLUX/ATH token API endpoints
+- Enhance mining dashboard components
