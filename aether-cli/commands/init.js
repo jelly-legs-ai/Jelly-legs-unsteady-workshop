@@ -7,8 +7,9 @@
 
 const fs = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const readline = require('readline');
+const os = require('os');
 
 // ANSI colors
 const colors = {
@@ -206,6 +207,83 @@ async function checkPrerequisites(rl) {
 }
 
 /**
+ * Find the aether-validator binary (same logic as validator-start.js)
+ */
+function findValidatorBinary() {
+  const platform = os.platform();
+  const isWindows = platform === 'win32';
+  const binaryName = isWindows ? 'aether-validator.exe' : 'aether-validator';
+  
+  const locations = [
+    path.join(__dirname, '..', '..', 'Jelly-legs-unsteady-workshop', 'target', 'debug', binaryName),
+    path.join(__dirname, '..', '..', 'Jelly-legs-unsteady-workshop', 'target', 'release', binaryName),
+    path.join(__dirname, '..', 'target', 'debug', binaryName),
+    path.join(__dirname, '..', 'target', 'release', binaryName),
+  ];
+
+  for (const loc of locations) {
+    if (fs.existsSync(loc)) {
+      return { type: 'binary', path: loc };
+    }
+  }
+
+  return { type: 'missing', path: null };
+}
+
+/**
+ * Build the validator binary if missing
+ */
+function buildValidator() {
+  const workspaceRoot = path.join(__dirname, '..', '..');
+  const repoPath = path.join(workspaceRoot, 'Jelly-legs-unsteady-workshop');
+  
+  console.log(`  ${colors.cyan}Building aether-validator...${colors.reset}`);
+  
+  try {
+    execSync('cargo build --bin aether-validator', {
+      cwd: repoPath,
+      stdio: 'inherit',
+      shell: true,
+    });
+    
+    const result = findValidatorBinary();
+    if (result.type === 'binary') {
+      console.log(`  ${colors.green}✓ Build successful!${colors.reset}`);
+      return result;
+    }
+    
+    console.error(`  ${colors.red}✗ Build completed but binary not found${colors.reset}`);
+    return null;
+  } catch (err) {
+    console.error(`  ${colors.red}✗ Build failed: ${err.message}${colors.reset}`);
+    return null;
+  }
+}
+
+/**
+ * Run the validator binary with args
+ */
+function runValidatorBinary(args, options = {}) {
+  const result = findValidatorBinary();
+  
+  if (result.type === 'missing') {
+    throw new Error('Validator binary not found. Run "cargo build --bin aether-validator" first.');
+  }
+  
+  const workspaceRoot = path.join(__dirname, '..', '..');
+  const repoPath = path.join(workspaceRoot, 'Jelly-legs-unsteady-workshop');
+  
+  execSync(`"${result.path}" ${args.join(' ')}`, {
+    cwd: repoPath,
+    stdio: 'inherit',
+    shell: true,
+    ...options,
+  });
+  
+  return result;
+}
+
+/**
  * Generate validator identity
  */
 async function generateIdentity(rl) {
@@ -226,26 +304,13 @@ async function generateIdentity(rl) {
   console.log('\nGenerating new Ed25519 keypair...');
   
   try {
-    // Try using cargo to run the binary
-    await runCommand('cargo run --bin aether-validator -- create-validator-identity --out validator-identity.json --force', 120000);
+    runValidatorBinary(['create-validator-identity', '--out', identityPath, '--force']);
     printSuccess(`Identity saved to validator-identity.json`);
   } catch (e) {
-    // Fallback: generate a dummy keypair for now
-    printWarning('Could not run aether-validator. Generating placeholder identity...');
-    
-    const crypto = require('crypto');
-    const keypair = crypto.generateKeyPairSync('ed25519');
-    
-    const pubkey = keypair.publicKey.export({ type: 'spki', format: 'der' }).toString('base64');
-    
-    const identityJson = {
-      pubkey: `placeholder_${Buffer.from(pubkey).toString('base64').slice(0, 44)}`,
-      secret: 'placeholder',
-      note: 'This is a placeholder. Run "cargo build --bin aether-validator" and then "cargo run --bin aether-validator -- create-validator-identity"',
-    };
-    
-    fs.writeFileSync(identityPath, JSON.stringify(identityJson, null, 2));
-    printSuccess('Placeholder identity created (run full build later)');
+    printError(`Failed to create identity: ${e.message}`);
+    printWarning('You can create it manually later with:');
+    console.log(`  aether-validator create-validator-identity --out validator-identity.json`);
+    process.exit(1);
   }
   
   console.log();
@@ -302,7 +367,7 @@ async function printSummary() {
   
   console.log('Next steps:');
   console.log('  1. Fund your validator wallet with testnet AETH');
-  console.log('  2. Create a stake account: cargo run --bin aether-validator -- create-stake-account');
+  console.log('  2. Create a stake account: aether-validator create-stake-account');
   console.log('  3. Monitor your validator: aether-cli validator status');
   console.log();
 }
@@ -379,7 +444,7 @@ async function init() {
 }
 
 // Export for use as module
-module.exports = { init };
+module.exports = { init, findValidatorBinary, buildValidator, runValidatorBinary };
 
 // Run if called directly
 if (require.main === module) {
