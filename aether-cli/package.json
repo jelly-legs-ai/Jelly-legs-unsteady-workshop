@@ -1,9 +1,10 @@
 {
   "name": "aether-cli",
-  "version": "1.0.0",
-  "description": "AeTHer Validator Command Line Interface - System checks, onboarding, and validator management",
+  "version": "1.0.2",
+  "description": "AeTHer Validator Command Line Interface — system checks, onboarding, and validator management",
   "main": "index.js",
   "bin": {
+    "aether": "./index.js",
     "aether-cli": "./index.js"
   },
   "files": [
@@ -16,7 +17,8 @@
   "scripts": {
     "test": "node test/doctor.test.js",
     "start": "node index.js",
-    "doctor": "node index.js doctor"
+    "doctor": "node index.js doctor",
+    "postinstall": "node -e \"console.log('\\n\\n  [Aether] aether-cli installed successfully!\\n\\n  Get started: aether start\\n  (or just run: aether)\\n\\n  First time? Run: aether-cli doctor\\n\\n  Docs: https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop\\n')\""
   },
   "keywords": [
     "aether",

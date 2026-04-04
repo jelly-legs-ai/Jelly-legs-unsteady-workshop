@@ -13,17 +13,106 @@ const { init } = require('./commands/init');
 const { monitorLoop } = require('./commands/monitor');
 const { logsCommand } = require('./commands/logs');
 const { sdkCommand } = require('./commands/sdk');
+const readline = require('readline');
+
+// CLI version
+const VERSION = '1.0.2';
 
 // Parse args early to support flags on commands
 function getCommandArgs() {
   return process.argv.slice(2);
 }
 
-// CLI version
-const VERSION = '1.0.0';
+// Tier colours
+const TIER_COLORS = {
+  FULL: '\x1b[36m',    // cyan
+  LITE: '\x1b[33m',    // yellow
+  OBSERVER: '\x1b[32m', // green
+  reset: '\x1b[0m',
+};
+
+/**
+ * Display the interactive main menu
+ */
+async function showMenu() {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  const prompt = (q) => new Promise((res) => rl.question(q, res));
+
+  console.log(
+    TIER_COLORS.FULL + '\n  ╔═══════════════════════════════════════════════╗\n' +
+    '  ║     AETHER CHAIN — Validator Setup Wizard     ║\n' +
+    '  ╚═══════════════════════════════════════════════╝' + TIER_COLORS.reset + '\n'
+  );
+
+  console.log('  Welcome to AeTHer Chain. What would you like to do?\n');
+  console.log('  ' + TIER_COLORS.FULL + '1)' + TIER_COLORS.reset + '  🩺  Doctor  — Check if your system meets requirements');
+  console.log('  ' + TIER_COLORS.FULL + '2)' + TIER_COLORS.reset + '  🚀  Start  — Begin validator onboarding (recommended)');
+  console.log('  ' + TIER_COLORS.FULL + '3)' + TIER_COLORS.reset + '  📊  Monitor — Watch live validator stats');
+  console.log('  ' + TIER_COLORS.FULL + '4)' + TIER_COLORS.reset + '  📋  Logs   — Tail and colourise validator logs');
+  console.log('  ' + TIER_COLORS.FULL + '5)' + TIER_COLORS.reset + '  📦  SDK    — Get SDK links and install tools');
+  console.log('  ' + TIER_COLORS.FULL + '6)' + TIER_COLORS.reset + '  ❓  Help   — Show all commands\n');
+  console.log('  ' + TIER_COLORS.reset + '  Type a number or command name. Press Ctrl+C to exit.\n');
+
+  const VALID_CHOICES = ['1', '2', '3', '4', '5', '6', 'doctor', 'init', 'monitor', 'logs', 'sdk', 'help'];
+
+  while (true) {
+    const answer = (await prompt(`  > `)).trim().toLowerCase();
+
+    if (answer === '' || answer === '1' || answer === 'doctor') {
+      rl.close();
+      const { doctorCommand } = require('./commands/doctor');
+      doctorCommand({ autoFix: false, tier: 'full' });
+      return;
+    }
+
+    if (answer === '2' || answer === 'init' || answer === 'start') {
+      rl.close();
+      const { init } = require('./commands/init');
+      init();
+      return;
+    }
+
+    if (answer === '3' || answer === 'monitor') {
+      rl.close();
+      const { main } = require('./commands/monitor');
+      main();
+      return;
+    }
+
+    if (answer === '4' || answer === 'logs') {
+      rl.close();
+      const { logsCommand } = require('./commands/logs');
+      logsCommand();
+      return;
+    }
+
+    if (answer === '5' || answer === 'sdk') {
+      rl.close();
+      const { sdkCommand } = require('./commands/sdk');
+      sdkCommand();
+      return;
+    }
+
+    if (answer === '6' || answer === 'help') {
+      showHelp();
+      console.log("  Press Ctrl+C to exit or select an option above.\n");
+      continue;
+    }
+
+    console.log(`\n  ⚠️  Unknown option: "${answer}". Type 1-6 or a command name.\n`);
+  }
+}
 
 // Available commands
 const COMMANDS = {
+  start: {
+    description: 'Launch interactive menu (default if no args) — same as running aether-cli with no arguments',
+    handler: () => showMenu(),
+  },
   doctor: {
     description: 'Run system requirements checks (CPU/RAM/Disk/Network/Firewall)',
     handler: () => {
@@ -141,13 +230,18 @@ Validator CLI v${VERSION}
  */
 function parseArgs() {
   const args = process.argv.slice(2);
-  
+
   // Handle flags
   if (args.includes('--version') || args.includes('-v')) {
     return 'version';
   }
-  if (args.includes('--help') || args.includes('-h') || args.length === 0) {
+  if (args.includes('--help') || args.includes('-h')) {
     return 'help';
+  }
+
+  // No args → interactive menu
+  if (args.length === 0) {
+    return 'start';
   }
 
   // Handle multi-word commands (e.g., "validator start", "kyc generate")
