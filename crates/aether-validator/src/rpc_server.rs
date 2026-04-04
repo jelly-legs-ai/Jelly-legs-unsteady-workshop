@@ -42,6 +42,21 @@ pub struct HealthResponse {
     pub status: String,
 }
 
+/// Vote accounts response
+#[derive(Debug, Serialize)]
+pub struct VoteAccountsResponse {
+    pub vote_accounts: Vec<crate::rpc_client::VoteAccountInfo>,
+    pub total_stake: u64,
+}
+
+/// Transaction response (stub - MVP has no transactions yet)
+#[derive(Debug, Serialize)]
+pub struct TransactionResponse {
+    pub signature: String,
+    pub slot: u64,
+    pub err: Option<String>,
+}
+
 /// Start the HTTP RPC server
 pub async fn start_rpc_server(addr: &str, state: ValidatorState, block_producer: Arc<BlockProducer>) -> anyhow::Result<()> {
     let listener = TcpListener::bind(addr).await?;
@@ -165,6 +180,69 @@ async fn handle_http_request(
         "/v1/block_production" => {
             let bp = state.block_production();
             (200, serde_json::to_string(&bp).unwrap_or_default())
+        }
+        path if path.starts_with("/v1/block?slot=") => {
+            // Parse ?slot=N
+            if let Ok(slot) = path.split("slot=").nth(1)
+                .and_then(|s| s.split('&').next())
+                .unwrap_or("")
+                .parse::<u64>()
+            {
+                if let Some(block) = block_producer.get_block(slot).await {
+                    let resp = BlockResponse {
+                        slot: block.slot,
+                        timestamp: block.timestamp,
+                        block_hash: block.block_hash,
+                        previous_block_hash: block.previous_block_hash,
+                        poh_seed: block.poh_seed,
+                        transaction_count: block.transactions.len(),
+                    };
+                    (200, serde_json::to_string(&resp).unwrap_or_default())
+                } else {
+                    (404, r#"{"error":"Block not found"}"#.to_string())
+                }
+            } else {
+                (400, r#"{"error":"Invalid slot parameter"}"#.to_string())
+            }
+        }
+        path if path.starts_with("/v1/block/") => {
+            // REST style: /v1/block/<slot>
+            let slot_str = path.strip_prefix("/v1/block/").unwrap_or("").split('?').next().unwrap_or("");
+            if let Ok(slot) = slot_str.parse::<u64>() {
+                if let Some(block) = block_producer.get_block(slot).await {
+                    let resp = BlockResponse {
+                        slot: block.slot,
+                        timestamp: block.timestamp,
+                        block_hash: block.block_hash,
+                        previous_block_hash: block.previous_block_hash,
+                        poh_seed: block.poh_seed,
+                        transaction_count: block.transactions.len(),
+                    };
+                    (200, serde_json::to_string(&resp).unwrap_or_default())
+                } else {
+                    (404, r#"{"error":"Block not found"}"#.to_string())
+                }
+            } else {
+                (400, r#"{"error":"Invalid slot number"}"#.to_string())
+            }
+        }
+        path if path.starts_with("/v1/getTransaction") => {
+            // Stub: MVP has no transactions yet
+            let sig = path.split("signature=").nth(1).unwrap_or("").split('&').next().unwrap_or("");
+            let resp = TransactionResponse {
+                signature: sig.to_string(),
+                slot: state.current_slot(),
+                err: Some("MVP: transactions not yet implemented".to_string()),
+            };
+            (200, serde_json::to_string(&resp).unwrap_or_default())
+        }
+        "/v1/voteAccounts" | "/v1/vote_accounts" | "/v1/getVoteAccounts" => {
+            let vote_accounts = state.get_vote_accounts();
+            let resp = VoteAccountsResponse {
+                vote_accounts,
+                total_stake: 0, // MVP: stake not tracked per vote account
+            };
+            (200, serde_json::to_string(&resp).unwrap_or_default())
         }
         _ => {
             (404, r#"{"error":"Endpoint not found"}"#.to_string())
