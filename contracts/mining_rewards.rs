@@ -397,6 +397,57 @@ impl MiningCalculator {
             hardware_component: tier_score,
         }
     }
+
+    /// Estimate total network hashrate based on active miners and device distribution
+    pub fn estimate_network_hashrate(&self, active_miners: &[Miner]) -> NetworkHashrateEstimate {
+        let total_miners = active_miners.len() as u64;
+        
+        // Calculate weighted hashrate based on device tiers
+        let mut tier_counts = [0u64; 4];
+        let mut tier_hashrates = [0.0; 4];
+        
+        for miner in active_miners {
+            let tier_idx = match miner.device_tier {
+                DeviceTier::Mobile => 0,
+                DeviceTier::Laptop => 1,
+                DeviceTier::Desktop => 2,
+                DeviceTier::Server => 3,
+            };
+            tier_counts[tier_idx] += 1;
+            tier_hashrates[tier_idx] += miner.contribution_score * miner.device_tier.multiplier();
+        }
+        
+        // Network hashrate in TH/s equivalent (normalized)
+        let total_hashrate = tier_hashrates.iter().sum::<f64>();
+        
+        // Calculate network security score based on distribution
+        let mobile_pct = (tier_counts[0] as f64 / total_miners as f64) * 100.0;
+        let server_pct = (tier_counts[3] as f64 / total_miners as f64) * 100.0;
+        let decentralization_score = if server_pct > 50.0 {
+            70.0 // Too centralized on servers
+        } else if mobile_pct > 70.0 {
+            85.0 // Good mobile distribution
+        } else {
+            90.0 // Healthy mixed distribution
+        };
+        
+        NetworkHashrateEstimate {
+            total_hashrate_hashes_s: (total_hashrate * 1_000_000_000.0) as u64, // GH/s equivalent
+            active_miners: total_miners,
+            tier_distribution: TierDistribution {
+                mobile: tier_counts[0],
+                laptop: tier_counts[1],
+                desktop: tier_counts[2],
+                server: tier_counts[3],
+                mobile_percentage: (tier_counts[0] as f64 / total_miners as f64 * 100.0).round(),
+                laptop_percentage: (tier_counts[1] as f64 / total_miners as f64 * 100.0).round(),
+                desktop_percentage: (tier_counts[2] as f64 / total_miners as f64 * 100.0).round(),
+                server_percentage: (tier_counts[3] as f64 / total_miners as f64 * 100.0).round(),
+            },
+            decentralization_score,
+            network_health: if decentralization_score >= 80.0 { "Healthy".to_string() } else { "At Risk".to_string() },
+        }
+    }
     
     /// Calculate compound mining bonus - extra rewards when mining + staking FLUX
     /// Enhanced with exponential scaling for large FLUX stakers
