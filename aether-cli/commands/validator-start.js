@@ -22,33 +22,44 @@ const colors = {
 
 /**
  * Find the aether-validator binary
+ * Searches common locations based on OS and repo layout
  */
 function findValidatorBinary() {
+  const platform = os.platform();
+  const isWindows = platform === 'win32';
+  const binaryName = isWindows ? 'aether-validator.exe' : 'aether-validator';
+  
   // Check common locations
   const locations = [
-    // From cargo build
-    path.join(__dirname, '..', '..', 'target', 'release', 'aether-validator'),
-    path.join(__dirname, '..', '..', 'target', 'debug', 'aether-validator'),
-    // Direct cargo run
-    'cargo',
+    // Sibling repo: Jelly-legs-unsteady-workshop/target/debug/
+    path.join(__dirname, '..', '..', 'Jelly-legs-unsteady-workshop', 'target', 'debug', binaryName),
+    path.join(__dirname, '..', '..', 'Jelly-legs-unsteady-workshop', 'target', 'release', binaryName),
+    // Local build in aether-cli (if someone built here)
+    path.join(__dirname, '..', 'target', 'debug', binaryName),
+    path.join(__dirname, '..', 'target', 'release', binaryName),
     // System PATH
-    'aether-validator',
+    'aether-validator' + (isWindows ? '.exe' : ''),
   ];
 
   for (const loc of locations) {
-    if (loc === 'cargo') {
-      return { type: 'cargo', path: null };
-    }
-    if (loc === 'aether-validator') {
-      return { type: 'binary', path: loc };
+    if (loc.startsWith('aether-validator')) {
+      // Check if it's in PATH
+      try {
+        const { execSync } = require('child_process');
+        const checkCmd = isWindows ? 'where' : 'which';
+        execSync(`${checkCmd} ${loc}`, { stdio: 'pipe' });
+        return { type: 'binary', path: loc, inPath: true };
+      } catch {
+        // Not in PATH, continue
+      }
     }
     if (fs.existsSync(loc)) {
       return { type: 'binary', path: loc };
     }
   }
 
-  // Default to cargo run
-  return { type: 'cargo', path: null };
+  // Binary not found - offer to build it
+  return { type: 'missing', path: null };
 }
 
 /**
@@ -113,43 +124,116 @@ ${colors.cyan}╚═════════════════════
 }
 
 /**
+ * Build the validator binary if missing
+ */
+function buildValidator() {
+  const { execSync } = require('child_process');
+  const workspaceRoot = path.join(__dirname, '..', '..');
+  const repoPath = path.join(workspaceRoot, 'Jelly-legs-unsteady-workshop');
+  
+  console.log(`  ${colors.cyan}Building aether-validator...${colors.reset}`);
+  
+  try {
+    execSync('cargo build --bin aether-validator', {
+      cwd: repoPath,
+      stdio: 'inherit',
+      shell: true,
+    });
+    
+    // Re-check for binary
+    const result = findValidatorBinary();
+    if (result.type === 'binary') {
+      console.log(`  ${colors.green}✓ Build successful!${colors.reset}`);
+      return result;
+    }
+    
+    console.error(`  ${colors.red}✗ Build completed but binary not found${colors.reset}`);
+    return null;
+  } catch (err) {
+    console.error(`  ${colors.red}✗ Build failed: ${err.message}${colors.reset}`);
+    return null;
+  }
+}
+
+/**
  * Main validator start command
  */
 function validatorStart() {
   const options = parseArgs();
-  const { type, path: binaryPath } = findValidatorBinary();
+  let result = findValidatorBinary();
 
   printBanner(options);
 
-  // Build command args
-  const args = ['run', '--bin', 'aether-validator', '--', 'start'];
-  
-  if (options.testnet) {
-    args.push('--testnet');
-  }
-  args.push('--rpc-addr', options.rpcAddr);
-  args.push('--p2p-addr', options.p2pAddr);
-  if (options.identity) {
-    args.push('--identity', options.identity);
-  }
-  if (options.verbose) {
-    args.push('-vvv');
+  // Handle missing binary
+  if (result.type === 'missing') {
+    console.log(`  ${colors.yellow}⚠ Validator binary not found${colors.reset}`);
+    console.log(`  ${colors.cyan}Would you like to build it now? (cargo build --bin aether-validator)${colors.reset}`);
+    console.log();
+    
+    const readline = require('readline');
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+    
+    rl.question('  Build now? [Y/n] ', (answer) => {
+      rl.close();
+      
+      if (answer.toLowerCase() === 'n' || answer.toLowerCase() === 'no') {
+        console.log(`  ${colors.red}Aborted. Build the validator first, then try again.${colors.reset}`);
+        process.exit(1);
+      }
+      
+      const built = buildValidator();
+      if (!built) {
+        process.exit(1);
+      }
+      result = built;
+      startValidatorProcess(result, options);
+    });
+    return;
   }
 
-  console.log(`  ${colors.bright}Command:${colors.reset} ${type === 'cargo' ? 'cargo ' + args.join(' ') : binaryPath + ' ' + args.slice(3).join(' ')}`);
+  startValidatorProcess(result, options);
+}
+
+/**
+ * Spawn the validator process
+ */
+function startValidatorProcess({ type, path: binaryPath, inPath }, options) {
+  // Build command args
+  const validatorArgs = ['start'];
+  
+  if (options.testnet) {
+    validatorArgs.push('--testnet');
+  }
+  validatorArgs.push('--rpc-addr', options.rpcAddr);
+  validatorArgs.push('--p2p-addr', options.p2pAddr);
+  if (options.identity) {
+    validatorArgs.push('--identity', options.identity);
+  }
+  if (options.verbose) {
+    validatorArgs.push('-vvv');
+  }
+
+  const commandDisplay = inPath ? binaryPath : binaryPath || 'cargo run --bin aether-validator';
+  console.log(`  ${colors.bright}Command:${colors.reset} ${commandDisplay} ${validatorArgs.join(' ')}`);
   console.log();
   console.log(`  ${colors.yellow}Starting validator (press Ctrl+C to stop)...${colors.reset}`);
   console.log();
 
+  // Determine working directory
+  const workspaceRoot = path.join(__dirname, '..', '..');
+  const repoPath = path.join(workspaceRoot, 'Jelly-legs-unsteady-workshop');
+  
   // Spawn the validator process
-  const child = type === 'cargo' 
-    ? spawn('cargo', args, {
+  const child = inPath || binaryPath === 'aether-validator' || binaryPath === 'aether-validator.exe'
+    ? spawn(binaryPath, validatorArgs, {
         stdio: ['inherit', 'pipe', 'pipe'],
-        shell: true,
-        cwd: path.join(__dirname, '..', '..'),
       })
-    : spawn(binaryPath, args.slice(3), {
+    : spawn(binaryPath, validatorArgs, {
         stdio: ['inherit', 'pipe', 'pipe'],
+        cwd: repoPath,
       });
 
   // Colorize output
