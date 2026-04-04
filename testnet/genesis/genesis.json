@@ -1,10 +1,10 @@
 {
   "chain_id": "aether-testnet-local",
-  "timestamp": 1775300114,
-  "genesis_hash": "Gqq3F4LU37kXGPGNeVRMNndyYECstL7gWgSpxXwXu6JP",
+  "timestamp": 1775300222,
+  "genesis_hash": "EPFh1eGXnDHSjQqxb5QoL7ki2bfo4QyVcjyEaPYVmFfz",
   "bootstrap_validators": [
     {
-      "identity_pubkey": "BhRu8aFSbpmt1KjbgwTANjqG3rYztPkJAEa8f4nM73DC",
+      "identity_pubkey": "77v31AtsRpgiFRy7iqMkYtNSe6kPcnU5AEcZW1ivstQL",
       "stake": 10000000,
       "commission": 10,
       "active": true

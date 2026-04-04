@@ -312,7 +312,9 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
     ));
     let p2p_addr_for_spawn = p2p_addr.clone();
     let bootstrap_addr_for_spawn = bootstrap_addr.clone();
-    let gossip_handle = {
+    // P2P gossip runs as a background task (fire-and-forget)
+    // We deliberately drop the JoinHandle so the gossip task is not awaited here
+    {
         let state = validator_state.clone();
         let ns = network_state.clone();
         tokio::spawn(async move {
@@ -325,7 +327,7 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
                     error!("P2P gossip error: {}", e);
                 }
             }
-        })
+        });
     };
 
     // Main validator loop
@@ -361,10 +363,9 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
         }
     });
 
-    // Wait for any handle to complete
+    // Wait for any main handle to complete (gossip runs as fire-and-forget background task)
     tokio::select! {
         _ = rpc_handle => {}
-        _ = gossip_handle => {}
         _ = bp_handle => {}
         _ = logging_handle => {}
     }
