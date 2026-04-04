@@ -1,0 +1,381 @@
+/**
+ * aether-cli sdk
+ * 
+ * Provides download links and install instructions for the Aether SDK,
+ * Aether JS client, and FLUX/ATH token libraries.
+ * 
+ * Usage:
+ *   aether-cli sdk              # Show all SDK options
+ *   aether-cli sdk js           # Aether JS client
+ *   aether-cli sdk rust         # Aether Rust SDK
+ *   aether-cli sdk tokens       # FLUX/ATH token libraries
+ */
+
+const os = require('os');
+
+// ANSI colors
+const colors = {
+  reset: '\x1b[0m',
+  bright: '\x1b[1m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  cyan: '\x1b[36m',
+  red: '\x1b[31m',
+  dim: '\x1b[2m',
+  magenta: '\x1b[35m',
+  blue: '\x1b[34m',
+};
+
+/**
+ * Print the SDK banner
+ */
+function printBanner() {
+  console.log(`
+${colors.cyan}╔═══════════════════════════════════════════════════════════════╗
+${colors.cyan}║                                                               ║
+${colors.cyan}║   ${colors.bright}AETHER SDK${colors.reset}${colors.cyan}                                              ║
+${colors.cyan}║   ${colors.bright}Developer Tools & Libraries${colors.reset}${colors.cyan}                            ║
+${colors.cyan}║                                                               ║
+${colors.cyan}╚═══════════════════════════════════════════════════════════════╝${colors.reset}
+  `);
+}
+
+/**
+ * Print a section header
+ */
+function printSection(title, icon = '📦') {
+  console.log();
+  console.log(`${colors.bright}${colors.cyan}${'═'.repeat(60)}${colors.reset}`);
+  console.log(`${colors.bright}  ${icon} ${title}${colors.reset}`);
+  console.log(`${colors.bright}${colors.cyan}${'═'.repeat(60)}${colors.reset}`);
+  console.log();
+}
+
+/**
+ * Print a code block
+ */
+function printCode(code, lang = 'bash') {
+  console.log(`  ${colors.dim}[ ${lang} ]${colors.reset}`);
+  console.log(`  ${colors.bright}${code}${colors.reset}`);
+  console.log();
+}
+
+/**
+ * Print a link
+ */
+function printLink(label, url) {
+  console.log(`  ${colors.cyan}🔗 ${label}:${colors.reset}`);
+  console.log(`     ${colors.blue}${url}${colors.reset}`);
+  console.log();
+}
+
+/**
+ * Show all SDK options
+ */
+function showAllSdks() {
+  printBanner();
+  
+  console.log(`  ${colors.bright}Available SDKs and Libraries:${colors.reset}\n`);
+  
+  console.log(`  ${colors.yellow}npm${colors.reset}   aether-cli sdk js      - JavaScript/TypeScript client`);
+  console.log(`  ${colors.yellow}npm${colors.reset}   aether-cli sdk rust    - Rust SDK for native development`);
+  console.log(`  ${colors.yellow}npm${colors.reset}   aether-cli sdk tokens  - FLUX/ATH token libraries`);
+  console.log(`  ${colors.yellow}npm${colors.reset}   aether-cli sdk docs    - Documentation portal`);
+  console.log();
+  
+  // Quick start
+  printSection('⚡ Quick Start', '🚀');
+  console.log('  Get started with Aether development in 3 steps:\n');
+  console.log(`  1. ${colors.bright}Install the JS client:${colors.reset}`);
+  printCode('npm install @aether-network/client');
+  console.log(`  2. ${colors.bright}Initialize your connection:${colors.reset}`);
+  printCode('const aether = require(\'@aether-network/client\');\nconst client = new aether.Client({ rpcUrl: \'http://localhost:8899\' });');
+  console.log(`  3. ${colors.bright}Start building!${colors.reset}`);
+  console.log(`     ${colors.dim}See docs for full API reference${colors.reset}`);
+  console.log();
+  
+  printLink('Documentation', 'https://docs.aether.network');
+  printLink('GitHub Organization', 'https://github.com/aether-network');
+  printLink('Discord Community', 'https://discord.gg/aether');
+}
+
+/**
+ * Show JavaScript SDK info
+ */
+function showJsSdk() {
+  printSection('Aether JavaScript Client', '📜');
+  
+  console.log(`  ${colors.bright}The official Aether JavaScript/TypeScript client library.${colors.reset}`);
+  console.log(`  Provides a simple API for interacting with the Aether blockchain.${colors.reset}\n`);
+  
+  console.log(`  ${colors.green}✓ Stable Release${colors.reset}`);
+  console.log(`  ${colors.dim}Version: 1.2.0${colors.reset}`);
+  console.log();
+  
+  printSection('Installation');
+  printCode('npm install @aether-network/client');
+  console.log('  or');
+  printCode('yarn add @aether-network/client');
+  console.log('  or');
+  printCode('pnpm add @aether-network/client');
+  
+  printSection('Usage Example');
+  const example = `const aether = require('@aether-network/client');
+
+// Initialize client
+const client = new aether.Client({
+  rpcUrl: 'http://localhost:8899',
+  wsUrl: 'ws://localhost:8900',
+});
+
+// Get slot info
+const slot = await client.getSlot();
+console.log('Current slot:', slot);
+
+// Get balance
+const balance = await client.getBalance('pubkey...');
+console.log('Balance:', balance);
+
+// Send transaction
+const tx = await client.sendTransaction({
+  from: 'sender-pubkey',
+  to: 'recipient-pubkey',
+  amount: 1000,
+});
+console.log('Transaction signature:', tx.signature);`;
+  
+  console.log(`  ${colors.dim}[ javascript ]${colors.reset}`);
+  example.split('\n').forEach(line => {
+    console.log(`  ${colors.bright}${line}${colors.reset}`);
+  });
+  console.log();
+  
+  printSection('API Reference');
+  console.log(`  ${colors.cyan}Core Methods:${colors.reset}`);
+  console.log(`    • getSlot()                 - Get current slot number`);
+  console.log(`    • getBalance(pubkey)        - Get account balance in lamports`);
+  console.log(`    • getAccountInfo(pubkey)    - Get full account information`);
+  console.log(`    • sendTransaction(tx)       - Send a signed transaction`);
+  console.log(`    • confirmTransaction(sig)   - Wait for transaction confirmation`);
+  console.log(`    • getProgramAccounts(...)   - Query accounts by program`);
+  console.log();
+  
+  printLink('NPM Package', 'https://www.npmjs.com/package/@aether-network/client');
+  printLink('TypeScript Docs', 'https://docs.aether.network/sdk/js');
+  printLink('GitHub Repo', 'https://github.com/aether-network/aether-js');
+}
+
+/**
+ * Show Rust SDK info
+ */
+function showRustSdk() {
+  printSection('Aether Rust SDK', '🦀');
+  
+  console.log(`  ${colors.bright}Native Rust SDK for building Aether programs and clients.${colors.reset}`);
+  console.log(`  Use this for validator plugins, custom programs, and high-performance tools.${colors.reset}\n`);
+  
+  console.log(`  ${colors.green}✓ Stable Release${colors.reset}`);
+  console.log(`  ${colors.dim}Version: 1.2.0${colors.reset}`);
+  console.log();
+  
+  printSection('Installation');
+  printCode('cargo add aether-sdk');
+  console.log('  or add to your Cargo.toml:');
+  console.log();
+  console.log(`  ${colors.dim}${colors.bgRed}toml${colors.reset}`);
+  console.log(`  ${colors.bright}[dependencies]${colors.reset}`);
+  console.log(`  ${colors.bright}aether-sdk = "1.2"${colors.reset}`);
+  console.log();
+  
+  printSection('Usage Example');
+  const rustExample = `use aether_sdk::{client::Client, pubkey::Pubkey};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Initialize client
+    let client = Client::new("http://localhost:8899");
+    
+    // Get slot
+    let slot = client.get_slot().await?;
+    println!("Current slot: {}", slot);
+    
+    // Get balance
+    let pubkey = Pubkey::from_str("...")?;
+    let balance = client.get_balance(&pubkey).await?;
+    println!("Balance: {} lamports", balance);
+    
+    Ok(())
+}`;
+  
+  console.log(`  ${colors.dim}${colors.bgRed}rust${colors.reset}`);
+  rustExample.split('\n').forEach(line => {
+    console.log(`  ${colors.bright}${line}${colors.reset}`);
+  });
+  console.log();
+  
+  printSection('Features');
+  console.log(`  ${colors.cyan}• Full RPC client${colors.reset}`);
+  console.log(`  ${colors.cyan}• Program development framework${colors.reset}`);
+  console.log(`  ${colors.cyan}• Account serialization/deserialization${colors.reset}`);
+  console.log(`  ${colors.cyan}• Transaction building and signing${colors.reset}`);
+  console.log(`  ${colors.cyan}• Async runtime support (tokio)${colors.reset}`);
+  console.log();
+  
+  printLink('Crates.io', 'https://crates.io/crates/aether-sdk');
+  printLink('API Docs', 'https://docs.rs/aether-sdk');
+  printLink('GitHub Repo', 'https://github.com/aether-network/aether-rust');
+}
+
+/**
+ * Show token libraries info
+ */
+function showTokensSdk() {
+  printSection('FLUX / ATH Token Libraries', '🪙');
+  
+  console.log(`  ${colors.bright}Token libraries for FLUX (utility) and ATH (governance) tokens.${colors.reset}`);
+  console.log(`  Use these to integrate Aether tokens into your applications.${colors.reset}\n`);
+  
+  console.log(`  ${colors.yellow}⚠ Beta Release${colors.reset}`);
+  console.log(`  ${colors.dim}Version: 0.9.0 (testnet only)${colors.reset}`);
+  console.log();
+  
+  printSection('Installation');
+  console.log(`  ${colors.bright}JavaScript:${colors.reset}`);
+  printCode('npm install @aether-network/tokens');
+  console.log();
+  console.log(`  ${colors.bright}Rust:${colors.reset}`);
+  printCode('cargo add aether-tokens');
+  
+  printSection('Supported Tokens');
+  console.log();
+  console.log(`  ${colors.magenta}FLUX${colors.reset} - Utility Token`);
+  console.log(`    • Purpose: Transaction fees, staking rewards`);
+  console.log(`    • Decimals: 9`);
+  console.log(`    • Mint: ${colors.dim}flux7x... (testnet)${colors.reset}`);
+  console.log();
+  console.log(`  ${colors.blue}ATH${colors.reset} - Governance Token`);
+  console.log(`    • Purpose: Voting, protocol upgrades`);
+  console.log(`    • Decimals: 6`);
+  console.log(`    • Mint: ${colors.dim}athgov... (testnet)${colors.reset}`);
+  console.log();
+  
+  printSection('Usage Example (JavaScript)');
+  const tokenExample = `const { TokenClient, TOKENS } = require('@aether-network/tokens');
+
+const client = new TokenClient(rpcUrl);
+
+// Get FLUX balance
+const fluxBalance = await client.getTokenBalance(pubkey, TOKENS.FLUX);
+console.log('FLUX:', fluxBalance);
+
+// Transfer FLUX
+const tx = await client.transfer({
+  mint: TOKENS.FLUX,
+  from: senderPubkey,
+  to: recipientPubkey,
+  amount: 1000,
+});`;
+  
+  console.log(`  ${colors.dim}${colors.bgRed}javascript${colors.reset}`);
+  tokenExample.split('\n').forEach(line => {
+    console.log(`  ${colors.bright}${line}${colors.reset}`);
+  });
+  console.log();
+  
+  printLink('Token Documentation', 'https://docs.aether.network/tokens');
+  printLink('Token Registry', 'https://github.com/aether-network/token-registry');
+  printLink('Testnet Faucet', 'https://faucet.aether.network');
+}
+
+/**
+ * Show documentation portal info
+ */
+function showDocs() {
+  printSection('Aether Documentation', '📚');
+  
+  console.log(`  ${colors.bright}Comprehensive documentation for Aether developers.${colors.reset}\n`);
+  
+  console.log(`  ${colors.cyan}📖 Documentation Portal:${colors.reset}`);
+  console.log(`     ${colors.blue}https://docs.aether.network${colors.reset}`);
+  console.log();
+  
+  console.log(`  ${colors.cyan}Sections:${colors.reset}`);
+  console.log(`    • Getting Started      - Quick start guides`);
+  console.log(`    • Core Concepts        - Accounts, programs, transactions`);
+  console.log(`    • SDK Reference        - Full API docs for JS and Rust`);
+  console.log(`    • Tutorials            - Step-by-step projects`);
+  console.log(`    • Validator Guide      - Running and maintaining validators`);
+  console.log(`    • Economics            - Staking, rewards, fees`);
+  console.log();
+  
+  printLink('Main Docs', 'https://docs.aether.network');
+  printLink('API Reference', 'https://docs.aether.network/api');
+  printLink('Tutorials', 'https://docs.aether.network/tutorials');
+  printLink('Validator Docs', 'https://docs.aether.network/validators');
+}
+
+/**
+ * Parse command line args
+ */
+function parseArgs() {
+  const args = process.argv.slice(3); // Skip 'aether-cli sdk'
+  
+  if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
+    return 'all';
+  }
+  
+  const subcmd = args[0].toLowerCase();
+  
+  switch (subcmd) {
+    case 'js':
+    case 'javascript':
+    case 'node':
+      return 'js';
+    case 'rust':
+    case 'rs':
+      return 'rust';
+    case 'tokens':
+    case 'token':
+    case 'flux':
+    case 'ath':
+      return 'tokens';
+    case 'docs':
+    case 'doc':
+    case 'documentation':
+      return 'docs';
+    default:
+      return 'all';
+  }
+}
+
+/**
+ * Main SDK command
+ */
+function sdkCommand() {
+  const subcmd = parseArgs();
+  
+  switch (subcmd) {
+    case 'js':
+      showJsSdk();
+      break;
+    case 'rust':
+      showRustSdk();
+      break;
+    case 'tokens':
+      showTokensSdk();
+      break;
+    case 'docs':
+      showDocs();
+      break;
+    default:
+      showAllSdks();
+  }
+}
+
+// Export for use as module
+module.exports = { sdkCommand };
+
+// Run if called directly
+if (require.main === module) {
+  sdkCommand();
+}

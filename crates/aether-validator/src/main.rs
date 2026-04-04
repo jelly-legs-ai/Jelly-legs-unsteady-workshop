@@ -92,6 +92,10 @@ enum Commands {
         #[arg(long)]
         vote_account: Option<PathBuf>,
 
+        /// Validator tier: full, lite, or observer (default: full)
+        #[arg(long, default_value = "full")]
+        tier: String,
+
         /// Skip stake requirement (testing only)
         #[arg(long)]
         no_stake: bool,
@@ -218,14 +222,53 @@ async fn main() -> anyhow::Result<()> {
 
 async fn run_validator(cli: Cli) -> anyhow::Result<()> {
     // Extract all values we need before any async moves
-    let (testnet, genesis_path, rpc_addr, p2p_addr, bootstrap_addr, identity_path, _no_stake) = match &cli.command {
-        Commands::Start { testnet, genesis, rpc_addr, p2p_addr, bootstrap, identity, vote_account: _, no_stake, .. } => {
-            (testnet, genesis.clone(), rpc_addr.clone(), p2p_addr.clone(), bootstrap.clone(), identity.clone(), *no_stake)
+    let (testnet, genesis_path, rpc_addr, p2p_addr, bootstrap_addr, identity_path, no_stake, tier_str) = match &cli.command {
+        Commands::Start { testnet, genesis, rpc_addr, p2p_addr, bootstrap, identity, vote_account: _, no_stake, tier, .. } => {
+            (testnet, genesis.clone(), rpc_addr.clone(), p2p_addr.clone(), bootstrap.clone(), identity.clone(), *no_stake, tier.clone())
         }
         _ => unreachable!(),
     };
 
+    // Parse and validate tier
+    let validator_tier = match tier_str.as_str() {
+        "full" => ValidatorTier::Full,
+        "lite" => ValidatorTier::Lite,
+        "observer" => ValidatorTier::Observer,
+        _ => {
+            anyhow::bail!("Invalid tier '{}'. Must be one of: full, lite, observer", tier_str);
+        }
+    };
+
+    // Create tier config based on selected tier
+    let tier_config = match validator_tier {
+        ValidatorTier::Full => TierConfig {
+            tier: ValidatorTier::Full,
+            consensus_weight: 1.0,
+            can_produce_blocks: true,
+            can_vote: true,
+            min_stake: 10_000 * 100_000_000, // 10,000 AETH in motes
+            relay_reward_rate: 0.0,
+        },
+        ValidatorTier::Lite => TierConfig {
+            tier: ValidatorTier::Lite,
+            consensus_weight: 0.1, // Will be adjusted based on actual stake
+            can_produce_blocks: false,
+            can_vote: true,
+            min_stake: 1_000 * 100_000_000, // 1,000 AETH in motes
+            relay_reward_rate: 0.0,
+        },
+        ValidatorTier::Observer => TierConfig {
+            tier: ValidatorTier::Observer,
+            consensus_weight: 0.0,
+            can_produce_blocks: false,
+            can_vote: false,
+            min_stake: 0,
+            relay_reward_rate: 0.000001, // FLUX per byte relayed per epoch
+        },
+    };
+
     info!("Starting AETHER Validator...");
+    info!("Validator Tier: {:?} | Consensus Weight: {:.2}x", validator_tier, tier_config.consensus_weight);
 
     // Load genesis if provided
     let genesis_config = if let Some(ref path) = genesis_path {
@@ -260,6 +303,49 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
     let identity_pubkey = identity.pubkey();
     info!("Validator identity: {}", identity_pubkey);
 
+    // Enforce stake requirements based on tier (unless --no-stake for testing)
+    if !no_stake {
+        // TODO: Load actual stake from stake account or genesis
+        // For now, we'll check against a placeholder stake value
+        // In production, this would query the stake program
+        let current_stake: u64 = 0; // Placeholder - will be loaded from stake account
+
+        match validator_tier {
+            ValidatorTier::Full => {
+                if current_stake < tier_config.min_stake {
+                    anyhow::bail!(
+                        "Full validator requires minimum stake of {} AETH ({} motes), but only {} motes found",
+                        10_000,
+                        tier_config.min_stake,
+                        current_stake
+                    );
+                }
+            }
+            ValidatorTier::Lite => {
+                if current_stake < tier_config.min_stake {
+                    anyhow::bail!(
+                        "Lite validator requires minimum stake of {} AETH ({} motes), but only {} motes found",
+                        1_000,
+                        tier_config.min_stake,
+                        current_stake
+                    );
+                }
+                // Calculate stake-based consensus weight for lite validators
+                let weight = (current_stake as f64) / 10_000_000_000_000.0; // stake / 10K AETH in motes
+                info!("Lite validator consensus weight: {:.4}x (based on {} motes stake)", weight, current_stake);
+            }
+            ValidatorTier::Observer => {
+                if current_stake > 0 {
+                    info!("Observer node running with {} motes stake (stake not required but allowed for future upgrade)", current_stake);
+                } else {
+                    info!("Observer node running with no stake (relay-only mode)");
+                }
+            }
+        }
+    } else {
+        info!("⚠️  Stake requirement skipped (--no-stake flag)");
+    }
+
     // Initialize storage
     let ledger_path = PathBuf::from("ledger");
     std::fs::create_dir_all(&ledger_path)
@@ -271,10 +357,16 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
         info!("Loading genesis from: {}", path.display());
         let genesis = load_genesis_from_file(path)?;
         info!("Genesis loaded: chain_id={}, genesis_hash={}", genesis.chain_id, genesis.genesis_hash);
-        ValidatorState::with_genesis(identity, *testnet, ledger_path, path)?
+        let state = ValidatorState::with_genesis(identity, *testnet, ledger_path, path)?;
+        // Override tier from CLI flag
+        state.set_tier(validator_tier, Some(tier_config.clone()));
+        state
     } else {
         info!("No genesis file specified - starting with internal genesis");
-        ValidatorState::new(identity, *testnet, ledger_path)?
+        let state = ValidatorState::new(identity, *testnet, ledger_path)?;
+        // Set tier from CLI flag
+        state.set_tier(validator_tier, Some(tier_config.clone()));
+        state
     };
 
     // Print chain info
@@ -331,7 +423,18 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
     };
 
     // Main validator loop
+    let tier_badge = match validator_tier {
+        ValidatorTier::Full => "[FULL]",
+        ValidatorTier::Lite => "[LITE]",
+        ValidatorTier::Observer => "[OBSERVER]",
+    };
     info!("Validator running. Press Ctrl+C to stop.");
+    info!("Tier: {} | Consensus Weight: {:.2}x | Can Produce Blocks: {} | Can Vote: {}",
+        tier_badge,
+        tier_config.consensus_weight,
+        tier_config.can_produce_blocks,
+        tier_config.can_vote
+    );
     info!(
         "RPC HTTP: http://127.0.0.1:{}/",
         rpc_addr.split(':').last().unwrap_or("8899")
