@@ -82,10 +82,10 @@ function deriveKeypair(mnemonic, derivationPath) {
   }
 
   // BIP39 seed (512 bits = 64 bytes)
-  const seed = bip39.mnemonicToSeed(mnemonic, ''); // passphrase empty for now
+  const seedBuffer = bip39.mnemonicToSeedSync(mnemonic, ''); // passphrase empty for now
 
   // TweetNaCl keypair from 32-byte seed
-  const seed32 = seed.slice(0, 32);
+  const seed32 = seedBuffer.slice(0, 32);
   const keyPair = nacl.sign.keyPair.fromSeed(seed32);
 
   return {
