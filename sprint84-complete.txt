@@ -1,0 +1,35 @@
+## ✅ Sprint 84 Complete — Genesis + 2-Node Network
+
+**Binary:** `target/release/aether-validator.exe` (3.88MB, rebuilt)
+
+### What was wired:
+
+**CLI flags added to `start` command:**
+- `--genesis <path>` — Load genesis.json on startup
+- `--bootstrap <addr>` — Connect to peer node (e.g. `localhost:8001`)
+- `--port <port>` — P2P listen port (default: 8001)
+
+**Genesis loading:**
+- `ValidatorState::with_genesis()` loads genesis.json on startup
+- Genesis hash printed on startup for verification
+- Chain ID verification on peer handshake
+
+### How to test:
+
+```powershell
+# Terminal 1 — Bootstrap node (creates genesis if not exists)
+.\aether-validator.exe start --genesis genesis.json --port 8001
+
+# Terminal 2 — Connecting node
+.\aether-validator.exe start --genesis genesis.json --port 8002 --bootstrap localhost:8001
+
+# Query the chain
+curl localhost:8899/health
+curl localhost:8899/v1/slot
+```
+
+### Test scripts created:
+- `testnet-local.ps1` — Windows testnet script
+- `testnet-local.sh` — Unix testnet script
+
+**Status:** Ready for 2-node testnet testing. Merge when confirmed working.

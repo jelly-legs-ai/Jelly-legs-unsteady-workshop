@@ -385,6 +385,7 @@ impl MiningCalculator {
     }
     
     /// Calculate compound mining bonus - extra rewards when mining + staking FLUX
+    /// Enhanced with exponential scaling for large FLUX stakers
     pub fn calculate_compound_mining_bonus(&self, miner: &Miner, staked_flux: u64) -> f64 {
         if staked_flux == 0 {
             return 1.0;
@@ -393,23 +394,38 @@ impl MiningCalculator {
         // Base stake multiplier from config
         let base_mult = self.config.bonus_multipliers.stake_multiplier;
         
-        // Scale with stake amount (diminishing returns after 100k FLUX)
-        let stake_scale = if staked_flux < 100_000 {
-            staked_flux as f64 / 100_000.0
+        // Enhanced stake scaling with exponential growth for large stakers
+        // Tier 1: 0-10K FLUX (linear) -> 1.0x to 1.1x
+        // Tier 2: 10K-100K FLUX (linear) -> 1.1x to 1.2x  
+        // Tier 3: 100K-1M FLUX (exponential) -> 1.2x to 1.5x
+        // Tier 4: 1M+ FLUX (VIP exponential) -> 1.5x to 2.0x
+        let stake_scale = if staked_flux < 10_000 {
+            1.0 + (staked_flux as f64 / 100_000.0)
+        } else if staked_flux < 100_000 {
+            1.1 + ((staked_flux - 10_000) as f64 / 900_000.0)
+        } else if staked_flux < 1_000_000 {
+            // Exponential growth: 1.2x base + logarithmic increase
+            let excess = (staked_flux as f64 / 100_000.0).ln() / 10.0;
+            1.2 + excess.min(0.3)
         } else {
-            1.0 + (0.1 * (1.0 - ((staked_flux - 100_000) as f64 / 900_000.0).min(1.0)))
+            // VIP tier: 1.5x base + smaller logarithmic increase
+            let excess = (staked_flux as f64 / 1_000_000.0).ln() / 5.0;
+            1.5 + excess.min(0.5)
         };
         
         // Combined with uptime bonus
         let uptime_mult = if miner.uptime_percentage >= 99.0 {
-            1.1 // 10% extra for excellent uptime
+            1.15 // 15% extra for excellent uptime
         } else if miner.uptime_percentage >= 95.0 {
-            1.05
+            1.08
+        } else if miner.uptime_percentage >= 90.0 {
+            1.03
         } else {
             1.0
         };
         
-        base_mult * stake_scale * uptime_mult
+        // Cap total multiplier at 3.0x
+        (base_mult * stake_scale * uptime_mult).min(3.0)
     }
     
     /// Auto-reinvest mining rewards into staking
@@ -745,5 +761,72 @@ mod tests {
         assert_eq!(summary.tier_breakdown.server, 1);
         
         println!("Dashboard Summary: {:?}", summary);
+    }
+    
+    #[test]
+    fn test_compound_mining_bonus_enhanced() {
+        let config = MiningRewardConfig::default();
+        let calculator = MiningCalculator::new(config);
+        
+        let mut miner = Miner::new("test_miner".to_string(), 16, 8);
+        miner.contribution_score = 0.9;
+        miner.uptime_percentage = 99.0;
+        
+        // Test different stake tiers
+        let bonus_1k = calculator.calculate_compound_mining_bonus(&miner, 1_000);
+        let bonus_10k = calculator.calculate_compound_mining_bonus(&miner, 10_000);
+        let bonus_100k = calculator.calculate_compound_mining_bonus(&miner, 100_000);
+        let bonus_500k = calculator.calculate_compound_mining_bonus(&miner, 500_000);
+        let bonus_1m = calculator.calculate_compound_mining_bonus(&miner, 1_000_000);
+        let bonus_5m = calculator.calculate_compound_mining_bonus(&miner, 5_000_000);
+        
+        println!("Bonus at 1K FLUX: {:.3f}x", bonus_1k);
+        println!("Bonus at 10K FLUX: {:.3f}x", bonus_10k);
+        println!("Bonus at 100K FLUX: {:.3f}x", bonus_100k);
+        println!("Bonus at 500K FLUX: {:.3f}x", bonus_500k);
+        println!("Bonus at 1M FLUX: {:.3f}x", bonus_1m);
+        println!("Bonus at 5M FLUX: {:.3f}x", bonus_5m);
+        
+        // Verify scaling (each tier should be higher than previous)
+        assert!(bonus_10k > bonus_1k);
+        assert!(bonus_100k > bonus_10k);
+        assert!(bonus_500k > bonus_100k);
+        assert!(bonus_1m > bonus_500k);
+        assert!(bonus_5m > bonus_1m);
+        
+        // Verify VIP tier at 1M+ is substantial
+        assert!(bonus_1m >= 1.5);
+        assert!(bonus_5m >= 1.8);
+        
+        // Verify cap at 3.0x
+        let extreme_bonus = calculator.calculate_compound_mining_bonus(&miner, 100_000_000);
+        assert!(extreme_bonus <= 3.0);
+    }
+    
+    #[test]
+    fn test_compound_mining_bonus_uptime_tiers() {
+        let config = MiningRewardConfig::default();
+        let calculator = MiningCalculator::new(config);
+        
+        // Test different uptime tiers
+        let mut miner = Miner::new("test_miner".to_string(), 16, 8);
+        miner.contribution_score = 0.9;
+        
+        miner.uptime_percentage = 91.0;
+        let bonus_normal = calculator.calculate_compound_mining_bonus(&miner, 100_000);
+        
+        miner.uptime_percentage = 95.0;
+        let bonus_good = calculator.calculate_compound_mining_bonus(&miner, 100_000);
+        
+        miner.uptime_percentage = 99.0;
+        let bonus_excellent = calculator.calculate_compound_mining_bonus(&miner, 100_000);
+        
+        println!("Bonus at 91% uptime: {:.3f}x", bonus_normal);
+        println!("Bonus at 95% uptime: {:.3f}x", bonus_good);
+        println!("Bonus at 99% uptime: {:.3f}x", bonus_excellent);
+        
+        // Each higher uptime tier should give better bonus
+        assert!(bonus_good > bonus_normal);
+        assert!(bonus_excellent > bonus_good);
     }
 }
