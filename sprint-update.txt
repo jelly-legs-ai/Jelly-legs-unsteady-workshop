@@ -1,1 +1,14 @@
-﻿Frontend: Added NFT and DeFi activity types to LiveActivityFeed with new filter buttons, icons, colors, and descriptions. Backend: Added compound growth projection feature to staking_optimizer.rs with monthly rate calculation and projection points.
+**Sprint Update - Backend Merge Fix + Realistic Staking Values**
+
+**Backend (Jelly-legs-unsteady-workshop):**
+- Resolved merge conflicts in `main.rs` and `testnet-local.ps1`
+- Unified p2p_addr parameter (replaced port with full address)
+- Added chain_id support in NetworkState initialization
+- Fixed P2P handle naming (gossip_handle vs p2p_handle)
+
+**Frontend (Aether-Chain):**
+- Updated staking-rewards API: Default FLUX price changed from $0.05 → **$2.47** (realistic)
+- Updated base APY from 12% → **14%** for more realistic yield calculations
+- Added DEFAULT_FLUX_PRICE constant to FluxStakingDashboard for consistency
+
+Both repos updated and pushed successfully.

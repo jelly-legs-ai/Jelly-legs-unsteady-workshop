@@ -1,0 +1,36 @@
+## Sprint 84 Status Update
+
+**Priority raised** — this issue is now the team's top focus.
+
+### What's needed (the actual work):
+
+**Genesis file loading:**
+- `ValidatorState::with_genesis()` — load genesis.json on startup
+- `--genesis <path>` CLI flag
+- Genesis hash verification on peer connection
+
+**2-node bootstrap:**
+- `--bootstrap <addr>` CLI flag  
+- TCP connection + handshaking with chain ID verification
+- `start_p2p_with_bootstrap()` function
+
+**Files to modify:**
+- `crates/aether-validator/src/main.rs` — wire --genesis, --bootstrap, --port
+- `crates/aether-validator/src/state.rs` — add GenesisConfig + load_genesis()
+- `crates/aether-validator/src/network.rs` — bootstrap connection
+- `crates/aether-validator/src/block_producer.rs` — use genesis state
+
+**Test script:**
+- `testnet-local.ps1` for Windows
+
+### What's ALREADY built (from earlier sprints):
+- ✅ Genesis CLI (`create-genesis` command) — writes genesis.json
+- ✅ `load_genesis_from_file()` in genesis.rs
+- ✅ `ValidatorState::with_genesis()` in state.rs  
+- ✅ `HandshakeMessage` + chain verification in network.rs
+- ✅ `start_p2p_with_bootstrap()` in network.rs
+
+### Next step:
+Implement genesis loading in main.rs run_validator() — wire the existing functions together.
+
+**Binary:** `target/release/aether-validator.exe` (3.7MB)

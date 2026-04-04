@@ -1,0 +1,6 @@
+🦑 Sprint 87 Update - Website Development
+
+✅ Added animated entrance and FAQ search to whitepaper page
+✅ Added token distribution visual charts to tokenomics section (AeTHer & FLUX allocation bars with color-coded progress bars)
+
+Working on improving frontend content and visuals. Next: Continue polishing UI/UX sections.
