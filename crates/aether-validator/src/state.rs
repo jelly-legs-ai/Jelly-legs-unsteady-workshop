@@ -2,7 +2,7 @@
 //!
 //! In-memory state tracking for the running validator.
 
-use crate::genesis::{GenesisBlock, load_genesis_from_file};
+use crate::genesis::{GenesisBlock, load_genesis_from_file, ValidatorTier, TierConfig};
 use crate::keypair::ValidatorIdentity;
 use crate::{BlockProduction, EpochInfo, ValidatorInfo, VoteAccountInfo};
 use std::path::{Path, PathBuf};
@@ -23,6 +23,10 @@ struct ValidatorStateInner {
     
     // Genesis
     genesis: RwLock<Option<GenesisBlock>>,
+    
+    // Validator tier configuration
+    tier: RwLock<ValidatorTier>,
+    tier_config: RwLock<Option<TierConfig>>,
     
     // Chain state
     current_slot: AtomicU64,
@@ -58,6 +62,8 @@ impl ValidatorState {
             inner: Arc::new(ValidatorStateInner {
                 identity: RwLock::new(Some(identity)),
                 genesis: RwLock::new(None),
+                tier: RwLock::new(ValidatorTier::Full),
+                tier_config: RwLock::new(Some(TierConfig::default())),
                 current_slot: AtomicU64::new(0),
                 block_height: AtomicU64::new(0),
                 transaction_count: AtomicU64::new(0),
@@ -84,10 +90,19 @@ impl ValidatorState {
         let genesis = load_genesis_from_file(genesis_path)?;
         let genesis_hash = genesis.genesis_hash.clone();
         
+        // Extract tier config from genesis
+        let (tier, tier_config) = if let Some(ref tc) = genesis.consensus.tier_config {
+            (tc.tier, Some(tc.clone()))
+        } else {
+            (ValidatorTier::Full, Some(TierConfig::default()))
+        };
+        
         Ok(Self {
             inner: Arc::new(ValidatorStateInner {
                 identity: RwLock::new(Some(identity)),
                 genesis: RwLock::new(Some(genesis)),
+                tier: RwLock::new(tier),
+                tier_config: RwLock::new(tier_config),
                 current_slot: AtomicU64::new(0),
                 block_height: AtomicU64::new(0),
                 transaction_count: AtomicU64::new(0),
@@ -281,5 +296,63 @@ impl ValidatorState {
             .as_ref()
             .map(|g| g.consensus.tower_finality)
             .unwrap_or(12)
+    }
+
+    // ========================================================================
+    // Validator Tier Methods
+    // ========================================================================
+
+    /// Get the validator's tier
+    pub fn tier(&self) -> ValidatorTier {
+        *self.inner.tier.read().unwrap()
+    }
+
+    /// Get the tier configuration
+    pub fn tier_config(&self) -> Option<TierConfig> {
+        self.inner.tier_config.read().unwrap().clone()
+    }
+
+    /// Check if this validator is a Full validator
+    pub fn is_full(&self) -> bool {
+        self.tier() == ValidatorTier::Full
+    }
+
+    /// Check if this validator is a Lite validator
+    pub fn is_lite(&self) -> bool {
+        self.tier() == ValidatorTier::Lite
+    }
+
+    /// Check if this validator is an Observer node
+    pub fn is_observer(&self) -> bool {
+        self.tier() == ValidatorTier::Observer
+    }
+
+    /// Get consensus weight for this validator
+    pub fn consensus_weight(&self) -> f64 {
+        self.tier_config()
+            .map(|tc| tc.consensus_weight)
+            .unwrap_or(1.0)
+    }
+
+    /// Check if this validator can produce blocks
+    pub fn can_produce_blocks(&self) -> bool {
+        self.tier_config()
+            .map(|tc| tc.can_produce_blocks)
+            .unwrap_or(true)
+    }
+
+    /// Check if this validator can vote on consensus
+    pub fn can_vote(&self) -> bool {
+        self.tier_config()
+            .map(|tc| tc.can_vote)
+            .unwrap_or(true)
+    }
+
+    /// Set the validator tier (used during initialization)
+    pub fn set_tier(&self, tier: ValidatorTier, config: Option<TierConfig>) {
+        let mut tier_lock = self.inner.tier.write().unwrap();
+        let mut config_lock = self.inner.tier_config.write().unwrap();
+        *tier_lock = tier;
+        *config_lock = config;
     }
 }
