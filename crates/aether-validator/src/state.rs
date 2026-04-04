@@ -208,8 +208,22 @@ impl ValidatorState {
     }
 
     pub fn get_vote_accounts(&self) -> Vec<VoteAccountInfo> {
-        // Return empty for MVP
-        Vec::new()
+        // Return bootstrap validators from genesis as vote accounts
+        self.inner.genesis.read()
+            .unwrap()
+            .as_ref()
+            .map(|g| {
+                g.bootstrap_validators
+                    .iter()
+                    .map(|v| VoteAccountInfo {
+                        pubkey: v.identity_pubkey.clone(),
+                        validator_pubkey: v.identity_pubkey.clone(),
+                        commission: v.commission,
+                        active: true,
+                    })
+                    .collect()
+            })
+            .unwrap_or_else(Vec::new)
     }
 
     pub fn set_current_slot(&self, slot: u64) {
