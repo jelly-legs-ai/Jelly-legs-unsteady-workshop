@@ -300,6 +300,31 @@ impl UnifiedStakingContract {
         Ok(reward_amount)
     }
     
+    /// Calculate pending rewards for a position without claiming
+    pub fn calculate_pending_rewards(&self, position_id: &str) -> Result<u64, &'static str> {
+        let position = self.positions.get(position_id)
+            .ok_or("Position not found")?;
+        
+        let tier = self.tiers.iter().find(|t| t.tier_id == position.tier)
+            .ok_or("Tier not found")?;
+        
+        let token_symbol = match position.token {
+            StakingToken::FLUX => "FLUX",
+            StakingToken::ATH => "ATH",
+            StakingToken::AETH => "AETH",
+        };
+        
+        let pool = self.pools.get(token_symbol)
+            .ok_or("Pool not found")?;
+        
+        // Calculate rewards based on time staked and tier multiplier
+        let epochs_staked = pool.last_update_epoch.saturating_sub(position.last_claim_epoch);
+        let base_reward = (position.amount as f64 * pool.current_apr * tier.reward_multiplier / 365.0 / 100.0) as u64;
+        let pending = base_reward * epochs_staked.max(1);
+        
+        Ok(pending + position.accumulated_rewards)
+    }
+    
     /// Request unstaking
     pub fn request_unstake(
         &mut self,
@@ -365,6 +390,16 @@ impl UnifiedStakingContract {
         self.unstaking_requests.insert(request_id, request.clone());
         
         Ok(request)
+    }
+    
+    /// Get pool by token symbol
+    pub fn get_pool(&self, symbol: &str) -> Option<&StakingPool> {
+        self.pools.get(symbol)
+    }
+    
+    /// Get pool by token symbol (mutable)
+    pub fn get_pool_mut(&mut self, symbol: &str) -> Option<&mut StakingPool> {
+        self.pools.get_mut(symbol)
     }
     
     /// Get staking statistics
