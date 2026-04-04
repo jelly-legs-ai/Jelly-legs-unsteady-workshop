@@ -46,6 +46,9 @@ struct ValidatorStateInner {
     vote_count: AtomicU64,
     block_hash: RwLock<String>,
     
+    // Observer relay tracking (bytes relayed this epoch)
+    relay_bytes: AtomicU64,
+    
     // Ledger
     #[allow(dead_code)]
     ledger_path: PathBuf,
@@ -73,6 +76,7 @@ impl ValidatorState {
                 peer_pubkeys: RwLock::new(Vec::new()),
                 blocks_produced: AtomicU64::new(0),
                 vote_count: AtomicU64::new(0),
+                relay_bytes: AtomicU64::new(0),
                 block_hash: RwLock::new("0000000000000000000000000000000000000000000000000000000000000000".to_string()),
                 ledger_path,
                 testnet,
@@ -112,6 +116,7 @@ impl ValidatorState {
                 peer_pubkeys: RwLock::new(Vec::new()),
                 blocks_produced: AtomicU64::new(0),
                 vote_count: AtomicU64::new(0),
+                relay_bytes: AtomicU64::new(0),
                 block_hash: RwLock::new(genesis_hash),
                 ledger_path,
                 testnet,
@@ -354,5 +359,53 @@ impl ValidatorState {
         let mut config_lock = self.inner.tier_config.write().unwrap();
         *tier_lock = tier;
         *config_lock = config;
+    }
+
+    // ========================================================================
+    // Observer Relay Tracking & Rewards
+    // ========================================================================
+
+    /// Get total bytes relayed this epoch
+    pub fn relay_bytes(&self) -> u64 {
+        self.inner.relay_bytes.load(Ordering::Relaxed)
+    }
+
+    /// Add bytes relayed (called when relaying data)
+    pub fn add_relay_bytes(&self, bytes: u64) {
+        self.inner.relay_bytes.fetch_add(bytes, Ordering::Relaxed);
+    }
+
+    /// Reset relay counter (called at epoch boundary)
+    pub fn reset_relay_bytes(&self) {
+        self.inner.relay_bytes.store(0, Ordering::Relaxed);
+    }
+
+    /// Calculate FLUX rewards from relay activity for this epoch
+    /// Formula: relay_bytes × flux_epoch_relay_rate × node_reputation
+    /// Node reputation starts at 0.5, increases by 0.1 per epoch with >95% uptime, caps at 1.0
+    pub fn calculate_relay_reward(&self, node_reputation: f64) -> f64 {
+        let relay_rate = self
+            .tier_config()
+            .map(|tc| tc.relay_reward_rate)
+            .or_else(|| {
+                self.get_genesis()
+                    .map(|g| g.rewards.flux_epoch_relay_rate)
+            })
+            .unwrap_or(0.000001); // Default: 1 FLUX per MB
+
+        let bytes = self.relay_bytes();
+        let reward = (bytes as f64) * relay_rate * node_reputation;
+        reward
+    }
+
+    /// Get relay reward rate from tier config or genesis
+    pub fn get_relay_reward_rate(&self) -> f64 {
+        self.tier_config()
+            .map(|tc| tc.relay_reward_rate)
+            .or_else(|| {
+                self.get_genesis()
+                    .map(|g| g.rewards.flux_epoch_relay_rate)
+            })
+            .unwrap_or(0.000001)
     }
 }

@@ -160,6 +160,10 @@ impl Default for ConsensusConfig {
 pub struct RewardsConfig {
     pub epoch_duration: u64,
     pub base_reward_rate: u64,
+    /// FLUX per byte relayed per epoch (observer nodes earn via data relay)
+    /// Default: 0.000001 FLUX per byte (1 FLUX per MB relayed)
+    #[serde(default)]
+    pub flux_epoch_relay_rate: f64,
     #[serde(default)]
     pub bootstrap_bonus: Option<u64>,
 }
@@ -169,6 +173,7 @@ impl Default for RewardsConfig {
         Self {
             epoch_duration: 432_000,
             base_reward_rate: 6,
+            flux_epoch_relay_rate: 0.000001, // 1 FLUX per MB relayed per epoch
             bootstrap_bonus: None,
         }
     }
