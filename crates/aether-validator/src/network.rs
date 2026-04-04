@@ -245,7 +245,8 @@ async fn handle_inbound_stream(
     stream.flush().await?;
 
     info!("Inbound handshake successful with peer: {}", peer_handshake.peer_id);
-    network_state.add_peer(peer_handshake.peer_id).await;
+    network_state.add_peer(peer_handshake.peer_id.clone()).await;
+    state.add_peer(peer_handshake.peer_id);
 
     Ok(())
 }
@@ -314,7 +315,8 @@ pub async fn start_p2p_with_bootstrap(
                         
                         info!("Handshake successful with peer: {} (chain: {})", 
                             peer_handshake.peer_id, peer_handshake.chain_id);
-                        network_state.add_peer(peer_handshake.peer_id).await;
+                        network_state.add_peer(peer_handshake.peer_id.clone()).await;
+                        state.add_peer(peer_handshake.peer_id);
                         connected = true;
                     }
                 }
