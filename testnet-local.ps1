@@ -45,8 +45,9 @@ function Stop-Testnet {
     Write-Step "Stopping testnet..."
     $jobs = @("node1", "node2")
     foreach ($j in $jobs) {
+        $port = if ($j -eq "node1") { "8899" } else { "8898" }
         $proc = Get-Process -Name "aether-validator" -ErrorAction SilentlyContinue |
-            Where-Object { $_.CommandLine -match (if ($j -eq "node1") { "8899" } else { "8898" }) }
+            Where-Object { $_.CommandLine -match $port }
         if ($proc) {
             $proc | Stop-Process -Force -ErrorAction SilentlyContinue
         }
@@ -70,15 +71,21 @@ if (-not $SkipBuild) {
     $env:RUST_LOG = "error"
     Push-Location $BASE_DIR
     $start = Get-Date
-    $build = & "$env:CARGO_HOME\bin\cargo.exe" build --bin aether-validator 2>&1 | Out-String
+    $cargo = if (Test-Path "$env:CARGO_HOME\bin\cargo.exe") { "$env:CARGO_HOME\bin\cargo.exe" } else { "cargo" }
+    $build = & $cargo build --bin aether-validator 2>&1 | Out-String
     Pop-Location
-    if ($LASTEXITCODE -ne 0) {
+    if ($LASTEXITCODE -ne 0 -and -not (Test-Path $VALIDATOR_BIN)) {
+        Write-Fail "Build failed. Output:"
+        Write-Host $build -ForegroundColor Red
+        exit 1
+    } elseif ((Test-Path $VALIDATOR_BIN)) {
+        $elapsed = [math]::Round(((Get-Date) - $start).TotalSeconds, 1)
+        Write-Pass "Built in ${elapsed}s"
+    } else {
         Write-Fail "Build failed. Output:"
         Write-Host $build -ForegroundColor Red
         exit 1
     }
-    $elapsed = [math]::Round(((Get-Date) - $start).TotalSeconds, 1)
-    Write-Pass "Built in ${elapsed}s"
 } else {
     Write-Info "Skipping build (using existing binary)"
 }
@@ -188,8 +195,8 @@ function Http-Get($url) {
 
 $slot1 = $null; $slot2 = $null
 for ($i = 0; $i -lt 5; $i++) {
-    $slot1 = (Http-Get "http://$RPC_1/v1/slot")?.slot
-    $slot2 = (Http-Get "http://$RPC_2/v1/slot")?.slot
+    $s1 = Http-Get "http://$RPC_1/v1/slot"; if ($s1) { $slot1 = $s1.slot }
+    $s2 = Http-Get "http://$RPC_2/v1/slot"; if ($s2) { $slot2 = $s2.slot }
     if ($null -ne $slot1 -and $slot1 -gt 0) { break }
     Start-Sleep -Seconds 2
 }
@@ -239,8 +246,8 @@ if ($null -ne $slot2 -and $slot2 -gt 0) {
 
 # Check genesis hash matches
 $gh1 = $null; $gh2 = $null
-$gh1 = (Http-Get "http://$RPC_1/v1/genesis")?.genesis_hash
-$gh2 = (Http-Get "http://$RPC_2/v1/genesis")?.genesis_hash
+$g1 = Http-Get "http://$RPC_1/v1/genesis"; if ($g1) { $gh1 = $g1.genesis_hash }
+$g2 = Http-Get "http://$RPC_2/v1/genesis"; if ($g2) { $gh2 = $g2.genesis_hash }
 if ($gh1 -eq $GENESIS_HASH) {
     Write-Pass "Node 1 genesis hash matches"
 } else {

@@ -151,17 +151,15 @@ pub async fn start_p2p(
     info!("P2P node started with peer ID: {}", peer_id);
     info!("Subscribed to topics: {}, {}", BLOCKS_TOPIC, SLOT_TOPIC);
 
-    // Start gossip heartbeat for slot announcements
+    // Start gossip heartbeat for slot announcements (spawned, not blocking)
     let network_state_clone = network_state.clone();
     
     tokio::spawn(async move {
         run_slot_gossip_loop(state, network_state_clone, peer_id_str).await;
     });
 
-    // Keep running
-    loop {
-        tokio::time::sleep(Duration::from_secs(60)).await;
-    }
+    // Return immediately — the gossip loop runs in background
+    Ok(())
 }
 
 /// Start P2P with bootstrap node
@@ -181,8 +179,20 @@ pub async fn start_p2p_with_bootstrap(
     info!("P2P node started with peer ID: {}", peer_id);
     info!("Connecting to bootstrap node: {}", bootstrap_addr);
 
-    // Attempt TCP connection to bootstrap node
-    match tokio::net::TcpStream::connect(bootstrap_addr).await {
+    // Attempt TCP connection to bootstrap node with retries
+    let mut attempt = 0;
+    let max_attempts = 10;
+    let base_delay = Duration::from_millis(500);
+    let mut connected = false;
+
+    while attempt < max_attempts && !connected {
+        attempt += 1;
+        if attempt > 1 {
+            let delay = base_delay * (2u32.pow(attempt - 2) as u32);
+            debug!("Bootstrap connection attempt {}/{}, retrying in {:?}...", attempt, max_attempts, delay);
+            tokio::time::sleep(delay).await;
+        }
+        match tokio::net::TcpStream::connect(bootstrap_addr).await {
         Ok(mut stream) => {
             info!("Connected to bootstrap node at {}", bootstrap_addr);
             
@@ -217,6 +227,7 @@ pub async fn start_p2p_with_bootstrap(
                         info!("Handshake successful with peer: {} (chain: {})", 
                             peer_handshake.peer_id, peer_handshake.chain_id);
                         network_state.add_peer(peer_handshake.peer_id).await;
+                        connected = true;
                     }
                 }
                 _ => {
@@ -225,21 +236,26 @@ pub async fn start_p2p_with_bootstrap(
             }
         }
         Err(e) => {
-            warn!("Failed to connect to bootstrap node {}: {}", bootstrap_addr, e);
-            warn!("Starting as seed node (no bootstrap connection)");
+            debug!("Bootstrap connection attempt {}/{} failed: {}", attempt, max_attempts, e);
+        }
         }
     }
 
-    // Start gossip heartbeat
+    if !connected {
+        warn!("Could not connect to bootstrap node {} after {} attempts", bootstrap_addr, max_attempts);
+        warn!("Starting as seed node (no bootstrap connection)");
+    } else {
+        info!("Bootstrap connection established, peer count: 1");
+    }
+
+    // Start gossip heartbeat (spawned, not blocking)
     let network_state_clone = network_state.clone();
     tokio::spawn(async move {
         run_slot_gossip_loop(state, network_state_clone, peer_id_str).await;
     });
 
-    // Keep running
-    loop {
-        tokio::time::sleep(Duration::from_secs(60)).await;
-    }
+    // Return immediately — the gossip loop runs in background
+    Ok(())
 }
 
 /// Run slot gossip loop - periodically announce our current slot
