@@ -187,11 +187,14 @@ pub fn create_testnet_genesis() -> GenesisBlock {
             tower_finality: 12,
             min_stake: 100,
             target_stake: 1_000_000,
+            ..Default::default()
         },
         rewards: RewardsConfig {
             epoch_duration: 432_000,
             base_reward_rate: 6,
+            ..Default::default()
         },
+        ..Default::default()
     }
 }
 
@@ -215,11 +218,14 @@ pub fn create_genesis_with(
             tower_finality: 12,
             min_stake: 100,
             target_stake: 1_000_000,
+            ..Default::default()
         },
         rewards: RewardsConfig {
             epoch_duration: 432_000,
             base_reward_rate: 6,
+            ..Default::default()
         },
+        ..Default::default()
     };
     
     genesis.genesis_hash = compute_genesis_hash(&genesis);

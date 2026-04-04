@@ -586,6 +586,7 @@ async fn create_genesis(cli: Cli) -> anyhow::Result<()> {
             identity_pubkey: identity.pubkey(),
             stake: 10_000_000,
             commission: 10,
+            active: true,
         });
     }
 
@@ -596,6 +597,7 @@ async fn create_genesis(cli: Cli) -> anyhow::Result<()> {
             identity_pubkey: keypair.pubkey(),
             stake: 10_000_000,
             commission: 10,
+            active: true,
         });
         save_identity(
             &PathBuf::from("bootstrap-validator-identity.json"),

@@ -8,7 +8,6 @@ use crate::state::ValidatorState;
 use libp2p::identity::Keypair;
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
-use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::time::{interval, Duration};
