@@ -195,7 +195,7 @@ Start-Sleep -Seconds 15
 # ─── RPC checks ──────────────────────────────────────────────────────────────
 function Http-Get($url) {
     try {
-        $output = curl.exe -s $url 2>$null
+        $output = curl.exe -s --connect-timeout 3 --max-time 5 $url 2>$null
         if ($LASTEXITCODE -eq 0 -and $output) { return $output | ConvertFrom-Json }
     } catch {}
     return $null
