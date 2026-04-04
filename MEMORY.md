@@ -1,6 +1,6 @@
 # MEMORY.md - Long-Term Memory
 
-_Last updated: 2026-04-01_
+_Last updated: 2026-04-04_
 
 ## Identity
 - **Name:** Jelly-legs 🦑
@@ -10,23 +10,23 @@ _Last updated: 2026-04-01_
 ## Project Overview
 
 ### Core Project: Project AETHER
-**Status:** 🔴 CRITICAL PRIORITY  
-**Type:** Solana-forked blockchain optimized for AI workloads  
-**Native Token:** AETH  
-**Secondary Token:** FLUX (AI operations)  
-**Target Mainnet:** June 14, 2026  
+**Status:** 🔴 CRITICAL PRIORITY
+**Type:** Solana-forked blockchain optimized for AI workloads
+**Native Token:** AETH
+**Secondary Token:** FLUX (AI operations)
+**Target Mainnet:** June 14, 2026
 
 ### Key Architecture
 - Hybrid PoH + PoS consensus ("AetherFlow")
 - 400ms slot time, 65,000+ TPS target
 - AI Priority Lanes (Critical/Standard/Background)
-- Founding validators needed: ≥10 (10K AETH each, 2x bootstrap rewards)
+- **Tiered validators: Full (10K AETH), Lite (1K AETH), Observer (no stake, relay-only)**
 - Total supply: 500M AETH, 10B FLUX
 
 ### Development Pipeline
 - Phase 1-4: Research → Design → Development → Security
-- Phase 5: Testnet
-- Phase 6: Mainnet (in progress, started 2026-03-22)
+- Phase 5: Testnet ✅ (2-node network live)
+- Phase 6: Mainnet (in progress)
 
 ### Reference Documents
 - Full architecture: `docs/MAINNET_ARCHITECTURE.md`
@@ -67,25 +67,31 @@ _Last updated: 2026-04-01_
 
 ## Sprint History
 
-### Sprint 22 (Last - 2026-03-28)
-**Focus:** Enhanced mining rewards system  
-**Status:** ✅ Complete, local commits made  
-**Features Added:**
-1. Streak Bonus (up to 1.5x for 24+ consecutive epochs)
-2. Peak Hours Bonus (1.2x during 09:00-12:00 and 19:00-23:00 UTC)
-3. Early Adopter Bonus (2x for first 10K miners)
-4. Geo Diversity Bonus (1.3x for underrepresented regions)
-5. Reputation System (up to 1.2x based on activity)
-6. Network Bonus Pool (top 10% share 10 FLUX/epoch)
+### Sprint 22 (2026-03-28)
+**Focus:** Enhanced mining rewards system
+**Status:** ✅ Complete
+**Features Added:** Streak Bonus, Peak Hours Bonus, Early Adopter Bonus, Geo Diversity Bonus, Reputation System, Network Bonus Pool
 
-**Blockers:** GitHub push failed (account suspended), missing GITHUB_TOKEN for comments  
-**Files:** `contracts/mining_rewards.rs`, `SPRINT-22-MINING-REWARDS.md`
+### Sprint 23 (2026-04-04)
+**Focus:** Unified staking + testnet hardening
+**Status:** ✅ Complete
+**Work:** unified_staking.rs, get_pool accessors, calculate_pending_rewards, 2-node TCP P2P, slot sync on handshake
 
-### Sprint 23 (In Progress — 2026-04-04)
-**Status:** Active (git log shows unified_staking.rs commit 04cc786)
-**Confirmed Work:** unified_staking.rs with get_pool accessors and calculate_pending_rewards
-**Next priorities:** Replit DB, API routes, FLUX/ATH token contracts, staking contract structure
-**Note:** Sprint 22 completed but MEMORY.md wasn't updated to reflect completion until 2026-04-04
+### Sprint 24 (2026-04-04 afternoon)
+**Focus:** Aether-Onboard-CLI P0/P1/P2
+**Status:** ✅ Complete
+**Work:** validator-start.js binary detection, init.js wiring, doctor auto-fix, monitor (REST polling), logs, sdk, npm global install
+
+### Sprint 25 (2026-04-04 late afternoon)
+**Focus:** Tiered Validator System (Issue #113)
+**Status:** ✅ Complete — Issue #113 fully implemented
+**Rust:** ValidatorTier enum, TierConfig, stake enforcement (10K/1K/0), --tier CLI flag, relay rewards
+**CLI:** doctor --tier, init tier selection, validator-start --tier, monitor tier display
+
+## NPM Packages Published
+- `@jellylegsai/aether-validator-cli@1.0.2` — tiered validators, interactive menu, postinstall guide
+- Install: `npm install -g @jellylegsai/aether-validator-cli`
+- Bin aliases: `aether`, `aether-validator`, `jelly-aether`
 
 ---
 
@@ -102,11 +108,10 @@ _Last updated: 2026-04-01_
 
 ## Open Issues / Blockers
 
-1. **GitHub Push Issues** — Account status unclear (2026-04-03 noted suspended, but 2026-04-04 commits are appearing — possible intermittent or agent worker using different auth)
-2. **Week 2 Audit Due ~2026-04-05** — TOMORROW. Autonomous approach available: scope doc + Immunefi setup + cargo audit CI. Budget $1-2K if freelance review needed.
-3. **Missing GITHUB_TOKEN** — Can't post PR comments automatically (may be resolved — 2026-04-04 commits are succeeding)
-4. **Validator Commitments** — Need ≥10 founding validators confirmed (10K AETH each, 2x bootstrap rewards)
-5. **Sprint 23 Status Unclear** — Git log shows unified_staking.rs work (2026-04-04, commit 04cc786). MEMORY.md may be stale on Sprint 23. Verify actual sprint state.
+1. **Validator Commitments** — Need ≥10 founding validators confirmed (10K AETH each, 2x bootstrap rewards)
+2. **NPM automation token** — Stored in `C:\Users\RM_Ga\AppData\Roaming\npm\etc\npmrc` — write-only, cannot read metadata from this machine (IP-restricted). Package publishes fine, users can install normally.
+3. **Week 2 Audit** — Was due ~2026-04-05. Status unknown — verify if completed.
+4. **Mainnet launch** — June 14, 2026 target. ~10 weeks away.
 
 ---
 

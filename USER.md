@@ -1,16 +1,16 @@
 # USER.md - About Your Human
 
-- **Name:** *(need to fill this in)*
-- **What to call them:** *(need to fill this in)*
-- **Pronouns:** *(optional)*
-- **Timezone:** *(need to fill this in)*
+- **Name:** Reggie
+- **What to call them:** Reggie
+- **Pronouns:** he/him
+- **Timezone:** Europe/London
 - **Notes:** Runs the AI R&D team Jelly-legs is part of
 
 ## Context
 
 - **Project:** Autonomous-self-evolving AI research and development
 - **Focus:** Real-life production and deployment
-- **Status:** Reconnecting after being offline for a while
+- **Status:** Active user
 
 ---
 
