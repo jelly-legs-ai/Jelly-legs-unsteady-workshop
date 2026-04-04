@@ -11,6 +11,8 @@ const { validatorStart } = require('./commands/validator-start');
 const { validatorStatus } = require('./commands/validator-status');
 const { init } = require('./commands/init');
 const { monitorLoop } = require('./commands/monitor');
+const { logsCommand } = require('./commands/logs');
+const { sdkCommand } = require('./commands/sdk');
 
 // Parse args early to support flags on commands
 function getCommandArgs() {
@@ -45,6 +47,14 @@ const COMMANDS = {
       const { main } = require('./commands/monitor');
       main();
     },
+  },
+  logs: {
+    description: 'Tail validator logs with colour-coded output (ERROR=red, WARN=yellow, INFO=green)',
+    handler: logsCommand,
+  },
+  sdk: {
+    description: 'Aether SDK download links and install instructions (JS, Rust, FLUX/ATH tokens)',
+    handler: sdkCommand,
   },
   validator: {
     description: 'Validator node management',
