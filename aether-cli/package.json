@@ -1,6 +1,6 @@
 {
   "name": "aether-cli",
-  "version": "0.3.0",
+  "version": "1.0.2",
   "description": "AeTHer Validator Command Line Interface — system checks, onboarding, and validator management",
   "main": "index.js",
   "bin": {
