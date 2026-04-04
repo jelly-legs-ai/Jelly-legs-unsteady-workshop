@@ -30,14 +30,45 @@ const colors = {
   cyan: '\x1b[36m',
 };
 
-// Minimum requirements (from spec)
-const REQUIREMENTS = {
-  cpu: { minCores: 8 },
-  ram: { minTotalGB: 32, minAvailableGB: 28 },
-  disk: { minTotalGB: 512, minFreeGB: 340 },
-  network: { minSpeedMbps: 100 },
-  ports: { p2p: 8001, rpc: 8899, ssh: 22 },
+// Minimum requirements per tier (from spec)
+const TIER_REQUIREMENTS = {
+  full: {
+    badge: '[FULL]',
+    cpu: { minCores: 8 },
+    ram: { minTotalGB: 32, minAvailableGB: 28 },
+    disk: { minTotalGB: 512, minFreeGB: 340 },
+    network: { minSpeedMbps: 100 },
+    ports: { p2p: 8001, p2pNode: 8002, rpc: 8899, ssh: 22 },
+    stake: '10,000 AETH',
+    consensusWeight: '1.0x',
+    canProduceBlocks: true,
+  },
+  lite: {
+    badge: '[LITE]',
+    cpu: { minCores: 4 },
+    ram: { minTotalGB: 8, minAvailableGB: 6 },
+    disk: { minTotalGB: 100, minFreeGB: 50 },
+    network: { minSpeedMbps: 25 },
+    ports: { p2p: 8001, rpc: 8899, ssh: 22 },
+    stake: '1,000 AETH',
+    consensusWeight: 'stake/10000 (e.g., 0.1x at 1K AETH)',
+    canProduceBlocks: false,
+  },
+  observer: {
+    badge: '[OBSERVER]',
+    cpu: { minCores: 2 },
+    ram: { minTotalGB: 4, minAvailableGB: 3 },
+    disk: { minTotalGB: 50, minFreeGB: 25 },
+    network: { minSpeedMbps: 10 },
+    ports: { p2p: 8001, ssh: 22 }, // inbound only, no RPC
+    stake: '0 AETH',
+    consensusWeight: '0x (relay-only)',
+    canProduceBlocks: false,
+  },
 };
+
+// Default to full tier
+const DEFAULT_TIER = 'full';
 
 /**
  * Execute shell command and return output
@@ -57,13 +88,14 @@ function runCommand(cmd, options = {}) {
 /**
  * Check CPU specifications
  */
-function checkCPU() {
+function checkCPU(tier = DEFAULT_TIER) {
+  const reqs = TIER_REQUIREMENTS[tier];
   const cpus = os.cpus();
   const physicalCores = cpus.length / 2; // Hyperthreading aware
   const model = cpus[0].model;
   const speed = cpus[0].speed;
 
-  const passed = physicalCores >= REQUIREMENTS.cpu.minCores;
+  const passed = physicalCores >= reqs.cpu.minCores;
 
   return {
     section: 'CPU',
@@ -73,8 +105,8 @@ function checkCPU() {
     frequency: `${speed} MHz`,
     passed,
     message: passed 
-      ? `✅ PASS (${physicalCores} cores >= ${REQUIREMENTS.cpu.minCores} required)`
-      : `❌ FAIL (${physicalCores} cores < ${REQUIREMENTS.cpu.minCores} required)`,
+      ? `✅ PASS (${physicalCores} cores >= ${reqs.cpu.minCores} required)`
+      : `❌ FAIL (${physicalCores} cores < ${reqs.cpu.minCores} required)`,
     fixable: false,
     fixNote: 'CPU upgrade required - hardware limitation',
   };
@@ -83,13 +115,14 @@ function checkCPU() {
 /**
  * Check memory specifications
  */
-function checkMemory() {
+function checkMemory(tier = DEFAULT_TIER) {
+  const reqs = TIER_REQUIREMENTS[tier];
   const totalGB = os.totalmem() / (1024 * 1024 * 1024);
   const freeGB = os.freemem() / (1024 * 1024 * 1024);
   const availableGB = freeGB; // Simplified - in production would check swap too
 
-  const totalPassed = totalGB >= REQUIREMENTS.ram.minTotalGB;
-  const availablePassed = availableGB >= REQUIREMENTS.ram.minAvailableGB;
+  const totalPassed = totalGB >= reqs.ram.minTotalGB;
+  const availablePassed = availableGB >= reqs.ram.minAvailableGB;
   const passed = totalPassed && availablePassed;
 
   return {
@@ -99,7 +132,7 @@ function checkMemory() {
     passed,
     message: passed
       ? `✅ PASS (${totalGB.toFixed(1)} GB total, ${availableGB.toFixed(1)} GB available)`
-      : `❌ FAIL (need ${REQUIREMENTS.ram.minTotalGB} GB total, ${REQUIREMENTS.ram.minAvailableGB} GB available)`,
+      : `❌ FAIL (need ${reqs.ram.minTotalGB} GB total, ${reqs.ram.minAvailableGB} GB available)`,
     fixable: false,
     fixNote: 'RAM upgrade required or close memory-intensive applications',
   };
@@ -108,7 +141,8 @@ function checkMemory() {
 /**
  * Check disk specifications
  */
-function checkDisk() {
+function checkDisk(tier = DEFAULT_TIER) {
+  const reqs = TIER_REQUIREMENTS[tier];
   // Get disk info for root partition (works on Linux/Mac)
   let diskInfo = { mount: '/', type: 'SSD', total: 0, free: 0 };
   
@@ -154,8 +188,8 @@ function checkDisk() {
     diskInfo.free = 0;
   }
 
-  const totalPassed = diskInfo.total >= REQUIREMENTS.disk.minTotalGB;
-  const freePassed = diskInfo.free >= REQUIREMENTS.disk.minFreeGB;
+  const totalPassed = diskInfo.total >= reqs.disk.minTotalGB;
+  const freePassed = diskInfo.free >= reqs.disk.minFreeGB;
   const passed = totalPassed && freePassed;
 
   return {
@@ -167,7 +201,7 @@ function checkDisk() {
     passed,
     message: passed
       ? `✅ PASS (${diskInfo.total.toFixed(0)} GB total, ${diskInfo.free.toFixed(0)} GB free)`
-      : `❌ FAIL (need ${REQUIREMENTS.disk.minTotalGB} GB total, ${REQUIREMENTS.disk.minFreeGB} GB free)`,
+      : `❌ FAIL (need ${reqs.disk.minTotalGB} GB total, ${reqs.disk.minFreeGB} GB free)`,
     fixable: !totalPassed ? false : true,
     fixNote: totalPassed ? 'Free up disk space by removing old files or logs' : 'Larger disk required - hardware limitation',
   };
@@ -176,7 +210,8 @@ function checkDisk() {
 /**
  * Check network specifications
  */
-function checkNetwork() {
+function checkNetwork(tier = DEFAULT_TIER) {
+  const reqs = TIER_REQUIREMENTS[tier];
   // Try to get public IP
   let publicIP = 'Unknown';
   try {
@@ -206,9 +241,10 @@ function checkNetwork() {
     upload: uploadSpeed,
     latency,
     interfaces: interfaceCount,
+    required: `${reqs.network.minSpeedMbps} Mbps`,
     passed,
     message: passed
-      ? `✅ PASS (Network interfaces detected)`
+      ? `✅ PASS (Network interfaces detected, need ${reqs.network.minSpeedMbps} Mbps)`
       : `❌ FAIL`,
     fixable: false,
     fixNote: 'Network connectivity is system-level',
@@ -218,7 +254,8 @@ function checkNetwork() {
 /**
  * Check firewall and port availability
  */
-function checkFirewall() {
+function checkFirewall(tier = DEFAULT_TIER) {
+  const reqs = TIER_REQUIREMENTS[tier];
   const results = { p2p: false, rpc: false, ssh: false };
   const blockedPorts = [];
   
@@ -227,17 +264,22 @@ function checkFirewall() {
       // Check if ufw is active and ports are open
       const ufwStatus = runCommand('ufw status 2>&1', { allowFailure: true });
       if (ufwStatus && !ufwStatus.includes('inactive')) {
-        results.p2p = ufwStatus.includes(`${REQUIREMENTS.ports.p2p}`);
-        results.rpc = ufwStatus.includes(`${REQUIREMENTS.ports.rpc}`);
-        results.ssh = ufwStatus.includes(`${REQUIREMENTS.ports.ssh}`);
+        results.p2p = ufwStatus.includes(`${reqs.ports.p2p}`);
+        results.ssh = ufwStatus.includes(`${reqs.ports.ssh}`);
+        // RPC only required for full/lite tiers
+        if (reqs.ports.rpc) {
+          results.rpc = ufwStatus.includes(`${reqs.ports.rpc}`);
+        } else {
+          results.rpc = true; // observer doesn't need RPC
+        }
         
-        if (!results.p2p) blockedPorts.push(REQUIREMENTS.ports.p2p);
-        if (!results.rpc) blockedPorts.push(REQUIREMENTS.ports.rpc);
-        if (!results.ssh) blockedPorts.push(REQUIREMENTS.ports.ssh);
+        if (!results.p2p) blockedPorts.push(reqs.ports.p2p);
+        if (reqs.ports.rpc && !results.rpc) blockedPorts.push(reqs.ports.rpc);
+        if (!results.ssh) blockedPorts.push(reqs.ports.ssh);
       } else {
         // If firewall inactive, assume ports are accessible
         results.p2p = true;
-        results.rpc = true;
+        results.rpc = reqs.ports.rpc ? true : true;
         results.ssh = true;
       }
     } else if (process.platform === 'win32') {
@@ -257,23 +299,27 @@ function checkFirewall() {
         }
       };
       
-      results.p2p = testPort(REQUIREMENTS.ports.p2p);
-      results.rpc = testPort(REQUIREMENTS.ports.rpc);
-      results.ssh = testPort(REQUIREMENTS.ports.ssh);
+      results.p2p = testPort(reqs.ports.p2p);
+      results.ssh = testPort(reqs.ports.ssh);
+      if (reqs.ports.rpc) {
+        results.rpc = testPort(reqs.ports.rpc);
+      } else {
+        results.rpc = true; // observer doesn't need RPC
+      }
       
-      if (!results.p2p) blockedPorts.push(REQUIREMENTS.ports.p2p);
-      if (!results.rpc) blockedPorts.push(REQUIREMENTS.ports.rpc);
-      if (!results.ssh) blockedPorts.push(REQUIREMENTS.ports.ssh);
+      if (!results.p2p) blockedPorts.push(reqs.ports.p2p);
+      if (reqs.ports.rpc && !results.rpc) blockedPorts.push(reqs.ports.rpc);
+      if (!results.ssh) blockedPorts.push(reqs.ports.ssh);
     } else {
       // macOS / other - assume pass
       results.p2p = true;
-      results.rpc = true;
+      results.rpc = reqs.ports.rpc ? true : true;
       results.ssh = true;
     }
   } catch (e) {
     // Assume pass if we can't check
     results.p2p = true;
-    results.rpc = true;
+    results.rpc = reqs.ports.rpc ? true : true;
     results.ssh = true;
   }
 
@@ -375,7 +421,8 @@ function printCheckResult(check) {
 /**
  * Print ASCII art header
  */
-function printHeader() {
+function printHeader(tier = DEFAULT_TIER) {
+  const reqs = TIER_REQUIREMENTS[tier];
   const header = `
 ${colors.bright}${colors.cyan}
 ███╗   ███╗██╗███████╗███████╗██╗ ██████╗ ███╗   ██╗
@@ -388,25 +435,39 @@ ${colors.bright}${colors.cyan}
 ${colors.reset}${colors.bright}Validator System Check${colors.reset}
   ${colors.yellow}v1.0.0${colors.reset}
   ${new Date().toISOString().split('T')[0]}
+  ${colors.magenta}${reqs.badge}${colors.reset}
 `.trim();
   console.log(header);
+  console.log(`\n${colors.cyan}${'━'.repeat(60)}${colors.reset}`);
+  
+  // Print tier summary
+  console.log(`\n${colors.bright}Tier Requirements:${colors.reset}`);
+  console.log(`  ${colors.cyan}Stake:${colors.reset} ${reqs.stake}`);
+  console.log(`  ${colors.cyan}Consensus Weight:${colors.reset} ${reqs.consensusWeight}`);
+  console.log(`  ${colors.cyan}Block Production:${colors.reset} ${reqs.canProduceBlocks ? '✅ Yes' : '❌ No'}`);
+  console.log(`  ${colors.cyan}CPU:${colors.reset} ${reqs.cpu.minCores}+ cores`);
+  console.log(`  ${colors.cyan}RAM:${colors.reset} ${reqs.ram.minTotalGB}GB+ total, ${reqs.ram.minAvailableGB}GB+ available`);
+  console.log(`  ${colors.cyan}Disk:${colors.reset} ${reqs.disk.minTotalGB}GB+ total, ${reqs.disk.minFreeGB}GB+ free`);
+  console.log(`  ${colors.cyan}Network:${colors.reset} ${reqs.network.minSpeedMbps}+ Mbps`);
+  console.log(`  ${colors.cyan}Ports:${colors.reset} ${Object.values(reqs.ports).join(', ')}`);
   console.log(`\n${colors.cyan}${'━'.repeat(60)}${colors.reset}`);
 }
 
 /**
  * Print summary
  */
-function printSummary(results) {
+function printSummary(results, tier = DEFAULT_TIER) {
+  const reqs = TIER_REQUIREMENTS[tier];
   const allPassed = results.every(r => r.passed);
   
   console.log(`\n${colors.cyan}${'━'.repeat(60)}${colors.reset}`);
-  console.log(`\n${colors.bright}SUMMARY:${colors.reset}`);
+  console.log(`\n${colors.bright}SUMMARY:${colors.reset} ${colors.magenta}${reqs.badge}${colors.reset}`);
   
   if (allPassed) {
     console.log(`\n${colors.bright}${colors.green}✅ All checks passed!${colors.reset}`);
-    console.log(`\n${colors.green}Your system is ready to run an AeTHer validator.${colors.reset}`);
+    console.log(`\n${colors.green}Your system is ready to run an AeTHer ${tier.toUpperCase()} validator.${colors.reset}`);
     console.log(`\nNext steps:`);
-    console.log(`  ${colors.bright}aether-cli validator start${colors.reset}    # Start validating`);
+    console.log(`  ${colors.bright}aether-cli validator start --tier ${tier}${colors.reset}    # Start validating`);
     console.log(`  ${colors.bright}aether-cli validator status${colors.reset}   # Check status`);
     console.log(`  ${colors.bright}aether-cli help${colors.reset}               # View all commands`);
   } else {
@@ -597,22 +658,28 @@ async function interactiveFixMode(results) {
  * Main doctor command
  */
 async function doctorCommand(options = {}) {
-  const { autoFix = false } = options;
+  const { autoFix = false, tier = DEFAULT_TIER } = options;
   
-  printHeader();
-  console.log(`\n${colors.bright}Running system checks...${colors.reset}\n`);
+  // Validate tier
+  if (!TIER_REQUIREMENTS[tier]) {
+    console.log(`${colors.red}Error: Invalid tier '${tier}'. Valid tiers: full, lite, observer${colors.reset}`);
+    return 1;
+  }
+  
+  printHeader(tier);
+  console.log(`\n${colors.bright}Running system checks for ${tier.toUpperCase()} tier...${colors.reset}\n`);
 
   const results = [
-    checkCPU(),
-    checkMemory(),
-    checkDisk(),
-    checkNetwork(),
-    checkFirewall(),
+    checkCPU(tier),
+    checkMemory(tier),
+    checkDisk(tier),
+    checkNetwork(tier),
+    checkFirewall(tier),
     checkValidatorBinary(),
   ];
 
   results.forEach(printCheckResult);
-  printSummary(results);
+  printSummary(results, tier);
 
   // If auto-fix mode or user requests it
   const failed = results.filter(r => !r.passed);
@@ -640,7 +707,14 @@ if (require.main === module) {
   const args = process.argv.slice(2);
   const autoFix = args.includes('--fix') || args.includes('-f');
   
-  doctorCommand({ autoFix }).then(exitCode => {
+  // Parse --tier flag
+  let tier = DEFAULT_TIER;
+  const tierIndex = args.findIndex(arg => arg === '--tier');
+  if (tierIndex !== -1 && args[tierIndex + 1]) {
+    tier = args[tierIndex + 1].toLowerCase();
+  }
+  
+  doctorCommand({ autoFix, tier }).then(exitCode => {
     process.exit(exitCode);
   });
 }
