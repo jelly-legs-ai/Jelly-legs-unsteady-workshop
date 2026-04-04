@@ -13,6 +13,7 @@ const { init } = require('./commands/init');
 const { monitorLoop } = require('./commands/monitor');
 const { logsCommand } = require('./commands/logs');
 const { sdkCommand } = require('./commands/sdk');
+const { walletCommand } = require('./commands/wallet');
 const readline = require('readline');
 
 // CLI version
@@ -152,6 +153,13 @@ const COMMANDS = {
   sdk: {
     description: 'Aether SDK download links and install instructions (JS, Rust, FLUX/ATH tokens)',
     handler: sdkCommand,
+  },
+  wallet: {
+    description: 'Wallet management — create, import, list, default',
+    handler: () => {
+      const { walletCommand } = require('./commands/wallet');
+      walletCommand();
+    },
   },
   validator: {
     description: 'Validator node management',
