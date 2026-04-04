@@ -685,6 +685,39 @@ impl StakingContract {
         yearly_rewards as u64
     }
     
+    /// Calculate compound rewards with configurable compounding frequency
+    /// compounds_per_year: 365 = daily, 12 = monthly, 1 = annually, 0 = simple interest
+    pub fn calculate_compound_rewards(&self, pool_id: &str, principal: u64, years: f64, compounds_per_year: u32) -> u64 {
+        let pool = match self.pools.get(pool_id) {
+            Some(p) => p,
+            None => return 0,
+        };
+        
+        let rate = pool.reward_rate;
+        
+        // Simple interest case
+        if compounds_per_year == 0 || rate == 0.0 {
+            return (principal as f64 * rate * years) as u64;
+        }
+        
+        // Compound interest: A = P * (1 + r/n)^(n*t)
+        let n = compounds_per_year as f64;
+        let t = years;
+        let amount = principal as f64 * (1.0 + rate / n).powf(n * t);
+        
+        (amount - principal as f64) as u64
+    }
+    
+    /// Calculate daily compound rewards (compounding daily)
+    pub fn calculate_daily_compound_rewards(&self, pool_id: &str, principal: u64, days: u64) -> u64 {
+        self.calculate_compound_rewards(pool_id, principal, days as f64 / 365.0, 365)
+    }
+    
+    /// Calculate weekly compound rewards (compounding weekly)
+    pub fn calculate_weekly_compound_rewards(&self, pool_id: &str, principal: u64, weeks: u64) -> u64 {
+        self.calculate_compound_rewards(pool_id, principal, weeks as f64 / 52.0, 52)
+    }
+    
     /// Calculate total staking value in USD (assuming price feed)
     pub fn calculate_total_staked_value(&self, aeth_price: f64, flux_price: f64, ath_price: f64) -> f64 {
         let mut total = 0.0;
@@ -714,6 +747,27 @@ impl StakingContract {
         // APY = (1 + r/n)^n - 1
         let apy = (1.0 + r / n).powf(n) - 1.0;
         apy * 100.0 // Return as percentage
+    }
+    
+    /// Calculate effective APY including lock period bonuses
+    /// lock_multiplier: 1.0 = no bonus, 1.25 = 25% bonus for longer locks
+    pub fn calculate_effective_apy(&self, pool_id: &str, lock_multiplier: f64) -> f64 {
+        let base_apy = self.calculate_pool_apy(pool_id);
+        base_apy * lock_multiplier
+    }
+    
+    /// Get pool utilization rate (total_staked / max_capacity)
+    pub fn get_pool_utilization(&self, pool_id: &str, max_capacity: u64) -> f64 {
+        let pool = match self.pools.get(pool_id) {
+            Some(p) => p,
+            None => return 0.0,
+        };
+        
+        if max_capacity == 0 {
+            return 0.0;
+        }
+        
+        (pool.total_staked as f64 / max_capacity as f64) * 100.0
     }
     
     /// Calculate lockup period end date (in epochs)
