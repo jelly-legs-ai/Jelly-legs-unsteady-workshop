@@ -670,105 +670,10 @@ base_reward_rate = {}
 }
 
 // =============================================================================
-// RPC Request Handler
+// P2P Gossip (Stub)
 // =============================================================================
 
-async fn handle_rpc_request(
-    mut socket: tokio::net::TcpStream,
-    state: ValidatorState,
-) -> anyhow::Result<()> {
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
-
-    let mut buf = vec![0u8; 4096];
-    let n = socket.read(&mut buf).await?;
-    if n == 0 {
-        return Ok(());
-    }
-
-    let request: serde_json::Value =
-        serde_json::from_slice(&buf[..n]).context("Invalid JSON-RPC request")?;
-
-    let method = request
-        .get("method")
-        .and_then(|m| m.as_str())
-        .unwrap_or("unknown");
-
-    let id = request.get("id").cloned();
-
-    let response = match method {
-        "getSlot" => serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "result": state.current_slot(),
-        }),
-        "getBlockHeight" => serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "result": state.block_height(),
-        }),
-        "getTransactionCount" => serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "result": state.transaction_count(),
-        }),
-        "getEpochInfo" => serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "result": state.epoch_info(),
-        }),
-        "getBlockProduction" => serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "result": state.block_production(),
-        }),
-        "getClusterNodes" | "getValidators" => serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "result": state.get_connected_validators(),
-        }),
-        "getVoteAccounts" => serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "result": state.get_vote_accounts(),
-        }),
-        "getGenesis" => serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "result": state.get_genesis(),
-        }),
-        "getGenesisHash" => serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "result": state.get_genesis_hash(),
-        }),
-        "health" => serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "result": "ok",
-        }),
-        _ => serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "error": {
-                "code": -32601,
-                "message": format!("Method not found: {}", method),
-            }
-        }),
-    };
-
-    let mut socket = socket;
-    socket
-        .write_all(serde_json::to_vec(&response)?.as_slice())
-        .await?;
-    socket.flush().await?;
-
-    Ok(())
-}
-
-// =============================================================================
-// P2P Gossip (Stub - uses libp2p in full implementation)
-// =============================================================================
-
+#[allow(dead_code)]
 async fn run_gossip(addr: &str, state: ValidatorState) -> anyhow::Result<()> {
     info!("P2P gossip would connect to {}", addr);
     // In full implementation, this uses libp2p for actual gossip
