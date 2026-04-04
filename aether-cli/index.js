@@ -10,6 +10,7 @@ const { doctorCommand } = require('./commands/doctor');
 const { validatorStart } = require('./commands/validator-start');
 const { validatorStatus } = require('./commands/validator-status');
 const { init } = require('./commands/init');
+const { monitorLoop } = require('./commands/monitor');
 
 // Parse args early to support flags on commands
 function getCommandArgs() {
@@ -36,6 +37,14 @@ const COMMANDS = {
   'kyc generate': {
     description: 'Generate pre-filled KYC link with pubkey, node ID, signature',
     handler: () => console.log('🚧 kyc generate command under development'),
+  },
+  monitor: {
+    description: 'Real-time validator dashboard (slot, block height, peers, TPS)',
+    handler: () => {
+      // monitor command runs its own loop
+      const { main } = require('./commands/monitor');
+      main();
+    },
   },
   validator: {
     description: 'Validator node management',
@@ -101,6 +110,7 @@ Validator CLI v${VERSION}
   console.log('\nExamples:');
   console.log('  aether-cli doctor              # Check system requirements');
   console.log('  aether-cli init                # Start onboarding wizard');
+  console.log('  aether-cli monitor             # Real-time validator dashboard');
   console.log('  aether-cli validator start     # Start validator node');
   console.log('  aether-cli validator status    # Check validator status');
   console.log('  aether-cli --version           # Show version');
