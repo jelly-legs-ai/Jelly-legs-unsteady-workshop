@@ -9,9 +9,11 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::Path;
+use anyhow::Context;
 
 /// Genesis block configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct GenesisBlock {
     pub chain_id: String,
     pub timestamp: i64,
@@ -19,30 +21,102 @@ pub struct GenesisBlock {
     pub bootstrap_validators: Vec<GenesisValidator>,
     pub consensus: ConsensusConfig,
     pub rewards: RewardsConfig,
+    // Optional top-level fields from older genesis files
+    pub slot_time_ms: Option<u64>,
+    pub slots_per_epoch: Option<u64>,
+    pub min_stake: Option<u64>,
+    pub bootstrap_multiplier: Option<u64>,
+}
+
+impl Default for GenesisBlock {
+    fn default() -> Self {
+        Self {
+            chain_id: "aether-testnet-1".to_string(),
+            timestamp: 0,
+            genesis_hash: String::new(),
+            bootstrap_validators: Vec::new(),
+            consensus: ConsensusConfig::default(),
+            rewards: RewardsConfig::default(),
+            slot_time_ms: None,
+            slots_per_epoch: None,
+            min_stake: None,
+            bootstrap_multiplier: None,
+        }
+    }
 }
 
 /// Bootstrap validator in genesis
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct GenesisValidator {
     pub identity_pubkey: String,
+    #[serde(alias = "activated_stake", default)]
     pub stake: u64,
     pub commission: u8,
+    #[serde(default)]
+    pub active: bool,
+}
+
+impl Default for GenesisValidator {
+    fn default() -> Self {
+        Self {
+            identity_pubkey: String::new(),
+            stake: 0,
+            commission: 10,
+            active: true,
+        }
+    }
 }
 
 /// Consensus configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ConsensusConfig {
     pub slot_time_ms: u64,
     pub tower_finality: u64,
     pub min_stake: u64,
     pub target_stake: u64,
+    // Extra fields from older configs (ignored)
+    #[serde(default)]
+    pub mode: Option<String>,
+    #[serde(default)]
+    pub poh_target_ticks_per_sec: Option<u64>,
+    #[serde(default)]
+    pub poh_ticks_per_slot: Option<u64>,
+}
+
+impl Default for ConsensusConfig {
+    fn default() -> Self {
+        Self {
+            slot_time_ms: 400,
+            tower_finality: 12,
+            min_stake: 100,
+            target_stake: 1_000_000,
+            mode: None,
+            poh_target_ticks_per_sec: None,
+            poh_ticks_per_slot: None,
+        }
+    }
 }
 
 /// Rewards configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct RewardsConfig {
     pub epoch_duration: u64,
     pub base_reward_rate: u64,
+    #[serde(default)]
+    pub bootstrap_bonus: Option<u64>,
+}
+
+impl Default for RewardsConfig {
+    fn default() -> Self {
+        Self {
+            epoch_duration: 432_000,
+            base_reward_rate: 6,
+            bootstrap_bonus: None,
+        }
+    }
 }
 
 /// Load genesis block from file (JSON)
@@ -161,6 +235,3 @@ pub fn generate_bootstrap_keypair() -> (String, Vec<u8>) {
     
     (pubkey, signing_key.to_bytes().to_vec())
 }
-
-// Needed for anyhow context
-use anyhow::{Context, Result};

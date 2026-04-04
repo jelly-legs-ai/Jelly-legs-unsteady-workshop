@@ -4,8 +4,7 @@
 
 use crate::block_producer::BlockProducer;
 use crate::state::ValidatorState;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde::Serialize;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};

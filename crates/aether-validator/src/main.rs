@@ -5,11 +5,10 @@
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
-use tracing::{info, warn, error, Level};
+use tracing::{info, error, Level};
 
 mod keypair;
 mod config;
