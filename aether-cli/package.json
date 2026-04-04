@@ -1,12 +1,11 @@
 {
-  "name": "@jellylegsai/aether-validator-cli",
+  "name": "aether-hub",
   "version": "1.0.3",
   "description": "AeTHer Validator CLI — tiered validators (Full/Lite/Observer), system checks, onboarding, and node management",
   "main": "index.js",
   "bin": {
     "aether": "./index.js",
-    "aether-validator": "./index.js",
-    "jelly-aether": "./index.js"
+    "aether-hub": "./index.js"
   },
   "files": [
     "index.js",
@@ -19,7 +18,7 @@
     "test": "node test/doctor.test.js",
     "start": "node index.js",
     "doctor": "node index.js doctor",
-    "postinstall": "node -e \"console.log('\\n\\n  [Aether] @jellylegsai/aether-validator-cli installed!\\n\\n  Run: aether start\\n  Docs: https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop\\n')\""
+    "postinstall": "node -e \"console.log('\\n\\n  [Aether] aether-hub installed!\\n\\n  Run: aether start\\n  Docs: https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop\\n')\""
   },
   "keywords": [
     "aether",
