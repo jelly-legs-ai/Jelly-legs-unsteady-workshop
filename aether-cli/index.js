@@ -11,6 +11,11 @@ const { validatorStart } = require('./commands/validator-start');
 const { validatorStatus } = require('./commands/validator-status');
 const { init } = require('./commands/init');
 
+// Parse args early to support flags on commands
+function getCommandArgs() {
+  return process.argv.slice(2);
+}
+
 // CLI version
 const VERSION = '1.0.0';
 
@@ -18,7 +23,11 @@ const VERSION = '1.0.0';
 const COMMANDS = {
   doctor: {
     description: 'Run system requirements checks (CPU/RAM/Disk/Network/Firewall)',
-    handler: doctorCommand,
+    handler: () => {
+      const args = getCommandArgs();
+      const autoFix = args.includes('--fix') || args.includes('-f');
+      doctorCommand({ autoFix });
+    },
   },
   init: {
     description: 'Start onboarding wizard (generate identity, create stake account, connect to testnet)',

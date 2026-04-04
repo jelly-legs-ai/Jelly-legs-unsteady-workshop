@@ -16,6 +16,7 @@ const { execSync } = require('child_process');
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
+const readline = require('readline');
 
 // ANSI colors for terminal output
 const colors = {
@@ -35,7 +36,7 @@ const REQUIREMENTS = {
   ram: { minTotalGB: 32, minAvailableGB: 28 },
   disk: { minTotalGB: 512, minFreeGB: 340 },
   network: { minSpeedMbps: 100 },
-  ports: { p2p: 3030, rpc: 8899, ssh: 22 },
+  ports: { p2p: 8001, rpc: 8899, ssh: 22 },
 };
 
 /**
@@ -74,6 +75,8 @@ function checkCPU() {
     message: passed 
       ? `✅ PASS (${physicalCores} cores >= ${REQUIREMENTS.cpu.minCores} required)`
       : `❌ FAIL (${physicalCores} cores < ${REQUIREMENTS.cpu.minCores} required)`,
+    fixable: false,
+    fixNote: 'CPU upgrade required - hardware limitation',
   };
 }
 
@@ -97,6 +100,8 @@ function checkMemory() {
     message: passed
       ? `✅ PASS (${totalGB.toFixed(1)} GB total, ${availableGB.toFixed(1)} GB available)`
       : `❌ FAIL (need ${REQUIREMENTS.ram.minTotalGB} GB total, ${REQUIREMENTS.ram.minAvailableGB} GB available)`,
+    fixable: false,
+    fixNote: 'RAM upgrade required or close memory-intensive applications',
   };
 }
 
@@ -163,6 +168,8 @@ function checkDisk() {
     message: passed
       ? `✅ PASS (${diskInfo.total.toFixed(0)} GB total, ${diskInfo.free.toFixed(0)} GB free)`
       : `❌ FAIL (need ${REQUIREMENTS.disk.minTotalGB} GB total, ${REQUIREMENTS.disk.minFreeGB} GB free)`,
+    fixable: !totalPassed ? false : true,
+    fixNote: totalPassed ? 'Free up disk space by removing old files or logs' : 'Larger disk required - hardware limitation',
   };
 }
 
@@ -203,6 +210,8 @@ function checkNetwork() {
     message: passed
       ? `✅ PASS (Network interfaces detected)`
       : `❌ FAIL`,
+    fixable: false,
+    fixNote: 'Network connectivity is system-level',
   };
 }
 
@@ -211,6 +220,7 @@ function checkNetwork() {
  */
 function checkFirewall() {
   const results = { p2p: false, rpc: false, ssh: false };
+  const blockedPorts = [];
   
   try {
     if (process.platform === 'linux') {
@@ -220,6 +230,10 @@ function checkFirewall() {
         results.p2p = ufwStatus.includes(`${REQUIREMENTS.ports.p2p}`);
         results.rpc = ufwStatus.includes(`${REQUIREMENTS.ports.rpc}`);
         results.ssh = ufwStatus.includes(`${REQUIREMENTS.ports.ssh}`);
+        
+        if (!results.p2p) blockedPorts.push(REQUIREMENTS.ports.p2p);
+        if (!results.rpc) blockedPorts.push(REQUIREMENTS.ports.rpc);
+        if (!results.ssh) blockedPorts.push(REQUIREMENTS.ports.ssh);
       } else {
         // If firewall inactive, assume ports are accessible
         results.p2p = true;
@@ -227,14 +241,31 @@ function checkFirewall() {
         results.ssh = true;
       }
     } else if (process.platform === 'win32') {
-      // Windows Firewall check
-      const fwStatus = runCommand('powershell -c "Get-NetFirewallProfile | Select-Object Name,Enabled"', { allowFailure: true });
-      // Simplified: assume pass on Windows for MVP
-      results.p2p = true;
-      results.rpc = true;
-      results.ssh = true;
+      // Windows Firewall check - test each port
+      const testPort = (port) => {
+        try {
+          const result = runCommand(`powershell -c "Get-NetFirewallRule -DisplayName '*Aether*' -ErrorAction SilentlyContinue | Where-Object { $_.Enabled -eq True }"`, { allowFailure: true });
+          // Simplified: check if any aether rules exist
+          if (result && result.includes('Aether')) {
+            return true;
+          }
+          // Try to bind to port to test availability
+          const bindTest = runCommand(`powershell -c "$listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Any, ${port}); $listener.Start(); $listener.Stop()"`, { allowFailure: true });
+          return bindTest === null || !bindTest.includes('error');
+        } catch {
+          return false;
+        }
+      };
+      
+      results.p2p = testPort(REQUIREMENTS.ports.p2p);
+      results.rpc = testPort(REQUIREMENTS.ports.rpc);
+      results.ssh = testPort(REQUIREMENTS.ports.ssh);
+      
+      if (!results.p2p) blockedPorts.push(REQUIREMENTS.ports.p2p);
+      if (!results.rpc) blockedPorts.push(REQUIREMENTS.ports.rpc);
+      if (!results.ssh) blockedPorts.push(REQUIREMENTS.ports.ssh);
     } else {
-      // macOS / other
+      // macOS / other - assume pass
       results.p2p = true;
       results.rpc = true;
       results.ssh = true;
@@ -253,10 +284,41 @@ function checkFirewall() {
     p2p: results.p2p,
     rpc: results.rpc,
     ssh: results.ssh,
+    blockedPorts,
     passed: allPassed,
     message: allPassed
       ? `✅ PASS (All required ports accessible)`
-      : `❌ FAIL (Some ports may be blocked)`,
+      : `❌ FAIL (Ports ${blockedPorts.join(', ')} may be blocked)`,
+    fixable: blockedPorts.length > 0,
+    fixNote: blockedPorts.length > 0 ? `Add firewall rules for ports ${blockedPorts.join(', ')}` : '',
+  };
+}
+
+/**
+ * Check if validator binary exists
+ */
+function checkValidatorBinary() {
+  const platform = os.platform();
+  const isWindows = platform === 'win32';
+  const binaryName = isWindows ? 'aether-validator.exe' : 'aether-validator';
+  
+  // Check the expected location based on repo layout
+  const workspaceRoot = path.join(__dirname, '..', '..');
+  const repoPath = path.join(workspaceRoot, 'Jelly-legs-unsteady-workshop');
+  const binaryPath = path.join(repoPath, 'target', 'debug', binaryName);
+  
+  const exists = fs.existsSync(binaryPath);
+  
+  return {
+    section: 'Validator Binary',
+    path: binaryPath,
+    exists,
+    passed: exists,
+    message: exists
+      ? `✅ PASS (Binary found at ${binaryPath})`
+      : `❌ FAIL (Binary not found at ${binaryPath})`,
+    fixable: true,
+    fixNote: exists ? '' : 'Run cargo build --bin aether-validator',
   };
 }
 
@@ -304,7 +366,7 @@ function printSectionHeader(title) {
 function printCheckResult(check) {
   console.log(`\n${colors.bright}${check.section}${colors.reset}`);
   Object.entries(check).forEach(([key, value]) => {
-    if (['section', 'passed', 'message'].includes(key)) return;
+    if (['section', 'passed', 'message', 'fixable', 'fixNote'].includes(key)) return;
     console.log(`  ${key}: ${value}`);
   });
   console.log(`  ${check.message}`);
@@ -349,20 +411,194 @@ function printSummary(results) {
     console.log(`  ${colors.bright}aether-cli help${colors.reset}               # View all commands`);
   } else {
     const failed = results.filter(r => !r.passed);
+    const fixable = failed.filter(r => r.fixable);
+    
     console.log(`\n${colors.bright}${colors.red}❌ ${failed.length} check(s) failed${colors.reset}`);
-    console.log(`\nPlease address the following issues before running a validator:`);
-    failed.forEach(f => {
-      console.log(`  ${colors.red}• ${f.section}: ${f.message}${colors.reset}`);
-    });
+    
+    if (fixable.length > 0) {
+      console.log(`\n${colors.yellow}⚠ ${fixable.length} issue(s) can be auto-fixed:${colors.reset}`);
+      fixable.forEach(f => {
+        console.log(`  ${colors.yellow}• ${f.section}: ${f.fixNote}${colors.reset}`);
+      });
+    }
+    
+    const notFixable = failed.filter(r => !r.fixable);
+    if (notFixable.length > 0) {
+      console.log(`\n${colors.red}The following issues require manual action:${colors.reset}`);
+      notFixable.forEach(f => {
+        console.log(`  ${colors.red}• ${f.section}: ${f.fixNote}${colors.reset}`);
+      });
+    }
   }
   
   console.log(`\n${colors.cyan}${'━'.repeat(60)}${colors.reset}\n`);
 }
 
 /**
+ * Generate fix command for a failed check
+ */
+function getFixCommand(check) {
+  const platform = os.platform();
+  
+  switch (check.section) {
+    case 'Firewall':
+      if (platform === 'win32') {
+        const ports = check.blockedPorts || [];
+        if (ports.length === 0) return null;
+        const rules = ports.map(port => 
+          `New-NetFirewallRule -DisplayName "Aether Port ${port}" -Direction Inbound -LocalPort ${port} -Protocol TCP -Action Allow`
+        ).join('; ');
+        return `powershell -c "${rules}"`;
+      } else if (platform === 'linux') {
+        const ports = check.blockedPorts || [];
+        if (ports.length === 0) return null;
+        const rules = ports.map(port => `sudo ufw allow ${port}/tcp`).join(' && ');
+        return rules;
+      }
+      return null;
+      
+    case 'Validator Binary':
+      const workspaceRoot = path.join(__dirname, '..', '..');
+      const repoPath = path.join(workspaceRoot, 'Jelly-legs-unsteady-workshop');
+      return `cd "${repoPath}" && cargo build --bin aether-validator`;
+      
+    case 'Disk':
+      // Can't auto-fix disk space, but can suggest cleanup
+      if (platform === 'win32') {
+        return 'powershell -c "Get-AppxPackage -AllUsers | Where-Object {$_.InstallLocation -like \'*WindowsApps*\'} | Select-Object Name, PackageFullName"';
+      } else {
+        return 'sudo du -sh /* 2>/dev/null | sort -hr | head -20';
+      }
+      
+    default:
+      return null;
+  }
+}
+
+/**
+ * Ask user for confirmation
+ */
+async function askConfirmation(question) {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  
+  return new Promise((resolve) => {
+    rl.question(`${colors.yellow}${question}${colors.reset} [y/N] `, (answer) => {
+      rl.close();
+      resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
+    });
+  });
+}
+
+/**
+ * Apply a fix for a failed check
+ */
+async function applyFix(check) {
+  const command = getFixCommand(check);
+  
+  if (!command) {
+    console.log(`  ${colors.red}✗ No automated fix available for ${check.section}${colors.reset}`);
+    return false;
+  }
+  
+  console.log(`\n  ${colors.cyan}Proposed fix:${colors.reset}`);
+  console.log(`  ${colors.bright}${command}${colors.reset}`);
+  console.log();
+  
+  const confirmed = await askConfirmation('  Apply this fix?');
+  
+  if (!confirmed) {
+    console.log(`  ${colors.yellow}Skipped.${colors.reset}`);
+    return false;
+  }
+  
+  console.log(`  ${colors.cyan}Applying fix...${colors.reset}`);
+  
+  try {
+    execSync(command, {
+      stdio: 'inherit',
+      shell: true,
+      cwd: process.cwd(),
+    });
+    
+    console.log(`  ${colors.green}✓ Fix applied successfully!${colors.reset}`);
+    
+    // Re-run the check to verify
+    console.log(`  ${colors.cyan}Verifying...${colors.reset}`);
+    let verifyCheck;
+    switch (check.section) {
+      case 'Firewall':
+        verifyCheck = checkFirewall();
+        break;
+      case 'Validator Binary':
+        verifyCheck = checkValidatorBinary();
+        break;
+      default:
+        verifyCheck = check;
+    }
+    
+    if (verifyCheck.passed) {
+      console.log(`  ${colors.green}✓ Verification passed!${colors.reset}`);
+      return true;
+    } else {
+      console.log(`  ${colors.yellow}⚠ Fix applied but check still failing. May require manual intervention.${colors.reset}`);
+      return false;
+    }
+  } catch (err) {
+    console.log(`  ${colors.red}✗ Fix failed: ${err.message}${colors.reset}`);
+    return false;
+  }
+}
+
+/**
+ * Interactive fix mode
+ */
+async function interactiveFixMode(results) {
+  const failed = results.filter(r => !r.passed);
+  const fixable = failed.filter(r => r.fixable);
+  
+  if (fixable.length === 0) {
+    console.log(`\n${colors.yellow}No auto-fixable issues found.${colors.reset}`);
+    return;
+  }
+  
+  console.log(`\n${colors.bright}${colors.cyan}Auto-Fix Mode${colors.reset}`);
+  console.log(`${colors.cyan}${'─'.repeat(60)}${colors.reset}`);
+  console.log(`\n${colors.yellow}Found ${fixable.length} issue(s) that can be fixed automatically:${colors.reset}\n`);
+  
+  for (const check of fixable) {
+    console.log(`${colors.bright}${check.section}${colors.reset}`);
+    console.log(`  Issue: ${check.fixNote}`);
+    console.log();
+    
+    const fixed = await applyFix(check);
+    
+    if (fixed) {
+      check.passed = true;
+      check.message = `✅ FIXED (was: ${check.message})`;
+    }
+    
+    console.log();
+  }
+  
+  // Print updated summary
+  const stillFailed = results.filter(r => !r.passed);
+  if (stillFailed.length === 0) {
+    console.log(`\n${colors.bright}${colors.green}🎉 All issues resolved!${colors.reset}`);
+    console.log(`\n${colors.green}Your system is now ready to run an AeTHer validator.${colors.reset}`);
+  } else {
+    console.log(`\n${colors.yellow}⚠ ${stillFailed.length} issue(s) remain unresolved.${colors.reset}`);
+  }
+}
+
+/**
  * Main doctor command
  */
-function doctorCommand() {
+async function doctorCommand(options = {}) {
+  const { autoFix = false } = options;
+  
   printHeader();
   console.log(`\n${colors.bright}Running system checks...${colors.reset}\n`);
 
@@ -372,10 +608,24 @@ function doctorCommand() {
     checkDisk(),
     checkNetwork(),
     checkFirewall(),
+    checkValidatorBinary(),
   ];
 
   results.forEach(printCheckResult);
   printSummary(results);
+
+  // If auto-fix mode or user requests it
+  const failed = results.filter(r => !r.passed);
+  const fixable = failed.filter(r => r.fixable);
+  
+  if (fixable.length > 0) {
+    if (autoFix) {
+      console.log(`\n${colors.cyan}Auto-fix mode enabled. Attempting fixes...${colors.reset}\n`);
+      await interactiveFixMode(results);
+    } else {
+      console.log(`\n${colors.cyan}Tip: Run ${colors.bright}aether-cli doctor --fix${colors.reset}${colors.cyan} to auto-fix issues.${colors.reset}\n`);
+    }
+  }
 
   // Return exit code based on results
   const allPassed = results.every(r => r.passed);
@@ -383,10 +633,14 @@ function doctorCommand() {
 }
 
 // Export for use as module
-module.exports = { doctorCommand, checkCPU, checkMemory, checkDisk, checkNetwork, checkFirewall };
+module.exports = { doctorCommand, checkCPU, checkMemory, checkDisk, checkNetwork, checkFirewall, checkValidatorBinary };
 
 // Run if called directly
 if (require.main === module) {
-  const exitCode = doctorCommand();
-  process.exit(exitCode);
+  const args = process.argv.slice(2);
+  const autoFix = args.includes('--fix') || args.includes('-f');
+  
+  doctorCommand({ autoFix }).then(exitCode => {
+    process.exit(exitCode);
+  });
 }
