@@ -11,6 +11,57 @@ use std::fs;
 use std::path::Path;
 use anyhow::Context;
 
+// ============================================================================
+// Validator Tier System
+// ============================================================================
+
+/// Validator tier classification determining consensus participation level
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ValidatorTier {
+    /// Full Validator — 10K AETH min stake, 1.0x consensus weight, block production
+    Full,
+    /// Lite Validator — 1K AETH min stake, stake-based weight, no solo block production
+    Lite,
+    /// Observer Node — 0 AETH, relay-only, earns FLUX via data relay
+    Observer,
+}
+
+impl Default for ValidatorTier {
+    fn default() -> Self {
+        ValidatorTier::Full
+    }
+}
+
+/// Per-tier configuration used in ConsensusConfig
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TierConfig {
+    pub tier: ValidatorTier,
+    /// Consensus weight: 1.0 for full, stake/10000 for lite, 0.0 for observer
+    pub consensus_weight: f64,
+    /// Whether this tier can produce blocks (full validators only)
+    pub can_produce_blocks: bool,
+    /// Whether this tier can vote on consensus (full and lite)
+    pub can_vote: bool,
+    /// Minimum stake required for this tier in motes (1 AETH = 100_000_000 motes)
+    /// Full: 10_000 AETH, Lite: 1_000 AETH, Observer: 0
+    pub min_stake: u64,
+    /// FLUX per byte relayed per epoch (observer only)
+    pub relay_reward_rate: f64,
+}
+
+impl Default for TierConfig {
+    fn default() -> Self {
+        Self {
+            tier: ValidatorTier::Full,
+            consensus_weight: 1.0,
+            can_produce_blocks: true,
+            can_vote: true,
+            min_stake: 10_000 * 100_000_000, // 10,000 AETH in motes
+            relay_reward_rate: 0.0,
+        }
+    }
+}
+
 /// Genesis block configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -76,6 +127,9 @@ pub struct ConsensusConfig {
     pub tower_finality: u64,
     pub min_stake: u64,
     pub target_stake: u64,
+    /// Optional per-tier configuration (defaults to Full validator if None)
+    #[serde(default)]
+    pub tier_config: Option<TierConfig>,
     // Extra fields from older configs (ignored)
     #[serde(default)]
     pub mode: Option<String>,
@@ -92,6 +146,7 @@ impl Default for ConsensusConfig {
             tower_finality: 12,
             min_stake: 100,
             target_stake: 1_000_000,
+            tier_config: Some(TierConfig::default()),
             mode: None,
             poh_target_ticks_per_sec: None,
             poh_ticks_per_slot: None,
@@ -187,6 +242,7 @@ pub fn create_testnet_genesis() -> GenesisBlock {
             tower_finality: 12,
             min_stake: 100,
             target_stake: 1_000_000,
+            tier_config: Some(TierConfig::default()),
             ..Default::default()
         },
         rewards: RewardsConfig {
@@ -218,6 +274,7 @@ pub fn create_genesis_with(
             tower_finality: 12,
             min_stake: 100,
             target_stake: 1_000_000,
+            tier_config: Some(TierConfig::default()),
             ..Default::default()
         },
         rewards: RewardsConfig {
