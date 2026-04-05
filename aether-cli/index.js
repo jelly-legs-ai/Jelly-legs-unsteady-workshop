@@ -304,6 +304,13 @@ const COMMANDS = {
       snapshotCommand();
     },
   },
+  info: {
+    description: 'Validator info snapshot — identity, sync state, peers, stake positions',
+    handler: () => {
+      const { infoCommand } = require('./commands/info');
+      infoCommand();
+    },
+  },
   account: {
     description: 'Query on-chain account data — aether account --address <addr> [--json] [--data] [--rpc <url>]',
     handler: () => {
