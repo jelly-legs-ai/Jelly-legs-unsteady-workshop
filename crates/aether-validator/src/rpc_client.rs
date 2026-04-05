@@ -17,8 +17,18 @@ pub struct EpochInfo {
 /// Block production statistics
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BlockProduction {
+    /// Total blocks produced by this validator in current epoch
     pub blocks_produced: u64,
+    /// Total vote entries produced in current epoch
     pub entries_produced: u64,
+    /// Current epoch number
+    pub epoch: u64,
+    /// Slot number within current epoch (0-based)
+    pub slot_index: u64,
+    /// Total slots per epoch
+    pub slots_in_epoch: u64,
+    /// Current absolute slot
+    pub absolute_slot: u64,
 }
 
 /// Validator info from getValidators

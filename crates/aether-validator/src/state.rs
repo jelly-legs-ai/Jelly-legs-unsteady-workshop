@@ -212,9 +212,14 @@ impl ValidatorState {
     }
 
     pub fn block_production(&self) -> BlockProduction {
+        let epoch = self.epoch_info();
         BlockProduction {
             blocks_produced: self.inner.blocks_produced.load(Ordering::Relaxed),
             entries_produced: self.inner.vote_count.load(Ordering::Relaxed),
+            epoch: epoch.epoch,
+            slot_index: epoch.slot_index,
+            slots_in_epoch: epoch.slots_in_epoch,
+            absolute_slot: epoch.absolute_slot,
         }
     }
 
