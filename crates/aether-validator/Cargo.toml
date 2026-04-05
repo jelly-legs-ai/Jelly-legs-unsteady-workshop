@@ -40,6 +40,9 @@ ed25519-dalek = { workspace = true }
 # HTTP client for RPC
 reqwest = { workspace = true }
 
+# Aether core types
+aether-core = { path = "../aether-core" }
+
 [dev-dependencies]
 tempfile = "3.8"
 

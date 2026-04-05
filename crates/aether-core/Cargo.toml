@@ -6,3 +6,5 @@ authors = ["Jelly-legs AI Team"]
 
 [dependencies]
 serde = { workspace = true }
+serde_json = { workspace = true }
+bs58 = { workspace = true }

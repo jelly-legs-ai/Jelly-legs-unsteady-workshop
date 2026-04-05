@@ -1,17 +1,16 @@
-//! Account State Database
-//! 
-//! In-memory account state store with genesis initialization.
-//! Accounts hold lamports (AETH tokens), program ownership, and arbitrary data.
+//! State Database
+//!
+//! In-memory account state with persistence support.
 
 use aether_core::{Account, Address, GenesisAccount};
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use sha2::{Digest, Sha256};
 
-/// State database — thread-safe account storage
 pub struct StateDB {
     accounts: Arc<RwLock<HashMap<Address, Account>>>,
-    nonce: Arc<RwLock<HashMap<Address, u64>>>, // Nonce per account for TX ordering
+    nonce: Arc<RwLock<HashMap<Address, u64>>>,
 }
 
 impl StateDB {
@@ -22,116 +21,92 @@ impl StateDB {
         }
     }
     
-    /// Initialize from genesis accounts
     pub fn init_from_genesis(&self, genesis_accounts: Vec<GenesisAccount>) {
-        let mut accounts = self.accounts.write().unwrap();
+        let mut accounts = self.accounts.blocking_write();
         for acc in genesis_accounts {
-            let mut account = Account::new(acc.address, acc.lamports);
-            if let Some(data) = acc.data {
-                account.data = data;
-            }
+            let account = Account {
+                lamports: acc.lamports,
+                owner: [0u8; 32],
+                data: acc.data.unwrap_or_default(),
+                rent_epoch: 0,
+            };
             accounts.insert(acc.address, account);
         }
     }
     
-    /// Get an account
     pub fn get_account(&self, address: &Address) -> Option<Account> {
-        let accounts = self.accounts.read().unwrap();
-        accounts.get(address).cloned().filter(|a| a.exists)
+        let accounts = self.accounts.blocking_read();
+        accounts.get(address).cloned()
     }
     
-    /// Set or create an account (used by programs)
-    pub fn set_account(&self, account: Account) {
-        let mut accounts = self.accounts.write().unwrap();
-        accounts.insert(account.address, account);
+    pub fn set_account(&self, address: &Address, account: Account) {
+        let mut accounts = self.accounts.blocking_write();
+        accounts.insert(*address, account);
     }
     
-    /// Credit lamports to an account
-    pub fn credit(&self, address: &Address, amount: u64) -> Result<(), &'static str> {
-        let mut accounts = self.accounts.write().unwrap();
+    pub fn credit(&self, address: &Address, amount: u64) -> Result<(), String> {
+        let mut accounts = self.accounts.blocking_write();
         let account = accounts.get_mut(address).ok_or("Account not found")?;
-        if !account.exists {
-            return Err("Account deleted");
-        }
         account.lamports += amount;
         Ok(())
     }
     
-    /// Debit lamports from an account
-    pub fn debit(&self, address: &Address, amount: u64) -> Result<(), &'static str> {
-        let mut accounts = self.accounts.write().unwrap();
+    pub fn debit(&self, address: &Address, amount: u64) -> Result<(), String> {
+        let mut accounts = self.accounts.blocking_write();
         let account = accounts.get_mut(address).ok_or("Account not found")?;
-        if !account.exists {
-            return Err("Account deleted");
-        }
         if account.lamports < amount {
-            return Err("Insufficient lamports");
+            return Err(format!("Insufficient lamports: have {}, need {}", account.lamports, amount));
         }
         account.lamports -= amount;
         Ok(())
     }
     
-    /// Create a new account (used by system program for new accounts)
-    pub fn create_account(&self, address: Address, lamports: u64) -> Result<Account, &'static str> {
-        let mut accounts = self.accounts.write().unwrap();
-        if accounts.contains_key(&address) {
-            return Err("Account already exists");
-        }
-        let account = Account::new(address, lamports);
-        accounts.insert(address, account.clone());
-        Ok(account)
+    pub fn transfer(&self, from: &Address, to: &Address, amount: u64) -> Result<(), String> {
+        self.debit(from, amount)?;
+        self.credit(to, amount)?;
+        Ok(())
     }
     
-    /// Delete an account (mark as not exists)
-    pub fn delete_account(&self, address: &Address) {
-        let mut accounts = self.accounts.write().unwrap();
-        if let Some(account) = accounts.get_mut(address) {
-            account.exists = false;
-        }
-    }
-    
-    /// Get nonce for an account (for replay protection)
     pub fn get_nonce(&self, address: &Address) -> u64 {
-        let nonce = self.nonce.read().unwrap();
+        let nonce = self.nonce.blocking_read();
         *nonce.get(address).unwrap_or(&0)
     }
     
-    /// Increment and return new nonce
+    #[allow(dead_code)]
     pub fn increment_nonce(&self, address: &Address) -> u64 {
-        let mut nonce = self.nonce.write().unwrap();
+        let mut nonce = self.nonce.blocking_write();
         let new_nonce = *nonce.entry(*address).or_insert(0) + 1;
         *nonce.get_mut(address).unwrap() = new_nonce;
         new_nonce
     }
     
-    /// Compute state root — hash of all account hashes
-    pub fn compute_state_root(&self) -> [u8; 32] {
-        let accounts = self.accounts.read().unwrap();
-        let mut hasher = Sha256::new();
-        let mut sorted: Vec<_> = accounts.values().filter(|a| a.exists).collect();
-        sorted.sort_by_key(|a| a.address);
-        for account in sorted {
-            hasher.update(account.hash());
-        }
-        hasher.finalize().into()
-    }
-    
-    /// Get all accounts (for debugging/inspection)
-    pub fn get_all_accounts(&self) -> Vec<Account> {
-        let accounts = self.accounts.read().unwrap();
-        accounts.values().filter(|a| a.exists).cloned().collect()
-    }
-    
-    /// Get total supply of AETH (sum of all lamports)
     pub fn total_supply(&self) -> u64 {
-        let accounts = self.accounts.read().unwrap();
-        accounts.values().filter(|a| a.exists).map(|a| a.lamports).sum()
+        let accounts = self.accounts.blocking_read();
+        accounts.values().map(|a| a.lamports).sum()
     }
-}
-
-impl Default for StateDB {
-    fn default() -> Self {
-        Self::new()
+    
+    #[allow(dead_code)]
+    pub fn account_count(&self) -> usize {
+        let accounts = self.accounts.blocking_read();
+        accounts.len()
+    }
+    
+    pub fn compute_state_root(&self) -> [u8; 32] {
+        let accounts = self.accounts.blocking_read();
+        let mut hasher = Sha256::new();
+        let mut addresses: Vec<_> = accounts.keys().collect();
+        addresses.sort();
+        for addr in addresses {
+            if let Some(account) = accounts.get(addr) {
+                hasher.update(addr);
+                hasher.update(account.lamports.to_le_bytes());
+                hasher.update(&account.owner);
+            }
+        }
+        let result = hasher.finalize();
+        let mut root = [0u8; 32];
+        root.copy_from_slice(&result[..32]);
+        root
     }
 }
 
@@ -141,5 +116,11 @@ impl Clone for StateDB {
             accounts: self.accounts.clone(),
             nonce: self.nonce.clone(),
         }
+    }
+}
+
+impl Default for StateDB {
+    fn default() -> Self {
+        Self::new()
     }
 }

@@ -124,6 +124,67 @@ impl RpcClient {
             .map(|r| serde_json::from_value(r).unwrap_or_default())
             .ok_or_else(|| anyhow::anyhow!("Missing result in RPC response"))
     }
+
+    /// Submit a transaction to the validator
+    pub async fn submit_transaction(&self, tx_json: &str) -> Result<String, String> {
+        let client = reqwest::Client::new();
+        let resp = client
+            .post(format!("{}/v1/tx", self.url))
+            .header("Content-Type", "application/json")
+            .body(tx_json.to_string())
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+        
+        let status = resp.status();
+        let body = resp.text().await.map_err(|e| e.to_string())?;
+        
+        if status == 200 {
+            #[derive(Deserialize)]
+            struct SubmitResponse { signature: String }
+            let result: SubmitResponse = serde_json::from_str(&body).map_err(|e| e.to_string())?;
+            Ok(result.signature)
+        } else {
+            Err(body)
+        }
+    }
+
+    /// Get transaction status
+    pub async fn get_transaction(&self, signature: &str) -> Result<Option<serde_json::Value>, String> {
+        let resp = reqwest::get(format!("{}/v1/tx/{}", self.url, signature))
+            .await
+            .map_err(|e| e.to_string())?;
+        
+        if resp.status() == 404 {
+            return Ok(None);
+        }
+        
+        let body = resp.text().await.map_err(|e| e.to_string())?;
+        let value: serde_json::Value = serde_json::from_str(&body).map_err(|e| e.to_string())?;
+        Ok(Some(value))
+    }
+
+    /// Get account info
+    pub async fn get_account(&self, address: &str) -> Result<serde_json::Value, String> {
+        let resp = reqwest::get(format!("{}/v1/account/{}", self.url, address))
+            .await
+            .map_err(|e| e.to_string())?;
+        let body = resp.text().await.map_err(|e| e.to_string())?;
+        let value: serde_json::Value = serde_json::from_str(&body).map_err(|e| e.to_string())?;
+        Ok(value)
+    }
+
+    /// Get total token supply
+    pub async fn get_total_supply(&self) -> Result<u64, String> {
+        let resp = reqwest::get(format!("{}/v1/total_supply", self.url))
+            .await
+            .map_err(|e| e.to_string())?;
+        let body = resp.text().await.map_err(|e| e.to_string())?;
+        #[derive(Deserialize)]
+        struct SupplyResponse { total_supply: u64 }
+        let result: SupplyResponse = serde_json::from_str(&body).map_err(|e| e.to_string())?;
+        Ok(result.total_supply)
+    }
 }
 
 /// Base58 encoding/decoding using the bs58 crate

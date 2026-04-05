@@ -1,8 +1,15 @@
 //! Block Production Module
 //!
 //! Produces blocks at a fixed interval (400ms per slot) with PoH hashing.
+//! Includes transaction execution and mempool management.
 
+use crate::executor::Executor;
+use crate::state_db::StateDB;
 use crate::state::ValidatorState;
+use aether_core::{
+    AetherTransaction, Account, Address, ExecutionResult, TransactionReceipt,
+    TransactionType, TransactionPayload,
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::VecDeque;
@@ -25,20 +32,29 @@ pub struct Block {
     pub previous_block_hash: String,
     pub block_hash: String,
     pub transactions: Vec<String>,
+    pub receipts: Vec<TransactionReceipt>,
     pub poh_seed: String,
+    pub state_root: String,
 }
 
 /// Block producer that runs as an async task
 pub struct BlockProducer {
     state: ValidatorState,
     block_history: Arc<RwLock<VecDeque<Block>>>,
+    transaction_pool: Arc<RwLock<VecDeque<AetherTransaction>>>,
+    state_db: Arc<StateDB>,
+    executor: Arc<Executor>,
 }
 
 impl BlockProducer {
-    pub fn new(state: ValidatorState) -> Self {
+    pub fn new(state: ValidatorState, state_db: StateDB) -> Self {
+        let executor = Arc::new(Executor::new(state_db.clone()));
         Self {
             state,
             block_history: Arc::new(RwLock::new(VecDeque::with_capacity(MAX_BLOCK_HISTORY))),
+            transaction_pool: Arc::new(RwLock::new(VecDeque::new())),
+            state_db: Arc::new(state_db),
+            executor,
         }
     }
 
@@ -82,8 +98,25 @@ impl BlockProducer {
         // Compute PoH seed (proof of history)
         let poh_seed = Self::compute_poh_seed(slot, timestamp, &previous_hash);
         
-        // Compute block hash (includes PoH)
-        let block_hash = Self::compute_block_hash(slot, &previous_hash, &poh_seed);
+        // Execute pending transactions
+        let receipts = self.execute_pending_transactions(slot).await;
+        let state_root = bs58::encode(self.state_db.compute_state_root()).into_string();
+        
+        // Collect TX signatures for the block
+        let tx_signatures: Vec<String> = receipts.iter()
+            .map(|r| bs58::encode(&r.signature).into_string())
+            .collect();
+        
+        // Compute block hash including transaction data
+        let block_hash = Self::compute_block_hash_with_txs(
+            slot, &previous_hash, &poh_seed, &state_root, &receipts,
+        );
+
+        // Update receipts with block hash
+        let receipts = receipts.into_iter().map(|mut r| {
+            r.block_hash = block_hash.clone();
+            r
+        }).collect();
 
         // Create block
         let block = Block {
@@ -91,8 +124,10 @@ impl BlockProducer {
             timestamp,
             previous_block_hash: previous_hash,
             block_hash: block_hash.clone(),
-            transactions: Vec::new(), // MVP: no transactions yet
+            transactions: tx_signatures,
+            receipts,
             poh_seed,
+            state_root,
         };
 
         // Update state
@@ -110,10 +145,74 @@ impl BlockProducer {
         }
 
         debug!(
-            "Produced block {} with hash {}",
+            "Produced block {} with hash {} ({} transactions)",
             slot,
-            &block.block_hash[..16]
+            &block.block_hash[..16.min(block.block_hash.len())],
+            block.transactions.len()
         );
+    }
+
+    /// Execute all pending transactions and return receipts
+    async fn execute_pending_transactions(&self, slot: u64) -> Vec<TransactionReceipt> {
+        let mut receipts = Vec::new();
+        
+        // Drain up to 100 transactions from the pool
+        let txs_to_process = {
+            let mut pool = self.transaction_pool.write().await;
+            let count = pool.len().min(100);
+            let txs: Vec<_> = pool.drain(0..count).collect();
+            txs
+        };
+        
+        for tx in txs_to_process {
+            let result = self.executor.execute(&tx);
+            let receipt = TransactionReceipt {
+                signature: tx.signature.clone(),
+                slot,
+                block_hash: String::new(),
+                tx_type: tx.tx_type.clone(),
+                signer: tx.signer,
+                result,
+                timestamp: tx.timestamp,
+            };
+            receipts.push(receipt);
+        }
+        
+        receipts
+    }
+
+    /// Submit a transaction to the mempool
+    pub async fn submit_transaction(&self, tx: AetherTransaction) -> Result<String, String> {
+        let mut hasher = Sha256::new();
+        hasher.update(&tx.signature);
+        let sig = bs58::encode(hasher.finalize()).into_string();
+        
+        let mut pool = self.transaction_pool.write().await;
+        pool.push_back(tx);
+        Ok(sig)
+    }
+
+    /// Get a transaction receipt by signature
+    pub async fn get_receipt(&self, signature: &str) -> Option<TransactionReceipt> {
+        let history = self.block_history.read().await;
+        for block in history.iter() {
+            if let Some(receipt) = block.receipts.iter().find(|r| {
+                bs58::encode(&r.signature).into_string() == signature
+            }) {
+                return Some(receipt.clone());
+            }
+        }
+        None
+    }
+
+    /// Get account state
+    pub async fn get_account(&self, address: &Address) -> Option<Account> {
+        self.state_db.get_account(address)
+    }
+
+    /// Get total supply
+    pub fn total_supply(&self) -> u64 {
+        self.state_db.total_supply()
     }
 
     /// Compute PoH seed using SHA-256
@@ -128,12 +227,34 @@ impl BlockProducer {
     }
 
     /// Compute block hash from slot, previous hash, and PoH seed
+    #[allow(dead_code)]
     fn compute_block_hash(slot: u64, previous_hash: &str, poh_seed: &str) -> String {
         let mut hasher = Sha256::new();
         hasher.update(b"aether-block-v1");
         hasher.update(slot.to_le_bytes());
         hasher.update(previous_hash.as_bytes());
         hasher.update(poh_seed.as_bytes());
+        let result = hasher.finalize();
+        bs58::encode(result).into_string()
+    }
+
+    /// Compute block hash including transaction data
+    fn compute_block_hash_with_txs(
+        slot: u64,
+        prev_hash: &str,
+        poh_seed: &str,
+        state_root: &str,
+        receipts: &[TransactionReceipt],
+    ) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(b"aether-block-v2");
+        hasher.update(slot.to_le_bytes());
+        hasher.update(prev_hash.as_bytes());
+        hasher.update(poh_seed.as_bytes());
+        hasher.update(state_root.as_bytes());
+        for r in receipts {
+            hasher.update(&r.signature);
+        }
         let result = hasher.finalize();
         bs58::encode(result).into_string()
     }

@@ -18,15 +18,19 @@ mod state;
 mod block_producer;
 mod rpc_server;
 mod network;
+mod state_db;
+mod executor;
 
 pub use block_producer::*;
 pub use config::*;
+pub use executor::*;
 pub use genesis::*;
 pub use keypair::*;
 pub use network::*;
 pub use rpc_client::*;
 pub use rpc_server::*;
 pub use state::*;
+pub use state_db::*;
 
 // =============================================================================
 // CLI Structure
@@ -373,8 +377,20 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
     info!("Chain ID: {}", validator_state.get_chain_id());
     info!("Genesis Hash: {}", validator_state.get_genesis_hash());
 
-    // Create block producer (genesis-aware)
-    let block_producer = Arc::new(BlockProducer::new(validator_state.clone()));
+    // Create state database and initialize from genesis
+    let state_db = StateDB::new();
+    let genesis_accounts = validator_state.get_initial_balances();
+    if !genesis_accounts.is_empty() {
+        state_db.init_from_genesis(genesis_accounts.into_iter().map(|(pubkey, lamports)| {
+            let addr_bytes = bs58::decode(&pubkey).into_vec().unwrap_or_default();
+            let mut addr = [0u8; 32];
+            addr.copy_from_slice(&addr_bytes[..32.min(addr_bytes.len())]);
+            aether_core::GenesisAccount { address: addr, lamports, data: None }
+        }).collect());
+    }
+
+    // Create block producer with state DB
+    let block_producer = Arc::new(BlockProducer::new(validator_state.clone(), state_db));
 
     // Start block producer
     let bp_for_rpc = block_producer.clone();
