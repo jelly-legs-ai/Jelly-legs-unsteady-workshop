@@ -181,17 +181,16 @@ impl BlockProducer {
     }
 
     /// Submit a transaction to the mempool
+    /// Returns the base58-encoded signature as the transaction ID for later lookup.
     pub async fn submit_transaction(&self, tx: AetherTransaction) -> Result<String, String> {
-        let mut hasher = Sha256::new();
-        hasher.update(&tx.signature);
-        let sig = bs58::encode(hasher.finalize()).into_string();
+        let sig = bs58::encode(&tx.signature).into_string();
         
         let mut pool = self.transaction_pool.write().await;
         pool.push_back(tx);
         Ok(sig)
     }
 
-    /// Get a transaction receipt by signature
+    /// Get a transaction receipt by signature (base58-encoded)
     pub async fn get_receipt(&self, signature: &str) -> Option<TransactionReceipt> {
         let history = self.block_history.read().await;
         for block in history.iter() {
