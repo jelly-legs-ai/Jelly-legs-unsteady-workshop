@@ -20,7 +20,7 @@ fn create_test_transaction(lane: AIPriorityLane, priority_fee: u64) -> AetherTra
             compute_units: 200_000,
             priority_fee,
         },
-        signature: [0u8; 64],
+        signature: SignatureBytes([0u8; 64]),
         compute_units_consumed: 200_000,
     }
 }
@@ -44,10 +44,10 @@ fn test_full_consensus_flow() {
     consensus.add_validator(validator3);
     
     // Verify validators added
-    assert_eq!(consensus.stake_pool.validators.len(), 3);
-    
+    assert_eq!(consensus.stake_pool().validators.len(), 3);
+
     // Check leader schedule exists
-    assert!(consensus.leader_schedule.is_some());
+    assert!(consensus.get_leader_schedule().is_some());
     
     // Submit some transactions
     for i in 0..10 {
@@ -271,7 +271,7 @@ fn test_validator_node_lifecycle() {
     
     // Start validator
     validator.start();
-    assert!(validator.running);
+    assert!(validator.is_running());
     
     // Can't process same slot twice
     let outcome1 = validator.process_slot();
@@ -283,7 +283,7 @@ fn test_validator_node_lifecycle() {
     
     // Stop validator
     validator.stop();
-    assert!(!validator.running);
+    assert!(!validator.is_running());
 }
 
 #[test]
@@ -318,7 +318,7 @@ fn test_epoch_transition() {
     consensus.add_validator(validator);
     
     // Produce blocks until epoch transition
-    let initial_epoch = consensus.current_epoch;
+    let initial_epoch = consensus.current_epoch();
     
     // Note: In real implementation, we'd produce SLOTS_PER_EPOCH blocks
     // For test, we just verify epoch increments
@@ -328,7 +328,7 @@ fn test_epoch_transition() {
     }
     
     // Should have advanced slots
-    assert!(consensus.current_slot > 0);
+    assert!(consensus.current_slot() > 0);
 }
 
 #[test]
@@ -373,3 +373,4 @@ fn test_validator_tier_rewards() {
     assert!(!standard_validator.tier.has_ai_capabilities());
     assert!(!light_validator.tier.has_ai_capabilities());
 }
+

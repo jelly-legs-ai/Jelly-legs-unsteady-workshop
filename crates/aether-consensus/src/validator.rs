@@ -66,6 +66,11 @@ impl ValidatorNode {
         self.running = false;
     }
 
+    /// Check if validator is running
+    pub fn is_running(&self) -> bool {
+        self.running
+    }
+
     /// Process a slot
     pub fn process_slot(&mut self) -> ConsensusResult<Option<SlotOutcome>> {
         if !self.running {

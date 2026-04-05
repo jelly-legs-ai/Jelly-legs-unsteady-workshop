@@ -483,6 +483,16 @@ impl AetherFlow {
         &self.stake_pool
     }
 
+    /// Get leader schedule
+    pub fn get_leader_schedule(&self) -> Option<&LeaderSchedule> {
+        self.leader_schedule.as_ref()
+    }
+
+    /// Get current epoch
+    pub fn current_epoch(&self) -> u64 {
+        self.current_epoch
+    }
+
     /// Get queue stats
     pub fn queue_stats(&self) -> ConsensusResult<QueueStats> {
         let queue = self.tx_queue.read().map_err(|_| {
