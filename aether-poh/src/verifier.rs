@@ -45,16 +45,42 @@ pub fn verify_poh_sequence(
 }
 
 /// Verify PoH ticks between two blocks
+///
+/// This function verifies that applying `ticks` SHA-256 operations to
+/// `prev_block_hash` produces a result that matches `poh_seed`. This ensures
+/// the prover actually performed the required sequential work between blocks.
+///
+/// # Security Critical
+/// This is a consensus-critical function. An incorrect implementation could
+/// allow validators to submit blocks with invalid PoH sequences, breaking
+/// the proof-of-history guarantee.
 pub fn verify_poh_between_blocks(
     prev_block_hash: &[u8; 32],
     poh_seed: &[u8; 32],
     ticks: u64,
 ) -> bool {
-    // The PoH seed is derived from slot, timestamp, and prev_hash
-    // We verify that applying `ticks` SHA-256 operations to prev_block_hash
-    // would produce a hash that matches the PoH seed's derived chain
-    // For MVP: just verify the seed looks random (not all zeros)
-    !poh_seed.iter().all(|&b| b == 0)
+    // Guard against zero ticks - seed must equal prev hash
+    if ticks == 0 {
+        return *prev_block_hash == *poh_seed;
+    }
+
+    // Bound iteration to prevent DoS from malformed tick counts
+    const MAX_VERIFY_TICKS: u64 = 500_000_000;
+    if ticks > MAX_VERIFY_TICKS {
+        return false;
+    }
+
+    // Actually verify the PoH chain by recomputing it
+    let mut current = *prev_block_hash;
+    for _ in 0..ticks {
+        use sha2::{Sha256, Digest};
+        let mut hasher = Sha256::new();
+        hasher.update(&current);
+        current = hasher.finalize().into();
+    }
+
+    // The computed hash must match the provided PoH seed
+    current == *poh_seed
 }
 
 /// Compute the number of PoH ticks between two timestamps
@@ -99,5 +125,42 @@ mod tests {
         // Must reject sequences beyond the safe bound
         let h = [0u8; 32];
         assert!(!verify_poh_sequence(&h, 500_000_001, &h));
+    }
+
+    #[test]
+    fn test_verify_poh_between_blocks_zero_ticks() {
+        // Zero ticks: prev hash must equal seed
+        let h = [42u8; 32];
+        assert!(verify_poh_between_blocks(&h, &h, 0));
+        let different = [0u8; 32];
+        assert!(!verify_poh_between_blocks(&h, &different, 0));
+    }
+
+    #[test]
+    fn test_verify_poh_between_blocks_single_tick() {
+        let start = [0u8; 32];
+        let expected = Sha256::digest(&start).into();
+        assert!(verify_poh_between_blocks(&start, &expected, 1));
+
+        let wrong = [255u8; 32];
+        assert!(!verify_poh_between_blocks(&start, &wrong, 1));
+    }
+
+    #[test]
+    fn test_verify_poh_between_blocks_multiple_ticks() {
+        let mut current = [1u8; 32];
+        for _ in 0..10 {
+            current = Sha256::digest(&current).into();
+        }
+        // current is now the result of 10 hashes from [1u8; 32]
+        assert!(verify_poh_between_blocks(&[1u8; 32], &current, 10));
+        assert!(!verify_poh_between_blocks(&[1u8; 32], &current, 9));
+        assert!(!verify_poh_between_blocks(&[1u8; 32], &current, 11));
+    }
+
+    #[test]
+    fn test_verify_poh_between_blocks_over_max() {
+        let h = [0u8; 32];
+        assert!(!verify_poh_between_blocks(&h, &h, 500_000_001));
     }
 }

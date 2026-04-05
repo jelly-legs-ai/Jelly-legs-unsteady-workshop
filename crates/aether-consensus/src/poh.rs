@@ -169,8 +169,29 @@ pub fn verify_poh_chain(entries: &[PoHEntry]) -> bool {
     true
 }
 
+/// Maximum hashes allowed in a single PoH verification to prevent DoS
+/// Solana typically uses ~12.5M hashes/second; 500M would take ~40s
+const MAX_VERIFY_HASHES: u64 = 500_000_000;
+
 /// Hash a value n times using SHA-256
+///
+/// # Security Note
+/// This function is used in consensus-critical code paths. The `n` parameter
+/// is bounded to prevent DoS attacks where a malicious validator could request
+/// unbounded computation.
 fn hash_n_times(start: &[u8; 32], n: u64) -> [u8; 32] {
+    // Early return for zero hashes - identity case
+    if n == 0 {
+        return *start;
+    }
+    
+    // Guard against DoS via unbounded iteration
+    if n > MAX_VERIFY_HASHES {
+        // Return a deterministic invalid hash for oversized requests
+        // This ensures the verification will fail but doesn't waste cycles
+        return [0xFF; 32];
+    }
+    
     let mut hash = *start;
     
     for _ in 0..n {
@@ -261,5 +282,21 @@ mod tests {
         
         assert_ne!(hash1, hash2);
         assert_ne!(hash1, start);
+    }
+
+    #[test]
+    fn test_hash_n_times_zero_hashes() {
+        // Zero hashes should return input unchanged
+        let start = [42u8; 32];
+        let result = hash_n_times(&start, 0);
+        assert_eq!(result, start);
+    }
+
+    #[test]
+    fn test_hash_n_times_over_max() {
+        // Must not perform unbounded computation - returns invalid hash
+        let start = [1u8; 32];
+        let result = hash_n_times(&start, MAX_VERIFY_HASHES + 1);
+        assert_eq!(result, [0xFF; 32]);
     }
 }
