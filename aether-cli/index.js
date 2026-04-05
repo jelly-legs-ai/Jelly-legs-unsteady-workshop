@@ -27,6 +27,7 @@ const { epochCommand } = require('./commands/epoch');
 const { supplyCommand } = require('./commands/supply');
 const { statusCommand } = require('./commands/status');
 const { broadcastCommand } = require('./commands/broadcast');
+const { apyCommand } = require('./commands/apy');
 const readline = require('readline');
 
 // CLI version
@@ -197,11 +198,8 @@ const COMMANDS = {
   'stake-positions': {
     description: 'Show current stake positions/delegations — aether stake-positions --address <addr> [--json]',
     handler: () => {
-      const { walletCommand } = require('./commands/wallet');
-      const originalArgv = process.argv;
-      process.argv = [...originalArgv.slice(0, 2), 'wallet', 'stake-positions', ...originalArgv.slice(3)];
-      walletCommand();
-      process.argv = originalArgv;
+      const { stakePositionsCommand } = require('./commands/stake-positions');
+      stakePositionsCommand();
     },
   },
   unstake: {
@@ -367,6 +365,13 @@ const COMMANDS = {
     handler: () => {
       const { broadcastCommand } = require('./commands/broadcast');
       broadcastCommand();
+    },
+  },
+  apy: {
+    description: 'Validator APY estimator — aether apy [--validator <addr>] [--address <addr>] [--json] [--epochs <n>]',
+    handler: () => {
+      const { apyCommand } = require('./commands/apy');
+      apyCommand();
     },
   },
   ping: {
