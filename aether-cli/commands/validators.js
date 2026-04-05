@@ -481,6 +481,160 @@ async function validatorsList(opts) {
 }
 
 // ---------------------------------------------------------------------------
+// Validators Rank — leaderboard sorted by stake
+// ---------------------------------------------------------------------------
+
+function rankBadge(rank) {
+  if (rank === 1) return `${C.yellow}🥇 1${C.reset}`;
+  if (rank === 2) return `${C.dim}🥈 2${C.reset}`;
+  if (rank === 3) return `${C.yellow}🥉 3${C.reset}`;
+  return `${C.dim}${String(rank).padStart(3)}${C.reset}`;
+}
+
+function renderRankTable(validators, opts) {
+  const tier = opts.tier;
+
+  // Sort by stake descending, filter by tier
+  const sorted = [...validators]
+    .sort((a, b) => b.stakeAeth - a.stakeAeth);
+
+  const filtered = tier
+    ? sorted.filter(v => v.tier === tier)
+    : sorted;
+
+  const shown = filtered.slice(0, opts.limit);
+  const total = filtered.length;
+
+  // Total staked across all shown validators
+  const totalStaked = shown.reduce((sum, v) => sum + v.stakeAeth, 0);
+  const maxStake = shown.length > 0 ? shown[0].stakeAeth : 1;
+
+  console.log();
+  console.log(`${C.bright}${C.cyan}╔═══════════════════════════════════════════════════════════════════════════════════╗${C.reset}`);
+  console.log(`${C.bright}${C.cyan}║${C.reset}              ${C.bright}AETHER VALIDATOR LEADERBOARD${C.reset}  ${C.dim}(${total} validators)${C.reset}         ${C.bright}║${C.reset}`);
+  console.log(`${C.bright}${C.cyan}╚═══════════════════════════════════════════════════════════════════════════════════╝${C.reset}`);
+  if (tier) console.log(`  ${C.dim}Tier: ${tier.toUpperCase()}   RPC: ${opts.rpc}${C.reset}`);
+  else console.log(`  ${C.dim}Sorted by stake   RPC: ${opts.rpc}${C.reset}`);
+  console.log();
+  console.log(`  ${C.bright}┌────────────────────────────────────────────────────────────────────────────────────────────┐${C.reset}`);
+  console.log(
+    `  ${C.bright}│${C.reset}` +
+    ` ${C.cyan}Rank${C.reset}`.padEnd(6) +
+    `${C.cyan}Validator${C.reset}`.padEnd(34) +
+    `${C.cyan}Tier${C.reset}`.padEnd(8) +
+    `${C.cyan}Stake (AETH)${C.reset}`.padEnd(16) +
+    `${C.cyan}Score${C.reset}`.padEnd(8) +
+    `${C.cyan}APY${C.reset}`.padEnd(8) +
+    `${C.bright}│${C.reset}`
+  );
+  console.log(`  ${C.bright}├${'─'.repeat(94)}${C.bright}│${C.reset}`);
+
+  for (let i = 0; i < shown.length; i++) {
+    const v = shown[i];
+    const rank = i + 1;
+    const rankStr = rankBadge(rank);
+    const nameOrKey = v.name
+      ? v.name.substring(0, 20).padEnd(20)
+      : (v.pubkey ? v.pubkey.substring(0, 20).padEnd(20) : 'unknown'.padEnd(20));
+    const tierStr = tierBadge(v.tier);
+    const stakeFormatted = v.stakeFormatted.padEnd(14);
+    const scoreStr = v.score !== null && v.score !== undefined
+      ? `${v.score}%`.padEnd(6)
+      : '—'.padEnd(6);
+    const apyStr = v.apy !== null && v.apy !== undefined
+      ? `${v.apy.toFixed(1)}%`.padEnd(6)
+      : '—'.padEnd(6);
+
+    const scoreColor = v.score === null || v.score === undefined ? C.dim
+      : v.score >= 80 ? C.green
+      : v.score >= 50 ? C.yellow
+      : C.red;
+
+    // Mini bar for relative stake
+    const barLen = 12;
+    const fillLen = maxStake > 0 ? Math.round((v.stakeAeth / maxStake) * barLen) : 0;
+    const stakeBar = `${C.green}${'█'.repeat(fillLen)}${C.dim}${'░'.repeat(barLen - fillLen)}${C.reset}`;
+
+    console.log(
+      `  ${C.bright}│${C.reset}` +
+      ` ${rankStr} `.substring(0, 7) +
+      `${C.cyan}${nameOrKey}${C.reset} ` +
+      `${tierStr} `.substring(0, 9) +
+      `${stakeBar}${C.reset} ` +
+      `${C.green}${stakeFormatted}${C.reset} ` +
+      `${scoreColor}${scoreStr}${C.reset} ` +
+      `${C.green}${apyStr}${C.reset} ` +
+      `${C.bright}│${C.reset}`
+    );
+  }
+
+  console.log(`  ${C.bright}└${'─'.repeat(94)}${C.bright}│${C.reset}`);
+  console.log();
+
+  // Summary
+  const avgApy = shown.reduce((sum, v) => sum + (v.apy || 0), 0) / shown.filter(v => v.apy !== null).length;
+  console.log(`  ${C.dim}Total staked (shown): ${C.reset}${C.green}${totalStaked.toFixed(2)} AETH${C.reset}  ${C.dim}Avg APY: ${C.reset}${avgApy.toFixed(1)}%  ${C.dim}Top stake: ${C.reset}${maxStake.toFixed(2)} AETH${C.reset}`);
+  console.log(`  ${C.dim}Run with ${C.cyan}--json${C.reset}${C.dim} for raw data, ${C.cyan}--limit 20${C.reset}${C.dim} for top 20${C.reset}`);
+  console.log();
+}
+
+async function validatorsRank(opts) {
+  const rpc = opts.rpc;
+  const limit = Math.min(opts.limit || 50, 200);
+
+  if (!opts.asJson) {
+    console.log(`${C.dim}Fetching validator leaderboard from ${rpc}...${C.reset}`);
+  }
+
+  const [rawValidators, epochInfo, supply] = await Promise.all([
+    fetchValidators(rpc),
+    fetchEpochInfo(rpc),
+    fetchSupply(rpc),
+  ]);
+
+  if (rawValidators.length === 0) {
+    if (opts.asJson) {
+      console.log(JSON.stringify({ rpc, validators: [], total: 0, error: 'No validator data returned from RPC' }, null, 2));
+    } else {
+      console.log(`\n  ${C.yellow}⚠ No validator data returned from RPC.${C.reset}`);
+      console.log(`  ${C.dim}  RPC: ${rpc}${C.reset}`);
+      console.log(`  ${C.dim}  Check that your validator is running and the RPC endpoint is accessible.${C.reset}\n`);
+    }
+    return;
+  }
+
+  let validators = rawValidators.map(normaliseValidator);
+
+  // Estimate APY if not provided
+  if (supply && !supply.error) {
+    const totalStake = Number(supply.total_staked || supply.total || 0);
+    const rewardsPerEpoch = Number(epochInfo?.rewards_per_epoch || '2000000000');
+    if (totalStake > 0 && rewardsPerEpoch > 0) {
+      const apyEstimate = (rewardsPerEpoch / totalStake) * 73;
+      validators = validators.map(v => {
+        if (v.apy === null || v.apy === undefined) {
+          return { ...v, apy: apyEstimate };
+        }
+        return v;
+      });
+    }
+  }
+
+  opts.limit = limit;
+
+  if (opts.asJson) {
+    const ranked = [...validators]
+      .sort((a, b) => b.stakeAeth - a.stakeAeth)
+      .filter(v => !opts.tier || v.tier === opts.tier)
+      .slice(0, limit)
+      .map((v, i) => ({ rank: i + 1, ...v }));
+    console.log(JSON.stringify({ rpc, validators: ranked, total: ranked.length, fetched_at: new Date().toISOString() }, null, 2));
+  } else {
+    renderRankTable(validators, opts);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Entry point
 // ---------------------------------------------------------------------------
 
@@ -489,6 +643,8 @@ async function main() {
 
   if (opts.subcmd === 'list') {
     await validatorsList(opts);
+  } else if (opts.subcmd === 'rank') {
+    await validatorsRank(opts);
   } else {
     console.log(`\n  ${C.red}Unknown subcommand:${C.reset} ${opts.subcmd}`);
     console.log(`  ${C.dim}Usage: aether validators list [--tier full] [--sort stake] [--json]${C.reset}\n`);
