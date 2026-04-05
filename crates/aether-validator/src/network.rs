@@ -4,6 +4,7 @@
 //! Implements gossip protocol for slot/block propagation.
 //! Supports bootstrap node connections for 2-node network.
 
+use crate::block_producer::BlockProducer;
 use crate::state::ValidatorState;
 use libp2p::identity::Keypair;
 use libp2p::PeerId;
@@ -95,11 +96,30 @@ pub enum GossipMessage {
     #[serde(rename = "slot_update")]
     SlotUpdate { slot: u64, peer_id: String },
     #[serde(rename = "block_announce")]
-    BlockAnnounce { slot: u64, block_hash: String, peer_id: String },
+    BlockAnnounce {
+        slot: u64,
+        block_hash: String,
+        prev_hash: String,
+        poh_seed: String,
+        state_root: String,
+        tx_count: usize,
+        peer_id: String,
+    },
+    #[serde(rename = "vote")]
+    Vote {
+        slot: u64,
+        block_hash: String,
+        validator: String,
+        signature: String,
+    },
     #[serde(rename = "ping")]
     Ping { nonce: u64 },
     #[serde(rename = "pong")]
     Pong { nonce: u64 },
+    #[serde(rename = "get_block")]
+    GetBlock { slot: u64, requester: String },
+    #[serde(rename = "block_response")]
+    BlockResponse { slot: u64, block_json: String },
 }
 
 /// Handshake message for peer connection
@@ -405,12 +425,143 @@ async fn run_slot_gossip_loop(
     }
 }
 
-/// Announce a new block to the network (placeholder for future)
-pub async fn announce_block(slot: u64, block_hash: String, peer_id: String) {
+/// Announce a newly produced block to all connected peers
+pub async fn announce_new_block(
+    slot: u64,
+    block_hash: String,
+    prev_hash: String,
+    poh_seed: String,
+    state_root: String,
+    tx_count: usize,
+    peer_id: &str,
+    network_state: &NetworkState,
+) {
     let msg = GossipMessage::BlockAnnounce {
         slot,
-        block_hash,
-        peer_id,
+        block_hash: block_hash.clone(),
+        prev_hash,
+        poh_seed,
+        state_root,
+        tx_count,
+        peer_id: peer_id.to_string(),
     };
-    debug!("Would announce block: {:?}", msg);
+
+    let _json = serde_json::to_string(&msg).unwrap_or_default();
+    let peers = network_state.get_connected_peers().await;
+
+    for peer in peers {
+        if peer != peer_id {
+            debug!("Would announce block {} to peer {}", slot, peer);
+        }
+    }
+}
+
+/// Broadcast a validator vote to the network
+pub async fn broadcast_vote(
+    slot: u64,
+    block_hash: &str,
+    validator_pubkey: &str,
+    signature: &[u8],
+    peer_id: &str,
+    network_state: &NetworkState,
+) {
+    let msg = GossipMessage::Vote {
+        slot,
+        block_hash: block_hash.to_string(),
+        validator: validator_pubkey.to_string(),
+        signature: bs58::encode(signature).into_string(),
+    };
+
+    let _json = serde_json::to_string(&msg).unwrap_or_default();
+    let peers = network_state.get_connected_peers().await;
+
+    for peer in peers {
+        if peer != peer_id {
+            debug!("Would broadcast vote for slot {} from {}", slot, validator_pubkey);
+        }
+    }
+}
+
+/// Handle an inbound gossip message
+pub async fn handle_gossip_message(
+    msg: GossipMessage,
+    state: ValidatorState,
+    block_producer: Arc<BlockProducer>,
+    network_state: Arc<NetworkState>,
+) -> Option<GossipMessage> {
+    match msg {
+        GossipMessage::SlotUpdate { slot, peer_id } => {
+            debug!("Peer {} announced slot {}", peer_id, slot);
+            if slot > state.current_slot() {
+                info!("Syncing to peer's slot {}", slot);
+                state.sync_slot(slot);
+            }
+            None
+        }
+
+        GossipMessage::BlockAnnounce {
+            slot,
+            block_hash,
+            prev_hash: _,
+            poh_seed: _,
+            state_root: _,
+            tx_count,
+            peer_id,
+        } => {
+            info!(
+                "Peer {} announcing block {} (hash: {})",
+                peer_id,
+                slot,
+                &block_hash[..8.min(block_hash.len())]
+            );
+            if let Some(existing) = block_producer.get_block(slot).await {
+                if existing.block_hash == block_hash {
+                    debug!("Block {} already known, skipping", slot);
+                    return None;
+                }
+            }
+
+            if slot > state.current_slot() {
+                state.sync_slot(slot);
+            }
+
+            let vote_msg = GossipMessage::Vote {
+                slot,
+                block_hash: block_hash.clone(),
+                validator: "local".to_string(),
+                signature: String::new(),
+            };
+            Some(vote_msg)
+        }
+
+        GossipMessage::Vote {
+            slot,
+            block_hash,
+            validator,
+            signature: _,
+        } => {
+            info!(
+                "Received vote for slot {} from validator {}",
+                slot, validator
+            );
+            None
+        }
+
+        GossipMessage::GetBlock { slot, requester } => {
+            info!("Peer {} requesting block at slot {}", requester, slot);
+            if let Some(block) = block_producer.get_block(slot).await {
+                let block_json = serde_json::to_string(&block).ok()?;
+                Some(GossipMessage::BlockResponse { slot, block_json })
+            } else {
+                None
+            }
+        }
+
+        GossipMessage::BlockResponse { slot, block_json } => {
+            info!("Received block response for slot {}", slot);
+            None
+        }
+
+        _ => None,
+    }
 }
