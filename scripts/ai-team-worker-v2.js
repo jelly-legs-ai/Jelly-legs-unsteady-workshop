@@ -801,12 +801,39 @@ async function doPersistentWork(issue, config) {
       console.log(`   ⚠️  Pull noted: ${e.message}`);
     }
 
-    // Post a minimal heartbeat — no "Scope:" spam
+    // Get recent commit info for detailed reporting
+    let recentCommit = '';
+    try {
+      const log = execSync(`git log -3 --oneline --format="%h %s" origin/main`, { encoding: 'utf8', timeout: 10000, cwd: process.cwd() });
+      recentCommit = log.trim().split('\n').map(l => `- ${l}`).join('\n');
+    } catch(e) {
+      recentCommit = '(no recent commits available)';
+    }
+
+    // Get chain status
+    let chainStatus = 'unknown';
+    try {
+      const slot = execSync(`curl.exe -s http://127.0.0.1:8899/v1/slot`, { encoding: 'utf8', timeout: 5000 });
+      chainStatus = `Slot ${slot.trim()}`;
+    } catch(e) {
+      chainStatus = 'validator not reachable';
+    }
+
+    // Post a detailed cycle update
     const timestamp = new Date().toISOString().replace('T', ' ').split('.')[0] + ' UTC';
-    const comment = `${emoji} **${name}** — heartbeat ${timestamp}\n\nReal work being done. Check recent commits for progress.\n\n*Autonomous agent — persistent issue*`;
+    const comment = `${emoji} **${name}** — Cycle update ${timestamp}
+
+**Chain status:** ${chainStatus}
+
+**Recent commits on this issue:**
+${recentCommit}
+
+**Current scope:** ${scope}
+
+*Autonomous agent — persistent issue, never closes*`;
 
     execSync(`gh issue comment ${issue.number} --body "${comment.replace(/"/g, '\\"')}"`, { encoding: 'utf8' });
-    console.log(`   ✅ Posted heartbeat to #${issue.number}`);
+    console.log(`   ✅ Posted detailed update to #${issue.number}`);
 
   } catch (error) {
     console.error(`   ❌ Error on #${issue.number}:`, error.message);
