@@ -105,6 +105,24 @@ impl StakePool {
         self.recalculate_total();
     }
 
+    /// Add delegated stake to a validator (called when user delegates to them)
+    pub fn add_delegated_stake(&mut self, validator_pubkey: &[u8; 32], amount: u64) {
+        if let Some(validator) = self.validators.iter_mut()
+            .find(|v| &v.pubkey == validator_pubkey) {
+            validator.delegated_stake = validator.delegated_stake.saturating_add(amount);
+            self.recalculate_total();
+        }
+    }
+
+    /// Remove delegated stake from a validator (called when user undelegates)
+    pub fn remove_delegated_stake(&mut self, validator_pubkey: &[u8; 32], amount: u64) {
+        if let Some(validator) = self.validators.iter_mut()
+            .find(|v| &v.pubkey == validator_pubkey) {
+            validator.delegated_stake = validator.delegated_stake.saturating_sub(amount);
+            self.recalculate_total();
+        }
+    }
+
     /// Remove validator
     pub fn remove_validator(&mut self, pubkey: &[u8; 32]) -> Option<ValidatorStake> {
         let index = self.validators.iter().position(|v| &v.pubkey == pubkey)?;
