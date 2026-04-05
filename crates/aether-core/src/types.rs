@@ -1,34 +1,85 @@
 //! AETHER Core Types
 //!
-//! Core blockchain types and primitives for the Aether protocol.
-
-pub mod proof_engine;
-pub mod trust_score;
-
-pub use proof_engine::*;
-pub use trust_score::*;
-
-// Re-export from aether-common for convenience
-pub use aether_common::{SignatureBytes as Signature, ValidatorTier, AIPriorityLane, AITransactionMeta};
+//! Core blockchain types for Aether transactions, blocks, and accounts.
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-// ============================================================================
-// Type Aliases (aligned with aether-common)
-// ============================================================================
-
-/// Account address (public key) - 32 bytes
+/// Address type alias (32 bytes)
 pub type Address = [u8; 32];
 
-/// Hash value - 32 bytes  
+/// Hash type alias (32 bytes)
 pub type Hash = [u8; 32];
 
-// ============================================================================
-// Transaction Type System
-// ============================================================================
+/// Account in the Aether state
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Account {
+    /// Account address (public key)
+    pub address: Address,
+    /// Lamports (native tokens)
+    pub lamports: u64,
+    /// Account owner program
+    pub owner: Address,
+    /// Account data
+    pub data: Vec<u8>,
+    /// Epoch at which this account will next owe rent
+    pub rent_epoch: u64,
+    /// Whether this account exists (deleted accounts are marked)
+    pub exists: bool,
+    /// Whether this account is executable (program account)
+    pub executable: bool,
+}
 
-/// Transaction type enum for Aether transactions
+impl Account {
+    pub fn new(address: Address, lamports: u64) -> Self {
+        Self {
+            address,
+            lamports,
+            owner: [0u8; 32],
+            data: Vec::new(),
+            rent_epoch: 0,
+            exists: true,
+            executable: false,
+        }
+    }
+
+    /// Compute the address hash for this account (for state root)
+    pub fn hash(&self) -> Hash {
+        let mut hasher = Sha256::new();
+        hasher.update(&self.address);
+        hasher.update(self.lamports.to_le_bytes());
+        hasher.update(&self.owner);
+        hasher.update(&self.data);
+        hasher.update(self.rent_epoch.to_le_bytes());
+        hasher.update([self.exists as u8]);
+        hasher.update([self.executable as u8]);
+        hasher.finalize().into()
+    }
+}
+
+impl Default for Account {
+    fn default() -> Self {
+        Self {
+            address: [0u8; 32],
+            lamports: 0,
+            owner: [0u8; 32],
+            data: Vec::new(),
+            rent_epoch: 0,
+            exists: true,
+            executable: false,
+        }
+    }
+}
+
+/// Genesis account for initialization
+#[derive(Debug, Clone)]
+pub struct GenesisAccount {
+    pub address: Address,
+    pub lamports: u64,
+    pub data: Option<Vec<u8>>,
+}
+
+/// Transaction type variants
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum TransactionType {
     Transfer,
@@ -41,52 +92,78 @@ pub enum TransactionType {
     UpdateMetadata,
     Delegate,
     Vote,
+    /// Generic/native program instruction
+    Native(u32),
 }
 
-/// Unified transaction payload for all Aether transaction types
+impl TransactionType {
+    /// Serialize to bytes
+    pub fn serialize(&self) -> Vec<u8> {
+        serde_json::to_vec(self).unwrap_or_default()
+    }
+}
+
+impl Default for TransactionType {
+    fn default() -> Self {
+        TransactionType::Transfer
+    }
+}
+
+/// Transaction payload (instruction data)
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "data")]
 pub enum TransactionPayload {
+    /// Transfer tokens
     Transfer {
-        recipient: Address,
+        recipient: String,
         amount: u64,
         nonce: u64,
     },
+    /// Stake tokens for consensus participation
     Stake {
-        validator: Address,
+        validator: String,
         amount: u64,
-        tier: String, // "full", "lite", "observer"
+        tier: String,
     },
+    /// Unstake tokens (initiate unlock period)
     Unstake {
         position_index: usize,
         amount: u64,
     },
+    /// Claim accumulated staking rewards
     ClaimRewards {
         position_index: usize,
     },
+    /// Create a new NFT
     CreateNFT {
         metadata_uri: String,
         supply: u64,
         name: String,
     },
+    /// Mint additional supply of an existing NFT
     MintNFT {
-        nft_id: [u8; 32],
+        nft_id: String,
         amount: u64,
     },
+    /// Transfer an NFT to another account
     TransferNFT {
-        nft_id: [u8; 32],
-        recipient: Address,
+        nft_id: String,
+        recipient: String,
     },
+    /// Update NFT metadata
     UpdateMetadata {
-        nft_id: [u8; 32],
+        nft_id: String,
         metadata_uri: String,
     },
+    /// Delegate tokens to a validator
     Delegate {
-        validator: Address,
+        validator: String,
         amount: u64,
     },
+    /// Vote on a block
     Vote {
         slot: u64,
-        block_hash: Hash,
+        block_hash: String,
     },
 }
 
@@ -113,20 +190,32 @@ impl TransactionPayload {
     }
 }
 
-/// AETH Transaction (full type with typed payloads)
+impl Default for TransactionPayload {
+    fn default() -> Self {
+        TransactionPayload::Transfer {
+            recipient: String::new(),
+            amount: 0,
+            nonce: 0,
+        }
+    }
+}
+
+/// An Aether transaction
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AetherTransaction {
-    /// Transaction signature (64 bytes)
-    pub signature: Signature,
-    /// Signer public key
+    /// 64-byte signature (base58 encoded in JSON)
+    #[serde(with = "serde_bytes_64")]
+    pub signature: [u8; 64],
+    /// Signer public key (base58 encoded in JSON)
+    #[serde(with = "serde_bytes_32")]
     pub signer: Address,
     /// Transaction type
     pub tx_type: TransactionType,
-    /// Transaction payload
+    /// Instruction payload
     pub payload: TransactionPayload,
-    /// Transaction fee (in lamports)
+    /// Fee paid (in lamports)
     pub fee: u64,
-    /// Slot at which this was included
+    /// Slot at which this was included (0 if pending)
     pub slot: u64,
     /// Unix timestamp
     pub timestamp: u64,
@@ -135,7 +224,7 @@ pub struct AetherTransaction {
 impl AetherTransaction {
     /// Create a new AetherTransaction
     pub fn new(
-        signature: Signature,
+        signature: [u8; 64],
         signer: Address,
         payload: TransactionPayload,
         slot: u64,
@@ -157,55 +246,66 @@ impl AetherTransaction {
     }
 }
 
-/// Execution result for a transaction
+/// Result of executing a transaction
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutionResult {
-    /// Whether the transaction succeeded
+    /// Whether execution succeeded
     pub success: bool,
     /// Error message if failed
-    pub error_message: Option<String>,
+    pub error: Option<String>,
     /// State changes caused by this transaction
     pub state_changes: Vec<StateChange>,
-    /// Gas/compute units used
+    /// Gas used
     pub gas_used: u64,
 }
 
+impl Default for ExecutionResult {
+    fn default() -> Self {
+        Self {
+            success: false,
+            error: Some("Not executed".to_string()),
+            state_changes: vec![],
+            gas_used: 0,
+        }
+    }
+}
+
 impl ExecutionResult {
-    /// Create a successful execution result with no state changes
+    /// Create a successful result
     pub fn success() -> Self {
         Self {
             success: true,
-            error_message: None,
+            error: None,
             state_changes: vec![],
             gas_used: 0,
         }
     }
 
-    /// Create a successful execution result with state changes and gas
+    /// Create a successful result with state changes and gas
     pub fn success_with(state_changes: Vec<StateChange>, gas_used: u64) -> Self {
         Self {
             success: true,
-            error_message: None,
+            error: None,
             state_changes,
             gas_used,
         }
     }
 
-    /// Create a failed execution result
-    pub fn failure(error: String) -> Self {
+    /// Create a failed result
+    pub fn failure(error: impl Into<String>) -> Self {
         Self {
             success: false,
-            error_message: Some(error),
+            error: Some(error.into()),
             state_changes: vec![],
             gas_used: 0,
         }
     }
 
-    /// Create a failed execution result with gas used
-    pub fn failure_with(error: String, gas_used: u64) -> Self {
+    /// Create a failed result with gas used
+    pub fn failure_with(error: impl Into<String>, gas_used: u64) -> Self {
         Self {
             success: false,
-            error_message: Some(error),
+            error: Some(error.into()),
             state_changes: vec![],
             gas_used,
         }
@@ -216,8 +316,9 @@ impl ExecutionResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StateChange {
     /// Account that was modified
+    #[serde(with = "serde_bytes_32")]
     pub account: Address,
-    /// Field that was changed ("lamports", "data", "owner", etc.)
+    /// Field that was changed
     pub field: String,
     /// Previous value (as bytes)
     pub old_value: Vec<u8>,
@@ -247,18 +348,20 @@ impl StateChange {
     }
 }
 
-/// Transaction receipt — immutable on-chain record
+/// Transaction receipt — proof of execution
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransactionReceipt {
-    /// Transaction signature
-    pub signature: Signature,
-    /// Slot number
+    /// Transaction signature (base58 encoded in JSON)
+    #[serde(with = "serde_bytes_64")]
+    pub signature: [u8; 64],
+    /// Slot where transaction was executed
     pub slot: u64,
-    /// Block hash this was included in
-    pub block_hash: Hash,
+    /// Block hash (set after block is created)
+    pub block_hash: String,
     /// Transaction type
     pub tx_type: TransactionType,
-    /// Signer address
+    /// Signer public key (base58 encoded in JSON)
+    #[serde(with = "serde_bytes_32")]
     pub signer: Address,
     /// Execution result
     pub result: ExecutionResult,
@@ -270,9 +373,9 @@ impl TransactionReceipt {
     /// Compute the receipt hash for merkle inclusion proof
     pub fn hash(&self) -> Hash {
         let mut hasher = Sha256::new();
-        hasher.update(&self.signature.0);
+        hasher.update(&self.signature);
         hasher.update(self.slot.to_le_bytes());
-        hasher.update(&self.block_hash);
+        hasher.update(self.block_hash.as_bytes());
         hasher.update(serde_json::to_vec(&self.tx_type).unwrap_or_default());
         hasher.update(&self.signer);
         hasher.update(serde_json::to_vec(&self.result).unwrap_or_default());
@@ -281,85 +384,50 @@ impl TransactionReceipt {
     }
 }
 
-// ============================================================================
-// Account Type (aligned with state_db.rs)
-// ============================================================================
-
-/// A single account in the state
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Account {
-    /// Account address (public key)
-    pub address: Address,
-    /// Lamports (1 AETH = 100_000_000 lamports)
-    pub lamports: u64,
-    /// Owner program (zero address = system program)
-    pub owner: Address,
-    /// Arbitrary account data
-    pub data: Vec<u8>,
-    /// Last rent epoch
-    pub rent_epoch: u64,
-    /// Whether this account exists (deleted accounts are marked)
-    pub exists: bool,
-}
-
-impl Account {
-    /// Create a new account with default values
-    pub fn new(address: Address, lamports: u64) -> Self {
-        Self {
-            address,
-            lamports,
-            owner: [0u8; 32], // System program
-            data: Vec::new(),
-            rent_epoch: 0,
-            exists: true,
-        }
+// Custom serde for base58-encoded 64-byte arrays
+mod serde_bytes_64 {
+    use serde::{Deserialize, Deserializer, Serializer};
+    
+    pub fn serialize<S>(bytes: &[u8; 64], serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&bs58::encode(bytes).into_string())
     }
-
-    /// Compute the address hash for this account (for state root)
-    pub fn hash(&self) -> Hash {
-        let mut hasher = Sha256::new();
-        hasher.update(&self.address);
-        hasher.update(self.lamports.to_le_bytes());
-        hasher.update(&self.owner);
-        hasher.update(&self.data);
-        hasher.update(self.rent_epoch.to_le_bytes());
-        hasher.update([self.exists as u8]);
-        hasher.finalize().into()
+    
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<[u8; 64], D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        let decoded = bs58::decode(&s).into_vec().map_err(serde::de::Error::custom)?;
+        let mut arr = [0u8; 64];
+        let len = decoded.len().min(64);
+        arr[..len].copy_from_slice(&decoded[..len]);
+        Ok(arr)
     }
 }
 
-impl Default for Account {
-    fn default() -> Self {
-        Self {
-            address: [0u8; 32],
-            lamports: 0,
-            owner: [0u8; 32],
-            data: Vec::new(),
-            rent_epoch: 0,
-            exists: true,
-        }
+// Custom serde for base58-encoded 32-byte arrays  
+mod serde_bytes_32 {
+    use serde::{Deserialize, Deserializer, Serializer};
+    
+    pub fn serialize<S>(bytes: &[u8; 32], serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&bs58::encode(bytes).into_string())
     }
-}
-
-// ============================================================================
-// Genesis Account (for initialization)
-// ============================================================================
-
-/// Genesis account for initialization
-#[derive(Debug, Clone)]
-pub struct GenesisAccount {
-    pub address: Address,
-    pub lamports: u64,
-    pub data: Option<Vec<u8>>,
-}
-
-// ============================================================================
-// Serialization Helpers
-// ============================================================================
-
-impl TransactionType {
-    /// Serialize to bytes
-    pub fn serialize(&self) -> Vec<u8> {
-        serde_json::to_vec(self).unwrap_or_default()
+    
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<[u8; 32], D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        let decoded = bs58::decode(&s).into_vec().map_err(serde::de::Error::custom)?;
+        let mut arr = [0u8; 32];
+        let len = decoded.len().min(32);
+        arr[..len].copy_from_slice(&decoded[..len]);
+        Ok(arr)
     }
 }

@@ -3,64 +3,12 @@
 //! In-memory account state store with genesis initialization.
 //! Accounts hold lamports (AETH tokens), program ownership, and arbitrary data.
 
-use aether_core::{Account, Address, Genesis as GenesisHash, Signature};
+use aether_core::{Account, Address, GenesisAccount};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-/// A single account in the state
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Account {
-    /// Account address (public key)
-    pub address: Address,
-    /// Lamports (1 AETH = 100_000_000 lamports)
-    pub lamports: u64,
-    /// Owner program (zero address = system program)
-    pub owner: Address,
-    /// Arbitrary account data
-    pub data: Vec<u8>,
-    /// Last rent epoch
-    pub rent_epoch: u64,
-    /// Whether this account exists (deleted accounts are marked)
-    pub exists: bool,
-}
-
-impl Account {
-    pub fn new(address: Address, lamports: u64) -> Self {
-        Self {
-            address,
-            lamports,
-            owner: [0u8; 32], // System program
-            data: Vec::new(),
-            rent_epoch: 0,
-            exists: true,
-        }
-    }
-    
-    /// Compute the address hash for this account (for state root)
-    pub fn hash(&self) -> [u8; 32] {
-        let mut hasher = Sha256::new();
-        hasher.update(&self.address);
-        hasher.update(self.lamports.to_le_bytes());
-        hasher.update(&self.owner);
-        hasher.update(&self.data);
-        hasher.update(self.rent_epoch.to_le_bytes());
-        hasher.update([self.exists as u8]);
-        hasher.finalize().into()
-    }
-}
-
-/// Genesis account for initialization
-#[derive(Debug, Clone)]
-pub struct GenesisAccount {
-    pub address: Address,
-    pub lamports: u64,
-    pub data: Option<Vec<u8>>,
-}
-
 /// State database — thread-safe account storage
-#[derive(Clone)]
 pub struct StateDB {
     accounts: Arc<RwLock<HashMap<Address, Account>>>,
     nonce: Arc<RwLock<HashMap<Address, u64>>>, // Nonce per account for TX ordering
@@ -151,7 +99,7 @@ impl StateDB {
     /// Increment and return new nonce
     pub fn increment_nonce(&self, address: &Address) -> u64 {
         let mut nonce = self.nonce.write().unwrap();
-        let new_nonce = nonce.entry(*address).or_insert(0) + 1;
+        let new_nonce = *nonce.entry(*address).or_insert(0) + 1;
         *nonce.get_mut(address).unwrap() = new_nonce;
         new_nonce
     }
@@ -184,5 +132,14 @@ impl StateDB {
 impl Default for StateDB {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Clone for StateDB {
+    fn clone(&self) -> Self {
+        Self {
+            accounts: self.accounts.clone(),
+            nonce: self.nonce.clone(),
+        }
     }
 }

@@ -3,7 +3,7 @@
 //! Executes signed transactions against the state DB.
 //! Produces execution results and state changes.
 
-use crate::state_db::{StateDB, Account};
+use crate::state_db::StateDB;
 use aether_core::*;
 use sha2::{Digest, Sha256};
 
@@ -20,26 +20,27 @@ impl Executor {
     /// Execute a signed AetherTransaction
     pub fn execute(&self, tx: &AetherTransaction) -> ExecutionResult {
         // Basic validation - signature verification stub
-        // In production, this would use ed25519_dalek to verify
         if !self.verify_signature(tx) {
-            return ExecutionResult::failure("Invalid signature".to_string());
+            return ExecutionResult::failure("Invalid signature");
         }
         
         // Check nonce for replay protection
         let expected_nonce = self.state_db.get_nonce(&tx.signer);
         if let TransactionPayload::Transfer { nonce, .. } = &tx.payload {
             if nonce < &expected_nonce {
-                return ExecutionResult::failure("Nonce too low: replay protection".to_string());
+                return ExecutionResult::failure("Nonce too low: replay protection");
             }
         }
         
         // Execute by type
         let result = match &tx.payload {
             TransactionPayload::Transfer { recipient, amount, nonce: _ } => {
-                self.execute_transfer(tx, recipient, *amount)
+                let recipient_addr = decode_bs58_address(recipient);
+                self.execute_transfer(tx, &recipient_addr, *amount)
             }
             TransactionPayload::Stake { validator, amount, tier } => {
-                self.execute_stake(tx, validator, *amount, tier)
+                let validator_addr = decode_bs58_address(validator);
+                self.execute_stake(tx, &validator_addr, *amount, tier)
             }
             TransactionPayload::Unstake { position_index, amount } => {
                 self.execute_unstake(tx, *position_index, *amount)
@@ -51,19 +52,25 @@ impl Executor {
                 self.execute_create_nft(tx, name, metadata_uri, *supply)
             }
             TransactionPayload::MintNFT { nft_id, amount } => {
-                self.execute_mint_nft(tx, nft_id, *amount)
+                let nft_id_arr = decode_bs58_address(nft_id);
+                self.execute_mint_nft(tx, &nft_id_arr, *amount)
             }
             TransactionPayload::TransferNFT { nft_id, recipient } => {
-                self.execute_transfer_nft(tx, nft_id, recipient)
+                let nft_id_arr = decode_bs58_address(nft_id);
+                let recipient_addr = decode_bs58_address(recipient);
+                self.execute_transfer_nft(tx, &nft_id_arr, &recipient_addr)
             }
             TransactionPayload::UpdateMetadata { nft_id, metadata_uri } => {
-                self.execute_update_metadata(tx, nft_id, metadata_uri)
+                let nft_id_arr = decode_bs58_address(nft_id);
+                self.execute_update_metadata(tx, &nft_id_arr, metadata_uri)
             }
             TransactionPayload::Delegate { validator, amount } => {
-                self.execute_delegate(tx, validator, *amount)
+                let validator_addr = decode_bs58_address(validator);
+                self.execute_delegate(tx, &validator_addr, *amount)
             }
             TransactionPayload::Vote { slot, block_hash } => {
-                self.execute_vote(tx, *slot, block_hash)
+                let block_hash_arr = decode_bs58_address(block_hash);
+                self.execute_vote(tx, *slot, &block_hash_arr)
             }
         };
         
@@ -81,24 +88,19 @@ impl Executor {
     
     fn verify_signature(&self, tx: &AetherTransaction) -> bool {
         // MVP: Stub signature verification
-        // In production, this would use ed25519_dalek::Verifier
-        // For now, we trust the transaction if it made it this far
         true
     }
     
     fn execute_transfer(&self, tx: &AetherTransaction, recipient: &Address, amount: u64) -> ExecutionResult {
         let mut changes = Vec::new();
         
-        // Get old balances
         let sender_old = self.state_db.get_account(&tx.signer).map(|a| a.lamports).unwrap_or(0);
         let recipient_old = self.state_db.get_account(recipient).map(|a| a.lamports).unwrap_or(0);
         
-        // Debit sender
         if let Err(e) = self.state_db.debit(&tx.signer, amount) {
             return ExecutionResult::failure_with(e.to_string(), 100);
         }
         
-        // Credit recipient (create account if needed)
         let recipient_account = self.state_db.get_account(recipient);
         if recipient_account.is_none() {
             let _ = self.state_db.create_account(*recipient, 0);
@@ -114,10 +116,9 @@ impl Executor {
     }
     
     fn execute_stake(&self, tx: &AetherTransaction, validator: &Address, amount: u64, tier: &str) -> ExecutionResult {
-        // Check minimum stake
         let min_stake = match tier {
-            "full" => 10_000 * 100_000_000,  // 10K AETH in lamports
-            "lite" => 1_000 * 100_000_000,  // 1K AETH
+            "full" => 10_000 * 100_000_000,
+            "lite" => 1_000 * 100_000_000,
             _ => 0,
         };
         
@@ -128,17 +129,14 @@ impl Executor {
             );
         }
         
-        // Debit staker
         if let Err(e) = self.state_db.debit(&tx.signer, amount) {
             return ExecutionResult::failure_with(e.to_string(), 100);
         }
         
-        // MVP: In production, this would create a stake account and register with staking contract
         ExecutionResult::success_with(vec![], 200)
     }
     
     fn execute_unstake(&self, tx: &AetherTransaction, _position_index: usize, amount: u64) -> ExecutionResult {
-        // For MVP: just credit back the amount
         let old_balance = self.state_db.get_account(&tx.signer).map(|a| a.lamports).unwrap_or(0);
         let _ = self.state_db.credit(&tx.signer, amount);
         
@@ -146,21 +144,17 @@ impl Executor {
     }
     
     fn execute_claim_rewards(&self, tx: &AetherTransaction, _position_index: usize) -> ExecutionResult {
-        // For MVP: claim rewards is a no-op stub
-        // In production, this would calculate and distribute staking rewards
         ExecutionResult::success_with(vec![], 150)
     }
     
     fn execute_create_nft(&self, tx: &AetherTransaction, name: &str, metadata_uri: &str, supply: u64) -> ExecutionResult {
-        // Create NFT ID from tx signature + name hash
         let mut hasher = Sha256::new();
-        hasher.update(&tx.signature.0);
+        hasher.update(&tx.signature);
         hasher.update(name.as_bytes());
         let nft_id: [u8; 32] = hasher.finalize().into();
         
-        // Create NFT account
         let mut nft_data = Vec::new();
-        nft_data.extend_from_slice(&tx.signer); // owner
+        nft_data.extend_from_slice(&tx.signer);
         nft_data.extend_from_slice(name.len().to_le_bytes());
         nft_data.extend_from_slice(name.as_bytes());
         nft_data.extend_from_slice(metadata_uri.len().to_le_bytes());
@@ -169,7 +163,7 @@ impl Executor {
         
         let mut nft_account = Account::new(nft_id, 0);
         nft_account.data = nft_data;
-        nft_account.owner = tx.signer; // NFT owned by creator
+        nft_account.owner = tx.signer;
         
         self.state_db.set_account(nft_account);
         
@@ -177,51 +171,37 @@ impl Executor {
     }
     
     fn execute_mint_nft(&self, tx: &AetherTransaction, nft_id: &[u8; 32], _amount: u64) -> ExecutionResult {
-        // Verify caller owns the NFT
         let nft_account = self.state_db.get_account(nft_id);
         if nft_account.is_none() {
             return ExecutionResult::failure_with("NFT not found".to_string(), 100);
         }
-        
-        // MVP: In production, would increment supply and update NFT data
         ExecutionResult::success_with(vec![], 200)
     }
     
-    fn execute_transfer_nft(&self, tx: &AetherTransaction, nft_id: &[u8; 32], recipient: &Address) -> ExecutionResult {
-        // Verify NFT exists
+    fn execute_transfer_nft(&self, tx: &AetherTransaction, nft_id: &[u8; 32], _recipient: &Address) -> ExecutionResult {
         let nft_account = self.state_db.get_account(nft_id);
         if nft_account.is_none() {
             return ExecutionResult::failure_with("NFT not found".to_string(), 100);
         }
-        
-        // MVP: In production, would verify ownership and transfer
         ExecutionResult::success_with(vec![], 200)
     }
     
     fn execute_update_metadata(&self, tx: &AetherTransaction, nft_id: &[u8; 32], _metadata_uri: &str) -> ExecutionResult {
-        // Verify NFT exists
         let nft_account = self.state_db.get_account(nft_id);
         if nft_account.is_none() {
             return ExecutionResult::failure_with("NFT not found".to_string(), 100);
         }
-        
-        // MVP: In production, would verify ownership and update metadata
         ExecutionResult::success_with(vec![], 150)
     }
     
     fn execute_delegate(&self, tx: &AetherTransaction, validator: &Address, amount: u64) -> ExecutionResult {
-        // Delegate is similar to stake but without the minimum tier requirements
-        // In production, this would register delegation with the staking contract
         if let Err(e) = self.state_db.debit(&tx.signer, amount) {
             return ExecutionResult::failure_with(e.to_string(), 150);
         }
-        
         ExecutionResult::success_with(vec![], 150)
     }
     
-    fn execute_vote(&self, tx: &AetherTransaction, slot: u64, _block_hash: &Hash) -> ExecutionResult {
-        // Vote transactions are used for consensus voting
-        // MVP: just record the vote, actual consensus logic elsewhere
+    fn execute_vote(&self, tx: &AetherTransaction, slot: u64, _block_hash: &[u8; 32]) -> ExecutionResult {
         ExecutionResult::success_with(vec![], 100)
     }
 }
@@ -232,4 +212,12 @@ impl Clone for Executor {
             state_db: self.state_db.clone(),
         }
     }
+}
+
+/// Decode a base58-encoded address string to a 32-byte array
+fn decode_bs58_address(encoded: &str) -> Address {
+    let bytes = bs58::decode(encoded).into_vec().unwrap_or_default();
+    let mut addr = [0u8; 32];
+    addr.copy_from_slice(&bytes[..32.min(bytes.len())]);
+    addr
 }
