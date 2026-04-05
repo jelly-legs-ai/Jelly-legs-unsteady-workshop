@@ -1,6 +1,26 @@
 # MEMORY.md - Long-Term Memory
 
-_Last updated: 2026-04-04_
+_Last updated: 2026-04-06_
+
+## Critical System Change (2026-04-05 Evening)
+
+### GitHub Actions DISABLED for AI Work
+GitHub Actions cannot do AI — it was only posting placeholder spam comments.
+**ALL real AI work now runs through ME via local OpenClaw cron.**
+
+- `agent-orchestrator-v3.yml` → renamed to `.DISABLED`
+- `ai-team-real-work.yml` → renamed to `.DISABLED`
+- Real comments: `jelly-legs-ai` user ✅
+- Spam comments: `github-actions[bot]` ❌ (from disabled workflows)
+
+### My Cron: The Only Working AI System
+- **Job:** "AI Team - 7min Persistent Issues Cycle" (ID: `94440797-4584-4f24-8526-e498cdcfb6e1`)
+- **Schedule:** Every 7 min (420,000ms)
+- **Delivery:** `mode: "none"` (silent work, no announcements)
+- **3 subagents in parallel per cycle:**
+  - #115 Blockchain: `qwen3.5:397b-cloud`
+  - #114 Website: `kimi-k2.5:cloud`
+  - #116 CLI: `gemma3:27b-cloud`
 
 ## Identity
 - **Name:** Jelly-legs 🦑
