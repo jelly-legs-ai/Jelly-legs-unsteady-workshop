@@ -3,7 +3,8 @@
 //! Executes Aether transactions against the state database.
 
 use crate::state_db::StateDB;
-use aether_core::{AetherTransaction, ExecutionResult, TransactionPayload};
+use aether_core::{AetherTransaction, Address, ExecutionResult, TransactionPayload};
+use sha2::{Digest, Sha256};
 
 pub struct Executor {
     state_db: StateDB,
@@ -55,17 +56,30 @@ impl Executor {
             .unwrap_or_else(|e| ExecutionResult::failure(e))
     }
 
-    fn execute_stake(&self, signer: &[u8; 32], _validator: &[u8; 32], amount: u64) -> ExecutionResult {
-        match self.state_db.get_account_sync(signer) {
-            Some(account) => {
-                if account.lamports < amount {
-                    ExecutionResult::failure("Insufficient lamports for staking")
-                } else {
-                    ExecutionResult::success()
-                }
-            }
-            None => ExecutionResult::failure("Account not found"),
+    fn execute_stake(&self, signer: &[u8; 32], validator: &[u8; 32], amount: u64) -> ExecutionResult {
+        // Debit lamports from signer first
+        if let Err(e) = self.state_db.debit_sync(signer, amount) {
+            return ExecutionResult::failure(e);
         }
+        // Credit to a stake account derived from signer + validator
+        let stake_key = Self::derive_stake_account(signer, validator);
+        if let Err(e) = self.state_db.credit_sync(&stake_key, amount) {
+            // Rollback: credit back to signer
+            let _ = self.state_db.credit_sync(signer, amount);
+            return ExecutionResult::failure(e);
+        }
+        ExecutionResult::success()
+    }
+
+    fn derive_stake_account(signer: &[u8; 32], validator: &[u8; 32]) -> Address {
+        let mut hasher = Sha256::new();
+        hasher.update(b"stake-account");
+        hasher.update(signer);
+        hasher.update(validator);
+        let result = hasher.finalize();
+        let mut addr = [0u8; 32];
+        addr.copy_from_slice(&result[..32]);
+        addr
     }
 
     fn execute_unstake(&self, _signer: &[u8; 32], stake_account: &[u8; 32], amount: u64) -> ExecutionResult {
