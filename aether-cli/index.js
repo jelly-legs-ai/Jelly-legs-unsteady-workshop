@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 /**
  * aether-cli - AeTHer Validator Command Line Interface
  * 
@@ -16,6 +16,7 @@ const { sdkCommand } = require('./commands/sdk');
 const { snapshotCommand } = require('./commands/snapshot');
 const { walletCommand } = require('./commands/wallet');
 const { networkCommand } = require('./commands/network');
+const { validatorsListCommand } = require('./commands/validators');
 const readline = require('readline');
 
 // CLI version
@@ -255,6 +256,12 @@ const COMMANDS = {
     handler: () => {
       const { snapshotCommand } = require('./commands/snapshot');
       snapshotCommand();
+    },
+  },
+  validators: {
+    description: 'List active validators — aether validators list [--tier full|lite|observer] [--json]',
+    handler: () => {
+      validatorsListCommand();
     },
   },
   help: {
