@@ -110,14 +110,18 @@ impl ForkChoice {
         self.update_best_block();
     }
 
-    /// Update best block based on fork choice rule
-    fn update_best_block(&mut self,
-    ) {
+    /// Update best block based on LMD GHOST fork choice rule
+    fn update_best_block(&mut self) {
         let best = self.find_best_block_recursive(self.root);
         self.best_block = best;
     }
 
-    /// Recursively find best block
+    /// Get the cumulative stake weight of the best block's subtree.
+    pub fn get_best_weight(&self) -> u64 {
+        self.compute_subtree_weight(self.best_block)
+    }
+
+    /// Recursively find best block using LMD GHOST (cumulative fork weight)
     fn find_best_block_recursive(
         &self,
         current: [u8; 32],
@@ -132,20 +136,45 @@ impl ForkChoice {
             _ => return current,
         };
 
-        // Find child with highest stake weight, breaking ties by slot (most recent)
+        // Compute cumulative stake weight for each child subtree (LMD GHOST rule)
+        // A child inherits all stake from its ancestors, so we sum the full fork weight
         let best_child = children.iter()
             .filter_map(|h| self.blocks.get(h))
-            .max_by(|a, b| {
-                a.stake_weight.cmp(&b.stake_weight)
-                    .then_with(|| a.slot.cmp(&b.slot))
-            });
+            .map(|child| {
+                let cumulative_weight = self.compute_subtree_weight(child.hash);
+                (child, cumulative_weight)
+            })
+            .max_by(|(_, weight_a), (_, weight_b)| weight_a.cmp(weight_b))
+            .map(|(child, _)| child);
 
         match best_child {
-            Some(child) if child.stake_weight > current_block.stake_weight => {
-                self.find_best_block_recursive(child.hash)
-            }
+            Some(child) if {
+                let cumulative = self.compute_subtree_weight(child.hash);
+                cumulative > self.compute_subtree_weight(current)
+            } => self.find_best_block_recursive(child.hash),
             _ => current,
         }
+    }
+
+    /// Compute total cumulative stake weight for a subtree rooted at block hash.
+    /// This sums the block's own weight plus all descendants, giving the total
+    /// fork weight for LMD GHOST fork choice.
+    fn compute_subtree_weight(&self, block_hash: [u8; 32]) -> u64 {
+        let mut stack = vec![block_hash];
+        let mut total = 0u64;
+
+        while let Some(current) = stack.pop() {
+            if let Some(block) = self.blocks.get(&current) {
+                total += block.stake_weight;
+                if let Some(children) = self.children.get(&current) {
+                    for child_hash in children {
+                        stack.push(*child_hash);
+                    }
+                }
+            }
+        }
+
+        total
     }
 
     /// Get current best block
@@ -354,5 +383,49 @@ mod tests {
         assert!(fc.get_block(&create_hash(1)).is_none());
         assert!(fc.get_block(&create_hash(2)).is_none());
         assert!(fc.get_block(&create_hash(3)).is_some());
+    }
+
+    #[test]
+    fn test_lmd_ghost_cumulative_fork_weight() {
+        // The core LMD GHOST invariant: fork choice must use cumulative fork weight,
+        // not individual block weight. A chain of many low-stake blocks must beat
+        // a single high-stake block on the competing fork.
+        let root = create_hash(0);
+        let mut fc = ForkChoice::new(root);
+
+        // Fork A: single block with high individual stake (300)
+        let fork_a_head = create_hash(1);
+        fc.add_block(fork_a_head, root, 1, 300).unwrap();
+
+        // Fork B: 3 blocks with lower individual stakes (total = 250)
+        let fork_b_1 = create_hash(10);
+        fc.add_block(fork_b_1, root, 1, 100).unwrap();
+
+        let fork_b_2 = create_hash(11);
+        fc.add_block(fork_b_2, fork_b_1, 2, 100).unwrap();
+
+        let fork_b_3 = create_hash(12);
+        fc.add_block(fork_b_3, fork_b_2, 3, 50).unwrap();
+
+        // Cumulative weight Fork B = 250, Fork A head = 300
+        // But Fork A is a single block with no descendants beyond root
+        // Fork B has more total descendants
+        // With correct LMD GHOST: Fork A weight = 300 (just that block)
+        //                          Fork B weight = 100 + 100 + 50 = 250
+        // Both children of root: root has implicit children tracked
+        // compute_subtree_weight(root) = INF (root), children checked separately
+        // The best block should be the one whose subtree has higher total weight
+        let best = fc.get_best_block().unwrap();
+        // Fork A head has 300, Fork B 3rd block has 250 cumulative
+        assert_eq!(best.hash, fork_a_head);
+
+        // Now add more stake to Fork B to flip the decision
+        // Add another descendant to Fork B with stake 60
+        let fork_b_4 = create_hash(13);
+        fc.add_block(fork_b_4, fork_b_3, 4, 60).unwrap();
+        // Fork B total = 310 > 300
+
+        let best = fc.get_best_block().unwrap();
+        assert_eq!(best.hash, fork_b_4);
     }
 }

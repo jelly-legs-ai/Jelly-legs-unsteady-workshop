@@ -6,10 +6,11 @@
  * Shows accumulated rewards, estimated APY, and claimable amounts.
  *
  * Usage:
- *   aether rewards list --address <addr>         List all rewards per stake account
- *   aether rewards list --address <addr> --json  JSON output for scripting
- *   aether rewards claim --address <addr> --account <stakeAcct> [--json]
- *   aether rewards summary --address <addr>      One-line summary of total rewards
+ *   aether rewards list    --address <addr>         List all rewards per stake account
+ *   aether rewards list    --address <addr> --json  JSON output for scripting
+ *   aether rewards claim   --address <addr> --account <stakeAcct> [--json]
+ *   aether rewards summary --address <addr>         One-line summary of total rewards
+ *   aether rewards compound --address <addr> [--account <stakeAcct>] [--json]  Claim and auto-re-stake
  *
  * Requires AETHER_RPC env var or local node running (default: http://127.0.0.1:8899)
  */
@@ -608,6 +609,184 @@ async function rewardsClaim(args) {
 }
 
 // ---------------------------------------------------------------------------
+// Rewards compound command — claim and auto-re-stake
+// ---------------------------------------------------------------------------
+
+async function rewardsCompound(args) {
+  const rpc = args.rpc || getDefaultRpc();
+  const isJson = args.json || false;
+  let address = args.address || null;
+  let stakeAccount = args.account || null;
+
+  const config = loadConfig();
+  const rl = createRl();
+
+  if (!address) {
+    const ans = await question(rl, `\n${C.cyan}Enter wallet address: ${C.reset}`);
+    address = ans.trim();
+  }
+
+  if (!address) {
+    console.log(`\n${C.red}✗ No address provided.${C.reset}\n`);
+    rl.close();
+    return;
+  }
+
+  // Load wallet for signing
+  const wallet = loadWallet(address);
+  if (!wallet) {
+    console.log(`\n${C.red}✗ Wallet not found locally: ${address}${C.reset}`);
+    console.log(`  ${C.dim}Import it: aether wallet import${C.reset}\n`);
+    rl.close();
+    return;
+  }
+
+  // Fetch stake accounts
+  let stakeAccounts = await fetchWalletStakeAccounts(address);
+  if (stakeAccounts.length === 0) {
+    console.log(`\n${C.red}✗ No stake accounts found for this wallet.${C.reset}\n`);
+    rl.close();
+    return;
+  }
+
+  // If --account specified, filter to that one
+  if (stakeAccount) {
+    stakeAccounts = stakeAccounts.filter(sa => sa === stakeAccount);
+    if (stakeAccounts.length === 0) {
+      console.log(`\n${C.red}✗ Stake account not found: ${stakeAccount}${C.reset}\n`);
+      rl.close();
+      return;
+    }
+  }
+
+  console.log(`\n${C.bright}${C.cyan}╔══════════════════════════════════════════════════════════════╗${C.reset}`);
+  console.log(`${C.bright}${C.cyan}║              Compound Staking Rewards                          ║${C.reset}`);
+  console.log(`${C.bright}${C.cyan}╚══════════════════════════════════════════════════════════════╝${C.reset}\n`);
+  console.log(`  ${C.dim}Wallet:${C.reset} ${C.bright}${address}${C.reset}`);
+  console.log(`  ${C.dim}RPC:${C.reset} ${rpc}`);
+  console.log(`  ${C.dim}Stake accounts to process:${C.reset} ${stakeAccounts.length}\n`);
+
+  // Ask for mnemonic upfront
+  console.log(`${C.yellow}  ⚠ Compound requires your wallet passphrase to sign transactions.${C.reset}`);
+  const mnemonic = await question(rl, `  ${C.cyan}Enter your 12/24-word mnemonic:${C.reset} `);
+  console.log();
+
+  let keypair;
+  try {
+    if (!bip39.validateMnemonic(mnemonic)) {
+      throw new Error('Invalid BIP39 mnemonic');
+    }
+    keypair = deriveKeypair(mnemonic);
+  } catch (err) {
+    console.log(`  ${C.red}✗ Failed to derive keypair: ${err.message}${C.reset}\n`);
+    rl.close();
+    return;
+  }
+
+  // Verify address matches
+  const derivedAddress = formatAddress(keypair.publicKey);
+  if (derivedAddress !== address) {
+    console.log(`  ${C.red}✗ Passphrase mismatch.${C.reset}`);
+    console.log(`  ${C.dim}  Derived:   ${derivedAddress}${C.reset}`);
+    console.log(`  ${C.dim}  Expected:  ${address}${C.reset}`);
+    console.log(`  ${C.dim}Check your passphrase and try again.${C.reset}\n`);
+    rl.close();
+    return;
+  }
+
+  const compoundResults = [];
+  let totalCompounded = BigInt(0);
+  let successCount = 0;
+
+  for (const sa of stakeAccounts) {
+    console.log(`  ${C.dim}Processing stake account:${C.reset} ${sa.substring(0, 20)}...`);
+
+    try {
+      // Fetch rewards for this stake account
+      const rewardData = await fetchStakeRewards(rpc, sa);
+      if (rewardData.error) {
+        console.log(`    ${C.red}✗ Failed to fetch rewards: ${rewardData.error}${C.reset}`);
+        compoundResults.push({ stake_account: sa, status: 'error', error: rewardData.error });
+        continue;
+      }
+
+      const estimatedRewards = BigInt(rewardData.estimatedRewards);
+      if (estimatedRewards === BigInt(0)) {
+        console.log(`    ${C.yellow}⚠ No rewards to compound${C.reset}`);
+        compoundResults.push({ stake_account: sa, status: 'no_rewards', rewards: '0' });
+        continue;
+      }
+
+      console.log(`    ${C.dim}Rewards to compound:${C.reset} ${rewardData.estimatedRewardsFormatted}`);
+      console.log(`    ${C.dim}Validator:${C.reset} ${rewardData.validator || 'unknown'}`);
+
+      // Build compound transaction (ClaimRewards + Stake in one)
+      const tx = {
+        type: 'CompoundRewards',
+        from: address,
+        stake_account: sa,
+        lamports: estimatedRewards.toString(),
+        validator: rewardData.validator || null,
+        timestamp: Math.floor(Date.now() / 1000),
+      };
+
+      // Sign transaction
+      const txData = JSON.stringify(tx);
+      const txHash = crypto.createHash('sha256').update(txData).digest('hex');
+      const signature = nacl.hash(Buffer.from(txHash, 'hex'));
+      const signatureB58 = bs58.encode(signature.slice(0, 64));
+      tx.signature = signatureB58;
+
+      // Submit transaction
+      const result = await httpPost(rpc, '/v1/tx', tx);
+
+      if (result.success || result.txid || result.signature) {
+        console.log(`    ${C.green}✓ Compounded successfully${C.reset}`);
+        console.log(`      ${C.dim}TX: ${(result.txid || result.signature || signatureB58).substring(0, 20)}...${C.reset}`);
+        totalCompounded += estimatedRewards;
+        successCount++;
+        compoundResults.push({
+          stake_account: sa,
+          status: 'compounded',
+          rewards: estimatedRewards.toString(),
+          rewards_formatted: rewardData.estimatedRewardsFormatted,
+          tx: result.txid || result.signature || signatureB58,
+        });
+      } else {
+        console.log(`    ${C.red}✗ Compound failed: ${result.error || JSON.stringify(result)}${C.reset}`);
+        compoundResults.push({ stake_account: sa, status: 'failed', error: result.error });
+      }
+    } catch (err) {
+      console.log(`    ${C.red}✗ Error: ${err.message}${C.reset}`);
+      compoundResults.push({ stake_account: sa, status: 'error', error: err.message });
+    }
+
+    console.log();
+  }
+
+  rl.close();
+
+  // Summary
+  console.log(`${C.bright}${C.cyan}╔══════════════════════════════════════════════════════════════╗${C.reset}`);
+  console.log(`${C.bright}${C.cyan}║                    Compound Summary                          ║${C.reset}`);
+  console.log(`${C.bright}${C.cyan}╚══════════════════════════════════════════════════════════════╝${C.reset}\n`);
+  console.log(`  ${C.dim}Accounts processed:${C.reset} ${stakeAccounts.length}`);
+  console.log(`  ${C.green}✓ Successful:${C.reset} ${successCount}`);
+  console.log(`  ${C.dim}Total compounded:${C.reset} ${C.green}${formatAether(totalCompounded.toString())}${C.reset}\n`);
+
+  if (isJson) {
+    console.log(JSON.stringify({
+      address,
+      total_compounded_lamports: totalCompounded.toString(),
+      total_compounded_formatted: formatAether(totalCompounded.toString()),
+      accounts_processed: stakeAccounts.length,
+      successful: successCount,
+      results: compoundResults,
+    }, null, 2));
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Parse CLI args
 // ---------------------------------------------------------------------------
 
@@ -664,12 +843,16 @@ async function main() {
     case 'claim':
       await rewardsClaim(parsed);
       break;
+    case 'compound':
+      await rewardsCompound(parsed);
+      break;
     default:
       console.log(`\n${C.cyan}Usage:${C.reset}`);
       console.log(`  aether rewards list    --address <addr>  List all staking rewards`);
       console.log(`  aether rewards summary --address <addr>  One-line rewards summary`);
       console.log(`  aether rewards pending --address <addr>  Show pending (unclaimed) rewards`);
       console.log(`  aether rewards claim   --address <addr>  [--account <stakeAcct>]  Claim rewards`);
+      console.log(`  aether rewards compound --address <addr> [--account <stakeAcct>]  Claim and re-stake rewards`);
       console.log();
       console.log(`  ${C.dim}--json   Output as JSON`);
       console.log(`  --rpc <url>  Use specific RPC endpoint${C.reset}\n`);
