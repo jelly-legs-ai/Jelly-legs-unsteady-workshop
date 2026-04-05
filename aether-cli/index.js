@@ -17,6 +17,7 @@ const { snapshotCommand } = require('./commands/snapshot');
 const { walletCommand } = require('./commands/wallet');
 const { networkCommand } = require('./commands/network');
 const { validatorsListCommand } = require('./commands/validators');
+const { delegationsCommand } = require('./commands/delegations');
 const readline = require('readline');
 
 // CLI version
@@ -249,6 +250,12 @@ const COMMANDS = {
           console.error('Valid commands: start, status');
           process.exit(1);
       }
+    },
+  },
+  delegations: {
+    description: 'List/claim stake delegations — aether delegations list --address <addr>',
+    handler: () => {
+      delegationsCommand();
     },
   },
   snapshot: {
