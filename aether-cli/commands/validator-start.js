@@ -64,8 +64,9 @@ function findValidatorBinary() {
 
 /**
  * Parse command line args for validator-start
+ * @param {Object} overrideOptions - Options passed directly (e.g. from init.js)
  */
-function parseArgs() {
+function parseArgs(overrideOptions = {}) {
   const args = process.argv.slice(3); // Skip 'aether-cli validator start'
   
   const options = {
@@ -75,6 +76,7 @@ function parseArgs() {
     identity: null,
     verbose: false,
     tier: 'full',
+    ...overrideOptions, // Allow init.js to pass testnet/tier directly
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -121,7 +123,10 @@ ${colors.cyan}╚═════════════════════
   `);
   
   console.log(`  ${colors.bright}Network:${colors.reset}`);
-  console.log(`    Mode:      ${options.testnet ? colors.yellow + 'TESTNET' : colors.green + 'MAINNET (not implemented)'}`);
+  const modeStr = options.testnet
+    ? colors.yellow + 'TESTNET'
+    : colors.red + 'MAINNET';
+  console.log(`    Mode:      ${modeStr}`);
   console.log(`    Tier:      ${tierLabel}`);
   console.log(`    RPC:       http://${options.rpcAddr}`);
   console.log(`    P2P:       ${options.p2pAddr}`);
@@ -136,16 +141,38 @@ ${colors.cyan}╚═════════════════════
  */
 function buildValidator() {
   const { execSync } = require('child_process');
+  const platform = os.platform();
+  const isWindows = platform === 'win32';
   const workspaceRoot = path.join(__dirname, '..', '..');
   const repoPath = path.join(workspaceRoot, 'Jelly-legs-unsteady-workshop');
   
   console.log(`  ${colors.cyan}Building aether-validator...${colors.reset}`);
   
   try {
-    execSync('cargo build --bin aether-validator', {
+    // Use full cargo path on Windows to avoid spawnSync ENOENT
+    const cargoPaths = isWindows
+      ? [
+          path.join(process.env.USERPROFILE || '', '.cargo', 'bin', 'cargo.exe'),
+          path.join(process.env.LOCALAPPDATA || '', 'Rust', 'bin', 'cargo.exe'),
+          'C:\\Users\\RM_Ga\\.cargo\\bin\\cargo.exe',
+          'cargo',
+        ]
+      : ['cargo'];
+    
+    let cargoCmd = 'cargo';
+    for (const cp of cargoPaths) {
+      if (cp === 'cargo' || fs.existsSync(cp)) {
+        cargoCmd = cp;
+        break;
+      }
+    }
+    
+    console.log(`  ${colors.cyan}Running: ${cargoCmd} build --release --package aether-validator${colors.reset}`);
+    
+    // Use execSync WITHOUT shell:true — avoids Windows spawnSync cmd.exe ENOENT
+    execSync(`${cargoCmd} build --release --package aether-validator`, {
       cwd: repoPath,
       stdio: 'inherit',
-      shell: true,
     });
     
     // Re-check for binary
@@ -165,18 +192,24 @@ function buildValidator() {
 
 /**
  * Main validator start command
+ * @param {Object|null} options - { testnet?: boolean, tier?: string }
  */
-function validatorStart(overrideTier = null) {
-  const options = parseArgs();
+function validatorStart(options = {}) {
+  // Support both old string-style (tier only) and new object-style { testnet, tier }
+  const parsedArgs = parseArgs(typeof options === 'object' ? options : { tier: options });
+  const optionsObj = typeof options === 'object' ? options : {};
   
-  // Allow tier override from init.js
-  if (overrideTier) {
-    options.tier = overrideTier;
-  }
+  // Merge: explicit options override parseArgs defaults
+  const finalOptions = {
+    ...parsedArgs,
+    ...optionsObj,
+    tier: optionsObj.tier || parsedArgs.tier,
+    testnet: optionsObj.testnet !== undefined ? optionsObj.testnet : parsedArgs.testnet,
+  };
   
   let result = findValidatorBinary();
 
-  printBanner(options);
+  printBanner(finalOptions);
 
   // Handle missing binary
   if (result.type === 'missing') {
@@ -203,12 +236,12 @@ function validatorStart(overrideTier = null) {
         process.exit(1);
       }
       result = built;
-      startValidatorProcess(result, options);
+      startValidatorProcess(result, finalOptions);
     });
     return;
   }
 
-  startValidatorProcess(result, options);
+  startValidatorProcess(result, finalOptions);
 }
 
 /**

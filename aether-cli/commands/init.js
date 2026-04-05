@@ -501,7 +501,7 @@ async function connectTestnet(rl, tier = 'full') {
       rl.close();
       
       const validatorStart = require('./validator-start');
-      validatorStart.validatorStart(tier);
+      validatorStart.validatorStart({ testnet: true, tier });
       return true;
     }
   } catch (err) {
