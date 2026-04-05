@@ -1,10 +1,10 @@
 {
   "chain_id": "aether-testnet-local",
-  "timestamp": 1775304230,
-  "genesis_hash": "832DFLVeeE5k4XtXChKvHooAs8FemTu4AUuF7LbSgpmE",
+  "timestamp": 1775417011,
+  "genesis_hash": "Hem8yMCVYbwNmNJgA4a5x8YnaMK9hCAiyAb9YM3WBjTD",
   "bootstrap_validators": [
     {
-      "identity_pubkey": "4Bop3PHE7PeVTWnjrwSdQbFfcyqAgg8uEjf4benqq4nA",
+      "identity_pubkey": "BqxW3mAARvnwxa1sfgY9mrNFyCxGDHtCYFwp8MCngpGH",
       "stake": 10000000,
       "commission": 10,
       "active": true
@@ -15,6 +15,14 @@
     "tower_finality": 12,
     "min_stake": 100,
     "target_stake": 1000000,
+    "tier_config": {
+      "tier": "Full",
+      "consensus_weight": 1.0,
+      "can_produce_blocks": true,
+      "can_vote": true,
+      "min_stake": 1000000000000,
+      "relay_reward_rate": 0.0
+    },
     "mode": null,
     "poh_target_ticks_per_sec": null,
     "poh_ticks_per_slot": null
@@ -22,6 +30,7 @@
   "rewards": {
     "epoch_duration": 432000,
     "base_reward_rate": 6,
+    "flux_epoch_relay_rate": 1e-6,
     "bootstrap_bonus": null
   },
   "slot_time_ms": null,

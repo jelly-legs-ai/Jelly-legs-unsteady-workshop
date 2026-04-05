@@ -25,6 +25,8 @@ const { emergencyCommand } = require('./commands/emergency');
 const { priceCommand } = require('./commands/price');
 const { epochCommand } = require('./commands/epoch');
 const { supplyCommand } = require('./commands/supply');
+const { statusCommand } = require('./commands/status');
+const { broadcastCommand } = require('./commands/broadcast');
 const readline = require('readline');
 
 // CLI version
@@ -340,6 +342,13 @@ const COMMANDS = {
       supplyCommand();
     },
   },
+  status: {
+    description: 'Full dashboard — epoch, network, supply, validator info — aether status [--json] [--compact] [--validator]',
+    handler: () => {
+      const { statusCommand } = require('./commands/status');
+      statusCommand();
+    },
+  },
   validators: {
     description: 'List active validators — aether validators list [--tier full|lite|observer] [--json]',
     handler: () => {
@@ -351,6 +360,13 @@ const COMMANDS = {
     handler: () => {
       const { priceCommand } = require('./commands/price');
       priceCommand();
+    },
+  },
+  broadcast: {
+    description: 'Broadcast a signed transaction — aether broadcast --tx <sig> [--json] [--file <path>]',
+    handler: () => {
+      const { broadcastCommand } = require('./commands/broadcast');
+      broadcastCommand();
     },
   },
   ping: {

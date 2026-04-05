@@ -3,8 +3,8 @@
 
 [chain]
 chain_id = "aether-testnet-local"
-genesis_hash = "832DFLVeeE5k4XtXChKvHooAs8FemTu4AUuF7LbSgpmE"
-timestamp = 1775304230
+genesis_hash = "Hem8yMCVYbwNmNJgA4a5x8YnaMK9hCAiyAb9YM3WBjTD"
+timestamp = 1775417011
 
 [consensus]
 tower_finality = 12
