@@ -14,6 +14,7 @@ const { monitorLoop } = require('./commands/monitor');
 const { logsCommand } = require('./commands/logs');
 const { sdkCommand } = require('./commands/sdk');
 const { walletCommand } = require('./commands/wallet');
+const { networkCommand } = require('./commands/network');
 const readline = require('readline');
 
 // CLI version
@@ -55,10 +56,11 @@ async function showMenu() {
   console.log('  ' + TIER_COLORS.FULL + '3)' + TIER_COLORS.reset + '  📊  Monitor — Watch live validator stats');
   console.log('  ' + TIER_COLORS.FULL + '4)' + TIER_COLORS.reset + '  📋  Logs   — Tail and colourise validator logs');
   console.log('  ' + TIER_COLORS.FULL + '5)' + TIER_COLORS.reset + '  📦  SDK    — Get SDK links and install tools');
-  console.log('  ' + TIER_COLORS.FULL + '6)' + TIER_COLORS.reset + '  ❓  Help   — Show all commands\n');
+  console.log('  ' + TIER_COLORS.FULL + '6)' + TIER_COLORS.reset + '  🌐  Network — Aether network status (slot, peers, TPS)');
+  console.log('  ' + TIER_COLORS.FULL + '7)' + TIER_COLORS.reset + '  ❓  Help   — Show all commands\n');
   console.log('  ' + TIER_COLORS.reset + '  Type a number or command name. Press Ctrl+C to exit.\n');
 
-  const VALID_CHOICES = ['1', '2', '3', '4', '5', '6', 'doctor', 'init', 'monitor', 'logs', 'sdk', 'help'];
+  const VALID_CHOICES = ['1', '2', '3', '4', '5', '6', '7', 'doctor', 'init', 'monitor', 'logs', 'sdk', 'network', 'help'];
 
   while (true) {
     const answer = (await prompt(`  > `)).trim().toLowerCase();
@@ -98,7 +100,14 @@ async function showMenu() {
       return;
     }
 
-    if (answer === '6' || answer === 'help') {
+    if (answer === '6' || answer === 'network') {
+      rl.close();
+      const { networkCommand } = require('./commands/network');
+      networkCommand();
+      return;
+    }
+
+    if (answer === '7' || answer === 'help') {
       showHelp();
       console.log("  Press Ctrl+C to exit or select an option above.\n");
       continue;
@@ -192,6 +201,13 @@ const COMMANDS = {
       process.argv = originalArgv;
     },
   },
+  network: {
+    description: 'Aether network status — slot, block height, peers, TPS, epoch info',
+    handler: () => {
+      const { networkCommand } = require('./commands/network');
+      networkCommand();
+    },
+  },
   history: {
     description: 'Transaction history for an address — alias for tx history',
     handler: () => {
@@ -270,6 +286,8 @@ Validator CLI v${VERSION}
   console.log('  aether-cli validator start     # Start validator node');
   console.log('  aether-cli validator status    # Check validator status');
   console.log('  aether-cli wallet balance      # Query AETH balance');
+  console.log('  aether-cli network             # Network status, peers, slot info');
+  console.log('  aether-cli network --peers     # Detailed peer list');
   console.log('  aether-cli tx history          # Show transaction history');
   console.log('  aether-cli --version           # Show version');
   console.log('\nDocumentation: https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop');
@@ -282,12 +300,9 @@ Validator CLI v${VERSION}
 function parseArgs() {
   const args = process.argv.slice(2);
 
-  // Handle flags
+  // Handle version flag
   if (args.includes('--version') || args.includes('-v')) {
     return 'version';
-  }
-  if (args.includes('--help') || args.includes('-h')) {
-    return 'help';
   }
 
   // No args → interactive menu
