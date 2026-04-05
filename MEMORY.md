@@ -37,12 +37,28 @@ _Last updated: 2026-04-04_
 
 ## Autonomous Agent System
 
-### Components
-- **GitHub Actions Workflows:** `ai-team-worker.yml` (10min cycles), `auto-merge.yml`, `dashboard-refresh.yml` (30sec)
-- **Worker Scripts:** `scripts/ai-team-worker.js`, `scripts/generate-dashboard-data.js`
-- **Dashboard:** GitHub Pages - real-time factory view with 12 agents
+### ⚠️ GitHub Actions CANNOT run AI — DISABLED
+GitHub Actions has no AI capability. The `agent-orchestrator-v3.yml` and `ai-team-real-work.yml` workflows were producing **placeholder spam** (comments from `github-actions[bot]`). They have been renamed to `.DISABLED` files.
 
-### 12 Agent Roles
+**ALL real AI work runs through ME (Jelly-legs) via local OpenClaw cron.**
+
+### My Cron Job: "AI Team - 7min Persistent Issues Cycle"
+- **Fires every 7 minutes** (420,000ms interval)
+- Spawns 3 subagents in parallel — one per persistent issue
+- Models: `qwen3.5:397b-cloud` (blockchain), `kimi-k2.5:cloud` (website), `gemma3:27b-cloud` (CLI)
+- Each agent: pulls git, makes ONE real code change, commits, pushes
+- Posts GitHub comments as `jelly-legs-ai` user (NOT `github-actions[bot]`)
+- Cron ID: `94440797-4584-4f24-8526-e498cdcfb6e1`
+
+### Important Model Constraints
+Only these models work as subagents from this OpenClaw setup:
+- `minimax-m2.7:cloud` — general purpose
+- `qwen3.5:397b-cloud` — best for blockchain/Rust
+- `kimi-k2.5:cloud` — great for web dev/TypeScript
+- `gemma3:27b-cloud` — good for CLI/tooling
+- `gemma3:12b-cloud`, `gemma3:4b-cloud`
+
+### 12 Agent Roles (for reference)
 | Agent | Role | Labels |
 |-------|------|--------|
 | 🛡️ Shield-Bot | Security, bugs | bug, security, error |
