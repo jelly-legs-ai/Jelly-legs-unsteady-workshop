@@ -1,6 +1,8 @@
 //! Cryptographic utilities for AETHER
 
 use sha2::{Sha256, Digest};
+use ed25519::{Signature, VerifyingKey};
+use std::convert::TryFrom;
 
 /// Hash data using SHA-256
 pub fn hash(data: &[u8]) -> [u8; 32] {
@@ -18,18 +20,21 @@ pub fn hash_pair(a: &[u8; 32], b: &[u8; 32]) -> [u8; 32] {
 }
 
 /// Verify Ed25519 signature
+///
+/// Uses the standard `ed25519` crate which is compatible with
+/// `solana-program`'s zeroize version requirement.
 pub fn verify_signature(
     public_key: &[u8; 32],
     message: &[u8],
     signature: &[u8; 64],
 ) -> Result<(), CryptoError> {
-    use ed25519_dalek::{VerifyingKey, Signature as EdSignature};
-    
-    let verifying_key = VerifyingKey::from_bytes(public_key)
+    let verifying_key = VerifyingKey::try_from(public_key)
         .map_err(|_| CryptoError::InvalidPublicKey)?;
-    let sig = EdSignature::from_bytes(signature);
-    
-    verifying_key.verify(message, &sig)
+    let sig = Signature::try_from(signature)
+        .map_err(|_| CryptoError::InvalidSignature)?;
+
+    verifying_key
+        .verify(message, &sig)
         .map_err(|_| CryptoError::InvalidSignature)
 }
 
