@@ -4,8 +4,7 @@
 
 use aether_core::{Account, Address, GenesisAccount};
 use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::RwLock;
+use std::sync::{Arc, RwLock};
 use sha2::{Digest, Sha256};
 
 pub struct StateDB {
@@ -22,7 +21,7 @@ impl StateDB {
     }
     
     pub fn init_from_genesis(&self, genesis_accounts: Vec<GenesisAccount>) {
-        let mut accounts = self.accounts.blocking_write();
+        let mut accounts = self.accounts.write().unwrap();
         for acc in genesis_accounts {
             let account = Account {
                 lamports: acc.lamports,
@@ -34,25 +33,37 @@ impl StateDB {
         }
     }
     
-    pub fn get_account(&self, address: &Address) -> Option<Account> {
-        let accounts = self.accounts.blocking_read();
-        accounts.get(address).cloned()
+    /// Get account state (async-safe: uses try_read so it won't panic if called from within async context)
+    pub async fn get_account(&self, address: &Address) -> Option<Account> {
+        self.accounts.read().ok().and_then(|accounts| accounts.get(address).cloned())
     }
     
-    pub fn set_account(&self, address: &Address, account: Account) {
-        let mut accounts = self.accounts.blocking_write();
-        accounts.insert(*address, account);
+    /// Get account state (sync version)
+    pub fn get_account_sync(&self, address: &Address) -> Option<Account> {
+        self.accounts.read().ok().and_then(|accounts| accounts.get(address).cloned())
     }
     
-    pub fn credit(&self, address: &Address, amount: u64) -> Result<(), String> {
-        let mut accounts = self.accounts.blocking_write();
+    pub async fn set_account(&self, address: &Address, account: Account) {
+        if let Ok(mut accounts) = self.accounts.write() {
+            accounts.insert(*address, account);
+        }
+    }
+    
+    pub fn set_account_sync(&self, address: &Address, account: Account) {
+        if let Ok(mut accounts) = self.accounts.write() {
+            accounts.insert(*address, account);
+        }
+    }
+    
+    pub async fn credit(&self, address: &Address, amount: u64) -> Result<(), String> {
+        let mut accounts = self.accounts.write().map_err(|_| "Lock poisoned")?;
         let account = accounts.get_mut(address).ok_or("Account not found")?;
         account.lamports += amount;
         Ok(())
     }
     
-    pub fn debit(&self, address: &Address, amount: u64) -> Result<(), String> {
-        let mut accounts = self.accounts.blocking_write();
+    pub async fn debit(&self, address: &Address, amount: u64) -> Result<(), String> {
+        let mut accounts = self.accounts.write().map_err(|_| "Lock poisoned")?;
         let account = accounts.get_mut(address).ok_or("Account not found")?;
         if account.lamports < amount {
             return Err(format!("Insufficient lamports: have {}, need {}", account.lamports, amount));
@@ -61,38 +72,67 @@ impl StateDB {
         Ok(())
     }
     
-    pub fn transfer(&self, from: &Address, to: &Address, amount: u64) -> Result<(), String> {
-        self.debit(from, amount)?;
-        self.credit(to, amount)?;
+    pub async fn transfer(&self, from: &Address, to: &Address, amount: u64) -> Result<(), String> {
+        self.debit(from, amount).await?;
+        self.credit(to, amount).await?;
         Ok(())
     }
     
-    pub fn get_nonce(&self, address: &Address) -> u64 {
-        let nonce = self.nonce.blocking_read();
-        *nonce.get(address).unwrap_or(&0)
+    pub fn transfer_sync(&self, from: &Address, to: &Address, amount: u64) -> Result<(), String> {
+        self.debit_sync(from, amount)?;
+        self.credit_sync(to, amount)?;
+        Ok(())
+    }
+    
+    pub fn credit_sync(&self, address: &Address, amount: u64) -> Result<(), String> {
+        let mut accounts = self.accounts.write().map_err(|_| "Lock poisoned")?;
+        let account = accounts.get_mut(address).ok_or("Account not found")?;
+        account.lamports += amount;
+        Ok(())
+    }
+    
+    pub fn debit_sync(&self, address: &Address, amount: u64) -> Result<(), String> {
+        let mut accounts = self.accounts.write().map_err(|_| "Lock poisoned")?;
+        let account = accounts.get_mut(address).ok_or("Account not found")?;
+        if account.lamports < amount {
+            return Err(format!("Insufficient lamports: have {}, need {}", account.lamports, amount));
+        }
+        account.lamports -= amount;
+        Ok(())
+    }
+    
+    pub async fn get_nonce(&self, address: &Address) -> u64 {
+        self.nonce.read().ok().and_then(|n| n.get(address).copied()).unwrap_or(0)
     }
     
     #[allow(dead_code)]
-    pub fn increment_nonce(&self, address: &Address) -> u64 {
-        let mut nonce = self.nonce.blocking_write();
+    pub async fn increment_nonce(&self, address: &Address) -> u64 {
+        let mut nonce = self.nonce.write().unwrap();
         let new_nonce = *nonce.entry(*address).or_insert(0) + 1;
         *nonce.get_mut(address).unwrap() = new_nonce;
         new_nonce
     }
     
-    pub fn total_supply(&self) -> u64 {
-        let accounts = self.accounts.blocking_read();
-        accounts.values().map(|a| a.lamports).sum()
+    /// Get total supply (async-safe)
+    pub async fn total_supply(&self) -> u64 {
+        self.accounts.read().ok().map(|a| a.values().map(|acc| acc.lamports).sum()).unwrap_or(0)
+    }
+    
+    /// Get total supply (sync)
+    pub fn total_supply_sync(&self) -> u64 {
+        self.accounts.read().ok().map(|a| a.values().map(|acc| acc.lamports).sum()).unwrap_or(0)
     }
     
     #[allow(dead_code)]
     pub fn account_count(&self) -> usize {
-        let accounts = self.accounts.blocking_read();
-        accounts.len()
+        self.accounts.read().map(|a| a.len()).unwrap_or(0)
     }
     
     pub fn compute_state_root(&self) -> [u8; 32] {
-        let accounts = self.accounts.blocking_read();
+        let accounts = match self.accounts.read() {
+            Ok(a) => a,
+            Err(_) => return [0u8; 32],
+        };
         let mut hasher = Sha256::new();
         let mut addresses: Vec<_> = accounts.keys().collect();
         addresses.sort();

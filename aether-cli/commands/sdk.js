@@ -112,6 +112,32 @@ function showJsSdk() {
   console.log(`  ${colors.dim}Version: 1.2.0${colors.reset}`);
   console.log();
   
+  printSection('Transaction Types');
+  console.log(`  ${colors.cyan}Transfer${colors.reset}      — ${colors.dim}Send AETH to another address${colors.reset}`);
+  console.log(`    { recipient: string, amount: u64, nonce: u64 }`);
+  console.log();
+  console.log(`  ${colors.cyan}Stake${colors.reset}         — ${colors.dim}Delegate tokens to a validator${colors.reset}`);
+  console.log(`    { validator: string, amount: u64 }`);
+  console.log();
+  console.log(`  ${colors.cyan}Unstake${colors.reset}       — ${colors.dim}Request withdrawal of staked tokens${colors.reset}`);
+  console.log(`    { stake_account: string, amount: u64 }`);
+  console.log();
+  console.log(`  ${colors.cyan}ClaimRewards${colors.reset} — ${colors.dim}Claim accumulated staking rewards${colors.reset}`);
+  console.log(`    { stake_account: string }`);
+  console.log();
+  console.log(`  ${colors.cyan}CreateNFT${colors.reset}    — ${colors.dim}Create a new NFT on-chain${colors.reset}`);
+  console.log(`    { metadata_url: string, royalties: u16 }`);
+  console.log();
+  console.log(`  ${colors.cyan}MintNFT${colors.reset}      — ${colors.dim}Mint additional supply of an existing NFT${colors.reset}`);
+  console.log(`    { nft_id: string, amount: u64 }`);
+  console.log();
+  console.log(`  ${colors.cyan}TransferNFT${colors.reset}  — ${colors.dim}Transfer an NFT to another address${colors.reset}`);
+  console.log(`    { nft_id: string, recipient: string }`);
+  console.log();
+  console.log(`  ${colors.cyan}UpdateMetadata${colors.reset} — ${colors.dim}Update NFT metadata URL${colors.reset}`);
+  console.log(`    { nft_id: string, metadata_url: string }`);
+  console.log();
+  
   printSection('Installation');
   printCode('npm install @aether-network/client');
   console.log('  or');
@@ -132,15 +158,18 @@ const client = new aether.Client({
 const slot = await client.getSlot();
 console.log('Current slot:', slot);
 
-// Get balance
-const balance = await client.getBalance('pubkey...');
-console.log('Balance:', balance);
+// Get account info (includes balance)
+const account = await client.getAccountInfo(pubkey);
+console.log('Balance:', account.lamports, 'lamports');
 
-// Send transaction
+// Send Transfer transaction
 const tx = await client.sendTransaction({
-  from: 'sender-pubkey',
-  to: 'recipient-pubkey',
-  amount: 1000,
+  type: 'Transfer',
+  payload: {
+    recipient: 'ATH...',
+    amount: 1000000000, // 1 AETH in lamports
+    nonce: 0,
+  },
 });
 console.log('Transaction signature:', tx.signature);`;
   
@@ -150,14 +179,12 @@ console.log('Transaction signature:', tx.signature);`;
   });
   console.log();
   
-  printSection('API Reference');
-  console.log(`  ${colors.cyan}Core Methods:${colors.reset}`);
-  console.log(`    • getSlot()                 - Get current slot number`);
-  console.log(`    • getBalance(pubkey)        - Get account balance in lamports`);
-  console.log(`    • getAccountInfo(pubkey)    - Get full account information`);
-  console.log(`    • sendTransaction(tx)       - Send a signed transaction`);
-  console.log(`    • confirmTransaction(sig)   - Wait for transaction confirmation`);
-  console.log(`    • getProgramAccounts(...)   - Query accounts by program`);
+  printSection('RPC API Reference');
+  console.log(`  ${colors.cyan}GET /v1/account/<addr>${colors.reset}  — ${colors.dim}Fetch account info + lamports balance${colors.reset}`);
+  console.log(`  ${colors.cyan}GET /v1/slot${colors.reset}             — ${colors.dim}Get current slot number${colors.reset}`);
+  console.log(`  ${colors.cyan}GET /v1/validators${colors.reset}       — ${colors.dim}List active validators${colors.reset}`);
+  console.log(`  ${colors.cyan}POST /v1/tx${colors.reset}             — ${colors.dim}Submit signed transaction${colors.reset}`);
+  console.log(`  ${colors.cyan}GET /v1/tx/<signature>${colors.reset} — ${colors.dim}Get transaction receipt${colors.reset}`);
   console.log();
   
   printLink('NPM Package', 'https://www.npmjs.com/package/@aether-network/client');
