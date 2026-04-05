@@ -382,9 +382,13 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
     let genesis_accounts = validator_state.get_initial_balances();
     if !genesis_accounts.is_empty() {
         state_db.init_from_genesis(genesis_accounts.into_iter().map(|(pubkey, lamports)| {
-            let addr_bytes = bs58::decode(&pubkey).into_vec().unwrap_or_default();
+            let addr_bytes: Vec<u8> = bs58::decode(&pubkey).into_vec().unwrap_or_default();
             let mut addr = [0u8; 32];
-            addr.copy_from_slice(&addr_bytes[..32.min(addr_bytes.len())]);
+            if addr_bytes.len() >= 32 {
+                addr.copy_from_slice(&addr_bytes[..32]);
+            } else {
+                addr[..addr_bytes.len()].copy_from_slice(&addr_bytes);
+            }
             aether_core::GenesisAccount { address: addr, lamports, data: None }
         }).collect());
     }
