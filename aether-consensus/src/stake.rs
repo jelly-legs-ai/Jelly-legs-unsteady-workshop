@@ -282,7 +282,9 @@ impl StakePool {
             pos.amount -= amount;
         }
         
-        self.total_stake -= amount;
+        // Decrement pool totals to reflect payout
+        self.total_stake = self.total_stake.saturating_sub(amount);
+        self.total_rewards = self.total_rewards.saturating_sub(rewards);
         
         Ok(amount + rewards)
     }
