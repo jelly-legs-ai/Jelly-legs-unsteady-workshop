@@ -9,6 +9,7 @@
 const { doctorCommand } = require('./commands/doctor');
 const { validatorStart } = require('./commands/validator-start');
 const { validatorStatus } = require('./commands/validator-status');
+const { validatorInfo } = require('./commands/validator-info');
 const { init } = require('./commands/init');
 const { monitorLoop } = require('./commands/monitor');
 const { logsCommand } = require('./commands/logs');
@@ -23,6 +24,7 @@ const { accountCommand } = require('./commands/account');
 const { emergencyCommand } = require('./commands/emergency');
 const { priceCommand } = require('./commands/price');
 const { epochCommand } = require('./commands/epoch');
+const { supplyCommand } = require('./commands/supply');
 const readline = require('readline');
 
 // CLI version
@@ -280,9 +282,12 @@ const COMMANDS = {
         case 'status':
           validatorStatus();
           break;
+        case 'info':
+          validatorInfo();
+          break;
         default:
           console.error(`Unknown validator command: ${subcmd}`);
-          console.error('Valid commands: start, status');
+          console.error('Valid commands: start, status, info');
           process.exit(1);
       }
     },
@@ -325,6 +330,14 @@ const COMMANDS = {
     handler: () => {
       const { epochCommand } = require('./commands/epoch');
       epochCommand();
+    },
+  },
+  supply: {
+    description: 'Aether token supply — total, circulating, staked, burned — aether supply [--json] [--verbose]',
+    handler: () => {
+      const { supplyCommand } = require('./commands/supply');
+      // Pass full argv so supply.js can parse its own --help etc.
+      supplyCommand();
     },
   },
   validators: {
