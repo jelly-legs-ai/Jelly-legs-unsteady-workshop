@@ -28,6 +28,7 @@ const { supplyCommand } = require('./commands/supply');
 const { statusCommand } = require('./commands/status');
 const { broadcastCommand } = require('./commands/broadcast');
 const { apyCommand } = require('./commands/apy');
+const { statsCommand } = require('./commands/stats');
 const readline = require('readline');
 
 // CLI version
@@ -351,6 +352,12 @@ const COMMANDS = {
     description: 'List active validators — aether validators list [--tier full|lite|observer] [--json]',
     handler: () => {
       validatorsListCommand();
+    },
+  },
+  stats: {
+    description: 'Wallet stats dashboard — balance, stake positions, recent txs — aether stats --address <addr> [--compact] [--json]',
+    handler: () => {
+      statsCommand();
     },
   },
   price: {
