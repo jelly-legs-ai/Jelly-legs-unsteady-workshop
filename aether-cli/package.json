@@ -18,6 +18,8 @@
     "test": "node test/doctor.test.js",
     "start": "node index.js",
     "doctor": "node index.js doctor",
+    "price": "node index.js price",
+    "build": "node -e \"require('./commands/price'); require('./commands/account'); require('./commands/emergency')\" && echo \"Build OK\"",
     "postinstall": "node -e \"console.log('\\n\\n  [Aether] aether-hub installed!\\n\\n  Run: aether start\\n  Docs: https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop\\n')\""
   },
   "keywords": [

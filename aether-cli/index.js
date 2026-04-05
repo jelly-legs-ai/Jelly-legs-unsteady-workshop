@@ -21,6 +21,7 @@ const { delegationsCommand } = require('./commands/delegations');
 const { rewardsCommand } = require('./commands/rewards');
 const { accountCommand } = require('./commands/account');
 const { emergencyCommand } = require('./commands/emergency');
+const { priceCommand } = require('./commands/price');
 const readline = require('readline');
 
 // CLI version
@@ -324,6 +325,13 @@ const COMMANDS = {
       validatorsListCommand();
     },
   },
+  price: {
+    description: 'AETH/USD price — aether price [--pair AETH/USD] [--json] [--source coingecko]',
+    handler: () => {
+      const { priceCommand } = require('./commands/price');
+      priceCommand();
+    },
+  },
   emergency: {
     description: 'Emergency response & network alerts — status, monitor, check, alert, failover, history',
     handler: () => {
@@ -372,6 +380,7 @@ Validator CLI v${VERSION}
   console.log('  aether-cli network             # Network status, peers, slot info');
   console.log('  aether-cli network --peers     # Detailed peer list');
   console.log('  aether-cli tx history          # Show transaction history');
+  console.log('  aether-cli price               # AETH/USD price check');
   console.log('  aether-cli --version           # Show version');
   console.log('\nDocumentation: https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop');
   console.log('Spec: docs/MINING_VALIDATOR_TOOLS.md\n');
