@@ -22,6 +22,7 @@ const { rewardsCommand } = require('./commands/rewards');
 const { accountCommand } = require('./commands/account');
 const { emergencyCommand } = require('./commands/emergency');
 const { priceCommand } = require('./commands/price');
+const { epochCommand } = require('./commands/epoch');
 const readline = require('readline');
 
 // CLI version
@@ -317,6 +318,13 @@ const COMMANDS = {
     handler: () => {
       const { accountCommand } = require('./commands/account');
       accountCommand();
+    },
+  },
+  epoch: {
+    description: 'Aether epoch info — current epoch, slot, time remaining, APY estimate — aether epoch [--json] [--schedule]',
+    handler: () => {
+      const { epochCommand } = require('./commands/epoch');
+      epochCommand();
     },
   },
   validators: {
