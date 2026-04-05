@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 /**
  * aether-cli - AeTHer Validator Command Line Interface
  * 
@@ -13,12 +13,13 @@ const { init } = require('./commands/init');
 const { monitorLoop } = require('./commands/monitor');
 const { logsCommand } = require('./commands/logs');
 const { sdkCommand } = require('./commands/sdk');
+const { snapshotCommand } = require('./commands/snapshot');
 const { walletCommand } = require('./commands/wallet');
 const { networkCommand } = require('./commands/network');
 const readline = require('readline');
 
 // CLI version
-const VERSION = '1.0.4';
+const VERSION = '1.0.5';
 
 // Parse args early to support flags on commands
 function getCommandArgs() {
@@ -96,6 +97,7 @@ async function showMenu() {
     if (answer === '5' || answer === 'sdk') {
       rl.close();
       const { sdkCommand } = require('./commands/sdk');
+const { snapshotCommand } = require('./commands/snapshot');
       sdkCommand();
       return;
     }
@@ -246,6 +248,13 @@ const COMMANDS = {
           console.error('Valid commands: start, status');
           process.exit(1);
       }
+    },
+  },
+  snapshot: {
+    description: 'Node sync status, snapshot slot info, and network slot comparison',
+    handler: () => {
+      const { snapshotCommand } = require('./commands/snapshot');
+      snapshotCommand();
     },
   },
   help: {
