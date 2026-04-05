@@ -349,9 +349,30 @@ function checkValidatorBinary() {
   const binaryName = isWindows ? 'aether-validator.exe' : 'aether-validator';
   
   // Check the expected location based on repo layout
-  const workspaceRoot = path.join(__dirname, '..', '..');
+  // Resolve workspace root — walk up from CLI to find the actual repo
+  // Look for Jelly-legs-unsteady-workshop that has real workspace markers (src/, .github/)
+  // not the nested copy inside the npm package
+  const npmPackageDir = path.join(__dirname, '..', '..');
+  let workspaceRoot = npmPackageDir;
+  
+  let dir = npmPackageDir;
+  for (let i = 0; i < 15; i++) {
+    const candidate = path.join(dir, 'Jelly-legs-unsteady-workshop');
+    // Must have real workspace markers (Cargo.toml or .github/) to distinguish from npm package nested copy
+    if (fs.existsSync(path.join(candidate, 'Cargo.toml')) || fs.existsSync(path.join(candidate, '.github'))) {
+      workspaceRoot = candidate;
+      break;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  
   const repoPath = path.join(workspaceRoot, 'Jelly-legs-unsteady-workshop');
-  const binaryPath = path.join(repoPath, 'target', 'debug', binaryName);
+  // Prefer release binary, fall back to debug
+  const releaseBinary = path.join(repoPath, 'target', 'release', binaryName);
+  const debugBinary = path.join(repoPath, 'target', 'debug', binaryName);
+  const binaryPath = fs.existsSync(releaseBinary) ? releaseBinary : debugBinary;
   
   const exists = fs.existsSync(binaryPath);
   
@@ -518,10 +539,23 @@ function getFixCommand(check) {
       }
       return null;
       
-    case 'Validator Binary':
-      const workspaceRoot = path.join(__dirname, '..', '..');
+    case 'Validator Binary': {
+      // Use same resolution logic as checkValidatorBinary
+      const npmPackageDir = path.join(__dirname, '..', '..');
+      let workspaceRoot = npmPackageDir;
+      let dir = npmPackageDir;
+      for (let i = 0; i < 15; i++) {
+        const candidate = path.join(dir, 'Jelly-legs-unsteady-workshop');
+        if (fs.existsSync(path.join(candidate, 'src')) || fs.existsSync(path.join(candidate, '.github'))) {
+          workspaceRoot = candidate;
+          break;
+        }
+        const parent = path.dirname(dir);
+        if (parent === dir) break;
+        dir = parent;
+      }
       const repoPath = path.join(workspaceRoot, 'Jelly-legs-unsteady-workshop');
-      return `cd "${repoPath}" && cargo build --bin aether-validator`;
+      return `cd "${repoPath}" && cargo build --bin aether-validator --release`;
       
     case 'Disk':
       // Can't auto-fix disk space, but can suggest cleanup
