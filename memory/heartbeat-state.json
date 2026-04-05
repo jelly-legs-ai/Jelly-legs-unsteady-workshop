@@ -1,8 +1,15 @@
 {
-  "lastCycle": "2026-04-05T11:57:00Z",
-  "nextCycle": "2026-04-05T12:07:00Z",
-  "validatorSlot": 8508,
-  "validatorBlocks": 8508,
-  "validatorTXs": 8,
-  "notes": "All 3 persistent issues updated via spawned agents. CLI published to npm. Website wired to chain RPC."
+  "lastChecks": {
+    "email": null,
+    "calendar": null,
+    "weather": null,
+    "chain": 1743865820,
+    "web": 1743865820,
+    "cli": 1743865820
+  },
+  "models": {
+    "chain": "minimax-m2.7:cloud",
+    "web": "qwen3.5:397b-cloud",
+    "cli": "qwen3.5:397b-cloud"
+  }
 }

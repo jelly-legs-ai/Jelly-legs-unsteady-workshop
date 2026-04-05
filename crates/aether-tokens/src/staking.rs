@@ -1,13 +1,10 @@
 //! Staking Contract for AeTHer Chain
-//! 
+//!
 //! Handles:
 //! - Validator stake delegation
 //! - Stake warmup/cooldown periods
 //! - Reward distribution
 //! - Slashing logic
-
-use crate::utils::{self, Timestamp};
-use core::cmp::min;
 
 /// Stake status
 #[derive(Debug, Clone, PartialEq)]

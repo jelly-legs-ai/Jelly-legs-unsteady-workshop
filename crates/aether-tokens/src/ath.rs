@@ -1,12 +1,10 @@
 //! ATH Token - Governance Token for AeTHer Chain
-//! 
+//!
 //! ATH is the governance token used for:
 //! - Validator staking
 //! - Governance voting
 //! - Agent KYC bonding
 //! - Security collateral
-
-use crate::utils::Timestamp;
 
 /// ATH Token configuration
 #[derive(Debug, Clone)]

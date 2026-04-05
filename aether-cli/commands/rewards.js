@@ -397,6 +397,85 @@ async function rewardsSummary(args) {
 // Rewards claim command
 // ---------------------------------------------------------------------------
 
+async function rewardsPending(args) {
+  const rpc = args.rpc || getDefaultRpc();
+  const isJson = args.json || false;
+  let address = args.address || null;
+
+  const config = loadConfig();
+  const rl = createRl();
+
+  if (!address) {
+    const ans = await question(rl, `\n${C.cyan}Enter wallet address: ${C.reset}`);
+    address = ans.trim();
+  }
+
+  if (!address) {
+    console.log(`\n${C.red}✗ No address provided.${C.reset}\n`);
+    rl.close();
+    return;
+  }
+
+  rl.close();
+
+  const stakeAccounts = await fetchWalletStakeAccounts(address);
+  if (stakeAccounts.length === 0) {
+    if (isJson) {
+      console.log(JSON.stringify({ address, pending: [], total_pending: '0' }, null, 2));
+    } else {
+      console.log(`\n${C.red}✗ No stake accounts found for ${address}${C.reset}\n`);
+    }
+    return;
+  }
+
+  const results = [];
+  let totalPending = BigInt(0);
+
+  for (const sa of stakeAccounts) {
+    const rd = await fetchStakeRewards(rpc, sa);
+    if (!rd.error) {
+      const pending = BigInt(rd.estimatedRewards || 0);
+      totalPending += pending;
+      results.push({
+        stake_account: sa,
+        validator: rd.validator || 'unknown',
+        delegated_stake: rd.delegatedStakeFormatted || '0',
+        pending_rewards: rd.estimatedRewardsFormatted || '0',
+        pending_lamports: pending.toString(),
+        apy_bps: rd.apyBps || 0,
+      });
+    }
+  }
+
+  if (isJson) {
+    console.log(JSON.stringify({
+      address,
+      total_pending: totalPending.toString(),
+      total_pending_formatted: formatAether(totalPending.toString()),
+      accounts: results,
+    }, null, 2));
+    return;
+  }
+
+  console.log(`\n${C.bright}${C.cyan}╔══════════════════════════════════════════════════════════════╗${C.reset}`);
+  console.log(`${C.bright}${C.cyan}║              Pending Staking Rewards                           ║${C.reset}`);
+  console.log(`${C.bright}${C.cyan}╚══════════════════════════════════════════════════════════════╝${C.reset}\n`);
+  console.log(`  ${C.dim}Wallet:${C.reset} ${C.bright}${address}${C.reset}`);
+  console.log();
+  console.log(`  ${C.yellow}Stake Account${C.reset.padEnd(48)} ${C.yellow}Pending${C.reset}      ${C.yellow}APY${C.reset}`);
+  console.log(`  ${C.dim}${'─'.repeat(72)}${C.reset}`);
+
+  for (const r of results) {
+    const shortSa = r.stake_account.substring(0, 12) + '...' + r.stake_account.slice(-6);
+    console.log(`  ${C.cyan}${shortSa}${C.reset.padEnd(52)} ${C.green}${r.pending_rewards.padStart(12)}${C.reset}  ${(r.apy_bps / 100).toFixed(2)}%`);
+  }
+
+  console.log(`  ${C.dim}${'─'.repeat(72)}${C.reset}`);
+  console.log(`  ${C.bright}TOTAL PENDING${C.reset.padEnd(52)} ${C.green}${formatAethFull(totalPending.toString()).padStart(12)}${C.reset}`);
+  console.log();
+  console.log(`  ${C.dim}Run ${C.cyan}aether rewards claim${C.dim} to claim.${C.reset}\n`);
+}
+
 async function rewardsClaim(args) {
   const rpc = args.rpc || getDefaultRpc();
   const isJson = args.json || false;

@@ -1,8 +1,6 @@
 // Utility helpers for AeTHer Chain
 // Common helper functions used across contracts
 
-use serde::{Deserialize, Serialize};
-
 /// Calculate percentage of a value
 pub fn percentage(value: u64, percent: u64) -> u64 {
     (value * percent) / 100
