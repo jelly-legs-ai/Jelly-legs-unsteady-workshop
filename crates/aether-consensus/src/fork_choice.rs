@@ -158,21 +158,19 @@ impl ForkChoice {
         self.blocks.get(hash)
     }
 
-    /// Get chain from root to block
+    /// Get chain from root to block (inclusive of root, inclusive of block)
     pub fn get_chain(&self, block_hash: [u8; 32]) -> Vec<&BlockInfo> {
         let mut chain = Vec::new();
         let mut current = block_hash;
 
-        loop {
-            if let Some(block) = self.blocks.get(&current) {
-                chain.push(block);
-                if current == self.root || current == block.parent_hash {
-                    break;
-                }
-                current = block.parent_hash;
-            } else {
+        // Walk backwards from block to root, including both endpoints
+        while let Some(block) = self.blocks.get(&current) {
+            chain.push(block);
+            if current == self.root {
+                // Reached genesis root — include it and stop
                 break;
             }
+            current = block.parent_hash;
         }
 
         chain.reverse();
