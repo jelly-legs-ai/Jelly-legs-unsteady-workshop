@@ -19,6 +19,7 @@ const { networkCommand } = require('./commands/network');
 const { validatorsListCommand } = require('./commands/validators');
 const { delegationsCommand } = require('./commands/delegations');
 const { rewardsCommand } = require('./commands/rewards');
+const { accountCommand } = require('./commands/account');
 const { emergencyCommand } = require('./commands/emergency');
 const readline = require('readline');
 
@@ -291,6 +292,13 @@ const COMMANDS = {
     handler: () => {
       const { snapshotCommand } = require('./commands/snapshot');
       snapshotCommand();
+    },
+  },
+  account: {
+    description: 'Query on-chain account data — aether account --address <addr> [--json] [--data] [--rpc <url>]',
+    handler: () => {
+      const { accountCommand } = require('./commands/account');
+      accountCommand();
     },
   },
   validators: {
