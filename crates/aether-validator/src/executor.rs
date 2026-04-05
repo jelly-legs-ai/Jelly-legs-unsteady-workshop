@@ -82,17 +82,18 @@ impl Executor {
         addr
     }
 
-    fn execute_unstake(&self, _signer: &[u8; 32], stake_account: &[u8; 32], amount: u64) -> ExecutionResult {
-        match self.state_db.get_account_sync(stake_account) {
-            Some(account) => {
-                if account.lamports < amount {
-                    ExecutionResult::failure("Insufficient staked lamports")
-                } else {
-                    ExecutionResult::success()
-                }
-            }
-            None => ExecutionResult::failure("Stake account not found"),
+    fn execute_unstake(&self, signer: &[u8; 32], stake_account: &[u8; 32], amount: u64) -> ExecutionResult {
+        // Debit lamports from stake account first
+        if let Err(e) = self.state_db.debit_sync(stake_account, amount) {
+            return ExecutionResult::failure(e);
         }
+        // Credit back to the signer's main account
+        if let Err(e) = self.state_db.credit_sync(signer, amount) {
+            // Rollback: credit back to stake account
+            let _ = self.state_db.credit_sync(stake_account, amount);
+            return ExecutionResult::failure(e);
+        }
+        ExecutionResult::success()
     }
 
     fn execute_claim_rewards(&self, _signer: &[u8; 32], stake_account: &[u8; 32]) -> ExecutionResult {
