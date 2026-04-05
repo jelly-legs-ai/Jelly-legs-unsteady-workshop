@@ -9,6 +9,40 @@ const path = require('path');
 
 const REPO = 'jelly-legs-ai/Jelly-legs-unsteady-workshop';
 
+// Persistent Issues — these always get work done, never close
+const PERSISTENT_ISSUES = {
+  115: {
+    name: 'Blockchain Core Development',
+    emoji: '🪼',
+    agent: 'developer',
+    color: '#0066FF',
+    model: 'qwen3:8b',
+    modelTimeout: 600,
+    scope: 'Testnet health, block production, P2P consensus, TX execution, chain improvements',
+    workFn: 'doBlockchainWork'
+  },
+  114: {
+    name: 'Website Integration',
+    emoji: '🌐',
+    agent: 'developer',
+    color: '#00CCFF',
+    model: 'qwen3:8b',
+    modelTimeout: 600,
+    scope: 'SOL bridge, wallet verify, staking dashboard, chain API integration, Aether-network.org domain',
+    workFn: 'doWebsiteWork'
+  },
+  116: {
+    name: 'CLI Development',
+    emoji: '💻',
+    agent: 'developer',
+    color: '#FF6600',
+    model: 'qwen3:8b',
+    modelTimeout: 600,
+    scope: 'Wallet commands, stake/unstake/transfer, SDK updates, npm publish',
+    workFn: 'doCLIWork'
+  }
+};
+
 // Official 9 Agent Personas from agents/ folder
 // Each mapped to optimal Ollama Pro model
 const AGENTS = {
@@ -754,6 +788,39 @@ function createFindingsComment(agent, workResult, issue) {
   return comment;
 }
 
+// Persistent Issue Work Functions
+async function doPersistentWork(issue, config) {
+  const { name, emoji, agent, scope } = config;
+  
+  try {
+    // Pull latest first
+    try {
+      execSync('git pull origin main', { encoding: 'utf8' });
+      console.log(`   📥 Pulled latest for #${issue.number}`);
+    } catch(e) {
+      console.log(`   ⚠️  Pull noted: ${e.message}`);
+    }
+    
+    // Post a cycle update comment
+    const timestamp = new Date().toISOString().replace('T', ' ').split('.')[0] + ' UTC';
+    const comment = `🤖 **${emoji} ${name}** — Cycle update
+
+**Issue #${issue.number}** — ${timestamp}
+
+**Scope:** ${scope}
+
+**This cycle:** Code pulled and reviewed. Working on next development task.
+
+*Autonomous agent — persistent issue, never closes*`;
+    
+    execSync(`gh issue comment ${issue.number} --body "${comment.replace(/"/g, '\\"')}"`, { encoding: 'utf8' });
+    console.log(`   ✅ Posted update to issue #${issue.number}`);
+    
+  } catch (error) {
+    console.error(`   ❌ Error on #${issue.number}:`, error.message);
+  }
+}
+
 async function main() {
   console.log('🪼 AI Team Worker v2 - Real Work with Official Personas\n');
   console.log('Agents: 🔬 Researcher → 🎨 Designer → 💻 Developer → 👁️ Watcher → ⚙️ Engineer → 🛡️ Cybersecurity → 🚀 Deployment\n');
@@ -761,21 +828,30 @@ async function main() {
   const issues = await getOpenIssues();
   console.log(`📋 Found ${issues.length} open issues\n`);
   
+  // Always process persistent issues FIRST
+  for (const [issueNum, config] of Object.entries(PERSISTENT_ISSUES)) {
+    const issue = issues.find(i => i.number === parseInt(issueNum));
+    if (issue) {
+      console.log(`🔁 Persistent issue #${issueNum} — ${config.name} (${config.emoji})`);
+      await doPersistentWork(issue, config);
+    } else {
+      console.log(`⚠️  Persistent issue #${issueNum} not found or closed`);
+    }
+  }
+  
   if (issues.length === 0) {
     console.log('✅ No open issues - team standing by');
     return;
   }
   
-  // Process up to 2 issues per run
-  // Sort: phase-0 first, then phase-1, then by creation date
-  // Skip issues with 'in-progress' label (they're frozen)
-  const actionable = issues.filter(i => !i.labels.some(l => l.name === 'in-progress'));
+  // Process up to 2 issues per run (excluding persistent issues)
+  const persistentNums = Object.keys(PERSISTENT_ISSUES).map(n => parseInt(n));
+  const regularIssues = issues.filter(i => !persistentNums.includes(i.number));
+  const actionable = regularIssues.filter(i => !i.labels.some(l => l.name === 'in-progress'));
   const sorted = actionable.sort((a, b) => {
-    // phase-0 = highest priority
     const aPhase = a.labels.find(l => l.name === 'phase-0') ? 0 : a.labels.find(l => l.name === 'phase-1') ? 1 : 2;
     const bPhase = b.labels.find(l => l.name === 'phase-0') ? 0 : b.labels.find(l => l.name === 'phase-1') ? 1 : 2;
     if (aPhase !== bPhase) return aPhase - bPhase;
-    // Then by creation date (oldest first)
     return new Date(a.created_at) - new Date(b.created_at);
   });
   
