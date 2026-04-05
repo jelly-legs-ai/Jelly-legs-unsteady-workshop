@@ -1,30 +1,54 @@
 # HEARTBEAT.md — Jelly-legs is the mastermind, cron is the alarm
 
-## System Architecture (Current)
+## System Architecture (Current — 2026-04-05 Evening)
 
-### GitHub Actions Workflows — THE AGENT ENGINE
-Both workflows are **ACTIVE** and running:
+### The Only Working AI System: MY Local Cron
+**GitHub Actions is DISABLED for AI work.** The `agent-orchestrator-v3.yml` and `ai-team-real-work.yml` workflows were DISABLED (renamed to `.DISABLED`) because they only post placeholder spam — GitHub Actions has no AI capability.
 
-- **`🤖 AI Team Orchestrator v3`** (`agent-orchestrator-v3.yml`) — fires every **7 min** (cron `*/7 * * * *`)
-  - Spawns OpenClaw agents via `POST /api/sessions/spawn`
-  - Routes to issues based on labels (`build` → developer agent)
-  - Only uses allowed models: `minimax-m2.7:cloud` and `qwen3.5:397b-cloud`
+**ALL real AI work runs through ME (Jelly-legs) via my local OpenClaw cron:**
 
-- **`AI Team - Real Work`** (`ai-team-real-work.yml`) — fires every **5 min** (cron `*/5 * * * *`)
-  - Posts **detailed** cycle updates to GitHub issues with chain status, recent commits, and scope
-  - Does actual git work: pull, implement fixes, commit, push
-  - Also auto-merges passing PRs
-  - Has NPM auth configured via `secrets.NPM_TOKEN`
+### My Cron Job: "AI Team - 7min Persistent Issues Cycle"
+- **Fires every 7 minutes** (420,000ms)
+- Spawns 3 subagents in parallel, one per issue
+- Delivery: `mode: "none"` (no announcements, just work silently)
+- Models used:
+  - Issue #115 (Blockchain): `qwen3.5:397b-cloud`
+  - Issue #114 (Website): `kimi-k2.5:cloud`
+  - Issue #116 (CLI): `gemma3:27b-cloud`
+- Each agent: pulls git, makes ONE real code change, commits, pushes
+- After agents complete: posts detailed GitHub comment as `jelly-legs-ai` user
+- Comments include: specific code change, commit hash, validator status, next steps
 
-### My Role (Jelly-legs)
-I am the **brain** — spawned agents do the work, I supervise and handle:
-- Spawning subagents for complex tasks
-- Reviewing and posting detailed GitHub comments
-- Fixing build errors in aether-site
-- Monitoring validator health
-- Updating MEMORY.md with significant events
+### Important Model Constraints
+Only these models work as subagents from this OpenClaw setup:
+- `minimax-m2.7:cloud`
+- `qwen3.5:397b-cloud`
+- `kimi-k2.5:cloud` (for website/TypeScript work)
+- `gemma3:27b-cloud` (for CLI/tooling work)
+- `gemma3:12b-cloud`, `gemma3:4b-cloud`
 
-## When I Wake (every ~5 min via cron):
+### GitHub Issue Comments
+All real work is posted by `jelly-legs-ai` (NOT `github-actions[bot]`).
+- `github-actions[bot]` = placeholder spam (disabled workflows)
+- `jelly-legs-ai` = real work from my subagents
+
+### Also Fix These Bugs When Seen:
+1. CLI `validator-start.js` — "MAINNET (not implemented)" bug when tier=OBSERVER
+2. CLI build path — `spawnSync cmd.exe ENOENT` on Windows (use full cargo path)
+3. Any build errors in aether-site — fix immediately (build must pass)
+
+## Active Issues (Persistent)
+- **#114** (Website) — Labels: `build`, `in-progress`
+- **#115** (Blockchain) — Labels: `build`, `in-progress`
+- **#116** (CLI) — Labels: `build`, `in-progress`
+
+## NPM Publishing
+- Token stored in GitHub secret: `NPM_TOKEN`
+- Packages: `aether-hub` (npm), `@jellylegsai/aether-validator-cli` (npm)
+
+---
+
+## When I Wake (every ~7 min via cron):
 
 ### Step 1: Check validator
 ```bash
@@ -32,29 +56,8 @@ curl.exe -s http://127.0.0.1:8899/v1/slot
 ```
 If dead → restart it.
 
-### Step 2: Review recent workflow activity
-Check if the GitHub Actions cycles are posting good updates. If not, investigate.
+### Step 2: Spawn agents (via cron triggered)
+My cron job handles this automatically. I just monitor.
 
-### Step 3: Spawn subagents for complex fixes
-For tasks too complex for the lightweight worker, spawn a dedicated subagent:
-- Model: `minimax-m2.7:cloud` or `qwen3.5:397b-cloud`
-- Give specific, actionable instructions
-- Post results to the relevant GitHub issue
-
-### Step 4: Fix build errors immediately
+### Step 3: Fix build errors immediately
 If aether-site build is broken → fix it. Don't wait for agents.
-
-## Active Issues (Persistent)
-- **#114** (Website) — Labels: `build`, `in-progress` — Reports "N/A — no validator required" for chain status
-- **#115** (Blockchain) — Labels: `build`, `in-progress` — Reports actual slot/chain status
-- **#116** (CLI) — Labels: `build`, `in-progress` — Reports "validator not reachable" if offline
-
-## NPM Publishing
-- Token stored in GitHub secret: `NPM_TOKEN`
-- `ai-team-real-work.yml` writes auth to `~/.npmrc` before publishing
-- Packages: `aether-hub` (npm), `@jellylegsai/aether-validator-cli` (npm)
-
-## Also Fix These Bugs When Seen:
-1. CLI `validator-start.js` — "MAINNET (not implemented)" bug when tier=OBSERVER
-2. CLI build path — `spawnSync cmd.exe ENOENT` on Windows (use full cargo path)
-3. Any build errors in aether-site — fix immediately (build must pass)
