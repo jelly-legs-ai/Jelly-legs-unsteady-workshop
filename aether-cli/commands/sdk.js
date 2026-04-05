@@ -9,6 +9,7 @@
  *   aether-cli sdk js           # Aether JS client
  *   aether-cli sdk rust         # Aether Rust SDK
  *   aether-cli sdk tokens       # FLUX/ATH token libraries
+ *   aether-cli sdk types        # TypeScript/Rust type definitions for TX payloads
  */
 
 const os = require('os');
@@ -81,6 +82,7 @@ function showAllSdks() {
   console.log(`  ${colors.yellow}npm${colors.reset}   aether-cli sdk rust    - Rust SDK for native development`);
   console.log(`  ${colors.yellow}npm${colors.reset}   aether-cli sdk tokens  - FLUX/ATH token libraries`);
   console.log(`  ${colors.yellow}npm${colors.reset}   aether-cli sdk docs    - Documentation portal`);
+  console.log(`  ${colors.yellow}npm${colors.reset}   aether-cli sdk types   - TypeScript/Rust type definitions`);
   console.log();
   
   // Quick start
@@ -315,6 +317,125 @@ const tx = await client.transfer({
 }
 
 /**
+ * Show TypeScript/Rust type definitions for Aether transactions
+ */
+function showTypes() {
+  printSection('Aether Transaction Type Definitions', '🏷️');
+
+  console.log(`  ${colors.bright}Exported from ${colors.cyan}@aether-network/client${colors.reset} and ${colors.cyan}aether-sdk${colors.reset}\n`);
+
+  printSection('TransactionPayload (Rust enum — serde JSON tag)');
+
+  const tsTypes = `// TypeScript / JavaScript
+// Import from @aether-network/client
+
+// TransactionPayload — discriminated union via 'type' field
+type TransferPayload    = { type: 'Transfer';    data: { recipient: string; amount: u64; nonce: u64 } };
+type StakePayload       = { type: 'Stake';       data: { validator: string; amount: u64 } };
+type UnstakePayload     = { type: 'Unstake';    data: { stake_account: string; amount: u64 } };
+type ClaimRewardsPayload = { type: 'ClaimRewards'; data: { stake_account: string } };
+type CreateNFTPayload   = { type: 'CreateNFT';  data: { metadata_url: string; royalties: u16 } };
+type MintNFTPayload     = { type: 'MintNFT';    data: { nft_id: string; amount: u64 } };
+type TransferNFTPayload = { type: 'TransferNFT'; data: { nft_id: string; recipient: string } };
+type UpdateMetadataPayload = { type: 'UpdateMetadata'; data: { nft_id: string; metadata_url: string } };
+
+type TransactionPayload =
+  | TransferPayload | StakePayload | UnstakePayload | ClaimRewardsPayload
+  | CreateNFTPayload | MintNFTPayload | TransferNFTPayload | UpdateMetadataPayload;
+
+// Full AetherTransaction
+interface AetherTransaction {
+  signature: string;   // base58 of [u8; 64]
+  signer: string;       // base58 of [u8; 32]
+  tx_type: string;     // e.g. "Transfer", "Stake"
+  payload: TransactionPayload;
+  fee: u64;
+  slot: u64;
+  timestamp: u64;
+}
+
+// Account response from GET /v1/account/<addr>
+interface Account {
+  lamports: u64;
+  owner: string;        // base58 of [u8; 32]
+  data: Uint8Array;
+  rent_epoch: u64;
+}`;
+
+  console.log(`  ${colors.dim}[ typescript ]${colors.reset}`);
+  tsTypes.split('\n').forEach(line => {
+    console.log(`  ${line}`);
+  });
+  console.log();
+
+  printSection('Rust struct definitions (from crates/aether-core/src/types.rs)');
+
+  const rustTypes = `// Rust — use aether_sdk::types;
+
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TransactionPayload {
+    #[serde(tag = "type", content = "data")]
+    Transfer { recipient: String, amount: u64, nonce: u64 },
+    #[serde(tag = "type", content = "data")]
+    Stake { validator: String, amount: u64 },
+    #[serde(tag = "type", content = "data")]
+    Unstake { stake_account: String, amount: u64 },
+    #[serde(tag = "type", content = "data")]
+    ClaimRewards { stake_account: String },
+    #[serde(tag = "type", content = "data")]
+    CreateNFT { metadata_url: String, royalties: u16 },
+    #[serde(tag = "type", content = "data")]
+    MintNFT { nft_id: String, amount: u64 },
+    #[serde(tag = "type", content = "data")]
+    TransferNFT { nft_id: String, recipient: String },
+    #[serde(tag = "type", content = "data")]
+    UpdateMetadata { nft_id: String, metadata_url: String },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AetherTransaction {
+    #[serde(with = "serde_bytes_64")]
+    pub signature: [u8; 64],
+    #[serde(with = "serde_bytes_32")]
+    pub signer: [u8; 32],
+    pub tx_type: TransactionType,
+    pub payload: TransactionPayload,
+    pub fee: u64,
+    pub slot: u64,
+    pub timestamp: u64,
+}
+
+pub type Address = [u8; 32];
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Account {
+    pub lamports: u64,
+    pub owner: [u8; 32],
+    pub data: Vec<u8>,
+    pub rent_epoch: u64,
+}`;
+
+  console.log(`  ${colors.dim}[ rust ]${colors.reset}`);
+  rustTypes.split('\n').forEach(line => {
+    console.log(`  ${line}`);
+  });
+  console.log();
+
+  printSection('TransactionType enum');
+  console.log(`  ${colors.cyan}Transfer${colors.reset}       — Send AETH`);
+  console.log(`  ${colors.cyan}Stake${colors.reset}          — Delegate to validator`);
+  console.log(`  ${colors.cyan}Unstake${colors.reset}        — Request withdrawal`);
+  console.log(`  ${colors.cyan}ClaimRewards${colors.reset}  — Claim staking rewards`);
+  console.log(`  ${colors.cyan}CreateNFT${colors.reset}     — Create on-chain NFT`);
+  console.log(`  ${colors.cyan}MintNFT${colors.reset}       — Mint additional NFT supply`);
+  console.log(`  ${colors.cyan}TransferNFT${colors.reset}   — Transfer NFT to another address`);
+  console.log(`  ${colors.cyan}UpdateMetadata${colors.reset} — Update NFT metadata URL`);
+  console.log();
+}
+
+/**
  * Show documentation portal info
  */
 function showDocs() {
@@ -370,6 +491,11 @@ function parseArgs() {
     case 'doc':
     case 'documentation':
       return 'docs';
+    case 'types':
+    case 'type':
+    case 'typedef':
+    case 'typedefs':
+      return 'types';
     default:
       return 'all';
   }
@@ -393,6 +519,9 @@ function sdkCommand() {
       break;
     case 'docs':
       showDocs();
+      break;
+    case 'types':
+      showTypes();
       break;
     default:
       showAllSdks();

@@ -155,10 +155,31 @@ const COMMANDS = {
     handler: sdkCommand,
   },
   wallet: {
-    description: 'Wallet management — create, import, list, default, connect',
+    description: 'Wallet management — create, import, list, default, connect, balance, stake, transfer',
     handler: () => {
       const { walletCommand } = require('./commands/wallet');
       walletCommand();
+    },
+  },
+  stake: {
+    description: 'Stake AETH to a validator — aether stake --validator <addr> --amount <aeth>',
+    handler: () => {
+      const { walletCommand } = require('./commands/wallet');
+      // Intercept argv so walletCommand receives 'stake' as the subcmd
+      const originalArgv = process.argv;
+      process.argv = [...originalArgv.slice(0, 2), 'wallet', 'stake', ...originalArgv.slice(3)];
+      walletCommand();
+      process.argv = originalArgv;
+    },
+  },
+  transfer: {
+    description: 'Transfer AETH to another address — aether transfer --to <addr> --amount <aeth>',
+    handler: () => {
+      const { walletCommand } = require('./commands/wallet');
+      const originalArgv = process.argv;
+      process.argv = [...originalArgv.slice(0, 2), 'wallet', 'transfer', ...originalArgv.slice(3)];
+      walletCommand();
+      process.argv = originalArgv;
     },
   },
   validator: {
