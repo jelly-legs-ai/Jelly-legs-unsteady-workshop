@@ -269,7 +269,7 @@ async fn handle_http_request(
         }
         // Total supply
         ("GET", "/v1/total_supply") => {
-            let supply = block_producer.total_supply();
+            let supply = block_producer.total_supply().await;
             let resp = serde_json::json!({"total_supply": supply, "unit": "lamports"});
             (200, serde_json::to_string(&resp).unwrap_or_default())
         }

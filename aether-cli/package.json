@@ -1,6 +1,6 @@
 {
   "name": "aether-hub",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "AeTHer Validator CLI — tiered validators (Full/Lite/Observer), system checks, onboarding, and node management",
   "main": "index.js",
   "bin": {

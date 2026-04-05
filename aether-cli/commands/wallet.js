@@ -540,6 +540,112 @@ async function connectWallet(rl) {
 }
 
 // ---------------------------------------------------------------------------
+// BALANCE
+// Query chain RPC GET /v1/account/<addr> for real AETH balance
+// ---------------------------------------------------------------------------
+
+function getDefaultRpc() {
+  return process.env.AETHER_RPC || 'http://127.0.0.1:8899';
+}
+
+/**
+ * Make HTTP GET request to the RPC endpoint
+ */
+function httpRequest(rpcUrl, path) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(path, rpcUrl);
+    const lib = url.protocol === 'https:' ? require('https') : require('http');
+    const req = lib.request({
+      hostname: url.hostname,
+      port: url.port || (url.protocol === 'https:' ? 443 : 80),
+      path: url.pathname + url.search,
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    }, (res) => {
+      let data = '';
+      res.on('data', (chunk) => data += chunk);
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch { resolve(data); }
+      });
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+/**
+ * Format lamports as AETH string (1 AETH = 1e9 lamports)
+ */
+function formatAether(lamports) {
+  const aeth = lamports / 1e9;
+  if (aeth === 0) return '0 AETH';
+  // Show up to 4 decimal places, stripping trailing zeros
+  return aeth.toFixed(4).replace(/\.?0+$/, '') + ' AETH';
+}
+
+async function balanceWallet(rl) {
+  console.log(`\n${C.bright}${C.cyan}── Wallet Balance ───────────────────────────────────────${C.reset}\n`);
+
+  // Resolve wallet address: --address flag or default
+  const args = process.argv.slice(4);
+  let address = null;
+  const addrIdx = args.findIndex((a) => a === '--address' || a === '-a');
+  if (addrIdx !== -1 && args[addrIdx + 1]) {
+    address = args[addrIdx + 1];
+  }
+  if (!address) {
+    const cfg = loadConfig();
+    address = cfg.defaultWallet;
+  }
+
+  if (!address) {
+    console.log(`  ${C.red}✗ No wallet address specified and no default wallet set.${C.reset}`);
+    console.log(`  ${C.dim}Usage:${C.reset} aether wallet balance --address <address>`);
+    console.log(`  ${C.dim}Or set a default:${C.reset} aether wallet default --set <address>\n`);
+    return;
+  }
+
+  const rpcUrl = getDefaultRpc();
+  console.log(`  ${C.green}★${C.reset} Wallet: ${C.bright}${address}${C.reset}`);
+  console.log(`  ${C.dim}  RPC: ${rpcUrl}${C.reset}`);
+  console.log();
+
+  try {
+    // Strip ATH prefix if present for API call
+    const rawAddr = address.startsWith('ATH') ? address.slice(3) : address;
+    const account = await httpRequest(rpcUrl, `/v1/account/${rawAddr}`);
+    
+    if (!account || account.error) {
+      console.log(`  ${C.yellow}⚠ Account not found on chain or RPC error.${C.reset}`);
+      console.log(`  ${C.dim}  This is normal for new wallets with 0 balance.${C.reset}`);
+      console.log(`  ${C.dim}  RPC response: ${JSON.stringify(account?.error || account)}${C.reset}\n`);
+      return;
+    }
+
+    const lamports = account.lamports || 0;
+    console.log(`  ${C.green}✓ Balance:${C.reset} ${C.bright}${formatAether(lamports)}${C.reset}`);
+    console.log(`  ${C.dim}  Raw: ${lamports} lamports${C.reset}`);
+    console.log();
+
+    if (account.owner) {
+      const ownerStr = Array.isArray(account.owner)
+        ? 'ATH' + bs58.encode(Buffer.from(account.owner.slice(0, 32)))
+        : account.owner;
+      console.log(`  ${C.dim}  Owner: ${ownerStr}${C.reset}`);
+    }
+    if (account.rent_epoch !== undefined) {
+      console.log(`  ${C.dim}  Rent epoch: ${account.rent_epoch}${C.reset}`);
+    }
+    console.log();
+  } catch (err) {
+    console.log(`  ${C.red}✗ Failed to fetch balance:${C.reset} ${err.message}`);
+    console.log(`  ${C.dim}  Is your validator running? RPC: ${rpcUrl}${C.reset}`);
+    console.log(`  ${C.dim}  Set custom RPC: AETHER_RPC=https://your-rpc-url${C.reset}\n`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main dispatcher
 // ---------------------------------------------------------------------------
 
@@ -562,6 +668,8 @@ async function walletCommand() {
       await defaultWallet(rl);
     } else if (subcmd === 'connect') {
       await connectWallet(rl);
+    } else if (subcmd === 'balance') {
+      await balanceWallet(rl);
     } else {
       console.log(`\n  ${C.red}Unknown wallet subcommand:${C.reset} ${subcmd}`);
       console.log(`\n  Usage:`);
@@ -570,6 +678,7 @@ async function walletCommand() {
       console.log(`    ${C.cyan}aether wallet import${C.reset}   Import wallet from mnemonic`);
       console.log(`    ${C.cyan}aether wallet default${C.reset}  Show/set default wallet`);
       console.log(`    ${C.cyan}aether wallet connect${C.reset}  Connect wallet via browser verification`);
+      console.log(`    ${C.cyan}aether wallet balance${C.reset}  Query chain balance for an address`);
       console.log();
       process.exit(1);
     }

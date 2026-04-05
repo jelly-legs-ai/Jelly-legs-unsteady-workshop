@@ -17,7 +17,7 @@ const { walletCommand } = require('./commands/wallet');
 const readline = require('readline');
 
 // CLI version
-const VERSION = '1.0.2';
+const VERSION = '1.0.4';
 
 // Parse args early to support flags on commands
 function getCommandArgs() {

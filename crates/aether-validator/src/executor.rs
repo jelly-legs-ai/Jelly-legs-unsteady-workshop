@@ -50,13 +50,13 @@ impl Executor {
 
     fn execute_transfer(&self, from: &[u8; 32], to: &[u8; 32], amount: u64) -> ExecutionResult {
         self.state_db
-            .transfer(from, to, amount)
+            .transfer_sync(from, to, amount)
             .map(|_| ExecutionResult::success())
             .unwrap_or_else(|e| ExecutionResult::failure(e))
     }
 
     fn execute_stake(&self, signer: &[u8; 32], _validator: &[u8; 32], amount: u64) -> ExecutionResult {
-        match self.state_db.get_account(signer) {
+        match self.state_db.get_account_sync(signer) {
             Some(account) => {
                 if account.lamports < amount {
                     ExecutionResult::failure("Insufficient lamports for staking")
@@ -69,7 +69,7 @@ impl Executor {
     }
 
     fn execute_unstake(&self, _signer: &[u8; 32], stake_account: &[u8; 32], amount: u64) -> ExecutionResult {
-        match self.state_db.get_account(stake_account) {
+        match self.state_db.get_account_sync(stake_account) {
             Some(account) => {
                 if account.lamports < amount {
                     ExecutionResult::failure("Insufficient staked lamports")
@@ -82,7 +82,7 @@ impl Executor {
     }
 
     fn execute_claim_rewards(&self, _signer: &[u8; 32], stake_account: &[u8; 32]) -> ExecutionResult {
-        match self.state_db.get_account(stake_account) {
+        match self.state_db.get_account_sync(stake_account) {
             Some(_) => ExecutionResult::success(),
             None => ExecutionResult::failure("Stake account not found"),
         }

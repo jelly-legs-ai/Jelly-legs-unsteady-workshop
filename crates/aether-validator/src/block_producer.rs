@@ -207,12 +207,12 @@ impl BlockProducer {
 
     /// Get account state
     pub async fn get_account(&self, address: &Address) -> Option<Account> {
-        self.state_db.get_account(address)
+        self.state_db.get_account(address).await
     }
 
-    /// Get total supply
-    pub fn total_supply(&self) -> u64 {
-        self.state_db.total_supply()
+    /// Get total supply (async)
+    pub async fn total_supply(&self) -> u64 {
+        self.state_db.total_supply().await
     }
 
     /// Compute PoH seed using SHA-256
