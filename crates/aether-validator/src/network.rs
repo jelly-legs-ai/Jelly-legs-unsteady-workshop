@@ -487,7 +487,7 @@ pub async fn handle_gossip_message(
     msg: GossipMessage,
     state: ValidatorState,
     block_producer: Arc<BlockProducer>,
-    network_state: Arc<NetworkState>,
+    _network_state: Arc<NetworkState>,
 ) -> Option<GossipMessage> {
     match msg {
         GossipMessage::SlotUpdate { slot, peer_id } => {
@@ -505,7 +505,7 @@ pub async fn handle_gossip_message(
             prev_hash: _,
             poh_seed: _,
             state_root: _,
-            tx_count,
+            tx_count: _tx_count,
             peer_id,
         } => {
             info!(
@@ -536,7 +536,7 @@ pub async fn handle_gossip_message(
 
         GossipMessage::Vote {
             slot,
-            block_hash,
+            block_hash: _block_hash,
             validator,
             signature: _,
         } => {
@@ -557,7 +557,7 @@ pub async fn handle_gossip_message(
             }
         }
 
-        GossipMessage::BlockResponse { slot, block_json } => {
+        GossipMessage::BlockResponse { slot, block_json: _block_json } => {
             info!("Received block response for slot {}", slot);
             None
         }

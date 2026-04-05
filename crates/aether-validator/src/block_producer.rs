@@ -7,8 +7,7 @@ use crate::executor::Executor;
 use crate::state_db::StateDB;
 use crate::state::ValidatorState;
 use aether_core::{
-    AetherTransaction, Account, Address, ExecutionResult, TransactionReceipt,
-    TransactionType, TransactionPayload,
+    AetherTransaction, Account, Address, TransactionReceipt,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
