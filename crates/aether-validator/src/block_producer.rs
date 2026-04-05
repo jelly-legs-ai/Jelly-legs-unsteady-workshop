@@ -70,8 +70,8 @@ impl BlockProducer {
         loop {
             tokio::select! {
                 _ = slot_timer.tick() => {
-                    current_slot += 1;
                     self.produce_block(current_slot).await;
+                    current_slot += 1;
                 }
             }
         }
