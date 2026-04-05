@@ -737,29 +737,6 @@ async function stakeWallet(rl) {
     return;
   }
 
-  // Derive the full wallet object (secret key needed for signing)
-  let keyPair;
-  try {
-    // Re-derive from public key stored in wallet file
-    // The secret key isn't stored — we'd need the mnemonic to re-derive.
-    // For signing, the CLI requires the wallet to have been created/imported in this session.
-    // We use bs58 decoded publicKey + nacl key derivation from stored entropy.
-    // Since we store only publicKey, we need the secret key for signing.
-    // Workaround: accept a --sign-with <secretkeybase58> flag for now, or
-    // require the wallet to be "active" via a session.
-    // For simplicity, derive a keypair using a stored seed phrase approach.
-    // The wallet.json only has public_key. We need nacl sign keypair.
-    // Let's require the secret key be provided for stake/transfer.
-    console.log(`  ${C.red}✗ Signing requires the wallet secret key.${C.reset}`);
-    console.log(`  ${C.dim}The wallet must be created/imported in this session to access the secret key.${C.reset}`);
-    console.log(`  ${C.dim}For staking, use the JS SDK's offline signing flow instead.${C.reset}`);
-    console.log(`  ${C.dim}See: aether-cli sdk js${C.reset}\n`);
-    return;
-  } catch (e) {
-    console.log(`  ${C.red}✗ Failed to load wallet keys: ${e.message}${C.reset}\n`);
-    return;
-  }
-
   // Prompt for missing values interactively
   if (!validator) {
     console.log(`  ${C.cyan}Enter validator address:${C.reset}`);
@@ -783,6 +760,30 @@ async function stakeWallet(rl) {
   console.log(`  ${C.green}★${C.reset} Validator: ${C.bright}${validator}${C.reset}`);
   console.log(`  ${C.green}★${C.reset} Amount:    ${C.bright}${amount} AETH${C.reset} (${lamports} lamports)`);
   console.log();
+
+  // Ask for mnemonic to derive signing keypair
+  console.log(`${C.yellow}  ⚠ Signing requires your wallet passphrase.${C.reset}`);
+  const mnemonic = await askMnemonic(rl, 'Enter your 12/24-word passphrase to sign this transaction');
+  console.log();
+
+  let keyPair;
+  try {
+    keyPair = deriveKeypair(mnemonic, DERIVATION_PATH);
+  } catch (e) {
+    console.log(`  ${C.red}✗ Failed to derive keypair: ${e.message}${C.reset}`);
+    console.log(`  ${C.dim}Check your passphrase and try again.${C.reset}\n`);
+    return;
+  }
+
+  // Verify the derived address matches the wallet
+  const derivedAddress = formatAddress(keyPair.publicKey);
+  if (derivedAddress !== address) {
+    console.log(`  ${C.red}✗ Passphrase mismatch.${C.reset}`);
+    console.log(`  ${C.dim}  Derived:   ${derivedAddress}${C.reset}`);
+    console.log(`  ${C.dim}  Expected:  ${address}${C.reset}`);
+    console.log(`  ${C.dim}Check your passphrase and try again.${C.reset}\n`);
+    return;
+  }
 
   const confirm = await question(rl, `  ${C.yellow}Confirm stake? [y/N]${C.reset} > ${C.reset}`);
   if (!confirm.trim().toLowerCase().startsWith('y')) {
@@ -893,6 +894,30 @@ async function transferWallet(rl) {
   console.log(`  ${C.green}★${C.reset} To:        ${C.bright}${recipient}${C.reset}`);
   console.log(`  ${C.green}★${C.reset} Amount:    ${C.bright}${amount} AETH${C.reset} (${lamports} lamports)`);
   console.log();
+
+  // Ask for mnemonic to derive signing keypair
+  console.log(`${C.yellow}  ⚠ Signing requires your wallet passphrase.${C.reset}`);
+  const mnemonic = await askMnemonic(rl, 'Enter your 12/24-word passphrase to sign this transaction');
+  console.log();
+
+  let keyPair;
+  try {
+    keyPair = deriveKeypair(mnemonic, DERIVATION_PATH);
+  } catch (e) {
+    console.log(`  ${C.red}✗ Failed to derive keypair: ${e.message}${C.reset}`);
+    console.log(`  ${C.dim}Check your passphrase and try again.${C.reset}\n`);
+    return;
+  }
+
+  // Verify the derived address matches the wallet
+  const derivedAddress = formatAddress(keyPair.publicKey);
+  if (derivedAddress !== address) {
+    console.log(`  ${C.red}✗ Passphrase mismatch.${C.reset}`);
+    console.log(`  ${C.dim}  Derived:   ${derivedAddress}${C.reset}`);
+    console.log(`  ${C.dim}  Expected:  ${address}${C.reset}`);
+    console.log(`  ${C.dim}Check your passphrase and try again.${C.reset}\n`);
+    return;
+  }
 
   const confirm = await question(rl, `  ${C.yellow}Confirm transfer? [y/N]${C.reset} > ${C.reset}`);
   if (!confirm.trim().toLowerCase().startsWith('y')) {
