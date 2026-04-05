@@ -200,6 +200,89 @@ impl TowerBFT {
         self.finalized_slots.contains(&slot)
     }
 
+    /// Handle chain reorganization
+    ///
+    /// When a longer/forked chain is received, this method:
+    /// 1. Identifies the fork point (last common ancestor)
+    /// 2. Rolls back votes after the fork point
+    /// 3. Processes the new chain's blocks and votes
+    /// 4. Re-evaluates finality
+    ///
+    /// # Arguments
+    /// * `fork_slot` - The slot where the fork occurs (last common ancestor)
+    /// * `new_chain` - Vector of (block_hash, producer) pairs for the new chain
+    ///
+    /// # Returns
+    /// * `Ok(())` if reorganization successful
+    /// * `Err(ConsensusError)` if reorganization fails
+    pub fn reorganize_chain(
+        &mut self,
+        fork_slot: u64,
+        new_chain: &[(Hash, [u8; 32])],
+    ) -> Result<(), ConsensusError> {
+        // Validate fork slot is not already finalized
+        if self.is_finalized(fork_slot) {
+            return Err(ConsensusError::SlotTooOld);
+        }
+
+        // Remove all votes and finalized slots after the fork point
+        self.rollback_to_slot(fork_slot);
+
+        // Process each block in the new chain
+        for (idx, (block_hash, producer)) in new_chain.iter().enumerate() {
+            let slot = fork_slot + 1 + idx as u64;
+            let vote = Vote {
+                validator: *producer,
+                slot,
+                block_hash: *block_hash,
+                signature: [0u8; 64],
+                timestamp: 0, // Would use actual timestamp in production
+            };
+            self.submit_vote(vote)?;
+        }
+
+        // Re-evaluate finality with the new chain
+        self.check_finality();
+
+        Ok(())
+    }
+
+    /// Rollback all state to a given slot
+    fn rollback_to_slot(&mut self, slot: u64) {
+        // Remove votes for slots after the fork point
+        for (_, votes) in self.votes.iter_mut() {
+            votes.retain(|vote| vote.slot <= slot);
+        }
+
+        // Remove finalized slots after the fork point
+        while let Some(&last) = self.finalized_slots.back() {
+            if last > slot {
+                self.finalized_slots.pop_back();
+            } else {
+                break;
+            }
+        }
+
+        // Update last confirmed slot
+        self.last_confirmed_slot = self.last_confirmed_slot.min(slot);
+    }
+
+    /// Get the fork point between current chain and a new chain
+    ///
+    /// Returns the last common slot between the current chain and a proposed new chain.
+    /// This is used to determine where to rollback during reorganization.
+    pub fn find_fork_point(&self, new_chain_hashes: &[Hash]) -> Option<u64> {
+        // Simplified: assumes we can match by slot number
+        // In production, would compare actual block hashes
+        for (idx, _) in new_chain_hashes.iter().enumerate() {
+            let slot = idx as u64;
+            if !self.finalized_slots.contains(&slot) {
+                return Some(slot.saturating_sub(1));
+            }
+        }
+        None
+    }
+
     /// Get confirmation count for a slot (stake weight that voted for it)
     pub fn get_confirmation_weight(&self, slot: u64) -> f64 {
         let mut weight: f64 = 0.0;
@@ -281,6 +364,29 @@ impl HybridConsensus {
     pub fn last_confirmed_slot(&self) -> u64 {
         self.tower.last_confirmed()
     }
+
+    /// Handle chain reorganization for the hybrid consensus
+    ///
+    /// Wraps TowerBFT's reorganization logic and updates local state.
+    pub fn reorganize_chain(
+        &mut self,
+        fork_slot: u64,
+        new_chain: &[(Hash, [u8; 32])],
+    ) -> Result<(), ConsensusError> {
+        self.tower.reorganize_chain(fork_slot, new_chain)?;
+        
+        // Update local slot tracking to match the new chain tip
+        if let Some(last_block) = new_chain.last() {
+            self.last_block_hash = last_block.0;
+        }
+        
+        Ok(())
+    }
+
+    /// Find fork point with a new chain
+    pub fn find_fork_point(&self, new_chain_hashes: &[Hash]) -> Option<u64> {
+        self.tower.find_fork_point(new_chain_hashes)
+    }
 }
 
 /// Consensus errors
@@ -296,4 +402,146 @@ pub enum ConsensusError {
     SlotTooOld,
     #[error("Double vote detected")]
     DoubleVote,
+    #[error("Chain reorganization required: fork at slot {fork_slot}, new chain height {new_height}")]
+    ChainReorganizationRequired { fork_slot: u64, new_height: u64 },
+    #[error("Invalid block height: expected {expected}, got {actual}")]
+    InvalidBlockHeight { expected: u64, actual: u64 },
+    #[error("Parent hash mismatch")]
+    ParentHashMismatch,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_chain_reorganization_basic() {
+        let mut consensus = TowerBFT::new();
+        
+        // Setup: Create a fork point at slot 5
+        let fork_slot = 5u64;
+        
+        // Simulate new chain with 3 blocks after fork
+        let new_chain: Vec<(Hash, [u8; 32])> = (1..=3)
+            .map(|i| {
+                let mut hash = [0u8; 32];
+                hash[0] = i as u8;
+                let mut producer = [0u8; 32];
+                producer[0] = i as u8;
+                (hash, producer)
+            })
+            .collect();
+        
+        // Reorganize should succeed (no finalized slots yet)
+        let result = consensus.reorganize_chain(fork_slot, &new_chain);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_chain_reorganization_rejects_finalized_fork() {
+        let mut consensus = TowerBFT::new();
+        
+        // Manually finalize slot 10
+        consensus.finalized_slots.push_back(10);
+        consensus.last_confirmed_slot = 10;
+        
+        // Try to reorganize at slot 10 (already finalized)
+        let new_chain: Vec<(Hash, [u8; 32])> = vec![];
+        let result = consensus.reorganize_chain(10, &new_chain);
+        
+        // Should fail because slot 10 is finalized
+        assert!(result.is_err());
+        assert!(matches!(result, Err(ConsensusError::SlotTooOld)));
+    }
+
+    #[test]
+    fn test_rollback_removes_votes() {
+        let mut consensus = TowerBFT::new();
+        
+        // Add some votes at different slots
+        for slot in 1..=10 {
+            let vote = Vote {
+                validator: [slot as u8; 32],
+                slot,
+                block_hash: [slot as u8; 32],
+                signature: [0u8; 64],
+                timestamp: 0,
+            };
+            let _ = consensus.submit_vote(vote);
+        }
+        
+        // Verify votes exist
+        let total_votes_before: usize = consensus.votes.values().map(|v| v.len()).sum();
+        assert_eq!(total_votes_before, 10);
+        
+        // Rollback to slot 5
+        consensus.rollback_to_slot(5);
+        
+        // Verify only votes up to slot 5 remain
+        let total_votes_after: usize = consensus.votes.values().map(|v| v.len()).sum();
+        assert_eq!(total_votes_after, 5);
+        
+        // Verify no votes for slots > 5
+        for (_, votes) in &consensus.votes {
+            for vote in votes {
+                assert!(vote.slot <= 5);
+            }
+        }
+    }
+
+    #[test]
+    fn test_rollback_removes_finalized_slots() {
+        let mut consensus = TowerBFT::new();
+        
+        // Add finalized slots
+        for slot in 1..=10 {
+            consensus.finalized_slots.push_back(slot);
+        }
+        consensus.last_confirmed_slot = 10;
+        
+        // Rollback to slot 5
+        consensus.rollback_to_slot(5);
+        
+        // Verify only slots up to 5 remain finalized
+        assert_eq!(consensus.finalized_slots.len(), 5);
+        assert_eq!(consensus.last_confirmed_slot, 5);
+        
+        for &slot in &consensus.finalized_slots {
+            assert!(slot <= 5);
+        }
+    }
+
+    #[test]
+    fn test_find_fork_point() {
+        let mut consensus = TowerBFT::new();
+        
+        // Finalize slots 1-5
+        for slot in 1..=5 {
+            consensus.finalized_slots.push_back(slot);
+        }
+        
+        // New chain that diverges at slot 6
+        let new_chain: Vec<Hash> = (1..=10).map(|i| [i as u8; 32]).collect();
+        
+        // Fork point should be at slot 5 (last finalized)
+        let fork_point = consensus.find_fork_point(&new_chain);
+        assert_eq!(fork_point, Some(5));
+    }
+
+    #[test]
+    fn test_hybrid_consensus_reorganization() {
+        let mut consensus = HybridConsensus::new();
+        
+        let fork_slot = 3u64;
+        let new_chain: Vec<(Hash, [u8; 32])> = vec![
+            ([1u8; 32], [1u8; 32]),
+            ([2u8; 32], [2u8; 32]),
+        ];
+        
+        let result = consensus.reorganize_chain(fork_slot, &new_chain);
+        assert!(result.is_ok());
+        
+        // Verify last block hash updated
+        assert_eq!(consensus.last_block_hash, [2u8; 32]);
+    }
 }
