@@ -332,6 +332,13 @@ const COMMANDS = {
       priceCommand();
     },
   },
+  ping: {
+    description: 'Ping RPC endpoint — measure latency, check node health — aether ping [--rpc <url>] [--count <n>] [--json]',
+    handler: () => {
+      const { pingCommand } = require('./commands/ping');
+      pingCommand();
+    },
+  },
   emergency: {
     description: 'Emergency response & network alerts — status, monitor, check, alert, failover, history',
     handler: () => {

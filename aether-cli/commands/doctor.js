@@ -556,7 +556,8 @@ function getFixCommand(check) {
       }
       const repoPath = path.join(workspaceRoot, 'Jelly-legs-unsteady-workshop');
       return `cd "${repoPath}" && cargo build --bin aether-validator --release`;
-      
+    }
+
     case 'Disk':
       // Can't auto-fix disk space, but can suggest cleanup
       if (platform === 'win32') {
