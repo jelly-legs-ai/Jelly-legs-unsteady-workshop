@@ -165,9 +165,11 @@ impl StakingPool {
             return Err(StakingError::StakeLocked);
         }
 
+        // Capture rewards BEFORE complete_withdrawal clears them
+        let rewards = stake.accumulated_rewards;
         let amount = stake.complete_withdrawal();
-        self.total_staked -= amount - stake.accumulated_rewards;
-        self.total_rewards -= stake.accumulated_rewards;
+        self.total_staked = self.total_staked.saturating_sub(amount.saturating_sub(rewards));
+        self.total_rewards = self.total_rewards.saturating_sub(rewards);
 
         Ok(amount)
     }
