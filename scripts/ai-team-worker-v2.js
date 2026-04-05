@@ -810,13 +810,16 @@ async function doPersistentWork(issue, config) {
       recentCommit = '(no recent commits available)';
     }
 
-    // Get chain status
-    let chainStatus = 'unknown';
-    try {
-      const slot = execSync(`curl.exe -s http://127.0.0.1:8899/v1/slot`, { encoding: 'utf8', timeout: 5000 });
-      chainStatus = `Slot ${slot.trim()}`;
-    } catch(e) {
-      chainStatus = 'validator not reachable';
+    // Get chain status — only for blockchain/CLI issues, not website
+    const isWebsiteIssue = issue.number === 114;
+    let chainStatus = 'N/A (website — no validator required)';
+    if (!isWebsiteIssue) {
+      try {
+        const slot = execSync(`curl.exe -s http://127.0.0.1:8899/v1/slot`, { encoding: 'utf8', timeout: 5000 });
+        chainStatus = `Slot ${slot.trim()}`;
+      } catch(e) {
+        chainStatus = 'validator not reachable';
+      }
     }
 
     // Post a detailed cycle update
