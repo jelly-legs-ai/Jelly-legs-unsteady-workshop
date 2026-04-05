@@ -1107,6 +1107,143 @@ async function txHistory(rl) {
 }
 
 // ---------------------------------------------------------------------------
+// STAKE POSITIONS
+// Query and display current stake positions/delegations for a wallet
+// ---------------------------------------------------------------------------
+
+async function stakePositions(rl) {
+  console.log(`\n${C.bright}${C.cyan}── Stake Positions ──────────────────────────────────────${C.reset}\n`);
+
+  const args = process.argv.slice(4);
+  let address = null;
+  let asJson = false;
+
+  const addrIdx = args.findIndex((a) => a === '--address' || a === '-a');
+  if (addrIdx !== -1 && args[addrIdx + 1]) {
+    address = args[addrIdx + 1];
+  }
+
+  asJson = args.includes('--json') || args.includes('-j');
+
+  if (!address) {
+    const cfg = loadConfig();
+    address = cfg.defaultWallet;
+  }
+
+  if (!address) {
+    console.log(`  ${C.red}✗ No wallet address specified and no default wallet set.${C.reset}`);
+    console.log(`  ${C.dim}Usage: aether wallet stake-positions --address <addr> [--json]${C.reset}\n`);
+    return;
+  }
+
+  const rpcUrl = getDefaultRpc();
+  const rawAddr = address.startsWith('ATH') ? address.slice(3) : address;
+
+  if (!asJson) {
+    console.log(`  ${C.green}★${C.reset} Address: ${C.bright}${address}${C.reset}`);
+    console.log(`  ${C.dim}  RPC: ${rpcUrl}${C.reset}`);
+    console.log();
+  }
+
+  try {
+    // Fetch stake accounts for this address
+    const res = await httpRequest(rpcUrl, `/v1/stake?address=${encodeURIComponent(rawAddr)}`);
+
+    let stakeAccounts = [];
+    if (res && !res.error) {
+      stakeAccounts = Array.isArray(res) ? res : (res.accounts || res.stake_accounts || []);
+    }
+
+    if (asJson) {
+      const out = {
+        address,
+        rpc: rpcUrl,
+        stake_accounts: stakeAccounts.map(acc => ({
+          stake_account: acc.pubkey || acc.publicKey || acc.account,
+          validator: acc.validator || acc.voter || acc.vote_account,
+          stake_lamports: acc.stake_lamports || acc.lamports || 0,
+          stake_aeth: (acc.stake_lamports || acc.lamports || 0) / 1e9,
+          status: acc.status || acc.state || 'unknown',
+          activation_epoch: acc.activation_epoch,
+          deactivation_epoch: acc.deactivation_epoch,
+          rewards_earned: acc.rewards_earned || 0,
+        })),
+        total_staked_lamports: stakeAccounts.reduce((sum, acc) => sum + (acc.stake_lamports || acc.lamports || 0), 0),
+        fetched_at: new Date().toISOString(),
+      };
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+
+    if (!stakeAccounts || stakeAccounts.length === 0) {
+      console.log(`  ${C.yellow}⚠ No active stake positions found.${C.reset}`);
+      console.log(`  ${C.dim}  This wallet has not delegated to any validators.${C.reset}`);
+      console.log(`  ${C.dim}  Stake AETH with: ${C.cyan}aether stake --validator <addr> --amount <aeth>${C.reset}\n`);
+      return;
+    }
+
+    let totalStaked = 0;
+    let activeCount = 0;
+    let deactivatingCount = 0;
+    let inactiveCount = 0;
+
+    console.log(`  ${C.bright}Stake Positions (${stakeAccounts.length})${C.reset}\n`);
+
+    const statusColors = {
+      active: C.green,
+      activating: C.cyan,
+      deactivating: C.yellow,
+      inactive: C.dim,
+    };
+
+    for (const acc of stakeAccounts) {
+      const stakeAcct = acc.pubkey || acc.publicKey || acc.account || 'unknown';
+      const validator = acc.validator || acc.voter || acc.vote_account || 'unknown';
+      const lamports = acc.stake_lamports || acc.lamports || 0;
+      const aeth = lamports / 1e9;
+      const status = (acc.status || acc.state || 'unknown').toLowerCase();
+      const rewards = acc.rewards_earned || 0;
+
+      totalStaked += lamports;
+
+      if (status === 'active') activeCount++;
+      else if (status === 'deactivating' || status === 'deactivated') deactivatingCount++;
+      else inactiveCount++;
+
+      const statusColor = statusColors[status] || C.reset;
+      const shortAcct = stakeAcct.length > 20 ? stakeAcct.slice(0, 8) + '…' + stakeAcct.slice(-8) : stakeAcct;
+      const shortVal = validator.length > 20 ? validator.slice(0, 8) + '…' + validator.slice(-8) : validator;
+
+      console.log(`  ${C.dim}┌─ ${C.bright}${statusColor}${status.toUpperCase()}${C.reset}`);
+      console.log(`  │  ${C.dim}Stake acct:${C.reset} ${shortAcct}`);
+      console.log(`  │  ${C.dim}Validator:${C.reset}  ${shortVal}`);
+      console.log(`  │  ${C.dim}Staked:${C.reset}    ${C.bright}${aeth.toFixed(4)} AETH${C.reset} (${lamports.toLocaleString()} lamports)`);
+      if (rewards > 0) {
+        console.log(`  │  ${C.dim}Rewards:${C.reset}   ${C.green}+${(rewards / 1e9).toFixed(4)} AETH${C.reset}`);
+      }
+      if (acc.activation_epoch !== undefined) {
+        console.log(`  │  ${C.dim}Activated:${C.reset} epoch ${acc.activation_epoch}`);
+      }
+      if (acc.deactivation_epoch !== undefined) {
+        console.log(`  │  ${C.dim}Deactivates:${C.reset} epoch ${acc.deactivation_epoch}`);
+      }
+      console.log(`  ${C.dim}└${C.reset}`);
+      console.log();
+    }
+
+    console.log(`  ${C.bright}Summary:${C.reset}`);
+    console.log(`  ${C.dim}  Total staked:${C.reset} ${C.bright}${(totalStaked / 1e9).toFixed(4)} AETH${C.reset} (${totalStaked.toLocaleString()} lamports)`);
+    console.log(`  ${C.green}  ● Active:${C.reset} ${activeCount}  ${C.yellow}● Deactivating:${C.reset} ${deactivatingCount}  ${C.dim}● Inactive:${C.reset} ${inactiveCount}`);
+    console.log();
+
+  } catch (err) {
+    console.log(`  ${C.red}✗ Failed to fetch stake positions:${C.reset} ${err.message}`);
+    console.log(`  ${C.dim}  Is your validator running? RPC: ${rpcUrl}${C.reset}`);
+    console.log(`  ${C.dim}  Set custom RPC: AETHER_RPC=https://your-rpc-url${C.reset}\n`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // UNSTAKE
 // Submit an Unstake transaction via POST /v1/tx to deactivate stake
 // ---------------------------------------------------------------------------
@@ -1298,6 +1435,8 @@ async function walletCommand() {
       await balanceWallet(rl);
     } else if (subcmd === 'stake') {
       await stakeWallet(rl);
+    } else if (subcmd === 'stake-positions') {
+      await stakePositions(rl);
     } else if (subcmd === 'unstake') {
       await unstakeWallet(rl);
     } else if (subcmd === 'transfer') {
@@ -1314,6 +1453,7 @@ async function walletCommand() {
       console.log(`    ${C.cyan}aether wallet connect${C.reset}  Connect wallet via browser verification`);
       console.log(`    ${C.cyan}aether wallet balance${C.reset}  Query chain balance for an address`);
       console.log(`    ${C.cyan}aether wallet stake${C.reset}     Stake AETH to a validator`);
+      console.log(`    ${C.cyan}aether wallet stake-positions${C.reset} Show current stake delegations and rewards`);
       console.log(`    ${C.cyan}aether wallet unstake${C.reset}   Unstake AETH — deactivate a stake account`);
       console.log(`    ${C.cyan}aether wallet transfer${C.reset} Transfer AETH to another address`);
       console.log(`    ${C.cyan}aether wallet history${C.reset}  Show recent transactions for an address`);

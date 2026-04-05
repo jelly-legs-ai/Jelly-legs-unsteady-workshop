@@ -187,6 +187,16 @@ const COMMANDS = {
       process.argv = originalArgv;
     },
   },
+  'stake-positions': {
+    description: 'Show current stake positions/delegations — aether stake-positions --address <addr> [--json]',
+    handler: () => {
+      const { walletCommand } = require('./commands/wallet');
+      const originalArgv = process.argv;
+      process.argv = [...originalArgv.slice(0, 2), 'wallet', 'stake-positions', ...originalArgv.slice(3)];
+      walletCommand();
+      process.argv = originalArgv;
+    },
+  },
   unstake: {
     description: 'Unstake AETH — deactivate a stake account — aether unstake --account <stakeAcct> [--amount <aeth>]',
     handler: () => {
