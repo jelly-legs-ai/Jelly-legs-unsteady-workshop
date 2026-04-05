@@ -658,6 +658,9 @@ async function main() {
     case 'summary':
       await rewardsSummary(parsed);
       break;
+    case 'pending':
+      await rewardsPending(parsed);
+      break;
     case 'claim':
       await rewardsClaim(parsed);
       break;
@@ -665,6 +668,7 @@ async function main() {
       console.log(`\n${C.cyan}Usage:${C.reset}`);
       console.log(`  aether rewards list    --address <addr>  List all staking rewards`);
       console.log(`  aether rewards summary --address <addr>  One-line rewards summary`);
+      console.log(`  aether rewards pending --address <addr>  Show pending (unclaimed) rewards`);
       console.log(`  aether rewards claim   --address <addr>  [--account <stakeAcct>]  Claim rewards`);
       console.log();
       console.log(`  ${C.dim}--json   Output as JSON`);

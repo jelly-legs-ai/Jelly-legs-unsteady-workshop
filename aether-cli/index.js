@@ -292,7 +292,7 @@ const COMMANDS = {
     },
   },
   rewards: {
-    description: 'View staking rewards — aether rewards list --address <addr> | rewards summary | rewards claim',
+    description: 'View staking rewards — aether rewards list | rewards summary | rewards pending | rewards claim',
     handler: () => {
       rewardsCommand();
     },
