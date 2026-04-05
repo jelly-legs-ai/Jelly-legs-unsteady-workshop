@@ -96,6 +96,7 @@ function parseArgs() {
     asJson: false,
     sortBy: 'score',
     limit: 100,
+    rank: false,
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -126,6 +127,9 @@ function parseArgs() {
     } else if (arg === '--help' || arg === '-h') {
       showHelp();
       process.exit(0);
+    } else if (arg === '--rank') {
+      opts.rank = true;
+      opts.subcmd = 'rank';
     }
   }
 
@@ -138,11 +142,19 @@ ${C.bright}${C.cyan}aether-cli validators${C.reset} - List and inspect Aether va
 
 ${C.bright}Usage:${C.reset}
   aether validators list [options]
+  aether validators rank [options]        Ranked leaderboard (sorted by stake)
 
-${C.bright}Options:${C.reset}
+${C.bright}Options (list):${C.reset}
   -t, --tier <type>   Filter by tier: full, lite, observer
-  -s, --sort <field>  Sort by: stake (default), score, apy, uptime, name
+  -s, --sort <field>  Sort by: stake, score, apy, uptime, name (default: score)
   -l, --limit <n>     Max validators to show (default: 100, max: 500)
+  -r, --rpc <url>     RPC endpoint (default: ${DEFAULT_RPC} or $AETHER_RPC)
+  -j, --json          Output raw JSON (for scripting)
+  -h, --help          Show this help message
+
+${C.bright}Options (rank):${C.reset}
+  -t, --tier <type>   Filter by tier: full, lite, observer
+  -l, --limit <n>     Max validators to show (default: 50, max: 200)
   -r, --rpc <url>     RPC endpoint (default: ${DEFAULT_RPC} or $AETHER_RPC)
   -j, --json          Output raw JSON (for scripting)
   -h, --help          Show this help message
@@ -153,6 +165,9 @@ ${C.bright}Examples:${C.reset}
   aether validators list --sort stake      # Sort by total stake
   aether validators list --sort apy        # Sort by estimated APY
   aether validators list --json           # JSON for scripts
+  aether validators rank                  # Top validators by stake (leaderboard)
+  aether validators rank --tier full       # Full validators only
+  aether validators rank --limit 20       # Top 20 validators
   aether validators list --rpc http://custom-rpc:8899
 `.trim());
 }
