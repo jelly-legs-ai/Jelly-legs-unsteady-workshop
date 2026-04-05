@@ -334,11 +334,32 @@ impl HybridConsensus {
 
     /// Process a new block (called when receiving/producing a block)
     pub fn process_block(&mut self, block: &Block, producer: &[u8; 32]) -> Result<(), ConsensusError> {
-        // Verify PoH sequence
-        // For now, trust the block's PoH seed if block has transactions
+        // Verify PoH sequence - CONSENSUS CRITICAL
+        // This must be verified for ALL blocks to maintain proof-of-history guarantees
         if !block.transactions.is_empty() {
-            // Would verify: verify_poh_sequence(...)
-            // For MVP, skip verification
+            // Verify the PoH sequence from the previous block hash to the current poh_hash
+            // The number of hashes should correspond to the time elapsed since the last block
+            // For now, we verify that the poh_hash is a valid SHA-256 chain from prev_hash
+            let poh_valid = verify_poh_sequence(
+                &self.last_block_hash,
+                block.header.height.saturating_sub(self.slot),
+                &block.header.poh_hash,
+            );
+            
+            if !poh_valid {
+                return Err(ConsensusError::InvalidPoh);
+            }
+        } else {
+            // Empty blocks still need PoH verification
+            let poh_valid = verify_poh_sequence(
+                &self.last_block_hash,
+                block.header.height.saturating_sub(self.slot),
+                &block.header.poh_hash,
+            );
+            
+            if !poh_valid {
+                return Err(ConsensusError::InvalidPoh);
+            }
         }
 
         // Run Tower BFT
