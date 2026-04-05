@@ -97,7 +97,7 @@ impl TowerConsensus {
 
     /// Update confirmation counts for all votes
     fn update_confirmations(&mut self) {
-        for (validator, state) in &mut self.validator_votes {
+        for (_validator, state) in &mut self.validator_votes {
             for i in 0..state.votes.len() {
                 let slot = state.votes[i].slot;
                 

@@ -119,7 +119,7 @@ impl ValidatorNode {
     /// Produce a block as leader
     fn produce_block(
         &self,
-        slot: u64,
+        _slot: u64,
     ) -> ConsensusResult<SlotOutcome> {
         let mut consensus = self.consensus.write().map_err(|_| {
             ConsensusError::TowerError("Consensus lock poisoned".to_string())

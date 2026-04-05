@@ -225,7 +225,7 @@ impl LeaderSchedule {
         let mut leaders = Vec::with_capacity(num_slots as usize);
         let mut rng_seed = hash_seed(epoch, &stake_pool);
 
-        for slot in 0..num_slots {
+        for _slot in 0..num_slots {
             // Use stake-weighted selection
             let leader = select_weighted_leader(
                 &weighted_producers,
@@ -300,7 +300,7 @@ fn select_weighted_leader(
 /// Calculate rewards for an epoch
 pub fn calculate_epoch_rewards(
     epoch: u64,
-    total_stake: u64,
+    _total_stake: u64,
     base_emission: u64,
 ) -> u64 {
     // Simple inflation schedule

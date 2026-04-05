@@ -3,9 +3,8 @@
 //! Implements staking logic for AETH tokens with lock periods,
 //! reward distribution, and slashing conditions.
 
-use aether_common::{MINIMUM_STAKE_AETH, MINIMUM_AI_STAKE_AETH, STAKE_LOCK_EPOCHS};
+use aether_common::{MINIMUM_STAKE_AETH, STAKE_LOCK_EPOCHS};
 use serde::{Deserialize, Serialize};
-use sha2::{Sha256, Digest};
 
 /// Stake entry with lock period
 #[derive(Debug, Clone, Serialize, Deserialize)]
