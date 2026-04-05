@@ -18,6 +18,7 @@ const { walletCommand } = require('./commands/wallet');
 const { networkCommand } = require('./commands/network');
 const { validatorsListCommand } = require('./commands/validators');
 const { delegationsCommand } = require('./commands/delegations');
+const { rewardsCommand } = require('./commands/rewards');
 const readline = require('readline');
 
 // CLI version
@@ -256,6 +257,12 @@ const COMMANDS = {
     description: 'List/claim stake delegations — aether delegations list --address <addr>',
     handler: () => {
       delegationsCommand();
+    },
+  },
+  rewards: {
+    description: 'View staking rewards — aether rewards list --address <addr> | rewards summary | rewards claim',
+    handler: () => {
+      rewardsCommand();
     },
   },
   snapshot: {
