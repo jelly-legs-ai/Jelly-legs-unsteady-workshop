@@ -208,6 +208,16 @@ const COMMANDS = {
       process.argv = originalArgv;
     },
   },
+  export: {
+    description: 'Export wallet data — aether export --address <addr> [--mnemonic] [--json]',
+    handler: () => {
+      const { walletCommand } = require('./commands/wallet');
+      const originalArgv = process.argv;
+      process.argv = [...originalArgv.slice(0, 2), 'wallet', 'export', ...originalArgv.slice(3)];
+      walletCommand();
+      process.argv = originalArgv;
+    },
+  },
   transfer: {
     description: 'Transfer AETH to another address — aether transfer --to <addr> --amount <aeth>',
     handler: () => {

@@ -1107,6 +1107,100 @@ async function txHistory(rl) {
 }
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// EXPORT WALLET
+// Export wallet data for backup — public data by default, mnemonic with --mnemonic flag
+// ---------------------------------------------------------------------------
+
+async function exportWallet(rl) {
+  console.log(`\n${C.bright}${C.cyan}── Wallet Export ─────────────────────────────────────────${C.reset}\n`);
+
+  const args = process.argv.slice(4);
+  let address = null;
+  let asJson = false;
+  let includeMnemonic = false;
+
+  const addrIdx = args.findIndex((a) => a === '--address' || a === '-a');
+  if (addrIdx !== -1 && args[addrIdx + 1]) {
+    address = args[addrIdx + 1];
+  }
+
+  asJson = args.includes('--json') || args.includes('-j');
+  includeMnemonic = args.includes('--mnemonic') || args.includes('-m');
+
+  if (!address) {
+    const cfg = loadConfig();
+    address = cfg.defaultWallet;
+  }
+
+  if (!address) {
+    console.log(`  ${C.red}✗ No wallet address specified and no default wallet set.${C.reset}`);
+    console.log(`  ${C.dim}Usage: aether wallet export --address <addr> [--mnemonic] [--json]${C.reset}\n`);
+    return;
+  }
+
+  const walletData = loadWallet(address);
+  if (!walletData) {
+    console.log(`  ${C.red}✗ Wallet not found:${C.reset} ${address}`);
+    console.log(`  ${C.dim}  Available wallets: ${C.cyan}aether wallet list${C.reset}\n`);
+    return;
+  }
+
+  const exportData = {
+    version: walletData.version || 1,
+    address: walletData.address,
+    public_key: walletData.public_key,
+    derivation_path: walletData.derivation_path,
+    created_at: walletData.created_at,
+    source: 'aether-cli',
+  };
+
+  // Mnemonic export requires interactive confirmation for security
+  if (includeMnemonic) {
+    console.log(`  ${C.yellow}⚠ WARNING: You are about to export your SECRET MNEMONIC.${C.reset}`);
+    console.log(`  ${C.dim}  Anyone with this phrase can access your funds.${C.reset}\n`);
+    const confirmed = await question(rl, `  Type ${C.bright}EXPORT${C.reset} to confirm: `);
+    if (confirmed.trim().toUpperCase() !== 'EXPORT') {
+      console.log(`\n  ${C.dim}Aborted. Mnemonic not exported.${C.reset}\n`);
+      return;
+    }
+    console.log(`  ${C.green}✓ Confirmed${C.reset}\n`);
+
+    // Re-derive mnemonic from keypair is NOT possible — we must ask for it
+    console.log(`  ${C.dim}The CLI cannot retrieve your mnemonic from the stored keypair.${C.reset}`);
+    console.log(`  ${C.dim}If you have a backup of your mnemonic, enter it below to include it.${C.reset}`);
+    console.log(`  ${C.dim}Otherwise, press Enter to export public data only.${C.reset}\n`);
+    const mnemonicInput = await question(rl, `  ${C.cyan}Mnemonic (or Enter to skip):${C.reset} `);
+    const mnemonic = mnemonicInput.trim();
+    if (mnemonic && bip39.validateMnemonic(mnemonic)) {
+      exportData.mnemonic = mnemonic;
+    } else if (mnemonic) {
+      console.log(`  ${C.red}✗ Invalid mnemonic phrase. Skipping.${C.reset}`);
+    }
+  }
+
+  if (asJson) {
+    console.log(JSON.stringify(exportData, null, 2));
+    return;
+  }
+
+  // Human-readable output
+  console.log(`  ${C.green}★${C.reset} Wallet exported successfully\n`);
+  console.log(`  ${C.dim}Address:${C.reset}        ${exportData.address}`);
+  console.log(`  ${C.dim}Public key:${C.reset}     ${exportData.public_key}`);
+  console.log(`  ${C.dim}Derivation path:${C.reset} ${exportData.derivation_path}`);
+  console.log(`  ${C.dim}Created:${C.reset}        ${exportData.created_at ? new Date(exportData.created_at).toLocaleString() : 'unknown'}`);
+  if (exportData.mnemonic) {
+    console.log();
+    console.log(`  ${C.yellow}★ MNEMONIC (keep this secret!):${C.reset}`);
+    console.log(`  ${C.bright}${exportData.mnemonic}${C.reset}`);
+  }
+  console.log();
+  console.log(`  ${C.dim}Export saved to stdout in JSON format with:${C.reset}`);
+  console.log(`    ${C.cyan}aether wallet export --address ${address} --json${C.reset}`);
+  console.log();
+}
+
 // STAKE POSITIONS
 // Query and display current stake positions/delegations for a wallet
 // ---------------------------------------------------------------------------
@@ -1437,6 +1531,8 @@ async function walletCommand() {
       await stakeWallet(rl);
     } else if (subcmd === 'stake-positions') {
       await stakePositions(rl);
+    } else if (subcmd === 'export') {
+      await exportWallet(rl);
     } else if (subcmd === 'unstake') {
       await unstakeWallet(rl);
     } else if (subcmd === 'transfer') {
@@ -1449,6 +1545,7 @@ async function walletCommand() {
       console.log(`    ${C.cyan}aether wallet create${C.reset}   Create new or import wallet`);
       console.log(`    ${C.cyan}aether wallet list${C.reset}     List all wallets`);
       console.log(`    ${C.cyan}aether wallet import${C.reset}   Import wallet from mnemonic`);
+      console.log(`    ${C.cyan}aether wallet export${C.reset}     Export wallet data (pubkey, address) — --mnemonic to include phrase`);
       console.log(`    ${C.cyan}aether wallet default${C.reset}  Show/set default wallet`);
       console.log(`    ${C.cyan}aether wallet connect${C.reset}  Connect wallet via browser verification`);
       console.log(`    ${C.cyan}aether wallet balance${C.reset}  Query chain balance for an address`);
