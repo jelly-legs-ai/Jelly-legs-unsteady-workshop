@@ -4,7 +4,7 @@
 
 use crate::state_db::StateDB;
 use aether_core::{AetherTransaction, Address, ExecutionResult, TransactionPayload};
-use ed25519_dalek::{Signature, Verifier};
+use ed25519_dalek::{Signature, VerifyingKey};
 use sha2::{Digest, Sha256};
 
 pub struct Executor {
@@ -54,16 +54,15 @@ impl Executor {
         let message = self.transaction_message(tx);
         
         // Parse the public key from the signer field.
-        let public_key = ed25519_dalek::PublicKey::from_bytes(&tx.signer)
+        let verifying_key = VerifyingKey::from_bytes(&tx.signer)
             .map_err(|e| format!("Invalid signer public key: {}", e))?;
         
         // Parse the signature. The signature must be a valid 64-byte Ed25519 signature.
-        let signature = Signature::from_bytes(&tx.signature)
-            .map_err(|e| format!("Invalid signature encoding: {}", e))?;
+        let signature = Signature::from_bytes(&tx.signature);
         
         // Ed25519 verification: the message must have been signed by the private
         // key corresponding to the provided public key.
-        public_key.verify(&message, &signature)
+        verifying_key.verify_strict(&message, &signature)
             .map_err(|_| "Ed25519 signature verification failed".to_string())
     }
 
@@ -154,7 +153,7 @@ fn decode_address(s: &str) -> [u8; 32] {
     addr
 }
 
-/// Serialize a TransactionPayload to canonical bytes for hashing.
+/// Get the canonical name string for a transaction type.
 fn tx_type_name(tx_type: &aether_core::TransactionType) -> &'static str {
     match tx_type {
         aether_core::TransactionType::Transfer => "transfer",
@@ -167,6 +166,9 @@ fn tx_type_name(tx_type: &aether_core::TransactionType) -> &'static str {
         aether_core::TransactionType::UpdateMetadata => "update_metadata",
     }
 }
+
+/// Serialize a TransactionPayload to canonical bytes for hashing.
+fn payload_bytes(payload: &TransactionPayload) -> Vec<u8> {
     match payload {
         TransactionPayload::Transfer { recipient, amount, nonce } => {
             let mut b = Vec::new();
