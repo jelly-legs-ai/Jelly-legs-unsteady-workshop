@@ -19,6 +19,7 @@ const { networkCommand } = require('./commands/network');
 const { validatorsListCommand } = require('./commands/validators');
 const { delegationsCommand } = require('./commands/delegations');
 const { rewardsCommand } = require('./commands/rewards');
+const { emergencyCommand } = require('./commands/emergency');
 const readline = require('readline');
 
 // CLI version
@@ -186,6 +187,16 @@ const COMMANDS = {
       process.argv = originalArgv;
     },
   },
+  unstake: {
+    description: 'Unstake AETH — deactivate a stake account — aether unstake --account <stakeAcct> [--amount <aeth>]',
+    handler: () => {
+      const { walletCommand } = require('./commands/wallet');
+      const originalArgv = process.argv;
+      process.argv = [...originalArgv.slice(0, 2), 'wallet', 'unstake', ...originalArgv.slice(3)];
+      walletCommand();
+      process.argv = originalArgv;
+    },
+  },
   transfer: {
     description: 'Transfer AETH to another address — aether transfer --to <addr> --amount <aeth>',
     handler: () => {
@@ -276,6 +287,13 @@ const COMMANDS = {
     description: 'List active validators — aether validators list [--tier full|lite|observer] [--json]',
     handler: () => {
       validatorsListCommand();
+    },
+  },
+  emergency: {
+    description: 'Emergency response & network alerts — status, monitor, check, alert, failover, history',
+    handler: () => {
+      const { emergencyCommand } = require('./commands/emergency');
+      emergencyCommand();
     },
   },
   help: {

@@ -1107,6 +1107,171 @@ async function txHistory(rl) {
 }
 
 // ---------------------------------------------------------------------------
+// UNSTAKE
+// Submit an Unstake transaction via POST /v1/tx to deactivate stake
+// ---------------------------------------------------------------------------
+
+async function unstakeWallet(rl) {
+  console.log(`\n${C.bright}${C.cyan}── Unstake AETH ──────────────────────────────────────────${C.reset}\n`);
+
+  const args = process.argv.slice(4);
+  let address = null;
+  let stakeAccount = null;
+  let amountStr = null;
+
+  for (let i = 0; i < args.length; i++) {
+    if ((args[i] === '--address' || args[i] === '-a') && args[i + 1]) {
+      address = args[i + 1];
+    }
+    if ((args[i] === '--account' || args[i] === '-s') && args[i + 1]) {
+      stakeAccount = args[i + 1];
+    }
+    if ((args[i] === '--amount' || args[i] === '-m') && args[i + 1]) {
+      amountStr = args[i + 1];
+    }
+  }
+
+  if (!address) {
+    const cfg = loadConfig();
+    address = cfg.defaultWallet;
+  }
+
+  if (!address) {
+    console.log(`  ${C.red}✗ No wallet address.${C.reset} Use ${C.cyan}--address <addr>${C.reset} or set a default.`);
+    console.log(`  ${C.dim}Usage: aether unstake --account <stakeAcct> [--amount <aeth>] [--address <addr>]${C.reset}\n`);
+    return;
+  }
+
+  const wallet = loadWallet(address);
+  if (!wallet) {
+    console.log(`  ${C.red}✗ Wallet not found:${C.reset} ${address}\n`);
+    return;
+  }
+
+  // Resolve stake account: --account flag, or query chain for first active stake
+  if (!stakeAccount) {
+    const rpcUrl = getDefaultRpc();
+    const rawAddr = address.startsWith('ATH') ? address.slice(3) : address;
+
+    let stakeAccounts = [];
+    try {
+      const res = await httpRequest(rpcUrl, `/v1/stake?address=${encodeURIComponent(rawAddr)}`);
+      if (res && !res.error) {
+        stakeAccounts = Array.isArray(res) ? res : (res.accounts || []);
+      }
+    } catch { /* no stake accounts */ }
+
+    if (stakeAccounts.length === 0) {
+      console.log(`  ${C.red}✗ No active stake accounts found for this wallet.${C.reset}`);
+      console.log(`  ${C.dim}Use ${C.cyan}--account <stakeAcct>${C.reset} ${C.dim}to specify a stake account.${C.reset}`);
+      console.log(`  ${C.dim}Check delegations: aether delegations list --address ${address}${C.reset}\n`);
+      return;
+    }
+
+    // Default to first active stake account
+    const active = stakeAccounts.find(s => !s.deactivation_epoch && (s.status === 'active' || s.state === 'active'));
+    stakeAccount = active
+      ? (active.pubkey || active.publicKey || active.account)
+      : (stakeAccounts[0].pubkey || stakeAccounts[0].publicKey || stakeAccounts[0].account);
+
+    console.log(`  ${C.cyan}Using stake account:${C.reset} ${C.bright}${stakeAccount}${C.reset}`);
+    console.log(`  ${C.dim}(override with ${C.cyan}--account <stakeAcct>${C.reset}${C.dim})${C.reset}\n`);
+  }
+
+  // Resolve amount: --amount flag, or prompt if partial unstake supported
+  // If no amount provided, unstake entire stake
+  let lamports = null;
+  if (amountStr) {
+    const amount = parseFloat(amountStr);
+    if (isNaN(amount) || amount <= 0) {
+      console.log(`  ${C.red}✗ Invalid amount:${C.reset} ${amountStr}\n`);
+      return;
+    }
+    lamports = Math.round(amount * 1e9);
+  }
+
+  console.log(`  ${C.green}★${C.reset} Wallet:       ${C.bright}${address}${C.reset}`);
+  console.log(`  ${C.green}★${C.reset} Stake acct: ${C.bright}${stakeAccount}${C.reset}`);
+  if (lamports !== null) {
+    console.log(`  ${C.green}★${C.reset} Amount:     ${C.bright}${(lamports / 1e9).toFixed(4)} AETH${C.reset} (${lamports} lamports)`);
+  } else {
+    console.log(`  ${C.green}★${C.reset} Amount:     ${C.bright}FULL STAKE${C.reset}`);
+  }
+  console.log();
+
+  // Ask for mnemonic to derive signing keypair
+  console.log(`${C.yellow}  ⚠ Signing requires your wallet passphrase.${C.reset}`);
+  const mnemonic = await askMnemonic(rl, 'Enter your 12/24-word passphrase to sign this transaction');
+  console.log();
+
+  let keyPair;
+  try {
+    keyPair = deriveKeypair(mnemonic, DERIVATION_PATH);
+  } catch (e) {
+    console.log(`  ${C.red}✗ Failed to derive keypair: ${e.message}${C.reset}`);
+    console.log(`  ${C.dim}Check your passphrase and try again.${C.reset}\n`);
+    return;
+  }
+
+  // Verify the derived address matches the wallet
+  const derivedAddress = formatAddress(keyPair.publicKey);
+  if (derivedAddress !== address) {
+    console.log(`  ${C.red}✗ Passphrase mismatch.${C.reset}`);
+    console.log(`  ${C.dim}  Derived:   ${derivedAddress}${C.reset}`);
+    console.log(`  ${C.dim}  Expected:  ${address}${C.reset}\n`);
+    return;
+  }
+
+  const confirm = await question(rl, `  ${C.yellow}Confirm unstake? [y/N]${C.reset} > ${C.reset}`);
+  if (!confirm.trim().toLowerCase().startsWith('y')) {
+    console.log(`  ${C.dim}Cancelled.${C.reset}\n`);
+    return;
+  }
+
+  // Build the unstake transaction
+  const txData = {
+    type: 'Unstake',
+    data: {
+      stake_account: stakeAccount,
+    },
+  };
+  if (lamports !== null) {
+    txData.data.amount = lamports;
+  }
+
+  const tx = {
+    signer: address.startsWith('ATH') ? address.slice(3) : address,
+    tx_type: 'Unstake',
+    payload: txData,
+    fee: 0,
+    slot: 0,
+    timestamp: Math.floor(Date.now() / 1000),
+  };
+
+  const rpcUrl = getDefaultRpc();
+  console.log(`  ${C.dim}Submitting to ${rpcUrl}...${C.reset}`);
+
+  try {
+    const result = await httpPost(rpcUrl, '/v1/tx', tx);
+
+    if (result.error) {
+      console.log(`\n  ${C.red}✗ Unstake failed:${C.reset} ${result.error}\n`);
+      process.exit(1);
+    }
+
+    const sig = result.signature || result.tx_signature || result.id || JSON.stringify(result);
+    console.log(`\n${C.green}✓ Unstake transaction submitted!${C.reset}`);
+    console.log(`  ${C.dim}Signature:${C.reset} ${sig}`);
+    console.log(`  ${C.dim}Stake will deactivate over the next epoch.${C.reset}`);
+    console.log(`  ${C.dim}Check status: aether delegations list --address ${address}${C.reset}\n`);
+  } catch (err) {
+    console.log(`  ${C.red}✗ Failed to submit transaction:${C.reset} ${err.message}`);
+    console.log(`  ${C.dim}Is your validator running? RPC: ${rpcUrl}${C.reset}\n`);
+    process.exit(1);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main dispatcher
 // ---------------------------------------------------------------------------
 
@@ -1133,6 +1298,8 @@ async function walletCommand() {
       await balanceWallet(rl);
     } else if (subcmd === 'stake') {
       await stakeWallet(rl);
+    } else if (subcmd === 'unstake') {
+      await unstakeWallet(rl);
     } else if (subcmd === 'transfer') {
       await transferWallet(rl);
     } else if (subcmd === 'history' || subcmd === 'tx') {
@@ -1147,6 +1314,7 @@ async function walletCommand() {
       console.log(`    ${C.cyan}aether wallet connect${C.reset}  Connect wallet via browser verification`);
       console.log(`    ${C.cyan}aether wallet balance${C.reset}  Query chain balance for an address`);
       console.log(`    ${C.cyan}aether wallet stake${C.reset}     Stake AETH to a validator`);
+      console.log(`    ${C.cyan}aether wallet unstake${C.reset}   Unstake AETH — deactivate a stake account`);
       console.log(`    ${C.cyan}aether wallet transfer${C.reset} Transfer AETH to another address`);
       console.log(`    ${C.cyan}aether wallet history${C.reset}  Show recent transactions for an address`);
       console.log();
