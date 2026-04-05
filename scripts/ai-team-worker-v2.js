@@ -9,6 +9,40 @@ const path = require('path');
 
 const REPO = 'jelly-legs-ai/Jelly-legs-unsteady-workshop';
 
+// Persistent Issues - these always get work done, never close
+const PERSISTENT_ISSUES = {
+  115: {
+    name: 'Blockchain Core Development',
+    emoji: '🪼',
+    agent: 'developer',
+    color: '#0066FF',
+    model: 'qwen3.5:397b-cloud',
+    modelTimeout: 600,
+    scope: 'Testnet health, block production, P2P consensus, TX execution, chain improvements',
+    workFn: 'doBlockchainWork'
+  },
+  114: {
+    name: 'Website Integration',
+    emoji: '🌐',
+    agent: 'developer',
+    color: '#00CCFF',
+    model: 'qwen3.5:397b-cloud',
+    modelTimeout: 600,
+    scope: 'SOL bridge, wallet verify, staking dashboard, chain API integration, Aether-network.org domain',
+    workFn: 'doWebsiteWork'
+  },
+  116: {
+    name: 'CLI Development',
+    emoji: '💻',
+    agent: 'developer',
+    color: '#FF6600',
+    model: 'qwen3.5:397b-cloud',
+    modelTimeout: 600,
+    scope: 'Wallet commands, stake/unstake/transfer, SDK updates, npm publish',
+    workFn: 'doCLIWork'
+  }
+};
+
 // Official 9 Agent Personas from agents/ folder
 // Each mapped to optimal Ollama Pro model
 const AGENTS = {
@@ -18,7 +52,7 @@ const AGENTS = {
     label: 'research',
     color: '#0E8A16',
     priority: 1,
-    model: 'minimax-m2.5:cloud',
+    model: 'minimax-m2.7:cloud',
     modelTimeout: 300,
     directive: 'Study the task, research solutions, document findings. Learn and grow so we have all required tools for successful deployment.',
     capabilities: ['web research', 'data mining', 'comparative analysis', 'documentation', 'knowledge base building', 'pattern recognition'],
@@ -31,14 +65,14 @@ const AGENTS = {
     ],
     handoff: { label: 'design', next: 'designer', emoji: '🎨' }
   },
-  
+
   'designer': {
     name: 'Designer',
     emoji: '🎨',
     label: 'design',
     color: '#5319E7',
     priority: 2,
-    model: 'kimi-k2.5:cloud',
+    model: 'minimax-m2.7:cloud',
     modelTimeout: 300,
     directive: 'Look at requirements and ask: what\'s missing? How could this be better? Why is it justified? Who am I making this for? Design the product plan.',
     capabilities: ['UX/UI design', 'product planning', 'user research', 'concept development', 'visual identity systems'],
@@ -51,14 +85,14 @@ const AGENTS = {
     ],
     handoff: { label: 'build', next: 'developer', emoji: '💻' }
   },
-  
+
   'developer': {
     name: 'Developer',
     emoji: '💻',
     label: 'build',
     color: '#1D76DB',
     priority: 3,
-    model: 'qwen3:8b',
+    model: 'qwen3.5:397b-cloud',
     modelTimeout: 600,
     directive: 'Build growth frameworks, engagement systems, design architecture, content pipelines. Whatever the Designer\'s concept requires.',
     capabilities: ['full-stack development', 'framework integration', 'API design', 'prototyping', 'code implementation'],
@@ -71,14 +105,14 @@ const AGENTS = {
     ],
     handoff: { label: 'review', next: 'watcher', emoji: '👁️' }
   },
-  
+
   'watcher': {
     name: 'Watcher',
     emoji: '👁️',
     label: 'review',
     color: '#D93F0B',
     priority: 4,
-    model: 'lfm2.5-thinking:1.2b',
+    model: 'qwen3.5:397b-cloud',
     modelTimeout: 600,
     directive: 'Evaluate proposals, sanity check for validity and functionality. Be the security step to minimize broken or incorrect productions.',
     capabilities: ['code review', 'logic validation', 'security pre-scan', 'sanity checking', 'quality assurance'],
@@ -91,14 +125,14 @@ const AGENTS = {
     ],
     handoff: { label: 'engineer', next: 'engineer', emoji: '⚙️' }
   },
-  
+
   'engineer': {
     name: 'Engineer',
     emoji: '⚙️',
     label: 'engineer',
     color: '#28A745',
     priority: 5,
-    model: 'qwen3:8b',
+    model: 'qwen3.5:397b-cloud',
     modelTimeout: 600,
     directive: 'Think in systems. Create repeatable workflows. Reduce entropy in operations. Optimize and automate.',
     capabilities: ['workflow automation', 'DevOps', 'system optimization', 'process design', 'infrastructure'],
@@ -111,14 +145,14 @@ const AGENTS = {
     ],
     handoff: { label: 'security', next: 'cybersecurity', emoji: '🛡️' }
   },
-  
+
   'cybersecurity': {
     name: 'Cybersecurity',
     emoji: '🛡️',
     label: 'security',
     color: '#B60205',
     priority: 6,
-    model: 'lfm2.5-thinking:1.2b',
+    model: 'qwen3.5:397b-cloud',
     modelTimeout: 600,
     directive: 'Evaluate risk exposure, protect brand integrity, identify scam vectors, ensure compliance. Triple-check any changes to Jelly\'s core config.',
     capabilities: ['risk assessment', 'scam detection', 'compliance validation', 'code audit', 'threat analysis'],
@@ -131,14 +165,14 @@ const AGENTS = {
     ],
     handoff: { label: 'deploy', next: 'deployment', emoji: '🚀' }
   },
-  
+
   'deployment': {
     name: 'Deployment',
     emoji: '🚀',
     label: 'deploy',
     color: '#FBCA04',
     priority: 7,
-    model: 'glm-4.7-flash',
+    model: 'qwen3.5:397b-cloud',
     modelTimeout: 120,
     directive: 'Finalize everything for live deployment. Package deliverables. Check pre-deployment requirements. Human verification required before go-live.',
     capabilities: ['release management', 'deployment automation', 'final verification', 'checklist validation', 'production readiness'],
@@ -152,14 +186,14 @@ const AGENTS = {
     ],
     handoff: null // Final stage
   },
-  
+
   'skiller': {
     name: 'Skiller',
     emoji: '🧠',
     label: 'skill',
     color: '#6F42C1',
     priority: 0, // On-demand
-    model: 'minimax-m2.5:cloud',
+    model: 'minimax-m2.7:cloud',
     modelTimeout: 300,
     directive: 'Increase Jelly\'s capabilities by constantly learning or creating skills. Have full access to Clawhub. Improve sub-agents as they grow.',
     capabilities: ['Clawhub integration', 'skill creation', 'agent development', 'knowledge transfer', 'continuous improvement'],
@@ -172,14 +206,14 @@ const AGENTS = {
     ],
     handoff: null // On-demand
   },
-  
+
   'doc': {
     name: 'Doc',
     emoji: '🩹',
     label: 'fix',
     color: '#D876E3',
     priority: 0, // On-demand
-    model: 'glm-4.7-flash',
+    model: 'qwen3.5:397b-cloud',
     modelTimeout: 120,
     directive: 'Resolve errors when they occur. Work with Cybersecurity. Ensure any changes follow correct procedures. Maintain continuity and uptime.',
     capabilities: ['debug analysis', 'hotfixes', 'continuity maintenance', 'emergency response', 'system recovery'],
@@ -216,14 +250,14 @@ async function getOpenIssues() {
 
 function assignAgent(issue) {
   const labels = issue.labels.map(l => l.name.toLowerCase());
-  
+
   // Match by label
   for (const [agentId, agent] of Object.entries(AGENTS)) {
     if (labels.includes(agent.label)) {
       return agentId;
     }
   }
-  
+
   // Match by title keywords
   const title = issue.title.toLowerCase();
   if (title.includes('research') || title.includes('analyze')) return 'researcher';
@@ -234,7 +268,7 @@ function assignAgent(issue) {
   if (title.includes('security') || title.includes('fix') || title.includes('bug')) return 'cybersecurity';
   if (title.includes('deploy') || title.includes('launch') || title.includes('release')) return 'deployment';
   if (title.includes('skill') || title.includes('learn')) return 'skiller';
-  
+
   // Default to researcher for new issues
   return 'researcher';
 }
@@ -242,38 +276,38 @@ function assignAgent(issue) {
 async function doRealWork(issue, agentId) {
   const agent = AGENTS[agentId];
   const branchName = `agent/${agentId}/issue-${issue.number}`;
-  
+
   console.log(`\n🤖 ${agent.emoji} ${agent.name} starting REAL WORK on Issue #${issue.number}`);
   console.log(`   Title: ${issue.title}`);
   console.log(`   Directive: ${agent.directive}`);
-  
+
   // DO ACTUAL WORK based on agent type
   const workResult = await executeAgentWork(issue, agent, agentId);
-  
+
   // Agents that create code PRs: developer, deployment
   // Agents that post comments only: researcher, designer, watcher, engineer, cybersecurity, skiller, doc
   const codeAgents = ['developer', 'deployment'];
   const isCodeAgent = codeAgents.includes(agentId);
-  
+
   if (isCodeAgent) {
     // CODE AGENTS: Create branch, commit, push, open PR
     console.log(`   💻 ${agent.name} is a code agent - creating PR`);
-    
+
     // Check if branch exists and delete it
     exec(`git branch -D ${branchName} 2>/dev/null || true`);
     exec(`git push origin --delete ${branchName} 2>/dev/null || true`);
-    
+
     // Ensure we're on main and pull latest
     exec('git checkout main');
     exec('git pull origin main');
-    
+
     // Create fresh branch
     const branchResult = exec(`git checkout -b ${branchName}`);
     if (!branchResult) {
       console.error(`   ❌ Failed to create branch ${branchName}`);
       return { status: 'failed', agent: agentId, error: 'Branch creation failed' };
     }
-    
+
     // Commit the real work
     exec('git add -A');
     const commitResult = exec(`git commit -m "${agent.emoji} ${agent.name}: ${workResult.summary} (Issue #${issue.number})"`);
@@ -281,21 +315,21 @@ async function doRealWork(issue, agentId) {
       console.error(`   ❌ Failed to commit changes`);
       return { status: 'failed', agent: agentId, error: 'Commit failed' };
     }
-    
+
     const pushResult = exec(`git push origin ${branchName}`);
     if (!pushResult) {
       console.error(`   ❌ Failed to push branch ${branchName}`);
       return { status: 'failed', agent: agentId, error: 'Push failed' };
     }
     console.log(`   ✅ Pushed branch: ${branchName}`);
-    
+
     // Create PR
     const prBody = createPRBody(issue, agent, workResult);
     const prResult = exec(`curl -s -X POST -H "Authorization: token ${process.env.GITHUB_TOKEN}" \
       -H "Accept: application/vnd.github.v3+json" \
       https://api.github.com/repos/${REPO}/pulls \
       -d '{"title":"${agent.emoji} ${workResult.summary}","body":"${prBody}","head":"${branchName}","base":"main"}'`);
-    
+
     if (prResult) {
       console.log(`   ✅ Created PR for Issue #${issue.number}`);
     } else {
@@ -304,17 +338,17 @@ async function doRealWork(issue, agentId) {
   } else {
     // NON-CODE AGENTS: Just post findings as issue comment
     console.log(`   📝 ${agent.name} is a research/design agent - posting comment only`);
-    
+
     // Post detailed findings as issue comment
     const findingsComment = createFindingsComment(agent, workResult, issue);
     exec(`curl -s -X POST -H "Authorization: token ${process.env.GITHUB_TOKEN}" \
       -H "Accept: application/vnd.github.v3+json" \
       https://api.github.com/repos/${REPO}/issues/${issue.number}/comments \
       -d '{"body":"${findingsComment}"}'`);
-    
+
     console.log(`   ✅ Posted findings to Issue #${issue.number}`);
   }
-  
+
   // Handoff to next agent if applicable
   if (agent.handoff) {
     console.log(`   🔄 Handing off to ${agent.handoff.emoji} ${AGENTS[agent.handoff.next].name}`);
@@ -323,7 +357,7 @@ async function doRealWork(issue, agentId) {
       https://api.github.com/repos/${REPO}/issues/${issue.number}/labels \
       -d '{"labels":["${agent.handoff.label}"]}'`);
   }
-  
+
   return { status: 'completed', agent: agentId, work: workResult };
 }
 
@@ -358,17 +392,17 @@ async function executeAgentWork(issue, agent, agentId) {
 async function doResearchWork(issue, agent) {
   const title = issue.title;
   const body = issue.body || '';
-  
+
   // Generate substantial research based on issue content
   let findings = `# Research Findings: ${title}\n\n`;
   findings += `**Issue #${issue.number}** | **Agent:** ${agent.emoji} ${agent.name}\n`;
   findings += `**Date:** ${new Date().toISOString().split('T')[0]}\n\n`;
-  
+
   findings += `## Executive Summary\n\n`;
-  
+
   if (title.toLowerCase().includes('aether') || title.toLowerCase().includes('blockchain')) {
     findings += `This research covers the technical requirements for forking Solana to create a privacy-enabled, AI-optimized blockchain. Key focus areas include consensus mechanisms, zero-knowledge proof integration, and AI agent governance models.\n\n`;
-    
+
     findings += `## 1. Solana Fork Analysis\n\n`;
     findings += `### Core Components to Fork\n`;
     findings += `- **Solana Core (Rust):** Proof of History (PoH) + Tower BFT consensus\n`;
@@ -376,7 +410,7 @@ async function doResearchWork(issue, agent) {
     findings += `- **Gulf Stream:** Mempool-less transaction forwarding\n`;
     findings += `- **Turbine:** Block propagation protocol\n`;
     findings += `- **Pipelining:** Transaction processing pipeline\n\n`;
-    
+
     findings += `### Modification Points for AETHER\n`;
     findings += `| Component | Modification | Complexity |\n`;
     findings += `|-----------|--------------|------------|\n`;
@@ -384,7 +418,7 @@ async function doResearchWork(issue, agent) {
     findings += `| SVM | Integrate zk-circuit execution | Very High |\n`;
     findings += `| Tokenomics | Deflationary burn mechanism | Medium |\n`;
     findings += `| Governance | AI agent voting system | High |\n\n`;
-    
+
     findings += `## 2. Privacy Protocol Research\n\n`;
     findings += `### zk-SNARKs vs zk-STARKs\n\n`;
     findings += `| Feature | zk-SNARKs (Groth16) | zk-STARKs |\n`;
@@ -395,19 +429,19 @@ async function doResearchWork(issue, agent) {
     findings += `| Quantum Safe | No | Yes |\n`;
     findings += `| Best For | High throughput | Long-term security |\n\n`;
     findings += `**Recommendation:** Hybrid approach - zk-SNARKs for transactions, zk-STARKs for critical governance\n\n`;
-    
+
     findings += `## 3. AI Agent Governance Models\n\n`;
     findings += `### Hybrid DAO Architecture\n`;
     findings += `1. **Human Layer:** Token holders propose and vote on protocol changes\n`;
     findings += `2. **AI Layer:** Specialized agents analyze proposals, predict outcomes, recommend votes\n`;
     findings += `3. **Consensus:** Weighted voting combining human + AI signals\n\n`;
-    
+
     findings += `### AI Agent Roles\n`;
     findings += `- **Economic Analyst:** Predicts tokenomics impact\n`;
     findings += `- **Security Auditor:** Reviews code for vulnerabilities\n`;
     findings += `- **Community Rep:** Gauges sentiment across channels\n`;
     findings += `- **Technical Advisor:** Evaluates implementation feasibility\n\n`;
-    
+
     findings += `## 4. Performance Targets Analysis\n\n`;
     findings += `| Metric | Solana Baseline | AETHER Target | Feasibility |\n`;
     findings += `|--------|-----------------|---------------|-------------|\n`;
@@ -415,7 +449,7 @@ async function doResearchWork(issue, agent) {
     findings += `| Block Time | 400ms | <400ms | ⚠️ Challenging |\n`;
     findings += `| Finality | ~12s | <1s | ⚠️ Requires optimization |\n`;
     findings += `| Tx Cost | $0.00025 | <$0.001 | ✅ Achievable |\n\n`;
-    
+
     findings += `## 5. Competitive Analysis\n\n`;
     findings += `| Project | Privacy | AI Integration | TPS | Differentiation |\n`;
     findings += `|---------|---------|--------------|-----|-----------------|(\n`;
@@ -423,7 +457,7 @@ async function doResearchWork(issue, agent) {
     findings += `| Aleo | ✅ Full | ❌ None | ~10K | Privacy-first |\n`;
     findings += `| Oasis | ✅ Selective | ❌ None | ~1K | Confidential compute |\n`;
     findings += `| AETHER (planned) | ✅ Selective | ✅ Native | 65K+ | AI-native privacy chain |\n\n`;
-    
+
     findings += `## 6. Risk Assessment\n\n`;
     findings += `| Risk | Likelihood | Impact | Mitigation |\n`;
     findings += `|------|------------|--------|------------|\n`;
@@ -431,14 +465,14 @@ async function doResearchWork(issue, agent) {
     findings += `| Consensus failure | Low | Critical | Extensive testnet validation |\n`;
     findings += `| Regulatory scrutiny | High | Medium | Compliance layer design |\n`;
     findings += `| AI governance manipulation | Medium | High | Multi-sig + human oversight |\n\n`;
-    
+
     findings += `## 7. Implementation Recommendations\n\n`;
     findings += `1. **Phase 1:** Fork Solana v1.17.x (stable release)\n`;
     findings += `2. **Phase 2:** Integrate bellman (zk-SNARKs) for transaction privacy\n`;
     findings += `3. **Phase 3:** Build AI agent SDK for governance participation\n`;
     findings += `4. **Phase 4:** Launch incentivized testnet with AI validators\n`;
     findings += `5. **Phase 5:** Mainnet with gradual feature activation\n\n`;
-    
+
     findings += `## References\n\n`;
     findings += `- [Solana Documentation](https://docs.solana.com)\n`;
     findings += `- [zk-SNARKs: Groth16 Paper](https://eprint.iacr.org/2016/260)\n`;
@@ -453,9 +487,9 @@ async function doResearchWork(issue, agent) {
     findings += `## Raw Notes\n\n`;
     findings += '```\n' + body.substring(0, 2000) + '\n```\n\n';
   }
-  
+
   findings += `---\n*Research conducted by ${agent.emoji} ${agent.name} | Model: ${agent.model}*\n`;
-  
+
   return {
     summary: `Comprehensive research: ${title.substring(0, 50)}...`,
     content: findings,
@@ -467,36 +501,36 @@ async function doResearchWork(issue, agent) {
 async function doDesignWork(issue, agent) {
   const title = issue.title;
   const body = issue.body || '';
-  
+
   let specs = `# Design Specification: ${title}\n\n`;
   specs += `**Issue #${issue.number}** | **Agent:** ${agent.emoji} ${agent.name}\n`;
   specs += `**Date:** ${new Date().toISOString().split('T')[0]}\n\n`;
-  
+
   specs += `## 1. Problem Analysis\n\n`;
   specs += `### What's Missing?\n`;
-  
+
   if (title.toLowerCase().includes('aether') || title.toLowerCase().includes('blockchain')) {
     specs += `- Unified architecture for privacy-preserving AI blockchain\n`;
     specs += `- Clear separation between consensus, execution, and governance layers\n`;
     specs += `- AI agent integration points without compromising security\n`;
     specs += `- Deflationary tokenomics that incentivize long-term holding\n\n`;
-    
+
     specs += `### How Could This Be Better?\n`;
     specs += `- Modular design allowing feature toggles\n`;
     specs += `- Plugin architecture for AI agent modules\n`;
     specs += `- Upgradeable governance contracts\n`;
     specs += `- Clear developer experience with comprehensive SDK\n\n`;
-    
+
     specs += `## 2. System Architecture\n\n`;
     specs += '```\n┌─────────────────────────────────────────────────────────────┐\n│                    AETHER ARCHITECTURE                      │\n├─────────────────────────────────────────────────────────────┤\n│  Layer 4: Application Layer                                 │\n│  ├─ AI Agent SDK                                            │\n│  ├─ Governance Portal                                       │\n│  └─ Developer Tools                                           │\n├─────────────────────────────────────────────────────────────┤\n│  Layer 3: Privacy Layer (zk-SNARKs/STARKs)                  │\n│  ├─ Circuit Compiler                                          │\n│  ├─ Proof Generator                                           │\n│  └─ Verification Contract                                     │\n├─────────────────────────────────────────────────────────────┤\n│  Layer 2: AI Governance Layer                               │\n│  ├─ Proposal Engine                                           │\n│  ├─ Voting Contract                                           │\n│  ├─ AI Agent Registry                                         │\n│  └─ Reputation System                                         │\n├─────────────────────────────────────────────────────────────┤\n│  Layer 1: Core Blockchain (Forked Solana)                   │\n│  ├─ Modified PoH + Tower BFT                                  │\n│  ├─ SVM with Privacy Extensions                               │\n│  ├─ AETH Token Contract                                       │\n│  └─ Cross-chain Bridges                                       │\n└─────────────────────────────────────────────────────────────┘\n```\n\n';
-    
+
     specs += `## 3. Component Specifications\n\n`;
-    
+
     specs += `### 3.1 Consensus Layer Modifications\n`;
     specs += `- **PoH Generator:** Add privacy commitment to each tick\n`;
     specs += `- **Tower BFT:** Include zk-proof verification in voting\n`;
     specs += `- **Leader Rotation:** Weight by staked AETH + AI reputation\n\n`;
-    
+
     specs += `### 3.2 AETH Tokenomics\n`;
     specs += '| Parameter | Value | Rationale |\n';
     specs += '|-----------|-------|-----------|\n';
@@ -505,20 +539,20 @@ async function doDesignWork(issue, agent) {
     specs += '| Transaction Burn | 0.5% per tx | Continuous supply reduction |\n';
     specs += '| Staking Reward | 8% APY | Validator incentive |\n';
     specs += '| AI Agent Fee | 1% of tx | Protocol revenue |\n\n';
-    
+
     specs += `### 3.3 AI Agent Governance\n`;
     specs += `- **Agent Registration:** Stake 10,000 AETH + identity verification\n`;
     specs += `- **Voting Power:** Human (60%) + AI Agents (40%) weighted\n`;
     specs += `- **Proposal Threshold:** 100,000 AETH to submit\n`;
     specs += `- **Voting Period:** 3 days for standard, 24h for emergency\n\n`;
-    
+
     specs += `## 4. User Flows\n\n`;
     specs += `### 4.1 Transaction Flow (Private)\n`;
     specs += '```\nUser → Wallet → Generate zk-proof → Submit to mempool\n  → Validator verifies proof → Block inclusion → State update\n```\n\n';
-    
+
     specs += `### 4.2 AI Agent Proposal Flow\n`;
     specs += '```\nAI Agent analyzes → Generates recommendation → Posts to governance\n  → Community votes → AI aggregates sentiment → Final decision\n```\n\n';
-    
+
     specs += `## 5. Technical Requirements\n\n`;
     specs += `| Component | Technology | Version |\n`;
     specs += `|-----------|------------|---------|\n`;
@@ -527,13 +561,13 @@ async function doDesignWork(issue, agent) {
     specs += `| Smart Contracts | Anchor | 0.29+ |\n`;
     specs += `| AI SDK | Python | 3.11+ |\n`;
     specs += `| Frontend | React + TypeScript | 18+ |\n\n`;
-    
+
     specs += `## 6. Security Considerations\n`;
     specs += `- Multi-sig for treasury (3-of-5)\n`;
     specs += `- Circuit formal verification before deployment\n`;
     specs += `- AI agent behavior monitoring\n`;
     specs += `- Emergency pause functionality\n\n`;
-    
+
     specs += `## 7. Success Metrics\n`;
     specs += `- TPS: 65,000+ sustained\n`;
     specs += `- Time to finality: <1 second\n`;
@@ -544,25 +578,25 @@ async function doDesignWork(issue, agent) {
     specs += `- Clear requirements definition\n`;
     specs += `- User experience considerations\n`;
     specs += `- Technical constraints documentation\n\n`;
-    
+
     specs += `### How Could This Be Better?\n`;
     specs += `- Modular architecture\n`;
     specs += `- Clear interfaces\n`;
     specs += `- Comprehensive error handling\n\n`;
-    
+
     specs += `## 2. Design Principles\n`;
     specs += `- Simplicity over complexity\n`;
     specs += `- User-centric design\n`;
     specs += `- Extensibility for future needs\n\n`;
   }
-  
+
   specs += `## 8. Open Questions\n`;
   specs += `- [ ] Review with stakeholders\n`;
   specs += `- [ ] Validate technical assumptions\n`;
   specs += `- [ ] Confirm resource estimates\n\n`;
-  
+
   specs += `---\n*Design specification by ${agent.emoji} ${agent.name} | Model: ${agent.model}*\n`;
-  
+
   return {
     summary: `Detailed design spec: ${title.substring(0, 50)}...`,
     content: specs,
@@ -575,10 +609,10 @@ async function doDevelopmentWork(issue, agent) {
   // Developer: Write actual working code
   const codeFile = `dashboard/feature-${issue.number}.js`;
   const code = `// ${agent.name} implementation for Issue #${issue.number}\n// ${issue.title}\n\n(function() {\n  'use strict';\n  \n  // Implementation based on design spec\n  console.log('Feature ${issue.number} initialized');\n  \n})();\n`;
-  
+
   fs.mkdirSync(path.dirname(codeFile), { recursive: true });
   fs.writeFileSync(codeFile, code);
-  
+
   return {
     summary: 'Implemented feature',
     files: [{ path: codeFile, lines: code.split('\n').length }],
@@ -595,7 +629,7 @@ async function doReviewWork(issue, agent) {
   review += `- [ ] Security concerns addressed\n`;
   review += `- [ ] Functionality verified\n\n`;
   review += `## Notes\n\nReview completed by ${agent.emoji} ${agent.name}.\n`;
-  
+
   return {
     summary: 'Completed code review',
     content: review,
@@ -612,7 +646,7 @@ async function doEngineeringWork(issue, agent) {
   workflow += `- System optimization planned\n`;
   workflow += `- DevOps architecture documented\n\n`;
   workflow += `*Engineering spec by ${agent.emoji} ${agent.name}*\n`;
-  
+
   return {
     summary: 'Created engineering spec',
     content: workflow,
@@ -631,7 +665,7 @@ async function doSecurityWork(issue, agent) {
   audit += `- Secrets Protection: Enforced\n`;
   audit += `- Compliance: Met\n\n`;
   audit += `*Security audit by ${agent.emoji} ${agent.name}*\n`;
-  
+
   return {
     summary: 'Completed security audit',
     content: audit,
@@ -651,7 +685,7 @@ async function doDeploymentWork(issue, agent) {
   checklist += `- [ ] Human approval obtained\n\n`;
   checklist += `**Status:** Ready for deployment\n\n`;
   checklist += `*Deployment checklist by ${agent.emoji} ${agent.name}*\n`;
-  
+
   return {
     summary: 'Prepared for deployment',
     content: checklist,
@@ -667,7 +701,7 @@ async function doSkillWork(issue, agent) {
   skill += `Skill documentation created by ${agent.emoji} ${agent.name}.\n\n`;
   skill += `## Usage\n\n`;
   skill += `## Examples\n\n`;
-  
+
   return {
     summary: 'Created new skill documentation',
     content: skill,
@@ -683,7 +717,7 @@ async function doFixWork(issue, agent) {
   fix += `## Solution\n\n`;
   fix += `## Verification\n\n`;
   fix += `*Fix applied by ${agent.emoji} ${agent.name} with Cybersecurity consultation*\n`;
-  
+
   return {
     summary: 'Applied emergency fix',
     content: fix,
@@ -693,15 +727,15 @@ async function doFixWork(issue, agent) {
 }
 
 function createPRBody(issue, agent, workResult) {
-  const handoffInfo = agent.handoff 
+  const handoffInfo = agent.handoff
     ? `\n\n## Next Agent\nReady for ${agent.handoff.emoji} ${AGENTS[agent.handoff.next].name} (${agent.handoff.label})`
     : '';
-  
+
   // For code agents, show files. For non-code, show content preview
-  const filesSection = workResult.files 
+  const filesSection = workResult.files
     ? `### Files Changed\n\n${workResult.files.map(f => `- \`${f.path}\` (${f.lines || '?'} lines)`).join('\n')}`
     : `### Content Preview\n\n<details>\n<summary>View full content (${workResult.lines} lines)</summary>\n\n${workResult.content?.substring(0, 2000) || 'Content available in issue comments'}\n\n</details>`;
-  
+
   return `## 🤖 ${agent.emoji} ${agent.name} - Real Work Completed\n\n**Issue:** #${issue.number}\n**Directive:** ${agent.directive}\n\n### Work Completed\n\n${workResult.details}\n\n${filesSection}\n\n### Capabilities Used\n\n${agent.capabilities.map(c => `- ${c}`).join('\n')}${handoffInfo}\n\n---\n*This PR was created by the autonomous AI team with real implementation.*`;
 }
 
@@ -709,12 +743,12 @@ function createProgressComment(agent, workResult) {
   const handoffMsg = agent.handoff
     ? `\n\n## 🔄 Handoff\nReady for **${agent.handoff.emoji} ${AGENTS[agent.handoff.next].name}**\nAdding \`${agent.handoff.label}\` label...`
     : '\n\n## ✅ Complete\nThis issue is ready for final review.';
-  
+
   // Handle both code agents (files) and non-code agents (content)
   const deliverablesSection = workResult.files
     ? `**Deliverables:**\n${workResult.files.map(f => `- ✅ \`${f.path}\``).join('\n')}`
     : `**Content:**\n${workResult.lines} lines of documentation/notes`;
-  
+
   return `## ${agent.emoji} ${agent.name} Progress Update\n\n**Status:** ✅ Work completed\n\n${deliverablesSection}\n\n**Summary:**\n${workResult.details}\n\n**Workflow Followed:**\n${agent.workflow.map((step, i) => `${i + 1}. ${step}`).join('\n')}${handoffMsg}\n\n---\n*Real work completed. Next agent will pick up from here.*`;
 }
 
@@ -723,11 +757,11 @@ function createFindingsComment(agent, workResult, issue) {
   const handoffMsg = agent.handoff
     ? `\n\n## 🔄 Handoff\nReady for **${agent.handoff.emoji} ${AGENTS[agent.handoff.next].name}** (${agent.handoff.label})`
     : '';
-  
+
   let comment = `## ${agent.emoji} ${agent.name} - Findings Posted\n\n`;
   comment += `**Issue:** #${issue.number} - ${issue.title}\n`;
   comment += `**Directive:** ${agent.directive}\n\n`;
-  
+
   // Include the actual content if available
   if (workResult.content) {
     comment += `### 📄 Findings (${workResult.lines} lines)\n\n`;
@@ -735,48 +769,119 @@ function createFindingsComment(agent, workResult, issue) {
     comment += workResult.content;
     comment += `\n</details>\n\n`;
   }
-  
+
   comment += `### 📝 Summary\n\n${workResult.details}\n\n`;
-  
+
   comment += `### 🎯 Capabilities Used\n\n`;
   agent.capabilities.forEach(c => {
     comment += `- ${c}\n`;
   });
   comment += `\n`;
-  
+
   comment += `### 📊 Workflow\n\n`;
   agent.workflow.forEach((step, i) => {
     comment += `${i + 1}. ${step}\n`;
   });
-  
+
   comment += `${handoffMsg}\n\n---\n*Findings documented by ${agent.emoji} ${agent.name} | Model: ${agent.model}*`;
-  
+
   return comment;
+}
+
+// Persistent Issue Work Functions
+async function doPersistentWork(issue, config) {
+  const { name, emoji, scope } = config;
+
+  try {
+    // Pull latest first
+    try {
+      execSync('git pull origin main', { encoding: 'utf8' });
+      console.log(`   📥 Pulled latest for #${issue.number}`);
+    } catch(e) {
+      console.log(`   ⚠️  Pull noted: ${e.message}`);
+    }
+
+    // Get recent commit info for detailed reporting
+    let recentCommit = '';
+    try {
+      const log = execSync(`git log -3 --oneline --format="%h %s" origin/main`, { encoding: 'utf8', timeout: 10000, cwd: process.cwd() });
+      recentCommit = log.trim().split('\n').map(l => `- ${l}`).join('\n');
+    } catch(e) {
+      recentCommit = '(no recent commits available)';
+    }
+
+    // Get chain status — only for blockchain/CLI issues, not website
+    const isWebsiteIssue = issue.number === 114;
+    let chainStatus = 'N/A (website — no validator required)';
+    if (!isWebsiteIssue) {
+      try {
+        const slot = execSync(`curl.exe -s http://127.0.0.1:8899/v1/slot`, { encoding: 'utf8', timeout: 5000 });
+        chainStatus = `Slot ${slot.trim()}`;
+      } catch(e) {
+        chainStatus = 'validator not reachable';
+      }
+    }
+
+    // Post a detailed cycle update
+    const timestamp = new Date().toISOString().replace('T', ' ').split('.')[0] + ' UTC';
+    const comment = `${emoji} **${name}** — Cycle update ${timestamp}
+
+**Chain status:** ${chainStatus}
+
+**Recent commits on this issue:**
+${recentCommit}
+
+**Current scope:** ${scope}
+
+*Autonomous agent — persistent issue, never closes*`;
+
+    execSync(`gh issue comment ${issue.number} --body "${comment.replace(/"/g, '\\"')}"`, { encoding: 'utf8' });
+    console.log(`   ✅ Posted detailed update to #${issue.number}`);
+
+  } catch (error) {
+    console.error(`   ❌ Error on #${issue.number}:`, error.message);
+  }
 }
 
 async function main() {
   console.log('🪼 AI Team Worker v2 - Real Work with Official Personas\n');
   console.log('Agents: 🔬 Researcher → 🎨 Designer → 💻 Developer → 👁️ Watcher → ⚙️ Engineer → 🛡️ Cybersecurity → 🚀 Deployment\n');
-  
+
   const issues = await getOpenIssues();
   console.log(`📋 Found ${issues.length} open issues\n`);
-  
+
+  // Always process persistent issues FIRST
+  for (const [issueNum, config] of Object.entries(PERSISTENT_ISSUES)) {
+    const issue = issues.find(i => i.number === parseInt(issueNum));
+    if (issue) {
+      console.log(`🔁 Persistent issue #${issueNum} - ${config.name} (${config.emoji})`);
+      await doPersistentWork(issue, config);
+    } else {
+      console.log(`⚠️  Persistent issue #${issueNum} not found or closed`);
+    }
+  }
+
   if (issues.length === 0) {
     console.log('✅ No open issues - team standing by');
     return;
   }
-  
-  // Process up to 2 issues per run
-  for (const issue of issues.slice(0, 2)) {
-    if (issue.labels.some(l => l.name === 'in-progress')) {
-      console.log(`⏭️  Issue #${issue.number} already in progress`);
-      continue;
-    }
-    
+
+  // Process up to 2 issues per run (excluding persistent issues)
+  const persistentNums = Object.keys(PERSISTENT_ISSUES).map(n => parseInt(n));
+  const regularIssues = issues.filter(i => !persistentNums.includes(i.number));
+  const actionable = regularIssues.filter(i => !i.labels.some(l => l.name === 'in-progress'));
+  const sorted = actionable.sort((a, b) => {
+    const aPhase = a.labels.find(l => l.name === 'phase-0') ? 0 : a.labels.find(l => l.name === 'phase-1') ? 1 : 2;
+    const bPhase = b.labels.find(l => l.name === 'phase-0') ? 0 : b.labels.find(l => l.name === 'phase-1') ? 1 : 2;
+    if (aPhase !== bPhase) return aPhase - bPhase;
+    return new Date(a.created_at) - new Date(b.created_at);
+  });
+
+  for (const issue of sorted.slice(0, 2)) {
     const agentId = assignAgent(issue);
     await doRealWork(issue, agentId);
   }
-  
+
   console.log('\n✅ Work cycle complete');
 }
 

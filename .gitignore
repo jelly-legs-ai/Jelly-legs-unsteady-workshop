@@ -53,3 +53,7 @@ temp/
 
 # OpenClaw
 .openclaw/workspace-state.json
+*.pid
+
+# Aether CLI commands (allow new command files)
+!aether-cli/commands/*.js

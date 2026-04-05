@@ -1,0 +1,287 @@
+/* Pixel Art Avatar Styles - Jelly-legs AI Team */
+/* Auto-generated - Do not edit manually */
+
+:root {
+    /* Agent Colors */
+    --jelly_legs_primary: #ff3333;
+    --jelly_legs_secondary: #ff6666;
+    --jelly_legs_accent: #ffffff;
+    --data_diver_primary: #3366ff;
+    --data_diver_secondary: #6699ff;
+    --data_diver_accent: #00ffff;
+    --pattern_seeker_primary: #9933ff;
+    --pattern_seeker_secondary: #b366ff;
+    --pattern_seeker_accent: #ffff00;
+    --sketch_bot_primary: #ff66cc;
+    --sketch_bot_secondary: #ff99dd;
+    --sketch_bot_accent: #33ff99;
+    --voice_weaver_primary: #ff9933;
+    --voice_weaver_secondary: #ffbb66;
+    --voice_weaver_accent: #ffffff;
+    --hook_maker_primary: #ffcc00;
+    --hook_maker_secondary: #ffdd44;
+    --hook_maker_accent: #ff6699;
+    --build_bot_primary: #33cc33;
+    --build_bot_secondary: #66dd66;
+    --build_bot_accent: #ffcc00;
+    --pipe_layer_primary: #33cccc;
+    --pipe_layer_secondary: #66dddd;
+    --pipe_layer_accent: #ff6633;
+    --code_crafter_primary: #66ff66;
+    --code_crafter_secondary: #99ff99;
+    --code_crafter_accent: #00ffff;
+    --shield_bot_primary: #999999;
+    --shield_bot_secondary: #bbbbbb;
+    --shield_bot_accent: #ff3333;
+    --map_maker_primary: #6666ff;
+    --map_maker_secondary: #9999ff;
+    --map_maker_accent: #ffcc00;
+    --launch_pad_primary: #ffcc00;
+    --launch_pad_secondary: #ffdd44;
+    --launch_pad_accent: #ff6633;
+    
+    /* Animation */
+    --idle-speed: 0.8s;
+    --pixel-scale: 2;
+}
+
+/* Base Avatar Styles */
+.agent-avatar {
+    width: 32px;
+    height: 32px;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    transform: scale(var(--pixel-scale));
+    transform-origin: top left;
+}
+
+.agent-avatar-container {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    transition: all 0.3s ease;
+}
+
+.agent-avatar-container:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+}
+
+.agent-avatar-container.active {
+    box-shadow: 0 0 0 2px var(--agent-color);
+}
+
+.agent-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: center;
+    white-space: nowrap;
+}
+
+.agent-role {
+    font-size: 10px;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+/* Size Variants */
+.agent-avatar.size-32 { --pixel-scale: 1; }
+.agent-avatar.size-64 { --pixel-scale: 2; }
+.agent-avatar.size-128 { --pixel-scale: 4; }
+
+/* Animation Keyframes */
+@keyframes idle-bob {
+    0%, 100% { transform: translateY(0) scale(var(--pixel-scale)); }
+    50% { transform: translateY(-2px) scale(var(--pixel-scale)); }
+}
+
+@keyframes idle-breathe {
+    0%, 100% { transform: scale(var(--pixel-scale)); }
+    50% { transform: scale(calc(var(--pixel-scale) * 1.02)); }
+}
+
+@keyframes idle-float {
+    0%, 100% { transform: translateY(0) rotate(0deg) scale(var(--pixel-scale)); }
+    25% { transform: translateY(-1px) rotate(0.5deg) scale(var(--pixel-scale)); }
+    75% { transform: translateY(-1px) rotate(-0.5deg) scale(var(--pixel-scale)); }
+}
+
+@keyframes idle-pulse {
+    0%, 100% { opacity: 1; filter: brightness(1); }
+    50% { opacity: 0.9; filter: brightness(1.1); }
+}
+
+@keyframes sprite-idle {
+    0% { background-position: 0 0; }
+    25% { background-position: -32px 0; }
+    50% { background-position: -64px 0; }
+    75% { background-position: -96px 0; }
+    100% { background-position: 0 0; }
+}
+
+/* Agent Animation Classes */
+
+/* Jelly-Legs - Marketing Commander */
+.agent-jelly-legs {
+    --agent-color: #ff3333;
+    animation: idle-bob 1.5s ease-in-out infinite;
+}
+
+.agent-jelly-legs .agent-avatar {
+    background-image: url('../avatars/spritesheets/jelly-legs_spritesheet.png');
+    background-size: 128px 32px;
+    animation: sprite-idle var(--idle-speed) steps(4) infinite;
+}
+
+/* Data-Diver - Research Lead */
+.agent-data-diver {
+    --agent-color: #3366ff;
+    animation: idle-bob 1.5s ease-in-out infinite;
+}
+
+.agent-data-diver .agent-avatar {
+    background-image: url('../avatars/spritesheets/data-diver_spritesheet.png');
+    background-size: 128px 32px;
+    animation: sprite-idle var(--idle-speed) steps(4) infinite;
+}
+
+/* Pattern-Seeker - Trend Analyst */
+.agent-pattern-seeker {
+    --agent-color: #9933ff;
+    animation: idle-pulse 1.5s ease-in-out infinite;
+}
+
+.agent-pattern-seeker .agent-avatar {
+    background-image: url('../avatars/spritesheets/pattern-seeker_spritesheet.png');
+    background-size: 128px 32px;
+    animation: sprite-idle var(--idle-speed) steps(4) infinite;
+}
+
+/* Sketch-Bot - Design Architect */
+.agent-sketch-bot {
+    --agent-color: #ff66cc;
+    animation: idle-pulse 1.5s ease-in-out infinite;
+}
+
+.agent-sketch-bot .agent-avatar {
+    background-image: url('../avatars/spritesheets/sketch-bot_spritesheet.png');
+    background-size: 128px 32px;
+    animation: sprite-idle var(--idle-speed) steps(4) infinite;
+}
+
+/* Voice-Weaver - Brand Voice */
+.agent-voice-weaver {
+    --agent-color: #ff9933;
+    animation: idle-pulse 1.5s ease-in-out infinite;
+}
+
+.agent-voice-weaver .agent-avatar {
+    background-image: url('../avatars/spritesheets/voice-weaver_spritesheet.png');
+    background-size: 128px 32px;
+    animation: sprite-idle var(--idle-speed) steps(4) infinite;
+}
+
+/* Hook-Maker - Viral Engineer */
+.agent-hook-maker {
+    --agent-color: #ffcc00;
+    animation: idle-float 1.5s ease-in-out infinite;
+}
+
+.agent-hook-maker .agent-avatar {
+    background-image: url('../avatars/spritesheets/hook-maker_spritesheet.png');
+    background-size: 128px 32px;
+    animation: sprite-idle var(--idle-speed) steps(4) infinite;
+}
+
+/* Build-Bot - System Developer */
+.agent-build-bot {
+    --agent-color: #33cc33;
+    animation: idle-breathe 1.5s ease-in-out infinite;
+}
+
+.agent-build-bot .agent-avatar {
+    background-image: url('../avatars/spritesheets/build-bot_spritesheet.png');
+    background-size: 128px 32px;
+    animation: sprite-idle var(--idle-speed) steps(4) infinite;
+}
+
+/* Pipe-Layer - Pipeline Engineer */
+.agent-pipe-layer {
+    --agent-color: #33cccc;
+    animation: idle-breathe 1.5s ease-in-out infinite;
+}
+
+.agent-pipe-layer .agent-avatar {
+    background-image: url('../avatars/spritesheets/pipe-layer_spritesheet.png');
+    background-size: 128px 32px;
+    animation: sprite-idle var(--idle-speed) steps(4) infinite;
+}
+
+/* Code-Crafter - Implementation */
+.agent-code-crafter {
+    --agent-color: #66ff66;
+    animation: idle-float 1.5s ease-in-out infinite;
+}
+
+.agent-code-crafter .agent-avatar {
+    background-image: url('../avatars/spritesheets/code-crafter_spritesheet.png');
+    background-size: 128px 32px;
+    animation: sprite-idle var(--idle-speed) steps(4) infinite;
+}
+
+/* Shield-Bot - Security Guard */
+.agent-shield-bot {
+    --agent-color: #999999;
+    animation: idle-breathe 1.5s ease-in-out infinite;
+}
+
+.agent-shield-bot .agent-avatar {
+    background-image: url('../avatars/spritesheets/shield-bot_spritesheet.png');
+    background-size: 128px 32px;
+    animation: sprite-idle var(--idle-speed) steps(4) infinite;
+}
+
+/* Map-Maker - Strategy Lead */
+.agent-map-maker {
+    --agent-color: #6666ff;
+    animation: idle-pulse 1.5s ease-in-out infinite;
+}
+
+.agent-map-maker .agent-avatar {
+    background-image: url('../avatars/spritesheets/map-maker_spritesheet.png');
+    background-size: 128px 32px;
+    animation: sprite-idle var(--idle-speed) steps(4) infinite;
+}
+
+/* Launch-Pad - Deployment Chief */
+.agent-launch-pad {
+    --agent-color: #ffcc00;
+    animation: idle-float 1.5s ease-in-out infinite;
+}
+
+.agent-launch-pad .agent-avatar {
+    background-image: url('../avatars/spritesheets/launch-pad_spritesheet.png');
+    background-size: 128px 32px;
+    animation: sprite-idle var(--idle-speed) steps(4) infinite;
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+    .agent-avatar,
+    [class^="agent-"] {
+        animation: none !important;
+    }
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+    .agent-avatar {
+        filter: contrast(1.5);
+    }
+}

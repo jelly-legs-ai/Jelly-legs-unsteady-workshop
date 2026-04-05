@@ -1,0 +1,17 @@
+Sprint Update - April 3, 2026 11:20 UTC
+
+Frontend (aether-site):
+- Added `action=history` endpoint to `/api/staking-v2` returning 30-day chart data points with totalStaked, rewardsEarned, and APY per day
+- Created new StakingHistory component (355 lines) with:
+  - Interactive chart showing staked amounts and rewards over time
+  - 7d/30d/90d timeframe selector
+  - Active positions list with pool details, lock status, pending rewards
+  - Auto-compound badge indicator
+  - Demo data fallback when API unavailable
+
+Backend (Jelly-legs-unsteady-workshop):
+- Reviewed FLUX token contract - comprehensive tokenomics with fee calculation, staking discounts, holder distribution, Gini coefficient
+- Reviewed staking_v2 API with multi-pool architecture (bronze/silver/gold/diamond tiers)
+- Reviewed tokens API for FLUX/ATH trading pairs
+
+Both repos are synced and pushed successfully.

@@ -1,0 +1,31 @@
+Sprint 83: Phase 0 — Build Testnet Runtime
+=========================================
+
+ISSUE: #110 — Phase 0: Build Testnet — Make the Chain Runnable
+
+Mission: Make aether-validator actually produce blocks and run as a real testnet node.
+
+Targets:
+- [ ] `aether-validator genesis` — CLI command to create genesis block
+- [ ] `aether-validator start` — Start producing blocks (even if 1-node first)
+- [ ] Genesis.toml — Properly formatted TOML config the validator can read
+- [ ] 2-node local network — Two validators that gossip and agree on slots
+- [ ] RPC endpoint — `get_block`, `get_slot`, `get_transaction` returning real chain data
+
+What we're building:
+- crates/aether-validator/src/genesis.rs — Genesis block creation CLI
+- crates/aether-validator/src/network.rs — P2P gossip and discovery
+- crates/aether-validator/src/block_producer.rs — Actual block production loop
+- crates/aether-validator/src/rpc_server.rs — HTTP RPC server with chain queries
+- genesis.toml — Genesis configuration file
+
+Stack: Rust, libp2p for P2P, tokio for async runtime
+All code goes in the aether-validator crate (already compiles cleanly)
+
+Backend (Jelly-legs-unsteady-workshop):
+- Create branch: agent/developer/issue-110
+- Implement genesis CLI, P2P networking, block production
+- Commit and open PR to main
+
+GitHub:
+- Push to: jelly-legs-ai/Jelly-legs-unsteady-workshop

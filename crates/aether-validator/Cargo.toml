@@ -1,0 +1,51 @@
+[package]
+name = "aether-validator"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "AETHER Validator - Node binary for participating in AETHER consensus"
+
+[dependencies]
+# Async runtime
+tokio = { workspace = true, features = ["full"] }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# CLI
+clap = { version = "4.4", features = ["derive", "env"] }
+
+# P2P Gossip (libp2p is only needed by consensus, not by Solana SDK)
+libp2p = { workspace = true }
+
+# Cryptography (for keypairs)
+bs58 = { workspace = true }
+rand = { workspace = true }
+sha2 = { workspace = true }
+ed25519-dalek = { workspace = true }
+
+# HTTP client for RPC
+reqwest = { workspace = true }
+
+# Aether core types
+aether-core = { path = "../aether-core" }
+
+[dev-dependencies]
+tempfile = "3.8"
+
+[[bin]]
+name = "aether-validator"
+path = "src/main.rs"

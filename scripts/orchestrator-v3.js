@@ -19,7 +19,7 @@ const AGENTS = {
   researcher: {
     name: 'Researcher',
     emoji: '🔬',
-    model: 'minimax-m2.5:cloud',
+    model: 'minimax-m2.7:cloud',
     thinking: 'medium',
     label: 'research',
     directive: 'Study the task, research solutions, document findings. Produce comprehensive research with data, analysis, and actionable insights.',
@@ -29,7 +29,7 @@ const AGENTS = {
   designer: {
     name: 'Designer', 
     emoji: '🎨',
-    model: 'kimi-k2.5:cloud',
+    model: 'minimax-m2.7:cloud',
     thinking: 'medium',
     label: 'design',
     directive: 'Look at requirements and ask: what\'s missing? How could this be better? Create detailed design specifications with architecture, user flows, and technical requirements.',
@@ -39,7 +39,7 @@ const AGENTS = {
   developer: {
     name: 'Developer',
     emoji: '💻', 
-    model: 'qwen3:8b',
+    model: 'qwen3.5:397b-cloud',
     thinking: 'medium',
     label: 'build',
     directive: 'Build working implementations. Write clean, functional code that solves the problem. Create actual working features, not placeholders.',
@@ -50,7 +50,7 @@ const AGENTS = {
   watcher: {
     name: 'Watcher',
     emoji: '👁️',
-    model: 'lfm2.5-thinking:1.2b', 
+    model: 'qwen3.5:397b-cloud', 
     thinking: 'high',
     label: 'review',
     directive: 'Evaluate proposals, sanity check for validity and functionality. Be thorough - catch errors, validate logic, ensure quality.',
@@ -60,7 +60,7 @@ const AGENTS = {
   engineer: {
     name: 'Engineer',
     emoji: '⚙️',
-    model: 'qwen3:8b',
+    model: 'qwen3.5:397b-cloud',
     thinking: 'medium',
     label: 'engineer',
     directive: 'Think in systems. Create repeatable workflows, automation, and infrastructure. Optimize for efficiency and reliability.',
@@ -70,7 +70,7 @@ const AGENTS = {
   cybersecurity: {
     name: 'Cybersecurity',
     emoji: '🛡️',
-    model: 'lfm2.5-thinking:1.2b',
+    model: 'qwen3.5:397b-cloud',
     thinking: 'high',
     label: 'security', 
     directive: 'Evaluate risk exposure, protect brand integrity, identify vulnerabilities. Be paranoid - assume attackers are smarter than you.',
@@ -80,7 +80,7 @@ const AGENTS = {
   deployment: {
     name: 'Deployment',
     emoji: '🚀',
-    model: 'glm-4.7-flash',
+    model: 'qwen3.5:397b-cloud',
     thinking: 'low',
     label: 'deploy',
     directive: 'Finalize everything for live deployment. Create checklists, verify requirements, ensure production readiness.',

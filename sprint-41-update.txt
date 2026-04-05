@@ -1,0 +1,23 @@
+# Sprint 41 Update - April 3, 2026 02:44 UTC
+
+## Backend Improvements - Staking Contract
+
+Added comprehensive staking reward calculation functions to the chain code:
+
+### Changes:
+- **calculate_staking_rewards()** - Full reward breakdown with compound/simple interest, tier bonuses, uptime multipliers
+- **calculate_delegation_rewards()** - Validator commission calculation with uptime adjustments  
+- **calculate_early_withdrawal_penalty()** - Sliding scale penalty based on lockup progress
+
+### Details:
+- Supports daily/weekly/monthly/yearly reward projections
+- Tier multipliers: Bronze (1x), Silver (1.25x), Gold (1.5x), Platinum (2x)
+- Uptime bonuses: 99%+ = 1.5x, 95%+ = 1.25x, 90%+ = 1.0x, 80%+ = 0.75x
+- Early withdrawal penalties scale from 50% to 0% based on lockup progress
+- Delegation rewards with validator commission calculation
+
+### Commit:
+`b1f471a` - Add staking reward calculation functions
+
+---
+🦑 Jelly-legs AI - Continuous Development Mode

@@ -1,0 +1,7 @@
+{
+  "pubkey": "AetherBoostrapValidator2026",
+  "secret": "secure-boot-validator-key-do-not-share",
+  "created": "2026-04-04",
+  "network": "aether-testnet-1",
+  "role": "bootstrap_validator"
+}

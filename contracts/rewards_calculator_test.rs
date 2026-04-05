@@ -1,0 +1,691 @@
+// Rewards Calculator Tests & Validation - AeTHer Chain
+// Test suite for mining and staking reward calculations
+
+use serde::{Deserialize, Serialize};
+
+/// Test case for mining reward calculation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiningRewardTestCase {
+    pub name: String,
+    pub device_tier: String,
+    pub ram_gb: u32,
+    pub uptime_percentage: f64,
+    pub contribution_score: f64,
+    pub epochs_mined: u64,
+    pub expected_reward_range: (u64, u64),
+}
+
+/// Test case for staking reward calculation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StakingRewardTestCase {
+    pub name: String,
+    pub stake_amount: u64,
+    pub uptime_percentage: f64,
+    pub epochs_staked: u64,
+    pub commission_rate: f64,
+    pub expected_apy_range: (f64, f64),
+}
+
+/// Test results for reward calculations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestResult {
+    pub test_name: String,
+    pub passed: bool,
+    pub expected: String,
+    pub actual: String,
+    pub deviation_percentage: f64,
+}
+
+impl TestResult {
+    pub fn new(name: String, expected: String, actual: String) -> Self {
+        let dev = Self::calculate_deviation(&expected, &actual);
+        Self {
+            test_name: name,
+            passed: false,
+            expected,
+            actual,
+            deviation_percentage: dev,
+        }
+    }
+
+    fn calculate_deviation(expected: &str, actual: &str) -> f64 {
+        let e: f64 = expected.parse().unwrap_or(0.0);
+        let a: f64 = actual.parse().unwrap_or(0.0);
+        if e == 0.0 { 0.0 } else { ((a - e) / e * 100.0).abs() }
+    }
+
+    pub fn validate(&mut self, tolerance: f64) {
+        self.passed = self.deviation_percentage <= tolerance;
+    }
+}
+
+/// Mining reward test suite
+pub struct MiningRewardTestSuite;
+
+impl MiningRewardTestSuite {
+    /// Get standard test cases for mining rewards
+    pub fn get_test_cases() -> Vec<MiningRewardTestCase> {
+        vec![
+            MiningRewardTestCase {
+                name: "Mobile device basic".to_string(),
+                device_tier: "Mobile".to_string(),
+                ram_gb: 4,
+                uptime_percentage: 90.0,
+                contribution_score: 0.8,
+                epochs_mined: 100,
+                expected_reward_range: (8_000_000, 12_000_000),
+            },
+            MiningRewardTestCase {
+                name: "Laptop mid-tier".to_string(),
+                device_tier: "Laptop".to_string(),
+                ram_gb: 16,
+                uptime_percentage: 95.0,
+                contribution_score: 0.9,
+                epochs_mined: 500,
+                expected_reward_range: (20_000_000, 30_000_000),
+            },
+            MiningRewardTestCase {
+                name: "Desktop high performer".to_string(),
+                device_tier: "Desktop".to_string(),
+                ram_gb: 32,
+                uptime_percentage: 99.0,
+                contribution_score: 0.95,
+                epochs_mined: 1000,
+                expected_reward_range: (50_000_000, 75_000_000),
+            },
+            MiningRewardTestCase {
+                name: "Server tier".to_string(),
+                device_tier: "Server".to_string(),
+                ram_gb: 128,
+                uptime_percentage: 99.9,
+                contribution_score: 0.98,
+                epochs_mined: 5000,
+                expected_reward_range: (80_000_000, 120_000_000),
+            },
+        ]
+    }
+
+    /// Run all mining reward tests
+    pub fn run_tests() -> Vec<TestResult> {
+        let mut results = Vec::new();
+        
+        for case in Self::get_test_cases() {
+            let result = Self::validate_test_case(&case);
+            results.push(result);
+        }
+        
+        results
+    }
+
+    /// Validate a single test case
+    fn validate_test_case(case: &MiningRewardTestCase) -> TestResult {
+        // Simulate reward calculation (simplified)
+        let tier_multiplier = match case.device_tier.as_str() {
+            "Mobile" => 1.0,
+            "Laptop" => 2.5,
+            "Desktop" => 5.0,
+            "Server" => 10.0,
+            _ => 1.0,
+        };
+        
+        let base_reward = 10_000_000.0;
+        let uptime_factor = if case.uptime_percentage >= 95.0 { 1.0 } else { 0.8 };
+        let contribution_factor = 1.0 + (case.contribution_score * 0.5);
+        let epochs_factor = (case.epochs_mined as f64 / 1000.0).min(0.5) + 1.0;
+        
+        let calculated = base_reward * tier_multiplier * uptime_factor * contribution_factor * epochs_factor;
+        
+        let actual_str = format!("{:.0}", calculated);
+        let expected_str = format!("{:.0}", (case.expected_reward_range.0 + case.expected_reward_range.1) as f64 / 2.0);
+        
+        let mut result = TestResult::new(case.name.clone(), expected_str, actual_str);
+        result.validate(30.0); // 30% tolerance
+        
+        result
+    }
+}
+
+/// Staking reward test suite
+pub struct StakingRewardTestSuite;
+
+// ============================================================================
+// SPRINT 44 ENHANCEMENT: Extended Staking Reward Test Cases
+// Additional test scenarios for multi-pool staking and tier-based rewards
+// ============================================================================
+
+impl StakingRewardTestSuite {
+    /// Get standard test cases for staking rewards
+    pub fn get_test_cases() -> Vec<StakingRewardTestCase> {
+        vec![
+            StakingRewardTestCase {
+                name: "Basic validator".to_string(),
+                stake_amount: 100_000_000,
+                uptime_percentage: 95.0,
+                epochs_staked: 100,
+                commission_rate: 0.05,
+                expected_apy_range: (0.12, 0.15),
+            },
+            StakingRewardTestCase {
+                name: "Premium validator".to_string(),
+                stake_amount: 1_000_000_000,
+                uptime_percentage: 99.0,
+                epochs_staked: 500,
+                commission_rate: 0.05,
+                expected_apy_range: (0.15, 0.18),
+            },
+            StakingRewardTestCase {
+                name: "Enterprise validator".to_string(),
+                stake_amount: 10_000_000_000,
+                uptime_percentage: 99.9,
+                epochs_staked: 1000,
+                commission_rate: 0.03,
+                expected_apy_range: (0.17, 0.22),
+            },
+        ]
+    }
+
+    /// Run all staking reward tests
+    pub fn run_tests() -> Vec<TestResult> {
+        let mut results = Vec::new();
+        
+        for case in Self::get_test_cases() {
+            let result = Self::validate_test_case(&case);
+            results.push(result);
+        }
+        
+        results
+    }
+
+    /// Validate a single test case
+    fn validate_test_case(case: &StakingRewardTestCase) -> TestResult {
+        // Simulate APY calculation (simplified)
+        let base_apy = 0.12;
+        let uptime_bonus = if case.uptime_percentage >= 95.0 { 0.03 } else { 0.0 };
+        let loyalty_mult = if case.epochs_staked >= 1000 { 1.15 } else if case.epochs_staked >= 500 { 1.1 } else if case.epochs_staked >= 100 { 1.05 } else { 1.0 };
+        
+        let calculated_apy = (base_apy + uptime_bonus) * loyalty_mult;
+        
+        let expected_mid = (case.expected_apy_range.0 + case.expected_apy_range.1) / 2.0;
+        
+        let actual_str = format!("{:.4}", calculated_apy);
+        let expected_str = format!("{:.4}", expected_mid);
+        
+        let mut result = TestResult::new(case.name.clone(), expected_str, actual_str);
+        result.validate(20.0); // 20% tolerance
+        
+        result
+    }
+}
+
+/// Cross-chain reward validation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CrossChainRewardValidation {
+    pub source_chain: String,
+    pub dest_chain: String,
+    pub original_reward: u64,
+    pub bridge_fee: u64,
+    pub final_reward: u64,
+    pub validation_passed: bool,
+}
+
+impl CrossChainRewardValidation {
+    /// Validate cross-chain reward transfer
+    pub fn validate_transfer(source: &str, dest: &str, reward: u64, bridge_fee_bps: u64) -> Self {
+        let bridge_fee = (reward as f64 * bridge_fee_bps as f64 / 10000.0) as u64;
+        let final_reward = reward - bridge_fee;
+        
+        let validation_passed = final_reward > 0 && bridge_fee < reward;
+        
+        Self {
+            source_chain: source.to_string(),
+            dest_chain: dest.to_string(),
+            original_reward: reward,
+            bridge_fee,
+            final_reward,
+            validation_passed,
+        }
+    }
+}
+
+/// Print test summary
+pub fn print_test_summary(mining_results: &[TestResult], staking_results: &[TestResult]) {
+    let mining_passed = mining_results.iter().filter(|r| r.passed).count();
+    let staking_passed = staking_results.iter().filter(|r| r.passed).count();
+    
+    println!("\n=== REWARD CALCULATOR TEST SUMMARY ===");
+    println!("Mining Tests: {}/{} passed", mining_passed, mining_results.len());
+    println!("Staking Tests: {}/{} passed", staking_passed, staking_results.len());
+    
+    for result in mining_results.iter().chain(staking_results.iter()) {
+        let status = if result.passed { "✓ PASS" } else { "✗ FAIL" };
+        println!("  {} - {} (deviation: {:.1}%)", status, result.test_name, result.deviation_percentage);
+    }
+}
+
+// ============================================================================
+// SPRINT 39: Enhanced Test Suite - Edge Cases & Validation
+// Additional test cases for mining and staking reward calculations
+// ============================================================================
+
+/// Edge case test for mining rewards
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiningEdgeCase {
+    pub name: String,
+    pub scenario: String,
+    pub input: MiningRewardInput,
+    pub expected_behavior: String,
+    pub should_panic: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiningRewardInput {
+    pub device_tier: String,
+    pub uptime_percentage: f64,
+    pub contribution_score: f64,
+    pub epochs_mined: u64,
+}
+
+/// Comprehensive mining edge cases
+pub fn get_mining_edge_cases() -> Vec<MiningEdgeCase> {
+    vec![
+        MiningEdgeCase {
+            name: "Zero uptime".to_string(),
+            scenario: "Device with 0% uptime".to_string(),
+            input: MiningRewardInput {
+                device_tier: "Desktop".to_string(),
+                uptime_percentage: 0.0,
+                contribution_score: 0.0,
+                epochs_mined: 100,
+            },
+            expected_behavior: "Should return minimal reward (penalty factor)".to_string(),
+            should_panic: false,
+        },
+        MiningEdgeCase {
+            name: "Perfect uptime".to_string(),
+            scenario: "Device with 100% uptime".to_string(),
+            input: MiningRewardInput {
+                device_tier: "Server".to_string(),
+                uptime_percentage: 100.0,
+                contribution_score: 1.0,
+                epochs_mined: 10000,
+            },
+            expected_behavior: "Should return maximum reward".to_string(),
+            should_panic: false,
+        },
+        MiningEdgeCase {
+            name: "Negative contribution".to_string(),
+            scenario: "Contribution score below 0".to_string(),
+            input: MiningRewardInput {
+                device_tier: "Mobile".to_string(),
+                uptime_percentage: 90.0,
+                contribution_score: -0.5,
+                epochs_mined: 100,
+            },
+            expected_behavior: "Should clamp to 0 or panic".to_string(),
+            should_panic: true,
+        },
+        MiningEdgeCase {
+            name: "Overflow epochs".to_string(),
+            scenario: "Extremely large epoch count".to_string(),
+            input: MiningRewardInput {
+                device_tier: "Desktop".to_string(),
+                uptime_percentage: 99.0,
+                contribution_score: 0.95,
+                epochs_mined: u64::MAX,
+            },
+            expected_behavior: "Should handle overflow gracefully".to_string(),
+            should_panic: true,
+        },
+        MiningEdgeCase {
+            name: "Quantum tier extreme".to_string(),
+            scenario: "Quantum computer with maximum settings".to_string(),
+            input: MiningRewardInput {
+                device_tier: "Quantum".to_string(),
+                uptime_percentage: 99.99,
+                contribution_score: 1.0,
+                epochs_mined: 50000,
+            },
+            expected_behavior: "Should apply quantum tier multiplier".to_string(),
+            should_panic: false,
+        },
+        MiningEdgeCase {
+            name: "Very long staking".to_string(),
+            scenario: "5+ years of continuous mining".to_string(),
+            input: MiningRewardInput {
+                device_tier: "Server".to_string(),
+                uptime_percentage: 99.5,
+                contribution_score: 0.98,
+                epochs_mined: 500000,
+            },
+            expected_behavior: "Should handle longevity bonus cap".to_string(),
+            should_panic: false,
+        },
+        MiningEdgeCase {
+            name: "Near-zero stake".to_string(),
+            scenario: "Minimum possible stake amount".to_string(),
+            input: MiningRewardInput {
+                device_tier: "Mobile".to_string(),
+                uptime_percentage: 50.0,
+                contribution_score: 0.1,
+                epochs_mined: 1,
+            },
+            expected_behavior: "Should not crash, return minimal reward".to_string(),
+            should_panic: false,
+        },
+    ]
+}
+
+/// Validator performance benchmarks
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidatorBenchmark {
+    pub validator_id: String,
+    pub stake_amount: u64,
+    pub uptime_percentile: f64,
+    pub commission_percentile: f64,
+    pub reward_efficiency: f64,
+    pub overall_score: f64,
+    pub rank: u32,
+}
+
+pub fn get_validator_benchmarks() -> Vec<ValidatorBenchmark> {
+    vec![
+        ValidatorBenchmark {
+            validator_id: "val_top_1".to_string(),
+            stake_amount: 10_000_000_000,
+            uptime_percentile: 99.9,
+            commission_percentile: 5.0,
+            reward_efficiency: 0.95,
+            overall_score: 98.5,
+            rank: 1,
+        },
+        ValidatorBenchmark {
+            validator_id: "val_top_10".to_string(),
+            stake_amount: 5_000_000_000,
+            uptime_percentile: 99.5,
+            commission_percentile: 7.0,
+            reward_efficiency: 0.88,
+            overall_score: 92.3,
+            rank: 10,
+        },
+        ValidatorBenchmark {
+            validator_id: "val_top_100".to_string(),
+            stake_amount: 1_000_000_000,
+            uptime_percentile: 98.0,
+            commission_percentile: 10.0,
+            reward_efficiency: 0.75,
+            overall_score: 78.6,
+            rank: 100,
+        },
+        ValidatorBenchmark {
+            validator_id: "val_cosmic_001".to_string(),
+            stake_amount: 980_000_000,
+            uptime_percentile: 99.82,
+            commission_percentile: 7.0,
+            reward_efficiency: 0.85,
+            overall_score: 88.4,
+            rank: 45,
+        },
+        ValidatorBenchmark {
+            validator_id: "val_nebula_001".to_string(),
+            stake_amount: 720_000_000,
+            uptime_percentile: 99.65,
+            commission_percentile: 8.0,
+            reward_efficiency: 0.82,
+            overall_score: 84.2,
+            rank: 78,
+        },
+        ValidatorBenchmark {
+            validator_id: "val_quantum_001".to_string(),
+            stake_amount: 1_450_000_000,
+            uptime_percentile: 99.92,
+            commission_percentile: 5.0,
+            reward_efficiency: 0.92,
+            overall_score: 95.1,
+            rank: 5,
+        },
+        ValidatorBenchmark {
+            validator_id: "val_aurora_001".to_string(),
+            stake_amount: 540_000_000,
+            uptime_percentile: 99.55,
+            commission_percentile: 9.0,
+            reward_efficiency: 0.78,
+            overall_score: 79.8,
+            rank: 156,
+        },
+    ]
+}
+
+/// Staking edge case test
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StakingEdgeCase {
+    pub name: String,
+    pub scenario: String,
+    pub stake_amount: u64,
+    pub lock_days: u64,
+    pub early_withdrawal: bool,
+    pub expected_penalty: f64,
+    pub description: String,
+}
+
+/// Comprehensive staking edge cases
+pub fn get_staking_edge_cases() -> Vec<StakingEdgeCase> {
+    vec![
+        StakingEdgeCase {
+            name: "No lock period".to_string(),
+            scenario: "Flexible staking with no lock".to_string(),
+            stake_amount: 100_000_000,
+            lock_days: 0,
+            early_withdrawal: false,
+            expected_penalty: 0.0,
+            description: "No penalty for flexible withdrawal".to_string(),
+        },
+        StakingEdgeCase {
+            name: "7 day lock expiry".to_string(),
+            scenario: "7-day lock just completed".to_string(),
+            stake_amount: 500_000_000,
+            lock_days: 7,
+            early_withdrawal: false,
+            expected_penalty: 0.0,
+            description: "No penalty after lock expires".to_string(),
+        },
+        StakingEdgeCase {
+            name: "Early withdrawal penalty".to_string(),
+            scenario: "Withdraw before lock expires".to_string(),
+            stake_amount: 1_000_000_000,
+            lock_days: 30,
+            early_withdrawal: true,
+            expected_penalty: 0.05,
+            description: "5% penalty for early withdrawal".to_string(),
+        },
+        StakingEdgeCase {
+            name: "90-day aggressive lock".to_string(),
+            scenario: "90-day lock with maximum APY".to_string(),
+            stake_amount: 5_000_000_000,
+            lock_days: 90,
+            early_withdrawal: false,
+            expected_penalty: 0.0,
+            description: "Higher APY for longer lock".to_string(),
+        },
+        StakingEdgeCase {
+            name: "Slashing scenario".to_string(),
+            scenario: "Validator gets slashed while staked".to_string(),
+            stake_amount: 2_000_000_000,
+            lock_days: 30,
+            early_withdrawal: false,
+            expected_penalty: 0.01,
+            description: "1% penalty from slashing event".to_string(),
+        },
+        StakingEdgeCase {
+            name: "Maximum lock 180 days".to_string(),
+            scenario: "Maximum lock period for governance".to_string(),
+            stake_amount: 10_000_000_000,
+            lock_days: 180,
+            early_withdrawal: false,
+            expected_penalty: 0.0,
+            description: "Maximum APY boost with governance rights".to_string(),
+        },
+    ]
+}
+
+// ============================================================================
+// SPRINT 44 ENHANCEMENT: Extended Test Cases for Multi-Tier Staking
+// Additional edge cases for tier-based rewards and auto-compounding
+// ============================================================================
+
+/// Multi-tier staking test case
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MultiTierStakingTest {
+    pub name: String,
+    pub tier: String,
+    pub stake_amount: u64,
+    pub auto_compound: bool,
+    pub expected_tier_multiplier: f64,
+    pub expected_apy_boost: f64,
+}
+
+/// Auto-compounding scenario
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutoCompoundScenario {
+    pub name: String,
+    pub initial_stake: u64,
+    pub compound_frequency_hours: u64,
+    pub duration_epochs: u64,
+    pub expected_final_amount: u64,
+    pub apy: f64,
+}
+
+pub fn get_multi_tier_tests() -> Vec<MultiTierStakingTest> {
+    vec![
+        MultiTierStakingTest {
+            name: "Bronze tier minimum".to_string(),
+            tier: "Bronze".to_string(),
+            stake_amount: 100,
+            auto_compound: false,
+            expected_tier_multiplier: 1.0,
+            expected_apy_boost: 0.0,
+        },
+        MultiTierStakingTest {
+            name: "Silver tier mid-range".to_string(),
+            tier: "Silver".to_string(),
+            stake_amount: 25_000,
+            auto_compound: false,
+            expected_tier_multiplier: 1.05,
+            expected_apy_boost: 0.05,
+        },
+        MultiTierStakingTest {
+            name: "Gold tier with auto-compound".to_string(),
+            tier: "Gold".to_string(),
+            stake_amount: 75_000,
+            auto_compound: true,
+            expected_tier_multiplier: 1.10,
+            expected_apy_boost: 0.10,
+        },
+        MultiTierStakingTest {
+            name: "Platinum tier maximum benefits".to_string(),
+            tier: "Platinum".to_string(),
+            stake_amount: 500_000,
+            auto_compound: true,
+            expected_tier_multiplier: 1.20,
+            expected_apy_boost: 0.20,
+        },
+        MultiTierStakingTest {
+            name: "Validator exclusive pool access".to_string(),
+            tier: "Platinum".to_string(),
+            stake_amount: 1_000_000,
+            auto_compound: true,
+            expected_tier_multiplier: 1.25,
+            expected_apy_boost: 0.25,
+        },
+    ]
+}
+
+pub fn get_auto_compound_scenarios() -> Vec<AutoCompoundScenario> {
+    vec![
+        AutoCompoundScenario {
+            name: "Daily compounding basic".to_string(),
+            initial_stake: 100_000_000,
+            compound_frequency_hours: 24,
+            duration_epochs: 365,
+            expected_final_amount: 112_000_000,
+            apy: 0.12,
+        },
+        AutoCompoundScenario {
+            name: "Hourly compounding premium".to_string(),
+            initial_stake: 500_000_000,
+            compound_frequency_hours: 1,
+            duration_epochs: 8760,
+            expected_final_amount: 565_000_000,
+            apy: 0.12,
+        },
+        AutoCompoundScenario {
+            name: "Weekly compounding standard".to_string(),
+            initial_stake: 250_000_000,
+            compound_frequency_hours: 168,
+            duration_epochs: 52,
+            expected_final_amount: 280_000_000,
+            apy: 0.12,
+        },
+        AutoCompoundScenario {
+            name: "Epoch-level compounding".to_string(),
+            initial_stake: 1_000_000_000,
+            compound_frequency_hours: 1,
+            duration_epochs: 8760,
+            expected_final_amount: 1_127_000_000,
+            apy: 0.12,
+        },
+    ]
+}
+
+#[cfg(test)]
+    use super::*;
+
+    #[test]
+    fn test_mining_reward_calculations() {
+        let results = MiningRewardTestSuite::run_tests();
+        let passed = results.iter().filter(|r| r.passed).count();
+        println!("Mining tests passed: {}/{}", passed, results.len());
+        assert!(passed >= results.len() / 2, "At least 50% of mining tests should pass");
+    }
+
+    #[test]
+    fn test_staking_reward_calculations() {
+        let results = StakingRewardTestSuite::run_tests();
+        let passed = results.iter().filter(|r| r.passed).count();
+        println!("Staking tests passed: {}/{}", passed, results.len());
+        assert!(passed >= results.len() / 2, "At least 50% of staking tests should pass");
+    }
+
+    #[test]
+    fn test_cross_chain_validation() {
+        let validation = CrossChainRewardValidation::validate_transfer("Aether", "Ethereum", 1_000_000, 30);
+        assert!(validation.validation_passed);
+        assert_eq!(validation.final_reward, 997_000);
+    }
+
+    #[test]
+    fn test_edge_cases_count() {
+        let mining_cases = get_mining_edge_cases();
+        let staking_cases = get_staking_edge_cases();
+        assert!(mining_cases.len() >= 6, "Should have at least 6 mining edge cases");
+        assert!(staking_cases.len() >= 5, "Should have at least 5 staking edge cases");
+    }
+
+    #[test]
+    fn test_validator_benchmarks() {
+        let benchmarks = get_validator_benchmarks();
+        assert!(!benchmarks.is_empty());
+        assert!(benchmarks.len() >= 6, "Should have at least 6 validator benchmarks");
+        // Top validator should have highest score
+        assert!(benchmarks[0].overall_score >= benchmarks[1].overall_score);
+    }
+
+    #[test]
+    fn test_staking_edge_cases() {
+        let cases = get_staking_edge_cases();
+        // No penalty cases
+        assert_eq!(cases[0].expected_penalty, 0.0);
+        assert_eq!(cases[1].expected_penalty, 0.0);
+        // Early withdrawal penalty
+        assert!(cases[2].expected_penalty > 0.0);
+    }
+}

@@ -1,0 +1,1 @@
+﻿Sprint 50: Enhanced LiquidityPoolTrading component with improved price chart (hover tooltips, volume indicator, peak/low labels), Pool Info section (glow effects, colored indicators, improved LP provider bars), and Positions section (token value estimates, rank display, Claim Fees button). All with smooth transitions and hover effects.

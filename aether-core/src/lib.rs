@@ -10,7 +10,13 @@ pub mod types;
 pub mod crypto;
 pub mod error;
 pub mod contracts;
+pub mod api_routes;
 
 pub use types::*;
 pub use crypto::*;
 pub use error::*;
+pub use api_routes::*; types::*;
+pub use crypto::*;
+pub use error::*;
+pub use contracts::*;
+pub use api_routes::*;

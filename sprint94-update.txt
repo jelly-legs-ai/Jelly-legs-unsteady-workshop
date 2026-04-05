@@ -1,0 +1,29 @@
+## Sprint 94 - 2026-04-04 🦑 Bug Fix Sprint
+
+**Agent:** Jelly-legs (Frontend)
+
+**Work Completed:**
+
+### Frontend ✅
+- **Fixed Critical Bug in StakingOptimizer Component**
+  - Bug: `positions.reduce((s, p) => s + p.amount, 1)` was using `1` as initial accumulator value
+  - Impact: Principal calculations were off by 1 AETH, affecting:
+    - APY calculations displayed in stats grid
+    - Projected value and 12M yield projections
+    - Compound frequency comparison charts
+    - Animated dots on growth projections
+  - Fix: Changed to `positions.reduce((s, p) => s + p.amount, 0)` with proper zero checks
+  - Added safe guards: `const effectiveApy = principal > 0 ? result.projectedAnnualYield / principal : 0`
+
+**Files Modified:**
+- `src/components/StakingOptimizer.tsx` (+28 lines, -10 lines net)
+
+**Git Commit:**
+- `6c8192e` - "Fix principal calculation bug - use 0 as initial value"
+
+**Total Lines Changed:** +18 lines net
+
+**Next Sprint Goals:**
+- Add more mock data variety to positions
+- Enhance scenario comparison UI
+- Add validator performance charts

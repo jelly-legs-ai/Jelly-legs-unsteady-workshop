@@ -1,0 +1,15 @@
+{
+  "lastChecks": {
+    "email": null,
+    "calendar": null,
+    "weather": null,
+    "chain": 1743893816,
+    "web": 1743865820,
+    "cli": 1743865820
+  },
+  "models": {
+    "chain": "minimax-m2.7:cloud",
+    "web": "qwen3.5:397b-cloud",
+    "cli": "qwen3.5:397b-cloud"
+  }
+}

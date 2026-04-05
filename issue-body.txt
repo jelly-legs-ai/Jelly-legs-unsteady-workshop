@@ -1,0 +1,201 @@
+## Aether Wallet System — Full Implementation Spec
+
+Integrate Aether-native wallet creation and management into `aether-hub`, with a seamless SOL bridging and staking flow on the website.
+
+---
+
+## 1. Wallet Architecture
+
+### Address Format
+- **Display format:** `ATH` + base58Check(public_key)
+- All Aether wallets begin with `ATH` when shown to users
+- The prefix is for human readability — the underlying address is standard base58Check
+- Example: `ATH4eS9vJ...` (Aether-native) vs `7t7G...` (Solana)
+
+### Aether Wallet Types
+
+| Type | Derivation | Mnemonic | Use |
+|------|-----------|----------|-----|
+| Aether Native | BIP39 + Ed25519 | 12-word (Aether-native) | User wallets |
+| Solana imported | BIP39 + Ed25519 (same curve) | 12/24-word SOL wallet | Import existing SOL wallet |
+| Validator Wallet | Ed25519 (from init.js) | 24-word validator identity | Validator ops (logged in) |
+
+---
+
+## 2. CLI: `aether wallet` Command
+
+**File:** `aether-cli/commands/wallet.js`
+
+### `aether wallet create`
+1. Ask: Create new or import existing?
+   - **Create new** — BIP39 12-word mnemonic generation
+   - **Import** — Accept 12/24-word phrase
+2. Generate/derive wallet using BIP39 + BIP32 + Ed25519 (TweetNaCl compatible seed)
+3. **Display mnemonic with clear warning:**
+   ```
+   WRITE THESE WORDS DOWN — THEY ARE YOUR WALLET.
+   No copies are stored. If you lose them, your wallet is UNRECOVERABLE.
+
+   [12-word mnemonic shown word by word]
+
+   Press Enter when saved to continue.
+   ```
+4. Derive public key — format as `ATH` + base58Check(32-byte-pubkey)
+5. Show wallet address immediately
+6. Save to `~/.aether/wallets/<address>.json` — ENCRYPTED with a local passphrase the user sets
+7. **Never store the mnemonic on disk after this point**
+
+### `aether wallet list`
+- List all stored wallets (addresses only)
+- Show which is default
+- Show balance (via RPC)
+
+### `aether wallet export`
+- Reveal public key only (never mnemonic)
+- Require passphrase to decrypt
+
+### `aether wallet connect`
+- Generate a short-lived session token (UUID, expires in 10 min)
+- Open browser to: `https://<site>/wallet/verify?token=<uuid>&address=<wallet_address>`
+- CLI polls for verification status every 2s
+- On verified: display success, proceed to staking
+
+---
+
+## 3. Website: `/wallet/verify` Page
+
+**File:** `aether-site/src/app/wallet/verify/page.tsx`
+
+### Flow
+1. User arrives from CLI via deep link (token + address in URL)
+2. Page shows:
+   ```
+   Welcome, validator-in-progress
+   Wallet: ATH4eS9vJ...3f2
+   Sign this message to verify ownership.
+   [Sign Message] button
+   ```
+3. Trigger wallet sign request (Phantom/Solflare)
+4. On signature: POST to `/api/wallet/verify` with signed message + token
+5. On success: show staking page
+6. On skip/no wallet: show manual wallet connect
+
+### API: `/api/wallet/verify`
+```
+POST /api/wallet/verify
+Body: { token, address, signature, message }
+Response: { verified: true, session_token, address }
+```
+
+---
+
+## 4. Website: `/stake` Page
+
+**File:** `aether-site/src/app/stake/page.tsx`
+
+### Sections
+
+**Connected and verified:**
+- Current wallet address (ATH format)
+- Balance: AETH, FLUX
+- Stake amount input
+- Tier selector (Observer/Lite/Full — 0/1K/10K AETH)
+- Stake button — calls `/api/stake`
+
+**SOL user (no AETH wallet):**
+- "You are using a Solana wallet"
+- Show SOL balance
+- "Bridge SOL to ATH" section (simple widget)
+- "Already have ATH? Import seed phrase" link to `aether wallet import`
+- Once AETH acquired: proceed with stake
+
+### Bridge Widget (SOL to ATH)
+- Simple widget using existing bridge infrastructure
+- User enters SOL amount — shows estimated ATH after bridge
+- "Bridge and Stake" button — executes bridge + stake in one flow
+
+---
+
+## 5. Rust: ATH Prefix Support
+
+**Files:** `crates/aether-validator/src/keypair.rs`, `genesis.rs`
+
+### Changes
+1. Add `ATH_WALLET_PREFIX = "ATH"` constant
+2. `pub fn ath_address(public_key: &[u8]) -> String` — format as `ATH` + base58Check(public_key)
+3. `pub fn is_valid_ath_address(addr: &str) -> bool` — check starts with `ATH`, rest is valid base58Check
+4. Update `ValidatorState` — store user's wallet address alongside validator identity
+
+---
+
+## 6. CLI: Update `aether init` Flow
+
+After validator identity is created (Step 3), before Step 4 (connect to testnet):
+
+**Step 3.5: Link Aether Wallet**
+```
+Step 3.5/5: Link Your Aether Wallet
+------------------------------------
+
+You can use your validator wallet OR connect an Aether user wallet.
+
+1) Use validator wallet (ATH...) — fast, for testing
+2) Create new Aether wallet — 12-word mnemonic, secure
+3) Import existing SOL/ATH wallet — enter your seed phrase
+4) Connect via website — opens browser for WalletConnect verification
+
+Select [1-4]:
+```
+
+The wallet address is linked to the validator profile in `~/.aether/validator.json`.
+
+---
+
+## 7. Session Token System
+
+**CLI:** `aether wallet connect` — generates UUID session token — stored in `~/.aether/sessions/<uuid>.json` with `{wallet_address, created_at, expires_at, verified: bool}`
+
+**Website:** POST to `/api/wallet/verify` — marks session verified — CLI polls, sees verified — proceeds
+
+**TTL:** 10 minutes, single use
+
+---
+
+## 8. Dependencies (CLI)
+
+Add to `aether-cli/package.json`:
+```
+bip39        — mnemonic wordlist and validation
+bip32        — HD key derivation (Ed25519)
+```
+
+---
+
+## 9. Files to Create/Modify
+
+### New Files
+- `aether-cli/commands/wallet.js` — `aether wallet` command
+- `aether-site/src/app/wallet/verify/page.tsx` — verify page
+- `aether-site/src/app/stake/page.tsx` — stake page
+- `aether-site/src/app/api/wallet/verify/route.ts` — verify API
+
+### Modify
+- `aether-cli/commands/init.js` — add wallet linking step
+- `aether-cli/commands/index.js` — add `wallet` command
+- `aether-cli/package.json` — add bip39, bip32 deps
+- `crates/aether-validator/src/keypair.rs` — ATH prefix functions
+- `crates/aether-validator/src/state.rs` — store wallet address
+- `aether-site/src/components/WalletProvider.tsx` — add ATH format display
+- `aether-site/src/lib/wallet.ts` — add ATH prefix, verify_session
+
+---
+
+## 10. Priority Order
+
+1. **CLI `aether wallet create`** — pure JS BIP39, display mnemonic, save encrypted wallet
+2. **ATH prefix functions** — Rust keypair.rs format/validation
+3. **CLI `aether wallet connect`** — session token + deep link
+4. **Website `/wallet/verify`** — sign + verify flow
+5. **Website `/stake`** — staking UI with ATH/SOL balance display
+6. **Bridge widget** — SOL-to-ATH bridging in stake page
+7. **Update init.js** — integrate wallet step into onboarding

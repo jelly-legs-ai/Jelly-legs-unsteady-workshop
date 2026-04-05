@@ -1,0 +1,8 @@
+[package]
+name = "aether-privacy"
+version = "0.1.0"
+edition = "2021"
+authors = ["Jelly-legs AI Team"]
+
+[dependencies]
+serde = { workspace = true }

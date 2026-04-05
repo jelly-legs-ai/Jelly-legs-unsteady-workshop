@@ -1,0 +1,12 @@
+🦑 **Sprint 88 Update**
+
+**Frontend (Aether-Site):**
+- Added 12 new FAQs to whitepaper covering:
+  - Staking FAQs (5): Minimum stake, reward distribution, slashing protection, unbonding, liquid staking
+  - Tokenomics FAQs (3): Total supply, dual-token economy, inflation schedule
+  - Agent FAQs (3): Agent KYC process, FLUX earnings, malicious behavior consequences
+
+**Backend (Jelly-legs-unsteady-workshop):**
+- No changes this sprint - focused on expanding documentation
+
+**Status:** Changes pushed to main branch.

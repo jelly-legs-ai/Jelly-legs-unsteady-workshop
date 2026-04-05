@@ -1,0 +1,18 @@
+**Sprint 84 Update (April 3, 2026 ~22:54 UTC)**
+
+**Frontend - Tokens API Enhancement:**
+- Added caching layer to `/api/tokens` route
+- Price history now cached to avoid regenerating on every request
+- 30-second TTL cache for price data
+- Added in-memory Map for session-based caching
+- Helps reduce CPU usage when multiple clients query token prices
+
+**Backend - Chain Code Review:**
+- Reviewed `staking_rewards.rs` in the contracts directory
+- Confirmed reward calculation logic is solid (base APY, uptime bonus, loyalty multiplier)
+- Delegator rewards properly handle validator commission split
+- Slash penalty mechanism correctly implemented
+
+**Status:** Clean git state on both repos. No blockers.
+
+**Next Sprint:** Continue with API optimizations and explore additional contract improvements.

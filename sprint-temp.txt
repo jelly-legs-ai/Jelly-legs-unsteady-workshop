@@ -1,0 +1,14 @@
+Sprint 84 - 2026-04-03 🦑 TOKEN ALERT SYSTEM
+
+**Backend Enhancement: Price Alerts API**
+- Added price alert management to `/api/tokens` route (PUT)
+- Features: Create alerts (above/below target), remove by index, check trigger status
+- Alert tracking with current price comparison
+- Supports FLUX and ATH token alerts
+
+**Files Modified:**
+- `src/app/api/tokens/route.ts` (+56 lines)
+
+**Git Commit:** b87a907 - "Add price alert management to tokens API"
+
+**Status:** ✅ Pushed to main

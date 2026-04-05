@@ -1,0 +1,54 @@
+{
+  "name": "aether-hub",
+  "version": "1.2.4",
+  "description": "AeTHer Validator CLI — tiered validators (Full/Lite/Observer), system checks, onboarding, and node management",
+  "main": "index.js",
+  "bin": {
+    "aether": "./index.js",
+    "aether-hub": "./index.js"
+  },
+  "files": [
+    "index.js",
+    "commands/",
+    "test/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node test/doctor.test.js",
+    "start": "node index.js",
+    "doctor": "node index.js doctor",
+    "price": "node index.js price",
+    "build": "node -e \"require('./commands/price'); require('./commands/account'); require('./commands/emergency')\" && echo \"Build OK\"",
+    "postinstall": "node -e \"console.log('\\n\\n  [Aether] aether-hub installed!\\n\\n  Run: aether start\\n  Docs: https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop\\n')\""
+  },
+  "keywords": [
+    "aether",
+    "validator",
+    "blockchain",
+    "cli",
+    "crypto",
+    "mining"
+  ],
+  "author": "Jelly-legs AI Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ],
+  "preferGlobal": true,
+  "dependencies": {
+    "bip32": "^5.0.1",
+    "bip39": "^3.1.0",
+    "bs58": "^6.0.0",
+    "tweetnacl": "^1.0.3"
+  }
+}
