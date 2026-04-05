@@ -29,6 +29,7 @@ const { statusCommand } = require('./commands/status');
 const { broadcastCommand } = require('./commands/broadcast');
 const { apyCommand } = require('./commands/apy');
 const { statsCommand } = require('./commands/stats');
+const { txHistoryCommand } = require('./commands/tx-history');
 const readline = require('readline');
 
 // CLI version
@@ -236,11 +237,13 @@ const COMMANDS = {
   tx: {
     description: 'Transaction history — aether tx history --address <addr> [--limit 20] [--json]',
     handler: () => {
-      const { walletCommand } = require('./commands/wallet');
-      const originalArgv = process.argv;
-      process.argv = [...originalArgv.slice(0, 2), 'wallet', 'history', ...originalArgv.slice(3)];
-      walletCommand();
-      process.argv = originalArgv;
+      txHistoryCommand();
+    },
+  },
+  'tx-history': {
+    description: 'Transaction history for an address — aether tx-history --address <addr> [--limit 20] [--json]',
+    handler: () => {
+      txHistoryCommand();
     },
   },
   network: {
@@ -253,11 +256,7 @@ const COMMANDS = {
   history: {
     description: 'Transaction history for an address — alias for tx history',
     handler: () => {
-      const { walletCommand } = require('./commands/wallet');
-      const originalArgv = process.argv;
-      process.argv = [...originalArgv.slice(0, 2), 'wallet', 'history', ...originalArgv.slice(3)];
-      walletCommand();
-      process.argv = originalArgv;
+      txHistoryCommand();
     },
   },
   validator: {
