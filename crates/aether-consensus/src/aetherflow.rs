@@ -448,13 +448,13 @@ impl AetherFlow {
         }
 
         // Verify transactions are properly ordered by priority
+        // Lane priority: Critical(0) > High(1) > Standard(2)
+        // Once we move to a lower priority lane, we cannot go back to higher
         let mut last_lane = AIPriorityLane::Critical;
         for tx in &block.transactions {
-            if (last_lane == AIPriorityLane::Critical && tx.ai_meta.lane == AIPriorityLane::Standard) ||
-               (last_lane == AIPriorityLane::High && tx.ai_meta.lane == AIPriorityLane::Standard) {
-                // Standard can come after Critical or High
-            } else if (tx.ai_meta.lane as u8) < (last_lane as u8) {
-                // Lower priority lane should not come before higher priority
+            // Reject if a higher-priority lane appears after a lower-priority one
+            // i.e., lane number decreased (moved up in priority)
+            if (tx.ai_meta.lane as u8) < (last_lane as u8) {
                 return Ok(false);
             }
             last_lane = tx.ai_meta.lane;

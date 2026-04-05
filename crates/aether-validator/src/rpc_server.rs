@@ -145,10 +145,20 @@ async fn handle_http_request(
         // Slot
         ("GET", "/v1/slot") => {
             let block_hash = block_producer.current_block_hash().await;
+            let current_slot = state.current_slot();
+            // Get parent block hash from the previous slot
+            let parent_block_hash = if current_slot > 0 {
+                block_producer.get_block(current_slot.saturating_sub(1))
+                    .await
+                    .map(|b| b.block_hash)
+                    .unwrap_or_else(|| "0000000000000000000000000000000000000000000000000000000000000000".to_string())
+            } else {
+                block_hash.clone() // Genesis block is its own parent
+            };
             let resp = SlotResponse {
-                slot: state.current_slot(),
+                slot: current_slot,
                 block_hash,
-                parent_block_hash: state.get_last_block_hash(),
+                parent_block_hash,
             };
             (200, serde_json::to_string(&resp).unwrap_or_default())
         }
