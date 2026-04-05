@@ -939,6 +939,149 @@ async function transferWallet(rl) {
 }
 
 // ---------------------------------------------------------------------------
+// TX HISTORY
+// Fetch and display recent transactions for an address
+// ---------------------------------------------------------------------------
+
+async function txHistory(rl) {
+  console.log(`\n${C.bright}${C.cyan}── Transaction History ────────────────────────────────────${C.reset}\n`);
+
+  const args = process.argv.slice(4);
+  let address = null;
+  let limit = 20;
+  let asJson = false;
+
+  const addrIdx = args.findIndex((a) => a === '--address' || a === '-a');
+  if (addrIdx !== -1 && args[addrIdx + 1]) {
+    address = args[addrIdx + 1];
+  }
+
+  const limitIdx = args.findIndex((a) => a === '--limit' || a === '-l');
+  if (limitIdx !== -1 && args[limitIdx + 1]) {
+    limit = parseInt(args[limitIdx + 1], 10);
+    if (isNaN(limit) || limit < 1 || limit > 100) {
+      console.log(`  ${C.red}✗ --limit must be between 1 and 100.${C.reset}\n`);
+      return;
+    }
+  }
+
+  asJson = args.includes('--json') || args.includes('-j');
+
+  if (!address) {
+    const cfg = loadConfig();
+    address = cfg.defaultWallet;
+  }
+
+  if (!address) {
+    console.log(`  ${C.red}✗ No wallet address specified and no default wallet set.${C.reset}`);
+    console.log(`  ${C.dim}Usage: aether tx history --address <addr> [--limit 20] [--json]${C.reset}\n`);
+    return;
+  }
+
+  const rpcUrl = getDefaultRpc();
+  const rawAddr = address.startsWith('ATH') ? address.slice(3) : address;
+
+  if (!asJson) {
+    console.log(`  ${C.green}★${C.reset} Address: ${C.bright}${address}${C.reset}`);
+    console.log(`  ${C.dim}  RPC: ${rpcUrl}  Limit: ${limit}${C.reset}`);
+    console.log();
+  }
+
+  try {
+    // Fetch account info first (for context)
+    const account = await httpRequest(rpcUrl, `/v1/account/${rawAddr}`);
+
+    // Fetch transactions for this address
+    const txs = await httpRequest(rpcUrl, `/v1/tx?address=${encodeURIComponent(rawAddr)}&limit=${limit}`);
+
+    if (asJson) {
+      const out = {
+        address,
+        rpc: rpcUrl,
+        account: account && !account.error ? {
+          lamports: account.lamports,
+          owner: account.owner,
+        } : null,
+        transactions: txs && !txs.error ? (Array.isArray(txs) ? txs : txs.transactions || []) : [],
+        fetched_at: new Date().toISOString(),
+      };
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+
+    if (!account || account.error) {
+      console.log(`  ${C.yellow}⚠ Account not found on chain.${C.reset}`);
+    } else {
+      console.log(`  ${C.green}✓ Balance:${C.reset} ${C.bright}${formatAether(account.lamports || 0)}${C.reset}`);
+      if (account.owner) {
+        const ownerStr = Array.isArray(account.owner)
+          ? 'ATH' + bs58.encode(Buffer.from(account.owner.slice(0, 32)))
+          : account.owner;
+        console.log(`  ${C.dim}  Owner: ${ownerStr}${C.reset}`);
+      }
+      console.log();
+    }
+
+    if (!txs || txs.error) {
+      console.log(`  ${C.yellow}⚠ No transaction history available.${C.reset}`);
+      console.log(`  ${C.dim}  RPC response: ${JSON.stringify(txs?.error || txs)}${C.reset}`);
+      console.log(`  ${C.dim}  (New wallets with 0 txs will return empty results)${C.reset}\n`);
+      return;
+    }
+
+    const txList = Array.isArray(txs) ? txs : txs.transactions || [];
+    console.log(`  ${C.bright}Recent Transactions (${txList.length})${C.reset}\n`);
+
+    if (txList.length === 0) {
+      console.log(`  ${C.dim}  No transactions found for this address.${C.reset}`);
+      console.log(`  ${C.dim}  This is normal for new wallets.${C.reset}\n`);
+      return;
+    }
+
+    const typeColors = {
+      Transfer: C.cyan,
+      Stake: C.green,
+      Unstake: C.yellow,
+      ClaimRewards: C.magenta,
+      CreateNFT: C.red,
+      MintNFT: C.red,
+      TransferNFT: C.cyan,
+      UpdateMetadata: C.yellow,
+    };
+
+    for (const tx of txList) {
+      const txType = tx.tx_type || tx.type || 'Unknown';
+      const color = typeColors[txType] || C.reset;
+      const ts = tx.timestamp
+        ? new Date(tx.timestamp * 1000).toISOString()
+        : 'unknown';
+      const sig = tx.signature || tx.id || tx.tx_signature || '—';
+      const sigShort = sig.length > 20 ? sig.slice(0, 8) + '…' + sig.slice(-8) : sig;
+
+      console.log(`  ${C.dim}┌─ ${ts}${C.reset}`);
+      console.log(`  │  ${C.bright}${color}${txType}${C.reset}  ${C.dim}sig:${C.reset} ${sigShort}`);
+      if (tx.payload && tx.payload.data) {
+        const d = tx.payload.data;
+        if (d.recipient) console.log(`  │  ${C.dim}  → to:      ${d.recipient}${C.reset}`);
+        if (d.amount)    console.log(`  │  ${C.dim}  amount:   ${formatAether(d.amount)}${C.reset}`);
+        if (d.validator) console.log(`  │  ${C.dim}  validator: ${d.validator}${C.reset}`);
+        if (d.stake_account) console.log(`  │  ${C.dim}  stake_acct: ${d.stake_account}${C.reset}`);
+      }
+      if (tx.fee !== undefined && tx.fee > 0) {
+        console.log(`  │  ${C.dim}  fee: ${tx.fee} lamports${C.reset}`);
+      }
+      console.log(`  ${C.dim}└${C.reset}`);
+      console.log();
+    }
+    console.log();
+  } catch (err) {
+    console.log(`  ${C.red}✗ Failed to fetch transaction history:${C.reset} ${err.message}`);
+    console.log(`  ${C.dim}  Is your validator running? RPC: ${rpcUrl}${C.reset}`);
+    console.log(`  ${C.dim}  Set custom RPC: AETHER_RPC=https://your-rpc-url${C.reset}\n`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main dispatcher
 // ---------------------------------------------------------------------------
 
@@ -967,6 +1110,8 @@ async function walletCommand() {
       await stakeWallet(rl);
     } else if (subcmd === 'transfer') {
       await transferWallet(rl);
+    } else if (subcmd === 'history' || subcmd === 'tx') {
+      await txHistory(rl);
     } else {
       console.log(`\n  ${C.red}Unknown wallet subcommand:${C.reset} ${subcmd}`);
       console.log(`\n  Usage:`);
@@ -978,6 +1123,7 @@ async function walletCommand() {
       console.log(`    ${C.cyan}aether wallet balance${C.reset}  Query chain balance for an address`);
       console.log(`    ${C.cyan}aether wallet stake${C.reset}     Stake AETH to a validator`);
       console.log(`    ${C.cyan}aether wallet transfer${C.reset} Transfer AETH to another address`);
+      console.log(`    ${C.cyan}aether wallet history${C.reset}  Show recent transactions for an address`);
       console.log();
       process.exit(1);
     }

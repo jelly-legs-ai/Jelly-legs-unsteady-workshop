@@ -182,6 +182,26 @@ const COMMANDS = {
       process.argv = originalArgv;
     },
   },
+  tx: {
+    description: 'Transaction history — aether tx history --address <addr> [--limit 20] [--json]',
+    handler: () => {
+      const { walletCommand } = require('./commands/wallet');
+      const originalArgv = process.argv;
+      process.argv = [...originalArgv.slice(0, 2), 'wallet', 'history', ...originalArgv.slice(3)];
+      walletCommand();
+      process.argv = originalArgv;
+    },
+  },
+  history: {
+    description: 'Transaction history for an address — alias for tx history',
+    handler: () => {
+      const { walletCommand } = require('./commands/wallet');
+      const originalArgv = process.argv;
+      process.argv = [...originalArgv.slice(0, 2), 'wallet', 'history', ...originalArgv.slice(3)];
+      walletCommand();
+      process.argv = originalArgv;
+    },
+  },
   validator: {
     description: 'Validator node management',
     handler: () => {
@@ -249,6 +269,8 @@ Validator CLI v${VERSION}
   console.log('  aether-cli monitor             # Real-time validator dashboard');
   console.log('  aether-cli validator start     # Start validator node');
   console.log('  aether-cli validator status    # Check validator status');
+  console.log('  aether-cli wallet balance      # Query AETH balance');
+  console.log('  aether-cli tx history          # Show transaction history');
   console.log('  aether-cli --version           # Show version');
   console.log('\nDocumentation: https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop');
   console.log('Spec: docs/MINING_VALIDATOR_TOOLS.md\n');
