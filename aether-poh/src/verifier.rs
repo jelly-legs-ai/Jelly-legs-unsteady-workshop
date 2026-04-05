@@ -24,7 +24,7 @@ pub fn verify_poh_sequence(
     // Guard against trivial DoS: a zero-hash count is vacuously valid
     // only if start == expected (empty trail)
     if num_hashes == 0 {
-        return start_hash == expected_hash;
+        return *start_hash == *expected_hash;
     }
 
     // Bound iteration to prevent unbounded computation from malformed input.
