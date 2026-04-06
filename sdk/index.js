@@ -1458,6 +1458,20 @@ async function getRewards(address) {
 }
 
 /**
+ * Get validator APY (uses default RPC)
+ * @param {string} validatorAddr - Validator address
+ * @returns {Promise<Object>} APY info
+ */
+async function getValidatorAPY(validatorAddr) {
+  const client = new AetherClient();
+  try {
+    return await client.getValidatorAPY(validatorAddr);
+  } finally {
+    client.destroy();
+  }
+}
+
+/**
  * Get transaction by signature (uses default RPC)
  * @param {string} signature - Transaction signature
  * @returns {Promise<Object>} Transaction info
@@ -1524,20 +1538,6 @@ async function getStakeAccounts(address) {
   const client = new AetherClient();
   try {
     return await client.getStakeAccounts(address);
-  } finally {
-    client.destroy();
-  }
-}
-
-/**
- * Get validator APY (uses default RPC)
- * @param {string} validatorAddr - Validator address
- * @returns {Promise<Object>} APY info
- */
-async function getValidatorAPY(validatorAddr) {
-  const client = new AetherClient();
-  try {
-    return await client.getValidatorAPY(validatorAddr);
   } finally {
     client.destroy();
   }
