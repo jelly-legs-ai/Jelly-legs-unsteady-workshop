@@ -9,9 +9,10 @@ When I wake from this cron:
 
 ---
 
-## Issue #115 — Blockchain Core Development
+## Issue #115 — Aether Blockchain Core
 **Workspace:** C:\Users\RM_Ga\.openclaw\workspace
 **Model:** glm-5:cloud
+**GitHub:** https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/115
 
 **Directive:** You are developing the real Aether blockchain — fully testnet live, no placeholders. Your job is to flesh out, fix, refine, and sustainably develop all blockchain systems backend. The goal is a fully refined layer 1 with incredible speed, security and success.
 
@@ -38,6 +39,7 @@ When I wake from this cron:
 ## Issue #114 — Aether Chain Website
 **Workspace:** C:\Users\RM_Ga\.openclaw\workspace\aether-site
 **Model:** minimax-m2.7:cloud
+**GitHub:** https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/114
 
 **Directive:** You are in charge of the Aether chain website — fixing errors, developing features, integrating front-end and back-end logic with no stubs or placeholders. You also own UI design: effects, transitions, UI/UX, making it a professional sleek hub for the Aether chain.
 
@@ -64,6 +66,7 @@ When I wake from this cron:
 ## Issue #116 — Aether-hub CLI
 **Workspace:** C:\Users\RM_Ga\.openclaw\workspace\aether-cli
 **Model:** kimi-k2.5:cloud
+**GitHub:** https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/116
 
 **Directive:** You manage and continuously develop the Aether-hub CLI. Keep the npm package up to date, develop all aspects from validator setup to developer SDK to UI/ASCII art. The goal is production-grade quality similar to Solana or Ethereum CLIs — no stubs or placeholder logic.
 
