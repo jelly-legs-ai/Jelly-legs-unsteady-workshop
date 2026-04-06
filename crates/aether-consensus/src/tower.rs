@@ -4,7 +4,6 @@
 //! similar to Solana's Tower BFT consensus mechanism.
 
 use crate::{ConsensusError, ConsensusResult};
-use aether_common::types::*;
 use std::collections::{HashMap, HashSet};
 use serde::{Serialize, Deserialize};
 
@@ -186,7 +185,7 @@ impl TowerConsensus {
     /// Get validators who voted for a slot
     pub fn get_voters(&self, slot: u64) -> Vec<&[u8; 32]> {
         self.slot_votes.get(&slot)
-            .map(|set| set.iter().collect())
+            .map(|set: &HashSet<[u8; 32]>| set.iter().collect())
             .unwrap_or_default()
     }
 }

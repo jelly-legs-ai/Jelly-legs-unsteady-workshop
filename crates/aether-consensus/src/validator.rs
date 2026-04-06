@@ -4,11 +4,11 @@
 
 use crate::{ConsensusError, ConsensusResult};
 use crate::aetherflow::AetherFlow;
-use crate::pos::{StakePool, ValidatorStake};
+use crate::pos::ValidatorStake;
 use crate::tower::TowerConsensus;
 use aether_common::{ValidatorTier, MINIMUM_STAKE_AETH};
 use std::sync::{Arc, RwLock};
-use std::time::{Duration, Instant};
+use std::time::{Instant, Duration};
 
 /// Validator node state
 pub struct ValidatorNode {
