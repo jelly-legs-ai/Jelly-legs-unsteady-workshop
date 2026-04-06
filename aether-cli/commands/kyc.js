@@ -24,6 +24,7 @@ const readline = require('readline');
 const crypto = require('crypto');
 const bs58 = require('bs58').default;
 const nacl = require('tweetnacl');
+const bip39 = require('bip39');
 
 // Import SDK
 const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
@@ -70,18 +71,18 @@ function saveConfig(cfg) {
   fs.writeFileSync(path.join(getAetherDir(), 'config.json'), JSON.stringify(cfg, null, 2));
 }
 
+function getWalletsDir() {
+  return path.join(getAetherDir(), 'wallets');
+}
+
 function loadWallet(address) {
   const fp = path.join(getWalletsDir(), `${address}.json`);
   if (!fs.existsSync(fp)) return null;
   try {
-This is taking too long. Let me continue writing the KYC command file:    return JSON.parse(fs.readFileSync(fp, 'utf8'));
+    return JSON.parse(fs.readFileSync(fp, 'utf8'));
   } catch {
     return null;
   }
-}
-
-function getWalletsDir() {
-  return path.join(getAetherDir(), 'wallets');
 }
 
 function ensureDirs() {
@@ -94,7 +95,7 @@ function deriveKeypair(mnemonic) {
   if (!bip39.validateMnemonic(mnemonic)) {
     throw new Error('Invalid BIP39 mnemonic');
   }
-  const seed = bip39.memonicToSeedSync(mnemonic, '');
+  const seed = bip39.mnemonicToSeedSync(mnemonic, '');
   const seed32 = seed.slice(0, 32);
   const keyPair = nacl.sign.keyPair.fromSeed(seed32);
   return {
@@ -176,7 +177,8 @@ ${C.bright}PROCESS${C.reset}
 
 ${C.bright}OUTPUT${C.reset}
   KYC link format: base64(KYC:validatorAddr:nodeId:signature)
-  Example: ZVj8K1x...9J2k4 (base64 encoded)\n`);
+  Example: ZVj8K1x...9J2k4 (base64 encoded)
+`);
       process.exit(0);
     }
   }

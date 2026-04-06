@@ -255,8 +255,7 @@ impl AetherFlow {
 
         self.blocks.insert(0, block.clone());
         self.poh = poh;
-        // After genesis, next slot is 1
-        self.current_slot = 1;
+        self.current_slot = 1; // After genesis, next slot is 1
         
         Ok(block)
     }
@@ -302,11 +301,8 @@ impl AetherFlow {
         &mut self,
         producer: [u8; 32],
     ) -> ConsensusResult<AetherBlock> {
-        // Get the slot we're producing for (current_slot is the next slot to produce)
-        let slot = self.current_slot;
-        
         // Verify we're the leader
-        let expected_leader = self.get_slot_leader(slot)
+        let expected_leader = self.get_slot_leader(self.current_slot)
             .ok_or_else(|| ConsensusError::InvalidBlockProducer {
                 expected: [0u8; 32],
                 actual: producer,
@@ -337,14 +333,14 @@ impl AetherFlow {
         // Calculate transaction root
         let tx_root = self.calculate_tx_root(&transactions);
 
-        // Create parent hash - get previous block if exists
-        let parent_hash = self.blocks.get(&slot.saturating_sub(1))
+        // Create parent hash
+        let parent_hash = self.blocks.get(&self.current_slot.saturating_sub(1))
             .map(|b| b.header.poh_hash)
             .unwrap_or([0u8; 32]);
 
         // Create block header
         let header = AetherBlockHeader {
-            slot,
+            slot: self.current_slot,
             poh_hash,
             parent_hash,
             producer,
@@ -368,10 +364,8 @@ impl AetherFlow {
             signature,
         };
 
-        // Store block at current slot
-        self.blocks.insert(slot, block.clone());
-        
-        // Increment slot for next block
+        // Store block
+        self.blocks.insert(self.current_slot, block.clone());
         self.current_slot += 1;
         self.block_height += 1;
 
