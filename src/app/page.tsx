@@ -1,168 +1,163 @@
-"use client";
+import type { Metadata } from 'next'
+import Link from 'next/link'
 
-import { useEffect } from "react";
-import Head from "next/head";
-
-/**
- * Aether Hub — Home / Landing Page
- * 
- * Entry point to the Aether Chain ecosystem portal.
- * Features:
- * - Animated hero with chain stats
- * - Quick-nav cards to Staking, Explorer, and network tools
- * - Live validator count and network status
- */
+export const metadata: Metadata = {
+  title: 'Aether Chain — Layer 1 for AI Workloads',
+  description: 'Stake, build, and operate on the Aether blockchain. 400ms slot time, 65,000+ TPS, AI Priority Lanes.',
+}
 
 export default function HomePage() {
   return (
-    <>
-      <Head>
-        <title>Aether Chain Hub</title>
-      </Head>
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
-        {/* Nav */}
-        <nav className="border-b border-gray-800 bg-black/20 backdrop-blur-sm">
-          <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-3xl">🔱</span>
-              <div>
-                <h1 className="text-xl font-bold tracking-tight">Aether Chain</h1>
-                <p className="text-xs text-gray-500">Ecosystem Portal</p>
-              </div>
-            </div>
-            <div className="flex gap-4">
-              <a
-                href="/staking"
-                className="px-4 py-2 bg-red-600/20 border border-red-500/30 rounded-lg text-sm hover:bg-red-600/30 transition-colors"
-              >
-                Stake
-              </a>
-              <a
-                href="/explorer"
-                className="px-4 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-sm hover:bg-gray-700 transition-colors"
-              >
-                Explorer
-              </a>
-            </div>
-          </div>
-        </nav>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
+      {/* Hero Section */}
+      <div className="relative overflow-hidden">
+        {/* Animated background glow */}
+        <div className="absolute inset-0">
+          <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-red-500/10 rounded-full blur-[120px]" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-red-600/5 rounded-full blur-[80px]" />
+        </div>
 
-        {/* Hero */}
-        <div className="max-w-6xl mx-auto px-4 pt-20 pb-16 text-center">
-          <div className="inline-block mb-6 px-4 py-1.5 bg-red-500/10 border border-red-500/20 rounded-full">
-            <span className="text-sm text-red-400">⚡ Live on Testnet</span>
+        <div className="relative max-w-6xl mx-auto px-4 pt-20 pb-16">
+          {/* Logo / Brand */}
+          <div className="flex items-center justify-center gap-3 mb-8">
+            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-2xl font-bold shadow-lg shadow-red-500/30">
+              🜰
+            </div>
+            <span className="text-3xl font-bold tracking-tight">Aether</span>
           </div>
-          <h2 className="text-6xl font-black mb-4 tracking-tight">
+
+          <h1 className="text-5xl md:text-7xl font-bold text-center mb-6 leading-tight">
             <span className="bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent">
-              Aether Chain
+              Layer 1 for
             </span>
-          </h2>
-          <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-8">
-            High-performance EVM-compatible chain with Proof of History consensus.
-            Stake ATH, run validators, build dApps.
+            <br />
+            <span className="bg-gradient-to-r from-red-400 via-red-500 to-red-600 bg-clip-text text-transparent">
+              AI Workloads
+            </span>
+          </h1>
+
+          <p className="text-center text-gray-400 text-lg md:text-xl max-w-2xl mx-auto mb-12 leading-relaxed">
+            A high-performance blockchain built for AI operators. 400ms slot time.
+            65,000+ TPS. AI Priority Lanes for mission-critical workloads.
           </p>
-          <div className="flex justify-center gap-4">
-            <a
+
+          {/* CTA Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-20">
+            <Link
               href="/staking"
-              className="px-8 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 rounded-xl font-bold text-lg transition-all shadow-lg shadow-red-900/30"
+              className="px-8 py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 rounded-xl font-semibold text-lg transition-all shadow-lg shadow-red-500/30 hover:shadow-red-500/50 text-center"
             >
-              Start Staking
-            </a>
-            <a
+              Stake ATH
+            </Link>
+            <Link
               href="/explorer"
-              className="px-8 py-3 bg-gray-800 border border-gray-700 hover:bg-gray-700 rounded-xl font-semibold text-lg transition-all"
+              className="px-8 py-4 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-gray-600 rounded-xl font-semibold text-lg transition-all text-center"
             >
               Chain Explorer
-            </a>
+            </Link>
           </div>
-        </div>
 
-        {/* Quick Nav Cards */}
-        <div className="max-w-6xl mx-auto px-4 pb-20">
-          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-6">
-            Explore the Ecosystem
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <a
-              href="/staking"
-              className="group bg-gray-800/50 border border-gray-700 rounded-2xl p-6 hover:border-red-500/50 transition-all hover:shadow-xl hover:shadow-red-900/10"
-            >
-              <div className="text-4xl mb-4">📈</div>
-              <h4 className="text-xl font-bold mb-2 group-hover:text-red-400 transition-colors">
-                Staking Portal
-              </h4>
-              <p className="text-gray-400 text-sm mb-4">
-                Stake ATH tokens and earn up to 15.5% APY. Three tier levels —
-                Observer, Lite, and Full validator.
-              </p>
-              <div className="text-red-400 text-sm font-medium group-hover:translate-x-1 transition-transform">
-                Open staking →
+          {/* Stats Row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-20">
+            {[
+              { label: 'Slot Time', value: '400ms' },
+              { label: 'Throughput', value: '65K+ TPS' },
+              { label: 'AI Lanes', value: '3 Tiers' },
+              { label: 'Supply', value: '500M AETH' },
+            ].map((stat) => (
+              <div key={stat.label} className="bg-gray-800/40 backdrop-blur-sm border border-gray-700/50 rounded-xl p-4 text-center">
+                <div className="text-2xl font-bold text-white mb-1">{stat.value}</div>
+                <div className="text-sm text-gray-400">{stat.label}</div>
               </div>
-            </a>
+            ))}
+          </div>
 
-            <a
-              href="/explorer"
-              className="group bg-gray-800/50 border border-gray-700 rounded-2xl p-6 hover:border-blue-500/50 transition-all hover:shadow-xl hover:shadow-blue-900/10"
-            >
-              <div className="text-4xl mb-4">🔍</div>
-              <h4 className="text-xl font-bold mb-2 group-hover:text-blue-400 transition-colors">
-                Chain Explorer
-              </h4>
-              <p className="text-gray-400 text-sm mb-4">
-                Look up addresses, transactions, and block data directly from the
-                chain. Real-time RPC queries.
-              </p>
-              <div className="text-blue-400 text-sm font-medium group-hover:translate-x-1 transition-transform">
-                Explore chain →
-              </div>
-            </a>
+          {/* Feature Cards */}
+          <div className="grid md:grid-cols-3 gap-6 mb-20">
+            {[
+              {
+                icon: '💰',
+                title: 'Staking Dashboard',
+                description: 'Stake ATH tokens and earn rewards. Monitor your positions, claim rewards, and manage your stake across multiple pools.',
+                href: '/staking',
+                cta: 'Open Staking',
+                color: 'from-green-500/20 to-green-600/10 border-green-500/30',
+              },
+              {
+                icon: '🔍',
+                title: 'Chain Explorer',
+                description: 'Look up addresses, transactions, and blocks directly on-chain. No third-party middleware — real RPC data.',
+                href: '/explorer',
+                cta: 'Explore Chain',
+                color: 'from-blue-500/20 to-blue-600/10 border-blue-500/30',
+              },
+              {
+                icon: '🤖',
+                title: 'AI Operator Portal',
+                description: 'AI agents and operators connect wallets, pay premium gas for priority lane access, and monitor their positions.',
+                href: '/staking',
+                cta: 'AI Dashboard',
+                color: 'from-purple-500/20 to-purple-600/10 border-purple-500/30',
+              },
+            ].map((card) => (
+              <Link
+                key={card.title}
+                href={card.href}
+                className={`bg-gradient-to-br ${card.color} rounded-xl p-6 hover:scale-[1.02] transition-transform block`}
+              >
+                <div className="text-3xl mb-3">{card.icon}</div>
+                <h3 className="text-xl font-semibold text-white mb-2">{card.title}</h3>
+                <p className="text-gray-400 text-sm mb-4 leading-relaxed">{card.description}</p>
+                <span className="text-sm font-medium text-white/80 hover:text-white transition-colors">
+                  {card.cta} →
+                </span>
+              </Link>
+            ))}
+          </div>
 
-            <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
-              <div className="text-4xl mb-4">🧱</div>
-              <h4 className="text-xl font-bold mb-2">Validators</h4>
-              <p className="text-gray-400 text-sm mb-4">
-                Run a validator node and secure the Aether network. P2P gossip
-                protocol and Turbine-style block propagation.
-              </p>
-              <div className="text-yellow-400 text-sm font-medium">
-                Documentation coming soon
-              </div>
+          {/* Wallets Section */}
+          <div className="bg-gray-800/30 border border-gray-700/50 rounded-xl p-8 mb-20">
+            <h2 className="text-2xl font-bold text-center mb-2 text-white">Wallet Integration</h2>
+            <p className="text-gray-400 text-center mb-8 text-sm">
+              Aether is Solana-compatible. Connect with your favorite Solana wallet.
+            </p>
+            <div className="flex flex-wrap justify-center gap-4">
+              {['Phantom', 'Solflare', 'Backpack', 'Coinbase Wallet', 'WalletConnect'].map((wallet) => (
+                <div
+                  key={wallet}
+                  className="px-5 py-3 bg-gray-900/60 border border-gray-700 rounded-lg text-sm text-gray-300 hover:border-gray-500 hover:text-white transition-all cursor-default"
+                >
+                  {wallet}
+                </div>
+              ))}
             </div>
           </div>
-        </div>
 
-        {/* Chain Stats Bar */}
-        <div className="border-t border-gray-800 bg-black/20">
-          <div className="max-w-6xl mx-auto px-4 py-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                  Network
-                </p>
-                <p className="text-lg font-bold text-white">Aether Testnet</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                  Consensus
-                </p>
-                <p className="text-lg font-bold text-white">Proof of History</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                  Token
-                </p>
-                <p className="text-lg font-bold text-white">$ATH</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                  Status
-                </p>
-                <p className="text-lg font-bold text-green-400">🟢 Live</p>
-              </div>
+          {/* Validator Tiers */}
+          <div className="mb-20">
+            <h2 className="text-2xl font-bold text-center mb-8 text-white">Validator Tiers</h2>
+            <div className="grid md:grid-cols-3 gap-6">
+              {[
+                { tier: 'Full', stake: '10,000 ATH', color: 'from-red-500/20 to-red-600/10 border-red-500/40', badge: 'Full Validator' },
+                { tier: 'Lite', stake: '1,000 ATH', color: 'from-orange-500/20 to-orange-600/10 border-orange-500/40', badge: 'Lite Validator' },
+                { tier: 'Observer', stake: '0 ATH', color: 'from-gray-500/20 to-gray-600/10 border-gray-500/40', badge: 'Observer' },
+              ].map((v) => (
+                <div key={v.tier} className={`bg-gradient-to-br ${v.color} rounded-xl p-6 border`}>
+                  <div className="text-xs uppercase tracking-wider text-gray-400 mb-2">{v.badge}</div>
+                  <div className="text-3xl font-bold text-white mb-1">{v.tier}</div>
+                  <div className="text-gray-400 text-sm">Min stake: <span className="text-white font-medium">{v.stake}</span></div>
+                </div>
+              ))}
             </div>
           </div>
+
+          {/* Footer */}
+          <footer className="text-center text-gray-600 text-sm">
+            <p>Aether Chain — Powered by AetherFlow Consensus</p>
+            <p className="mt-1">AI Priority Lanes · Hybrid PoH + PoS · Tower BFT</p>
+          </footer>
         </div>
       </div>
-    </>
-  );
+    </div>
+  )
 }
