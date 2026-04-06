@@ -147,11 +147,10 @@ impl ForkChoice {
             .max_by(|(_, weight_a), (_, weight_b)| weight_a.cmp(weight_b))
             .map(|(child, _)| child);
 
+        // Always descend into the heaviest child subtree if one exists
+        // This ensures we follow the chain with maximum cumulative stake
         match best_child {
-            Some(child) if {
-                let cumulative = self.compute_subtree_weight(child.hash);
-                cumulative > self.compute_subtree_weight(current)
-            } => self.find_best_block_recursive(child.hash),
+            Some(child) => self.find_best_block_recursive(child.hash),
             _ => current,
         }
     }
