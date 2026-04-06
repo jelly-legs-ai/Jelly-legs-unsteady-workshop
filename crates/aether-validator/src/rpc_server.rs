@@ -73,6 +73,29 @@ pub struct TransactionResponse {
     pub err: Option<String>,
 }
 
+/// Stake request
+#[derive(Debug, serde::Deserialize)]
+pub struct StakeRequest {
+    pub owner: String,
+    pub amount: u64,
+    #[serde(default)]
+    pub delegate_to: Option<String>,
+}
+
+/// Unstake request
+#[derive(Debug, serde::Deserialize)]
+pub struct UnstakeRequest {
+    pub owner: String,
+    pub stake_id: usize,
+}
+
+/// Claim request
+#[derive(Debug, serde::Deserialize)]
+pub struct ClaimRequest {
+    pub owner: String,
+    pub stake_id: usize,
+}
+
 /// Start the HTTP RPC server
 pub async fn start_rpc_server(
     addr: &str,
@@ -103,6 +126,16 @@ pub async fn start_rpc_server(
     info!("  GET  /v1/ai_priority/treasury    - Treasury state + history");
     info!("  GET  /v1/ai_priority/rewards/<addr> - Validator fee rewards");
     info!("  POST /v1/ai_priority/submit       - Submit transaction with lane field");
+    info!("  === Staking Endpoints ===");
+    info!("  GET  /v1/staking/pool                    - Staking pool info");
+    info!("  GET  /v1/staking/positions/<address>    - Staking positions for address");
+    info!("  GET  /v1/staking/summary/<address>      - Staking summary for address");
+    info!("  GET  /v1/staking/validator/<address>    - Validator staking info");
+    info!("  POST /v1/staking/stake                  - Create a new stake");
+    info!("  POST /v1/staking/unstake                - Initiate unstake");
+    info!("  POST /v1/staking/withdraw               - Complete withdrawal");
+    info!("  POST /v1/staking/claim                  - Claim staking rewards");
+    info!("  POST /v1/staking/delegate               - Delegate stake to validator");
 
     loop {
         match listener.accept().await {
@@ -619,6 +652,215 @@ async fn handle_http_request(
                         Err(e) => {
                             let resp = serde_json::json!({"error": e});
                             (500, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                    }
+                }
+                Err(e) => {
+                    let resp = serde_json::json!({"error": format!("Parse error: {}", e)});
+                    (400, serde_json::to_string(&resp).unwrap_or_default())
+                }
+            }
+        }
+        // =================================================================
+        // STAKING ENDPOINTS
+        // =================================================================
+        // Get staking positions for an address
+        ("GET", path) if path.starts_with("/v1/staking/positions/") => {
+            let addr_str = path.strip_prefix("/v1/staking/positions/").unwrap_or("").split('?').next().unwrap_or("");
+            let positions = state.get_staking_positions(addr_str);
+            let resp = serde_json::json!({
+                "address": addr_str,
+                "positions": positions,
+                "count": positions.len()
+            });
+            (200, serde_json::to_string(&resp).unwrap_or_default())
+        }
+        // Get staking summary for an address
+        ("GET", path) if path.starts_with("/v1/staking/summary/") => {
+            let addr_str = path.strip_prefix("/v1/staking/summary/").unwrap_or("").split('?').next().unwrap_or("");
+            let summary = state.get_staking_summary(addr_str);
+            (200, serde_json::to_string(&summary).unwrap_or_default())
+        }
+        // Create a new stake
+        ("POST", "/v1/staking/stake") => {
+            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
+            let body = &request_str[body_start..];
+            match serde_json::from_str::<StakeRequest>(body) {
+                Ok(req) => {
+                    // Decode owner address
+                    let owner_bytes = bs58::decode(&req.owner).into_vec().unwrap_or_default();
+                    let mut owner = [0u8; 32];
+                    owner.copy_from_slice(&owner_bytes[..32.min(owner_bytes.len())]);
+                    
+                    // Get optional delegate_to
+                    let delegate_to = req.delegate_to.as_ref().and_then(|v| {
+                        let bytes = bs58::decode(v).into_vec().ok()?;
+                        let mut arr = [0u8; 32];
+                        arr.copy_from_slice(&bytes[..32.min(bytes.len())]);
+                        Some(arr)
+                    });
+                    
+                    match state.create_stake(owner, req.amount, delegate_to) {
+                        Ok(stake_id) => {
+                            let resp = serde_json::json!({
+                                "success": true,
+                                "stake_id": stake_id,
+                                "owner": req.owner,
+                                "amount": req.amount,
+                                "message": "Stake created successfully"
+                            });
+                            (200, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                        Err(e) => {
+                            let resp = serde_json::json!({"error": e});
+                            (400, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                    }
+                }
+                Err(e) => {
+                    let resp = serde_json::json!({"error": format!("Parse error: {}", e)});
+                    (400, serde_json::to_string(&resp).unwrap_or_default())
+                }
+            }
+        }
+        // Initiate unstake
+        ("POST", "/v1/staking/unstake") => {
+            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
+            let body = &request_str[body_start..];
+            match serde_json::from_str::<UnstakeRequest>(body) {
+                Ok(req) => {
+                    let owner_bytes = bs58::decode(&req.owner).into_vec().unwrap_or_default();
+                    let mut owner = [0u8; 32];
+                    owner.copy_from_slice(&owner_bytes[..32.min(owner_bytes.len())]);
+                    
+                    match state.initiate_unstake(owner, req.stake_id) {
+                        Ok(unlock_epoch) => {
+                            let resp = serde_json::json!({
+                                "success": true,
+                                "stake_id": req.stake_id,
+                                "unlock_epoch": unlock_epoch,
+                                "message": "Unstake initiated. Funds will be available after unlock period."
+                            });
+                            (200, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                        Err(e) => {
+                            let resp = serde_json::json!({"error": e});
+                            (400, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                    }
+                }
+                Err(e) => {
+                    let resp = serde_json::json!({"error": format!("Parse error: {}", e)});
+                    (400, serde_json::to_string(&resp).unwrap_or_default())
+                }
+            }
+        }
+        // Complete withdrawal after lock period
+        ("POST", "/v1/staking/withdraw") => {
+            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
+            let body = &request_str[body_start..];
+            match serde_json::from_str::<UnstakeRequest>(body) {
+                Ok(req) => {
+                    let owner_bytes = bs58::decode(&req.owner).into_vec().unwrap_or_default();
+                    let mut owner = [0u8; 32];
+                    owner.copy_from_slice(&owner_bytes[..32.min(owner_bytes.len())]);
+                    
+                    match state.complete_withdrawal(owner, req.stake_id) {
+                        Ok(amount) => {
+                            let resp = serde_json::json!({
+                                "success": true,
+                                "stake_id": req.stake_id,
+                                "amount_withdrawn": amount,
+                                "message": "Withdrawal completed successfully"
+                            });
+                            (200, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                        Err(e) => {
+                            let resp = serde_json::json!({"error": e});
+                            (400, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                    }
+                }
+                Err(e) => {
+                    let resp = serde_json::json!({"error": format!("Parse error: {}", e)});
+                    (400, serde_json::to_string(&resp).unwrap_or_default())
+                }
+            }
+        }
+        // Claim staking rewards
+        ("POST", "/v1/staking/claim") => {
+            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
+            let body = &request_str[body_start..];
+            match serde_json::from_str::<ClaimRequest>(body) {
+                Ok(req) => {
+                    let owner_bytes = bs58::decode(&req.owner).into_vec().unwrap_or_default();
+                    let mut owner = [0u8; 32];
+                    owner.copy_from_slice(&owner_bytes[..32.min(owner_bytes.len())]);
+                    
+                    match state.claim_rewards(owner, req.stake_id) {
+                        Ok(rewards) => {
+                            let resp = serde_json::json!({
+                                "success": true,
+                                "stake_id": req.stake_id,
+                                "rewards_claimed": rewards,
+                                "message": "Rewards claimed successfully"
+                            });
+                            (200, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                        Err(e) => {
+                            let resp = serde_json::json!({"error": e});
+                            (400, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                    }
+                }
+                Err(e) => {
+                    let resp = serde_json::json!({"error": format!("Parse error: {}", e)});
+                    (400, serde_json::to_string(&resp).unwrap_or_default())
+                }
+            }
+        }
+        // Get staking pool info
+        ("GET", "/v1/staking/pool") => {
+            let pool_info = state.get_staking_pool_info();
+            (200, serde_json::to_string(&pool_info).unwrap_or_default())
+        }
+        // Get validator staking info
+        ("GET", path) if path.starts_with("/v1/staking/validator/") => {
+            let addr_str = path.strip_prefix("/v1/staking/validator/").unwrap_or("").split('?').next().unwrap_or("");
+            let info = state.get_validator_staking_info(addr_str);
+            (200, serde_json::to_string(&info).unwrap_or_default())
+        }
+        // Delegate stake to validator
+        ("POST", "/v1/staking/delegate") => {
+            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
+            let body = &request_str[body_start..];
+            match serde_json::from_str::<serde_json::Value>(body) {
+                Ok(json) => {
+                    let owner_str = json.get("owner").and_then(|v| v.as_str()).unwrap_or("");
+                    let stake_id = json.get("stake_id").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+                    let validator_str = json.get("validator").and_then(|v| v.as_str()).unwrap_or("");
+                    
+                    let owner_bytes = bs58::decode(owner_str).into_vec().unwrap_or_default();
+                    let mut owner = [0u8; 32];
+                    owner.copy_from_slice(&owner_bytes[..32.min(owner_bytes.len())]);
+                    
+                    let validator_bytes = bs58::decode(validator_str).into_vec().unwrap_or_default();
+                    let mut validator = [0u8; 32];
+                    validator.copy_from_slice(&validator_bytes[..32.min(validator_bytes.len())]);
+                    
+                    match state.delegate_stake(owner, stake_id, validator) {
+                        Ok(()) => {
+                            let resp = serde_json::json!({
+                                "success": true,
+                                "stake_id": stake_id,
+                                "validator": validator_str,
+                                "message": "Stake delegated successfully"
+                            });
+                            (200, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                        Err(e) => {
+                            let resp = serde_json::json!({"error": e});
+                            (400, serde_json::to_string(&resp).unwrap_or_default())
                         }
                     }
                 }

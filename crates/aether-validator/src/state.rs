@@ -5,10 +5,49 @@
 use crate::genesis::{GenesisBlock, load_genesis_from_file, ValidatorTier, TierConfig};
 use crate::keypair::ValidatorIdentity;
 use crate::{BlockProduction, EpochInfo, ValidatorInfo, VoteAccountInfo};
+use aether_consensus::staking::StakingPool;
+use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 use tracing::info;
+
+/// Staking position response
+#[derive(Debug, Serialize)]
+pub struct StakingPositionResponse {
+    pub stake_id: usize,
+    pub owner: String,
+    pub amount: u64,
+    pub accumulated_rewards: u64,
+    pub total_value: u64,
+    pub start_epoch: u64,
+    pub unlock_epoch: u64,
+    pub is_locked: bool,
+    pub remaining_epochs: u64,
+    pub delegated_to: Option<String>,
+    pub pending_withdrawal: bool,
+    pub annual_reward_rate_bps: u64,
+}
+
+/// Staking summary for an address
+#[derive(Debug, Serialize)]
+pub struct StakingSummaryResponse {
+    pub address: String,
+    pub total_staked: u64,
+    pub total_rewards: u64,
+    pub active_positions: usize,
+    pub positions: Vec<StakingPositionResponse>,
+}
+
+/// Validator staking info
+#[derive(Debug, Serialize)]
+pub struct ValidatorStakingInfo {
+    pub identity: String,
+    pub total_delegated: u64,
+    pub delegator_count: usize,
+    pub commission_bps: u64,
+    pub active: bool,
+}
 
 /// Thread-safe validator state shared across all async tasks
 #[derive(Clone)]
@@ -49,6 +88,9 @@ struct ValidatorStateInner {
     // Observer relay tracking (bytes relayed this epoch)
     relay_bytes: AtomicU64,
     
+    // Staking pool
+    staking_pool: RwLock<StakingPool>,
+    
     // Ledger
     #[allow(dead_code)]
     ledger_path: PathBuf,
@@ -78,6 +120,7 @@ impl ValidatorState {
                 vote_count: AtomicU64::new(0),
                 relay_bytes: AtomicU64::new(0),
                 block_hash: RwLock::new("0000000000000000000000000000000000000000000000000000000000000000".to_string()),
+                staking_pool: RwLock::new(StakingPool::new(0)),
                 ledger_path,
                 testnet,
             }),
@@ -118,6 +161,7 @@ impl ValidatorState {
                 vote_count: AtomicU64::new(0),
                 relay_bytes: AtomicU64::new(0),
                 block_hash: RwLock::new(genesis_hash),
+                staking_pool: RwLock::new(StakingPool::new(0)),
                 ledger_path,
                 testnet,
             }),
@@ -513,5 +557,252 @@ impl ValidatorState {
                     .map(|g| g.rewards.flux_epoch_relay_rate)
             })
             .unwrap_or(0.000001)
+    }
+
+    // ========================================================================
+    // Staking Operations
+    // ========================================================================
+
+    /// Create a new stake
+    pub fn create_stake(&self, owner: [u8; 32], amount: u64, delegate_to: Option<[u8; 32]>) -> Result<usize, String> {
+        let mut pool = self.inner.staking_pool.write().map_err(|_| "Lock poisoned".to_string())?;
+        let stake_id = pool.stake(owner, amount).map_err(|e| e.to_string())?;
+        
+        // If delegation target provided, delegate immediately
+        if let Some(validator) = delegate_to {
+            pool.delegate(stake_id, validator).map_err(|e| e.to_string())?;
+        }
+        
+        Ok(stake_id)
+    }
+
+    /// Initiate unstake for a stake position
+    pub fn initiate_unstake(&self, owner: [u8; 32], stake_id: usize) -> Result<u64, String> {
+        let mut pool = self.inner.staking_pool.write().map_err(|_| "Lock poisoned".to_string())?;
+        
+        // Verify ownership
+        let stake = pool.get_stake(stake_id).ok_or("Stake not found")?;
+        if stake.owner != owner {
+            return Err("Not stake owner".to_string());
+        }
+        
+        let unlock_epoch = pool.initiate_withdrawal(stake_id).map_err(|e| e.to_string())?;
+        Ok(unlock_epoch)
+    }
+
+    /// Complete withdrawal after lock period
+    pub fn complete_withdrawal(&self, owner: [u8; 32], stake_id: usize) -> Result<u64, String> {
+        let mut pool = self.inner.staking_pool.write().map_err(|_| "Lock poisoned".to_string())?;
+        
+        // Verify ownership
+        let stake = pool.get_stake(stake_id).ok_or("Stake not found")?;
+        if stake.owner != owner {
+            return Err("Not stake owner".to_string());
+        }
+        
+        pool.complete_withdrawal(stake_id).map_err(|e| e.to_string())
+    }
+
+    /// Claim accumulated rewards
+    pub fn claim_rewards(&self, owner: [u8; 32], stake_id: usize) -> Result<u64, String> {
+        let mut pool = self.inner.staking_pool.write().map_err(|_| "Lock poisoned".to_string())?;
+        
+        // Verify ownership
+        let stake = pool.get_stake(stake_id).ok_or("Stake not found")?;
+        if stake.owner != owner {
+            return Err("Not stake owner".to_string());
+        }
+        
+        let rewards = stake.accumulated_rewards;
+        pool.stakes.get_mut(stake_id).map(|s| s.accumulated_rewards = 0);
+        Ok(rewards)
+    }
+
+    /// Delegate stake to a validator
+    pub fn delegate_stake(&self, owner: [u8; 32], stake_id: usize, validator: [u8; 32]) -> Result<(), String> {
+        let mut pool = self.inner.staking_pool.write().map_err(|_| "Lock poisoned".to_string())?;
+        
+        // Verify ownership
+        let stake = pool.get_stake(stake_id).ok_or("Stake not found")?;
+        if stake.owner != owner {
+            return Err("Not stake owner".to_string());
+        }
+        
+        pool.delegate(stake_id, validator).map_err(|e| e.to_string())
+    }
+
+    /// Get staking positions for an address (as JSON-compatible values)
+    pub fn get_staking_positions(&self, owner: &str) -> Vec<serde_json::Value> {
+        let owner_bytes = match bs58::decode(owner).into_vec() {
+            Ok(bytes) => {
+                let mut arr = [0u8; 32];
+                if bytes.len() >= 32 {
+                    arr.copy_from_slice(&bytes[..32]);
+                } else {
+                    arr[..bytes.len()].copy_from_slice(&bytes);
+                }
+                arr
+            }
+            Err(_) => return Vec::new(),
+        };
+
+        let pool = match self.inner.staking_pool.read() {
+            Ok(pool) => pool,
+            Err(_) => return Vec::new(),
+        };
+
+        let positions = pool.get_stakes_by_owner(&owner_bytes);
+        positions.into_iter().map(|(id, stake)| {
+            serde_json::json!({
+                "stake_id": id,
+                "owner": bs58::encode(stake.owner).into_string(),
+                "amount": stake.amount,
+                "accumulated_rewards": stake.accumulated_rewards,
+                "start_epoch": stake.start_epoch,
+                "unlock_epoch": stake.unlock_epoch,
+                "is_locked": stake.is_locked(pool.current_epoch),
+                "delegated_to": stake.delegated_to.map(|v| bs58::encode(v).into_string()),
+                "pending_withdrawal": stake.pending_withdrawal
+            })
+        }).collect()
+    }
+
+    /// Get staking summary for an address
+    pub fn get_staking_summary(&self, owner: &str) -> StakingSummaryResponse {
+        let owner_bytes = match bs58::decode(owner).into_vec() {
+            Ok(bytes) => {
+                let mut arr = [0u8; 32];
+                if bytes.len() >= 32 {
+                    arr.copy_from_slice(&bytes[..32]);
+                } else {
+                    arr[..bytes.len()].copy_from_slice(&bytes);
+                }
+                arr
+            }
+            Err(_) => {
+                return StakingSummaryResponse {
+                    address: owner.to_string(),
+                    total_staked: 0,
+                    total_rewards: 0,
+                    active_positions: 0,
+                    positions: Vec::new(),
+                };
+            }
+        };
+
+        let pool = match self.inner.staking_pool.read() {
+            Ok(pool) => pool,
+            Err(_) => {
+                return StakingSummaryResponse {
+                    address: owner.to_string(),
+                    total_staked: 0,
+                    total_rewards: 0,
+                    active_positions: 0,
+                    positions: Vec::new(),
+                };
+            }
+        };
+
+        let positions = pool.get_stakes_by_owner(&owner_bytes);
+        let total_staked: u64 = positions.iter().map(|(_, s)| s.amount).sum();
+        let total_rewards: u64 = positions.iter().map(|(_, s)| s.accumulated_rewards).sum();
+        let active_count = positions.iter().filter(|(_, s)| !s.pending_withdrawal).count();
+
+        let position_responses: Vec<StakingPositionResponse> = positions.into_iter().map(|(id, stake)| {
+            StakingPositionResponse {
+                stake_id: id,
+                owner: bs58::encode(stake.owner).into_string(),
+                amount: stake.amount,
+                accumulated_rewards: stake.accumulated_rewards,
+                total_value: stake.amount + stake.accumulated_rewards,
+                start_epoch: stake.start_epoch,
+                unlock_epoch: stake.unlock_epoch,
+                is_locked: stake.is_locked(pool.current_epoch),
+                remaining_epochs: stake.remaining_lock_epochs(pool.current_epoch),
+                delegated_to: stake.delegated_to.map(|v| bs58::encode(v).into_string()),
+                pending_withdrawal: stake.pending_withdrawal,
+                annual_reward_rate_bps: pool.reward_rate_bps,
+            }
+        }).collect();
+
+        StakingSummaryResponse {
+            address: owner.to_string(),
+            total_staked,
+            total_rewards,
+            active_positions: active_count,
+            positions: position_responses,
+        }
+    }
+
+    /// Get staking pool info
+    pub fn get_staking_pool_info(&self) -> serde_json::Value {
+        let pool = match self.inner.staking_pool.read() {
+            Ok(pool) => pool,
+            Err(_) => {
+                return serde_json::json!({
+                    "error": "Failed to access staking pool"
+                });
+            }
+        };
+
+        serde_json::json!({
+            "current_epoch": pool.current_epoch,
+            "total_staked": pool.total_staked,
+            "total_rewards": pool.total_rewards,
+            "reward_rate_bps": pool.reward_rate_bps,
+            "stake_count": pool.stakes.len()
+        })
+    }
+
+    /// Get validator staking info
+    pub fn get_validator_staking_info(&self, validator: &str) -> ValidatorStakingInfo {
+        let validator_bytes = match bs58::decode(validator).into_vec() {
+            Ok(bytes) => {
+                let mut arr = [0u8; 32];
+                if bytes.len() >= 32 {
+                    arr.copy_from_slice(&bytes[..32]);
+                } else {
+                    arr[..bytes.len()].copy_from_slice(&bytes);
+                }
+                arr
+            }
+            Err(_) => {
+                return ValidatorStakingInfo {
+                    identity: validator.to_string(),
+                    total_delegated: 0,
+                    delegator_count: 0,
+                    commission_bps: 0,
+                    active: false,
+                };
+            }
+        };
+
+        let pool = match self.inner.staking_pool.read() {
+            Ok(pool) => pool,
+            Err(_) => {
+                return ValidatorStakingInfo {
+                    identity: validator.to_string(),
+                    total_delegated: 0,
+                    delegator_count: 0,
+                    commission_bps: 0,
+                    active: false,
+                };
+            }
+        };
+
+        let delegated_stakes: Vec<_> = pool.stakes.iter()
+            .filter(|s| s.delegated_to == Some(validator_bytes))
+            .collect();
+
+        let total_delegated: u64 = delegated_stakes.iter().map(|s| s.amount).sum();
+        let delegator_count = delegated_stakes.len();
+
+        ValidatorStakingInfo {
+            identity: validator.to_string(),
+            total_delegated,
+            delegator_count,
+            commission_bps: 0, // Would come from validator registry
+            active: true,
+        }
     }
 }

@@ -174,7 +174,7 @@ pub fn verify_oracle(
     let mut hasher = Sha256::new();
     hasher.update(message);
     hasher.update(oracle_pubkey);
-    let expected = hasher.finalize();
+    let _expected = hasher.finalize();
     
     // Simple verification: check if signature contains valid structure
     // This is a placeholder - real implementation would use proper crypto

@@ -172,8 +172,11 @@ pub struct SyncManager {
 /// Block request from a peer
 #[derive(Debug, Clone)]
 struct BlockRequest {
+    #[allow(dead_code)]
     peer_id: String,
+    #[allow(dead_code)]
     start_slot: u64,
+    #[allow(dead_code)]
     end_slot: u64,
     request_time: Instant,
 }

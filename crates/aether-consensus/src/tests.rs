@@ -238,8 +238,8 @@ fn test_fork_choice_with_stake() {
     assert_eq!(best.hash, fork_b_child);
     
     // Add more weight to fork A
-    fork_choice.update_stake(fork_a, 200);
-    fork_choice.update_stake(fork_a_child, 200);
+    let _ = fork_choice.update_stake(fork_a, 200);
+    let _ = fork_choice.update_stake(fork_a_child, 200);
     
     // Now fork A should be best
     let best = fork_choice.get_best_block().unwrap();

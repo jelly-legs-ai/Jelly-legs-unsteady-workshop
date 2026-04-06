@@ -44,6 +44,7 @@ reqwest = { workspace = true }
 aether-core = { path = "../aether-core" }
 aether-common = { path = "../aether-common" }
 aether-ai-priority = { path = "../aether-ai-priority" }
+aether-consensus = { path = "../aether-consensus" }
 
 [dev-dependencies]
 tempfile = "3.8"
