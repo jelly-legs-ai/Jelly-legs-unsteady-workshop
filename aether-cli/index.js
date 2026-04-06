@@ -37,6 +37,7 @@ const { sdkTestCommand } = require('./commands/sdk-test');
 const { balanceCommand } = require('./commands/balance');
 const { transferCommand } = require('./commands/transfer');
 const { slotCommand } = require('./commands/slot');
+const { configCommand } = require('./commands/config');
 const readline = require('readline');
 
 // CLI version
@@ -377,6 +378,13 @@ const COMMANDS = {
       validatorsListCommand();
     },
   },
+  'validator-info': {
+    description: 'Get detailed info for a specific validator — aether validator-info <address> [--json]',
+    handler: () => {
+      const { validatorInfoCommand } = require('./commands/validator-info');
+      validatorInfoCommand();
+    },
+  },
   stats: {
     description: 'Wallet stats dashboard — balance, stake positions, recent txs — aether stats --address <addr> [--compact] [--json]',
     handler: () => {
@@ -447,6 +455,12 @@ const COMMANDS = {
     description: 'Test SDK with real RPC calls — aether sdk-test [--rpc <url>] [--quick] [--json]',
     handler: () => {
       sdkTestCommand();
+    },
+  },
+  config: {
+    description: 'Configuration management — aether config set/get/list/validate/init',
+    handler: () => {
+      configCommand();
     },
   },
   help: {

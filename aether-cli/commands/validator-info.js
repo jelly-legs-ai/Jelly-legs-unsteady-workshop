@@ -2,23 +2,32 @@
 /**
  * aether-cli validator-info
  *
- * Inspect a specific validator by identity address or name.
- * Shows stake, APY, score, commission, tier, uptime, epoch performance,
- * and a breakdown of delegators.
+ * Display detailed information about a specific validator including:
+ *   - APY (Annual Percentage Yield)
+ *   - Commission rate
+ *   - Total stake
+ *   - Uptime and performance metrics
+ *   - Validator metadata
  *
  * Usage:
- *   aether validator info <addressOrName>     Inspect a validator
- *   aether validator info <addressOrName> --json   JSON output for scripting
- *   aether validator info <addressOrName> --rpc <url>   Use specific RPC
+ *   aether validator-info --address <validator_addr> [--json] [--rpc <url>]
+ *   aether validator-info <validator_addr>
  *
  * Examples:
- *   aether validator info ATH3mGH...
- *   aether validator info jellylegs --json
- *   aether validator info --address ATH3mGH... --rpc http://custom:8899
+ *   aether validator-info ATHabc...
+ *   aether validator-info --address ATHabc... --json
+ *   aether validator-info ATHabc... --rpc http://localhost:8899
+ *
+ * SDK wired to:
+ *   - GET /v1/validator/<address>/apy (via client.getValidatorAPY())
+ *   - GET /v1/validators (via client.getValidators() for full list filtering)
  */
 
-const http = require('http');
-const https = require('https');
+const path = require('path');
+
+// Import SDK for blockchain RPC calls
+const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
+const aether = require(sdkPath);
 
 // ANSI colours
 const C = {
@@ -28,61 +37,23 @@ const C = {
   red: '\x1b[31m',
   green: '\x1b[32m',
   yellow: '\x1b[33m',
-  blue: '\x1b[34m',
   cyan: '\x1b[36m',
   magenta: '\x1b[35m',
+  blue: '\x1b[34m',
 };
 
-const DEFAULT_RPC = process.env.AETHER_RPC || 'http://127.0.0.1:8899';
+const CLI_VERSION = '1.0.0';
 
 // ---------------------------------------------------------------------------
-// HTTP helpers
+// Config
 // ---------------------------------------------------------------------------
 
-function httpRequest(rpcUrl, path) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(path, rpcUrl);
-    const lib = url.protocol === 'https:' ? https : http;
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'GET',
-      timeout: 8000,
-      headers: { 'Content-Type': 'application/json' },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve({ raw: data }); } });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
-    req.end();
-  });
+function getDefaultRpc() {
+  return process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
 }
 
-function httpPost(rpcUrl, path, body) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(path, rpcUrl);
-    const lib = url.protocol === 'https:' ? https : http;
-    const bodyStr = JSON.stringify(body);
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'POST',
-      timeout: 8000,
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve(data); } });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
-    req.write(bodyStr);
-    req.end();
-  });
+function createClient(rpcUrl) {
+  return new aether.AetherClient({ rpcUrl });
 }
 
 // ---------------------------------------------------------------------------
@@ -90,557 +61,336 @@ function httpPost(rpcUrl, path, body) {
 // ---------------------------------------------------------------------------
 
 function parseArgs() {
-  const raw = process.argv.slice(3); // [node, index.js, validator, info, ...]
-  const opts = {
-    rpc: DEFAULT_RPC,
-    target: null,
-    asJson: false,
-  };
+  const args = process.argv.slice(2);
+  const result = { address: null, json: false, rpc: null };
 
-  for (let i = 0; i < raw.length; i++) {
-    const arg = raw[i];
-    if ((arg === '--rpc' || arg === '-r') && raw[i + 1] && !raw[i + 1].startsWith('-')) {
-      opts.rpc = raw[++i];
-    } else if (arg === '--json' || arg === '-j') {
-      opts.asJson = true;
-    } else if ((arg === '--address' || arg === '-a') && raw[i + 1] && !raw[i + 1].startsWith('-')) {
-      opts.target = raw[++i];
-    } else if (!arg.startsWith('-') && !opts.target) {
-      opts.target = arg;
+  for (let i = 0; i < args.length; i++) {
+    if ((args[i] === '--address' || args[i] === '-a') && args[i + 1]) {
+      result.address = args[++i];
+    } else if (args[i] === '--json' || args[i] === '-j') {
+      result.json = true;
+    } else if (args[i] === '--rpc' && args[i + 1]) {
+      result.rpc = args[++i];
+    } else if (args[i] === '--help' || args[i] === '-h') {
+      result.help = true;
+    } else if (!result.address && !args[i].startsWith('-')) {
+      // Positional argument for address
+      result.address = args[i];
     }
   }
 
-  return opts;
+  return result;
 }
 
 // ---------------------------------------------------------------------------
-// Data fetchers
+// Format helpers
 // ---------------------------------------------------------------------------
-
-/** Fetch all validators and find the matching one */
-async function fetchValidatorByIdentity(rpc, identity) {
-  // identity can be a full address, partial address, or name/moniker
-  const validators = await fetchAllValidators(rpc);
-  if (!validators || validators.length === 0) return null;
-
-  const isAddress = identity.startsWith('ATH');
-
-  let match = null;
-
-  if (isAddress) {
-    // Exact or prefix match on pubkey/identity
-    match = validators.find(v =>
-      (v.pubkey && (v.pubkey === identity || v.pubkey.startsWith(identity))) ||
-      (v.address && (v.address === identity || v.address.startsWith(identity))) ||
-      (v.identity && (v.identity === identity || v.identity.startsWith(identity)))
-    );
-  }
-
-  if (!match) {
-    // Try name/moniker match (case-insensitive partial)
-    const lower = identity.toLowerCase();
-    match = validators.find(v =>
-      (v.name && v.name.toLowerCase().includes(lower)) ||
-      (v.moniker && v.moniker.toLowerCase().includes(lower))
-    );
-  }
-
-  if (!match && identity.length >= 8) {
-    // Try prefix match on any field
-    match = validators.find(v => {
-      const pk = v.pubkey || v.address || v.identity || '';
-      return pk.startsWith(identity) || pk.endsWith(identity);
-    });
-  }
-
-  return match;
-}
-
-/** Fetch all validators from the network */
-async function fetchAllValidators(rpc) {
-  try {
-    const res = await httpRequest(rpc, '/v1/validators');
-    if (res && !res.error) {
-      if (Array.isArray(res)) return res;
-      if (res.validators && Array.isArray(res.validators)) return res.validators;
-      if (res.accounts && Array.isArray(res.accounts)) return res.accounts;
-    }
-    const res2 = await httpPost(rpc, '/v1/validators', {});
-    if (res2 && !res2.error) {
-      if (Array.isArray(res2)) return res2;
-      if (res2.validators && Array.isArray(res2.validators)) return res2.validators;
-    }
-    return [];
-  } catch {
-    return [];
-  }
-}
-
-/** Fetch epoch info for APY and epoch calculations */
-async function fetchEpochInfo(rpc) {
-  try {
-    return await httpRequest(rpc, '/v1/epoch-info');
-  } catch {
-    return null;
-  }
-}
-
-/** Fetch supply for APY estimation */
-async function fetchSupply(rpc) {
-  try {
-    return await httpRequest(rpc, '/v1/supply');
-  } catch {
-    return null;
-  }
-}
-
-/** Fetch delegators for a specific validator */
-async function fetchDelegators(rpc, validatorPubkey) {
-  try {
-    const res = await httpRequest(rpc, `/v1/validator/${encodeURIComponent(validatorPubkey)}/delegators`);
-    if (res && !res.error) {
-      return Array.isArray(res) ? res : (res.delegators || []);
-    }
-    return [];
-  } catch {
-    return [];
-  }
-}
-
-/** Fetch recent performance history for a validator */
-async function fetchValidatorPerformance(rpc, validatorPubkey) {
-  try {
-    const res = await httpRequest(rpc, `/v1/validator/${encodeURIComponent(validatorPubkey)}/performance`);
-    if (res && !res.error) {
-      return res;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Normalise a validator record
-// ---------------------------------------------------------------------------
-
-function normalise(v) {
-  const pubkey = v.pubkey || v.address || v.identity || v.id || null;
-  const name = v.name || v.moniker || v.label || null;
-  const tier = (v.tier || v.node_type || v.type || 'full').toLowerCase();
-  const stake = typeof v.stake === 'bigint' ? v.stake
-    : typeof v.stake === 'object' ? BigInt(v.stake.toString())
-    : BigInt(v.stake || v.delegatedStake || v.stake_lamports || v.lamports || 0);
-  const score = v.score !== undefined ? v.score
-    : v.uptime !== undefined ? Math.round(v.uptime * 100)
-    : null;
-  const apy = v.apy !== undefined ? v.apy
-    : v.apy_bps !== undefined ? v.apy_bps / 100
-    : null;
-  const commission = v.commission !== undefined ? v.commission
-    : v.commission_bps !== undefined ? v.commission_bps / 100
-    : null;
-  const version = v.version || v.agent || null;
-  const ip = v.ip || v.remote || null;
-  const lastVote = v.last_vote || v.lastVote || null;
-  const stakeAccounts = v.stake_accounts || v.stakeAccounts || v.delegators || null;
-  const activatedStake = v.activated_stake || null;
-  const lastEpochStake = v.last_epoch_stake || v.stake_last_epoch || null;
-  const credits = v.credits || v.epoch_credits || null;
-  const rootSlot = v.root_slot || v.rootSlot || null;
-  const delinquent = v.delinquent || false;
-
-  return {
-    pubkey, name, tier, stake, score, apy, commission,
-    version, ip, lastVote, stakeAccounts, activatedStake,
-    lastEpochStake, credits, rootSlot, delinquent,
-    _raw: v,
-  };
-}
 
 function formatAether(lamports) {
-  const aeth = Number(lamports) / 1e9;
-  if (aeth === 0) return '0 AETH';
-  return aeth.toFixed(4).replace(/\.?0+$/, '') + ' AETH';
+  const aeth = (lamports || 0) / 1e9;
+  return aeth.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 }) + ' AETH';
 }
 
-function formatAethFull(lamports) {
-  return (Number(lamports) / 1e9).toFixed(6) + ' AETH';
+function formatPercent(value) {
+  if (value === null || value === undefined) return 'N/A';
+  if (typeof value === 'string') value = parseFloat(value);
+  if (isNaN(value)) return 'N/A';
+  return value.toFixed(2) + '%';
 }
 
-function formatNumber(n) {
-  if (n === null || n === undefined) return '—';
-  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+function formatUptime(seconds) {
+  if (!seconds) return 'N/A';
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
 }
 
-function tierBadge(tier) {
-  if (tier === 'full') return `${C.cyan}◆ FULL${C.reset}`;
-  if (tier === 'lite') return `${C.yellow}◇ LITE${C.reset}`;
-  if (tier === 'observer') return `${C.green}○ OBSERVER${C.reset}`;
-  return `${C.dim}[${tier}]${C.reset}`;
+function shortPubkey(pubkey, len = 8) {
+  if (!pubkey || pubkey.length < 16) return pubkey || 'unknown';
+  return pubkey.slice(0, len) + '...' + pubkey.slice(-len);
 }
 
-function tierColor(tier) {
-  if (tier === 'full') return C.cyan;
-  if (tier === 'lite') return C.yellow;
-  if (tier === 'observer') return C.green;
-  return C.reset;
-}
-
-function scoreColor(score) {
-  if (score === null || score === undefined) return C.dim;
-  if (score >= 80) return C.green;
-  if (score >= 50) return C.yellow;
-  return C.red;
-}
-
-function apyColor(apy) {
-  if (apy === null || apy === undefined) return C.dim;
-  if (apy >= 8) return C.green;
-  if (apy >= 5) return C.cyan;
-  if (apy >= 2) return C.yellow;
-  return C.red;
+function getStatusColor(status) {
+  const s = (status || '').toLowerCase();
+  if (s === 'active') return C.green;
+  if (s === 'delinquent') return C.red;
+  if (s === 'inactive') return C.dim;
+  if (s === 'jailed') return C.red;
+  return C.yellow;
 }
 
 // ---------------------------------------------------------------------------
-// Render output
+// RPC fetchers - Real blockchain calls via SDK
 // ---------------------------------------------------------------------------
 
-function renderHeader(v) {
-  const shortAddr = v.pubkey
-    ? v.pubkey.slice(0, 12) + '...' + v.pubkey.slice(-8)
-    : 'unknown';
-
-  console.log();
-  console.log(`${C.bright}${C.cyan}╔═══════════════════════════════════════════════════════════════════════════╗${C.reset}`);
-  console.log(`${C.bright}${C.cyan}║${C.reset}              ${C.bright}VALIDATOR DETAILS${C.reset}  ${C.dim}${shortAddr}${C.reset}                  ${C.bright}║${C.reset}`);
-  console.log(`${C.bright}${C.cyan}╚═══════════════════════════════════════════════════════════════════════════╝${C.reset}`);
-  console.log();
-
-  if (v.name) {
-    console.log(`  ${C.cyan}${C.bright}${v.name}${C.reset}`);
+/**
+ * Fetch validator APY via SDK (GET /v1/validator/<address>/apy)
+ */
+async function fetchValidatorAPY(client, address) {
+  try {
+    const result = await client.getValidatorAPY(address);
+    return result;
+  } catch (err) {
+    return { error: err.message };
   }
-  if (v.pubkey) {
-    console.log(`  ${C.dim}${v.pubkey}${C.reset}`);
-  }
-  console.log();
-
-  // Tier + delinquent banner
-  const tierStr = tierBadge(v.tier);
-  const deliqStr = v.delinquent ? `  ${C.red}⚠ DELINQUENT${C.reset}` : '';
-  console.log(`  ${tierStr}${deliqStr}`);
-  console.log();
 }
 
-function renderStats(v, epochInfo) {
-  const stakeFormatted = formatAether(v.stake);
-  const stakeAeth = Number(v.stake) / 1e9;
-  const score = v.score;
-  const apy = v.apy;
-  const commission = v.commission;
-
-  // APY bar (0-15% range for display)
-  const apyBarLen = 12;
-  const apyDisplay = apy !== null && apy !== undefined ? apy : 0;
-  const apyFillLen = Math.min(apyBarLen, Math.round((apyDisplay / 15) * apyBarLen));
-
-  // Commission bar (0-100%)
-  const commBarLen = 10;
-  const commDisplay = commission !== null && commission !== undefined ? commission : 0;
-  const commFillLen = Math.round((commDisplay / 100) * commBarLen);
-
-  console.log(`  ${C.bright}┌───────────────────────────────────────────────────────────────────────┐${C.reset}`);
-  console.log(`  ${C.bright}│${C.reset}  ${C.cyan}Stake${C.reset}          ${formatAether(v.stake).padEnd(15)}   ${C.cyan}${formatAethFull(v.stake).padEnd(14)}  ${C.bright}│${C.reset}`);
-
-  if (v.lastEpochStake !== null && v.lastEpochStake !== undefined) {
-    const lastAeth = Number(v.lastEpochStake) / 1e9;
-    const change = stakeAeth - lastAeth;
-    const changeStr = change >= 0 ? `+${change.toFixed(2)}` : change.toFixed(2);
-    const changeColor = change >= 0 ? C.green : C.red;
-    console.log(`  ${C.bright}│${C.reset}  ${C.dim}Last epoch${C.reset}    ${formatAethFull(v.lastEpochStake).padEnd(15)}   ${changeColor}${changeStr} AETH${C.reset}`.padEnd(75) + `  ${C.bright}│${C.reset}`);
-  }
-
-  if (score !== null && score !== undefined) {
-    const sc = scoreColor(score);
-    const scoreLabel = score >= 80 ? 'excellent' : score >= 50 ? 'good' : score >= 20 ? 'fair' : 'poor';
-    console.log(`  ${C.bright}│${C.reset}  ${C.cyan}Score${C.reset}          ${sc}${score}${C.reset}% (${scoreLabel})`.padEnd(75) + `  ${C.bright}│${C.reset}`);
-  }
-
-  if (apy !== null && apy !== undefined) {
-    const ac = apyColor(apy);
-    const apyBar = `${ac}${'█'.repeat(apyFillLen)}${C.dim}${'░'.repeat(apyBarLen - apyFillLen)}${C.reset}`;
-    console.log(`  ${C.bright}│${C.reset}  ${C.cyan}Est. APY${C.reset}       ${ac}${apy.toFixed(2)}%${C.reset}  ${apyBar}`.padEnd(75) + `  ${C.bright}│${C.reset}`);
-  }
-
-  if (commission !== null && commission !== undefined) {
-    const commBar = `${C.yellow}${'█'.repeat(commFillLen)}${C.dim}${'░'.repeat(commBarLen - commFillLen)}${C.reset}`;
-    console.log(`  ${C.bright}│${C.reset}  ${C.cyan}Commission${C.reset}     ${commission.toFixed(1)}%  ${commBar}`.padEnd(75) + `  ${C.bright}│${C.reset}`);
-  }
-
-  console.log(`  ${C.bright}└───────────────────────────────────────────────────────────────────────┘${C.reset}`);
-  console.log();
-}
-
-function renderNodeInfo(v) {
-  const items = [];
-  if (v.version) items.push({ label: 'Version', value: v.version, color: C.cyan });
-  if (v.ip) items.push({ label: 'IP', value: v.ip, color: C.dim });
-  if (v.lastVote !== null && v.lastVote !== undefined) items.push({ label: 'Last vote', value: `slot ${formatNumber(v.lastVote)}`, color: C.cyan });
-  if (v.rootSlot !== null && v.rootSlot !== undefined) items.push({ label: 'Root slot', value: formatNumber(v.rootSlot), color: C.cyan });
-
-  if (items.length === 0) return;
-
-  console.log(`  ${C.bright}── Node Info ──────────────────────────────────────────────${C.reset}`);
-  for (const item of items) {
-    console.log(`  ${C.dim}${item.label}:${C.reset}  ${item.color}${item.value}${C.reset}`);
-  }
-  console.log();
-}
-
-function renderEpochPerformance(v, epochInfo, performance) {
-  console.log(`  ${C.bright}── Epoch Performance ─────────────────────────────────────${C.reset}`);
-
-  if (epochInfo) {
-    const ep = epochInfo.epoch;
-    const slotIdx = epochInfo.slot_index;
-    const slotsInEp = epochInfo.slots_in_epoch;
-    const progress = slotsInEp > 0 ? ((slotIdx / slotsInEp) * 100).toFixed(1) : '?';
-    console.log(`  ${C.dim}Current epoch:${C.reset}  ${C.bright}${ep}${C.reset}  ${C.dim}progress: ${C.reset}${progress}%`);
-    if (slotsInEp) console.log(`  ${C.dim}Slots in epoch:${C.reset} ${formatNumber(slotsInEp)}`);
-    if (slotIdx !== undefined) console.log(`  ${C.dim}Current slot:${C.reset}  ${formatNumber(slotIdx)}`);
-    console.log();
-  }
-
-  if (v.credits !== null && v.credits !== undefined) {
-    if (Array.isArray(v.credits) && v.credits.length > 0) {
-      const [ep, cr, pr] = v.credits.length >= 3
-        ? [v.credits[v.credits.length - 1], v.credits[v.credits.length - 2], v.credits[v.credits.length - 3]]
-        : [null, null, null];
-      if (ep !== null) console.log(`  ${C.dim}Epoch credits:${C.reset}  ${formatNumber(ep)}  ${C.dim}(prev: ${formatNumber(pr)})${C.reset}`);
-    } else if (typeof v.credits === 'number') {
-      console.log(`  ${C.dim}Epoch credits:${C.reset}  ${formatNumber(v.credits)}`);
-    }
-  }
-
-  if (performance) {
-    if (performance.slots_in_epoch !== undefined) {
-      console.log(`  ${C.dim}Epoch slots:${C.reset}  ${formatNumber(performance.slots_in_epoch)}`);
-    }
-    if (performance.slots_produced !== undefined) {
-      const pct = performance.slots_in_epoch > 0
-        ? ((performance.slots_produced / performance.slots_in_epoch) * 100).toFixed(1)
-        : '?';
-      console.log(`  ${C.dim}Slots produced:${C.reset} ${performance.slots_produced} / ${formatNumber(performance.slots_in_epoch)} ${C.dim}(${pct}%)${C.reset}`);
-    }
-    if (performance.credits !== undefined) {
-      console.log(`  ${C.dim}Credits earned:${C.reset} ${formatNumber(performance.credits)}`);
-    }
-  }
-
-  console.log();
-}
-
-function renderDelegators(delegators) {
-  if (!delegators || delegators.length === 0) {
-    console.log(`  ${C.bright}── Delegators ────────────────────────────────────────────${C.reset}`);
-    console.log(`  ${C.dim}No delegator data available for this validator.${C.reset}`);
-    console.log();
-    return;
-  }
-
-  console.log(`  ${C.bright}── Delegators (${delegators.length}) ──────────────────────────────────${C.reset}`);
-  console.log(`  ${C.dim}┌─────────────────────────────────────────────────────────────────────────┐${C.reset}`);
-  console.log(`  ${C.dim}│${C.reset}  ${C.cyan}Delegator${C.reset.padEnd(44)} ${C.cyan}Stake${C.reset.padEnd(18)} ${C.cyan}Status${C.reset.padEnd(12)} ${C.dim}│${C.reset}`);
-  console.log(`  ${C.dim}├─────────────────────────────────────────────────────────────────────────┤${C.reset}`);
-
-  const sorted = [...delegators].sort((a, b) => {
-    const aLamports = Number(a.lamports || a.stake || 0);
-    const bLamports = Number(b.lamports || b.stake || 0);
-    return bLamports - aLamports;
-  }).slice(0, 20);
-
-  let totalDelegated = BigInt(0);
-
-  for (const d of sorted) {
-    const addr = d.address || d.pubkey || d.delegator || 'unknown';
-    const shortAddr = addr.slice(0, 20) + '...' + addr.slice(-12);
-    const lamports = BigInt(d.lamports || d.stake || 0);
-    totalDelegated += lamports;
-    const stakeFormatted = formatAether(lamports);
-    const status = d.status || d.activation_status || 'active';
-    const statusColor = status === 'active' ? C.green : status === 'pending' ? C.yellow : C.dim;
-
-    console.log(
-      `  ${C.dim}│${C.reset}  ${shortAddr.padEnd(46)} ${stakeFormatted.padEnd(18)} ${statusColor}${(status + '').padEnd(12)}${C.reset} ${C.dim}│${C.reset}`
+/**
+ * Fetch all validators and find the specific one
+ * Uses SDK's getValidators() which calls GET /v1/validators
+ */
+async function fetchValidatorInfo(client, address) {
+  try {
+    const validators = await client.getValidators();
+    const validator = validators.find(v => 
+      v.address === address || 
+      v.pubkey === address || 
+      v.id === address
     );
-  }
-
-  if (delegators.length > 20) {
-    console.log(`  ${C.dim}│${C.reset}  ${C.dim}... and ${delegators.length - 20} more delegators (use --json for full list)${C.reset}`.padEnd(77) + `${C.dim}│${C.reset}`);
-  }
-
-  console.log(`  ${C.dim}└─────────────────────────────────────────────────────────────────────────┘${C.reset}`);
-  console.log(`  ${C.dim}Total delegated (shown): ${formatAether(totalDelegated)}${C.reset}`);
-  console.log();
-}
-
-function renderRank(validators, v) {
-  if (!validators || !v) return;
-
-  const sorted = [...validators].sort((a, b) => {
-    const aStake = typeof a.stake === 'bigint' ? Number(a.stake) : Number(a.stake || 0);
-    const bStake = typeof b.stake === 'bigint' ? Number(b.stake) : Number(b.stake || 0);
-    return bStake - aStake;
-  });
-
-  const rank = sorted.findIndex(m => {
-    const mPub = m.pubkey || m.address || '';
-    const vPub = v.pubkey || '';
-    return mPub === vPub;
-  });
-
-  if (rank >= 0) {
-    const pct = ((rank + 1) / sorted.length * 100).toFixed(1);
-    console.log(`  ${C.bright}── Network Rank ───────────────────────────────────────────${C.reset}`);
-    console.log(`  ${C.dim}Stake rank:${C.reset}  ${C.bright}#${rank + 1}${C.reset} of ${sorted.length} validators  ${C.dim}(top ${pct}%)${C.reset}`);
-    console.log();
+    return validator || null;
+  } catch (err) {
+    return { error: err.message };
   }
 }
 
-function renderJson(v, delegators, performance, epochInfo, validators) {
-  const out = {
-    rpc: opts.rpc,
-    pubkey: v.pubkey,
-    name: v.name,
-    tier: v.tier,
-    stake: v.stake.toString(),
-    stake_aeth: Number(v.stake) / 1e9,
-    stake_formatted: formatAether(v.stake),
-    score: v.score,
-    apy: v.apy,
-    commission: v.commission,
-    version: v.version,
-    ip: v.ip,
-    last_vote: v.lastVote,
-    root_slot: v.rootSlot,
-    delinquent: v.delinquent,
-    activated_stake: v.activatedStake?.toString(),
-    last_epoch_stake: v.lastEpochStake?.toString(),
-    credits: v.credits,
-    delegators: delegators ? delegators.map(d => ({
-      address: d.address || d.pubkey || d.delegator,
-      lamports: String(d.lamports || d.stake || 0),
-      stake_aeth: Number(d.lamports || d.stake || 0) / 1e9,
-      status: d.status || d.activation_status || 'unknown',
-    })) : [],
-    performance,
-    epoch_info: epochInfo,
-    fetched_at: new Date().toISOString(),
-  };
-
-  // Add rank
-  if (validators && v.pubkey) {
-    const sorted = [...validators].sort((a, b) => {
-      const aS = typeof a.stake === 'bigint' ? Number(a.stake) : Number(a.stake || 0);
-      const bS = typeof b.stake === 'bigint' ? Number(b.stake) : Number(b.stake || 0);
-      return bS - aS;
-    });
-    const rank = sorted.findIndex(m => (m.pubkey || m.address || '') === v.pubkey);
-    if (rank >= 0) out.rank = { position: rank + 1, total: sorted.length };
+/**
+ * Fetch current slot for context
+ */
+async function fetchCurrentSlot(client) {
+  try {
+    return await client.getSlot();
+  } catch {
+    return null;
   }
-
-  console.log(JSON.stringify(out, null, 2));
 }
 
 // ---------------------------------------------------------------------------
-// Main
+// Main command
 // ---------------------------------------------------------------------------
 
-async function main() {
+async function validatorInfoCommand() {
   const opts = parseArgs();
 
-  if (!opts.target) {
-    console.log(`\n  ${C.red}✗ Missing validator address or name.${C.reset}`);
-    console.log(`\n  ${C.cyan}Usage:${C.reset}`);
-    console.log(`    ${C.cyan}aether validator info <addressOrName>${C.reset}    Inspect a validator`);
-    console.log(`    ${C.cyan}aether validator info <addressOrName> --json${C.reset}   JSON output`);
-    console.log(`    ${C.cyan}aether validator info --address <addr>${C.reset}       Use --address flag`);
-    console.log();
-    process.exit(1);
-  }
+  if (opts.help) {
+    console.log(`
+${C.bright}${C.cyan}validator-info${C.reset} — Display detailed information about a validator
 
-  const rpc = opts.rpc;
+${C.bright}USAGE${C.reset}
+    aether validator-info <address> [--json] [--rpc <url>]
+    aether validator-info --address <addr> [--json] [--rpc <url>]
 
-  if (!opts.asJson) {
-    console.log(`\n${C.dim}Looking up "${opts.target}" on ${rpc}...${C.reset}`);
-  }
+${C.bright}OPTIONS${C.reset}
+    --address <addr>    Validator address (ATH...)
+    --json              Output raw JSON
+    --rpc <url>         RPC endpoint (default: AETHER_RPC or localhost:8899)
+    --help              Show this help
 
-  // Fetch everything in parallel
-  const [rawValidator, allValidators, epochInfo, supply] = await Promise.all([
-    fetchValidatorByIdentity(rpc, opts.target),
-    fetchAllValidators(rpc),
-    fetchEpochInfo(rpc),
-    fetchSupply(rpc),
-  ]);
+${C.bright}SDK METHODS USED${C.reset}
+    client.getValidatorAPY()   → GET /v1/validator/<address>/apy
+    client.getValidators()     → GET /v1/validators
+    client.getSlot()           → GET /v1/slot
 
-  if (!rawValidator) {
-    if (opts.asJson) {
-      console.log(JSON.stringify({ error: 'Validator not found', query: opts.target, rpc }, null, 2));
-    } else {
-      console.log(`\n  ${C.red}✗ Validator not found:${C.reset} "${opts.target}"`);
-      console.log(`  ${C.dim}Try a full address (ATH...), partial address (first 8+ chars), or name.${C.reset}`);
-      console.log(`  ${C.dim}List all validators: aether validators list${C.reset}\n`);
-    }
-    process.exit(1);
-  }
-
-  const v = normalise(rawValidator);
-
-  // Fetch delegators and performance in parallel
-  const [delegators, performance] = await Promise.all([
-    v.pubkey ? fetchDelegators(rpc, v.pubkey) : Promise.resolve([]),
-    v.pubkey ? fetchValidatorPerformance(rpc, v.pubkey) : Promise.resolve(null),
-  ]);
-
-  // Estimate APY if not available
-  let apyEstimated = v.apy;
-  if ((apyEstimated === null || apyEstimated === undefined) && supply && !supply.error && epochInfo) {
-    const totalStake = Number(supply.total_staked || supply.total || 0);
-    const rewardsPerEpoch = Number(epochInfo.rewards_per_epoch || '2000000000');
-    if (totalStake > 0 && rewardsPerEpoch > 0) {
-      const validatorStake = Number(v.stake);
-      const networkApy = (rewardsPerEpoch / totalStake) * 73;
-      if (validatorStake > 0) {
-        apyEstimated = networkApy;
-      }
-    }
-  }
-
-  const finalV = { ...v, apy: apyEstimated !== undefined ? apyEstimated : v.apy };
-
-  if (opts.asJson) {
-    renderJson(finalV, delegators, performance, epochInfo, allValidators);
+${C.bright}EXAMPLES${C.reset}
+    aether validator-info ATH3abc...
+    aether validator-info ATH3abc... --json
+    aether validator-info --address ATH3abc... --rpc http://localhost:8899
+`);
     return;
   }
 
-  renderHeader(finalV);
-  renderStats(finalV, epochInfo);
-  renderNodeInfo(finalV);
-  renderEpochPerformance(finalV, epochInfo, performance);
-  renderDelegators(delegators);
-  renderRank(allValidators, finalV);
+  if (!opts.address) {
+    console.log(`  ${C.red}✗ Missing validator address${C.reset}\n`);
+    console.log(`  Usage: aether validator-info <address> [--json] [--rpc <url>]\n`);
+    process.exit(1);
+  }
 
-  console.log(`  ${C.dim}Fetched from: ${rpc}${C.reset}`);
-  console.log();
+  const rpcUrl = opts.rpc || getDefaultRpc();
+  const client = createClient(rpcUrl);
+  const address = opts.address;
+  const rawAddr = address.startsWith('ATH') ? address.slice(3) : address;
+
+  if (!opts.json) {
+    console.log(`\n${C.bright}${C.cyan}── Validator Information ───────────────────────────────${C.reset}\n`);
+    console.log(`  ${C.dim}Validator:${C.reset} ${C.bright}${address}${C.reset}`);
+    console.log(`  ${C.dim}RPC:      ${C.reset} ${rpcUrl}\n`);
+    console.log(`  ${C.dim}Fetching data from chain...${C.reset}\n`);
+  }
+
+  try {
+    // Fetch data in parallel
+    const [apyData, validatorInfo, currentSlot] = await Promise.all([
+      fetchValidatorAPY(client, rawAddr),
+      fetchValidatorInfo(client, rawAddr),
+      fetchCurrentSlot(client),
+    ]);
+
+    // Check for errors
+    if (apyData.error && !validatorInfo) {
+      throw new Error(`Validator not found: ${apyData.error}`);
+    }
+
+    // Build response object
+    const response = {
+      address: address,
+      raw_address: rawAddr,
+      rpc: rpcUrl,
+      slot: currentSlot,
+      apy: null,
+      commission: null,
+      stake: null,
+      status: null,
+      uptime: null,
+      votes: null,
+      credits: null,
+      last_vote: null,
+      fetched_at: new Date().toISOString(),
+      cli_version: CLI_VERSION,
+    };
+
+    // Extract APY data
+    if (!apyData.error) {
+      response.apy = apyData.apy ?? apyData.current_apy ?? apyData.estimated_apy ?? null;
+      response.commission = apyData.commission ?? null;
+    }
+
+    // Extract validator info
+    if (validatorInfo && !validatorInfo.error) {
+      response.stake = validatorInfo.stake_lamports ?? validatorInfo.stake ?? validatorInfo.activated_stake ?? null;
+      response.status = validatorInfo.status ?? validatorInfo.state ?? 'unknown';
+      response.uptime = validatorInfo.uptime_seconds ?? validatorInfo.uptime ?? null;
+      response.votes = validatorInfo.votes ?? validatorInfo.vote_count ?? null;
+      response.credits = validatorInfo.credits ?? validatorInfo.credit_count ?? null;
+      response.last_vote = validatorInfo.last_vote ?? validatorInfo.last_vote_slot ?? null;
+      
+      // Use commission from validator info if not in APY data
+      if (response.commission === null) {
+        response.commission = validatorInfo.commission ?? null;
+      }
+
+      // Additional metadata
+      response.identity = validatorInfo.identity ?? validatorInfo.node_id ?? null;
+      response.name = validatorInfo.name ?? validatorInfo.moniker ?? null;
+      response.website = validatorInfo.website ?? null;
+      response.details = validatorInfo.details ?? validatorInfo.description ?? null;
+    }
+
+    // JSON output
+    if (opts.json) {
+      console.log(JSON.stringify(response, null, 2));
+      return;
+    }
+
+    // Pretty output
+    const statusColor = getStatusColor(response.status);
+    const statusText = (response.status || 'UNKNOWN').toUpperCase();
+
+    console.log(`  ${C.bright}┌─────────────────────────────────────────────────────────┐${C.reset}`);
+    console.log(`  ${C.bright}│${C.reset}  ${C.cyan}Validator${C.reset}${' '.repeat(43)}${C.bright}│${C.reset}`);
+    console.log(`  ${C.bright}│${C.reset}  ${C.bright}${address.slice(0, 40).padEnd(53)}${C.reset}${C.bright}│${C.reset}`);
+    console.log(`  ${C.bright}├${C.reset}${'─'.repeat(58)}${C.bright}│${C.reset}`);
+    
+    // Status
+    console.log(`  ${C.bright}│${C.reset}  ${C.dim}Status:${C.reset}  ${statusColor}${statusText.padEnd(44)}${C.reset}${C.bright}│${C.reset}`);
+    
+    // APY
+    if (response.apy !== null) {
+      const apyStr = formatPercent(response.apy);
+      const apyColor = response.apy >= 7 ? C.green : response.apy >= 4 ? C.yellow : C.dim;
+      console.log(`  ${C.bright}│${C.reset}  ${C.dim}APY:${C.reset}     ${apyColor}${apyStr.padEnd(44)}${C.reset}${C.bright}│${C.reset}`);
+    }
+
+    // Commission
+    if (response.commission !== null) {
+      const commStr = formatPercent(response.commission);
+      const commColor = response.commission <= 5 ? C.green : response.commission <= 10 ? C.yellow : C.red;
+      console.log(`  ${C.bright}│${C.reset}  ${C.dim}Commission:${C.reset} ${commColor}${commStr.padEnd(42)}${C.reset}${C.bright}│${C.reset}`);
+    }
+
+    // Stake
+    if (response.stake !== null) {
+      const stakeStr = formatAether(response.stake);
+      console.log(`  ${C.bright}│${C.reset}  ${C.dim}Stake:${C.reset}   ${C.green}${stakeStr.padEnd(44)}${C.reset}${C.bright}│${C.reset}`);
+    }
+
+    // Uptime
+    if (response.uptime !== null) {
+      const uptimeStr = formatUptime(response.uptime);
+      const uptimeVal = typeof response.uptime === 'number' ? response.uptime : 0;
+      const uptimeColor = uptimeVal > 95 ? C.green : uptimeVal > 80 ? C.yellow : C.red;
+      console.log(`  ${C.bright}│${C.reset}  ${C.dim}Uptime:${C.reset}  ${uptimeColor}${uptimeStr.padEnd(44)}${C.reset}${C.bright}│${C.reset}`);
+    }
+
+    // Votes
+    if (response.votes !== null) {
+      const votesStr = response.votes.toLocaleString();
+      console.log(`  ${C.bright}│${C.reset}  ${C.dim}Votes:${C.reset}   ${C.cyan}${votesStr.padEnd(44)}${C.reset}${C.bright}│${C.reset}`);
+    }
+
+    // Credits
+    if (response.credits !== null) {
+      const creditsStr = response.credits.toLocaleString();
+      console.log(`  ${C.bright}│${C.reset}  ${C.dim}Credits:${C.reset} ${C.magenta}${creditsStr.padEnd(44)}${C.reset}${C.bright}│${C.reset}`);
+    }
+
+    // Last vote
+    if (response.last_vote !== null) {
+      const lastVoteStr = response.last_vote.toLocaleString();
+      const slotDiff = currentSlot ? currentSlot - response.last_vote : null;
+      const slotDiffStr = slotDiff !== null ? ` (${slotDiff} slots ago)` : '';
+      console.log(`  ${C.bright}│${C.reset}  ${C.dim}Last Vote:${C.reset} ${C.blue}${lastVoteStr.padEnd(42 - slotDiffStr.length)}${C.reset}${C.dim}${slotDiffStr}${C.reset}${C.bright}│${C.reset}`);
+    }
+
+    // Identity
+    if (response.identity) {
+      const idStr = shortPubkey(response.identity, 10);
+      console.log(`  ${C.bright}│${C.reset}  ${C.dim}Identity:${C.reset} ${C.dim}${idStr.padEnd(43)}${C.reset}${C.bright}│${C.reset}`);
+    }
+
+    // Name
+    if (response.name) {
+      const nameStr = response.name.slice(0, 40);
+      console.log(`  ${C.bright}│${C.reset}  ${C.dim}Name:${C.reset}    ${C.bright}${nameStr.padEnd(43)}${C.reset}${C.bright}│${C.reset}`);
+    }
+
+    console.log(`  ${C.bright}└─────────────────────────────────────────────────────────┘${C.reset}`);
+
+    // Additional info
+    if (response.website) {
+      console.log(`\n  ${C.dim}Website:${C.reset} ${C.cyan}${response.website}${C.reset}`);
+    }
+    if (response.details) {
+      console.log(`  ${C.dim}Details:${C.reset} ${response.details.slice(0, 80)}${response.details.length > 80 ? '...' : ''}`);
+    }
+
+    // Staking tip
+    console.log(`\n  ${C.dim}Tip: Stake with this validator using${C.reset}`);
+    console.log(`      ${C.cyan}aether stake --validator ${shortPubkey(address, 6)} --amount <AETH>${C.reset}\n`);
+
+  } catch (err) {
+    if (opts.json) {
+      console.log(JSON.stringify({
+        address: address,
+        error: err.message,
+        rpc: rpcUrl,
+        fetched_at: new Date().toISOString(),
+      }, null, 2));
+    } else {
+      console.log(`  ${C.red}✗ Failed to fetch validator info:${C.reset} ${err.message}\n`);
+      console.log(`  ${C.dim}  Is your validator running? RPC: ${rpcUrl}${C.reset}`);
+      console.log(`  ${C.dim}  Set custom RPC: AETHER_RPC=https://your-rpc-url${C.reset}\n`);
+    }
+    process.exit(1);
+  }
 }
 
-// Export for module use
-module.exports = { validatorInfo: main };
+module.exports = { validatorInfoCommand };
 
-// Only run if called directly (not when required as module)
 if (require.main === module) {
-  main().catch(err => {
-    console.error(`\n${C.red}✗ Validator info failed:${C.reset} ${err.message}\n`);
+  validatorInfoCommand().catch(err => {
+    console.error(`\n  ${C.red}✗ Error:${C.reset} ${err.message}\n`);
     process.exit(1);
   });
 }

@@ -78,6 +78,7 @@ function showAllSdks() {
   
   console.log(`  ${colors.bright}Available SDKs and Libraries:${colors.reset}\n`);
   
+  console.log(`  ${colors.green}npm${colors.reset}   aether-cli sdk install - Install @jellylegsai/aether-sdk  ← NEW!`);
   console.log(`  ${colors.yellow}npm${colors.reset}   aether-cli sdk js      - JavaScript/TypeScript client`);
   console.log(`  ${colors.yellow}npm${colors.reset}   aether-cli sdk rust    - Rust SDK for native development`);
   console.log(`  ${colors.yellow}npm${colors.reset}   aether-cli sdk tokens  - FLUX/ATH token libraries`);
@@ -88,10 +89,10 @@ function showAllSdks() {
   // Quick start
   printSection('⚡ Quick Start', '🚀');
   console.log('  Get started with Aether development in 3 steps:\n');
-  console.log(`  1. ${colors.bright}Install the JS client:${colors.reset}`);
-  printCode('npm install @aether-network/client');
+  console.log(`  1. ${colors.bright}Install the SDK:${colors.reset}`);
+  printCode('npx aether-cli sdk install');
   console.log(`  2. ${colors.bright}Initialize your connection:${colors.reset}`);
-  printCode('const aether = require(\'@aether-network/client\');\nconst client = new aether.Client({ rpcUrl: \'http://localhost:8899\' });');
+  printCode("const aether = require('@jellylegsai/aether-sdk');\nconst client = new aether.AetherClient({ rpcUrl: 'http://localhost:8899' });");
   console.log(`  3. ${colors.bright}Start building!${colors.reset}`);
   console.log(`     ${colors.dim}See docs for full API reference${colors.reset}`);
   console.log();
@@ -317,6 +318,160 @@ const tx = await client.transfer({
 }
 
 /**
+ * Show install instructions + run npm install for the user
+ */
+function showInstall() {
+  printSection('Install Aether SDK', '📦');
+  
+  console.log(`  ${colors.bright}The @jellylegsai/aether-sdk package lets you:${colors.reset}`);
+  console.log(`    ${colors.cyan}•${colors.reset} Query the Aether blockchain (balances, accounts, validators)`);
+  console.log(`    ${colors.cyan}•${colors.reset} Submit real transactions (transfer, stake, unstake, claim)`);
+  console.log(`    ${colors.cyan}•${colors.reset} Build DApps and automation scripts on top of Aether`);
+  console.log();
+  
+  console.log(`  ${colors.bright}Installation options:${colors.reset}\n`);
+  console.log(`  ${colors.green}1)${colors.reset} ${colors.cyan}Install all SDK packages (recommended):${colors.reset}`);
+  console.log(`     ${colors.dim}npm install @jellylegsai/aether-sdk${colors.reset}`);
+  console.log();
+  
+  printSection('Quick Install');
+  
+  console.log(`  ${colors.dim}The CLI can run the install command for you in your project directory.${colors.reset}`);
+  console.log();
+  
+  const installCmd = 'npm install @jellylegsai/aether-sdk';
+  console.log(`  ${colors.bright}Running:${colors.reset} ${colors.cyan}${installCmd}${colors.reset}`);
+  console.log();
+}
+
+/**
+ * Execute `npm install @jellylegsai/aether-sdk` in the user's project directory.
+ * Detects the target directory from the nearest package.json, or uses cwd.
+ */
+async function runInstall(args) {
+  const { exec } = require('child_process');
+  const fs = require('fs');
+  const path = require('path');
+  
+  // Detect install target: nearest package.json up from cwd, else cwd
+  let targetDir = process.cwd();
+  let searchDir = targetDir;
+  for (let i = 0; i < 10; i++) {
+    if (fs.existsSync(path.join(searchDir, 'package.json'))) {
+      targetDir = searchDir;
+      break;
+    }
+    const parent = path.dirname(searchDir);
+    if (parent === searchDir) break;
+    searchDir = parent;
+  }
+  
+  const isCoreOnly = args.includes('--core');
+  
+  let pkgToInstall = '@jellylegsai/aether-sdk';
+  
+  const installCmd = `npm install ${pkgToInstall}`;
+  
+  printBanner();
+  printSection('Installing Aether SDK', '📦');
+  
+  console.log(`  ${colors.bright}Target directory:${colors.reset} ${colors.cyan}${targetDir}${colors.reset}`);
+  console.log(`  ${colors.bright}Package:${colors.reset}         ${colors.cyan}${pkgToInstall}${colors.reset}`);
+  console.log(`  ${colors.dim}Registry:${colors.reset}         ${colors.blue}https://registry.npmjs.org${colors.reset}`);
+  console.log();
+  console.log(`  ${colors.dim}Running: ${installCmd}${colors.reset}`);
+  console.log();
+  console.log(`  ${colors.yellow}This may take a moment...${colors.reset}\n`);
+  
+  return new Promise((resolve) => {
+    const child = exec(installCmd, { cwd: targetDir }, (err, stdout, stderr) => {
+      if (err) {
+        console.log(`  ${colors.red}✗ Install failed:${colors.reset} ${err.message}`);
+        if (stderr) console.log(`  ${colors.dim}${stderr}${colors.reset}`);
+        console.log();
+        console.log(`  ${colors.dim}You can try manually:${colors.reset}`);
+        console.log(`    ${colors.cyan}cd ${targetDir} && npm install @jellylegsai/aether-sdk${colors.reset}`);
+        resolve({ success: false, error: err.message });
+      } else {
+        console.log(`  ${colors.green}✓ Install succeeded!${colors.reset}`);
+        if (stdout) {
+          const lines = stdout.split('\n').filter(l => l.trim());
+          for (const line of lines.slice(-5)) {
+            console.log(`  ${colors.dim}${line}${colors.reset}`);
+          }
+        }
+        console.log();
+        console.log(`  ${colors.bright}Next steps:${colors.reset}`);
+        console.log(`    ${colors.dim}1. Import in your code:${colors.reset}`);
+        console.log(`       ${colors.cyan}const aether = require('@jellylegsai/aether-sdk');${colors.reset}`);
+        console.log();
+        console.log(`    ${colors.dim}2. Initialize the client:${colors.reset}`);
+        console.log(`       ${colors.cyan}const client = new aether.AetherClient({ rpcUrl: 'http://localhost:8899' });${colors.reset}`);
+        console.log();
+        console.log(`    ${colors.dim}3. Query the chain:${colors.reset}`);
+        console.log(`       ${colors.cyan}const slot = await client.getSlot();${colors.reset}`);
+        console.log(`       ${colors.cyan}console.log('Current slot:', slot);${colors.reset}`);
+        console.log();
+        console.log(`  ${colors.bright}Docs:${colors.reset} ${colors.blue}https://docs.aether.network/sdk/js${colors.reset}`);
+        console.log();
+        resolve({ success: true, targetDir, pkg: pkgToInstall });
+      }
+    });
+    
+    child.stdout?.on('data', (chunk) => {
+      const line = chunk.toString().trim();
+      if (line) process.stdout.write(`  ${colors.dim}${line}${colors.reset}\n`);
+    });
+    child.stderr?.on('data', (chunk) => {
+      const line = chunk.toString().trim();
+      if (line && !line.includes('npm warn')) process.stdout.write(`  ${colors.dim}${line}${colors.reset}\n`);
+    });
+  });
+}
+
+/**
+ * Parse command line args
+ */
+function parseArgs() {
+  const args = process.argv.slice(3); // Skip 'aether-cli sdk'
+  
+  if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
+    return 'all';
+  }
+  
+  const subcmd = args[0].toLowerCase();
+  
+  switch (subcmd) {
+    case 'js':
+    case 'javascript':
+    case 'node':
+      return 'js';
+    case 'rust':
+    case 'rs':
+      return 'rust';
+    case 'tokens':
+    case 'token':
+    case 'flux':
+    case 'ath':
+      return 'tokens';
+    case 'docs':
+    case 'doc':
+    case 'documentation':
+      return 'docs';
+    case 'types':
+    case 'type':
+    case 'typedef':
+    case 'typedefs':
+      return 'types';
+    case 'install':
+    case 'i':
+      return 'install';
+    default:
+      return 'all';
+  }
+}
+
+/**
  * Show TypeScript/Rust type definitions for Aether transactions
  */
 function showTypes() {
@@ -504,7 +659,7 @@ function parseArgs() {
 /**
  * Main SDK command
  */
-function sdkCommand() {
+async function sdkCommand() {
   const subcmd = parseArgs();
   
   switch (subcmd) {
@@ -522,6 +677,9 @@ function sdkCommand() {
       break;
     case 'types':
       showTypes();
+      break;
+    case 'install':
+      await runInstall(process.argv.slice(4));
       break;
     default:
       showAllSdks();
