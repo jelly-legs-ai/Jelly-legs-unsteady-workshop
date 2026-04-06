@@ -174,9 +174,15 @@ async fn handle_http_request(
             let (healthy, error) = if blocks_produced == 0 {
                 // No blocks produced yet - normal for fresh start, even if hash is empty/genesis
                 (true, None)
-            } else if block_hash.is_empty() || block_hash == genesis_hash {
-                // Blocks produced but hash hasn't advanced from genesis/empty = sync issue
-                (false, Some("Validator not producing blocks - blocks_produced > 0 but block hash unchanged".to_string()))
+            } else if block_hash.is_empty() {
+                // Blocks produced but hash is empty = definite sync issue
+                (false, Some("Validator not producing blocks - blocks_produced > 0 but block hash is empty".to_string()))
+            } else if genesis_hash.is_empty() {
+                // Genesis hash is empty/zero-initialized, can't compare - assume healthy if we have a hash
+                (true, None)
+            } else if block_hash == genesis_hash {
+                // Blocks produced but hash hasn't advanced from non-empty genesis = sync issue
+                (false, Some("Validator not producing blocks - blocks_produced > 0 but block hash unchanged from genesis".to_string()))
             } else {
                 // Normal operation - blocks produced and hash has advanced
                 (true, None)
