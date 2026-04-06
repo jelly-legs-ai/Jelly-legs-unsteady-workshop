@@ -7,7 +7,7 @@
  */
 
 const { doctorCommand } = require('./commands/doctor');
-const { validatorStart } = require('./commands/validator-start');
+const { validatorStartCommand } = require('./commands/validator-start');
 const { validatorStatus } = require('./commands/validator-status');
 const { validatorInfo } = require('./commands/validator-info');
 const { init } = require('./commands/init');
@@ -306,7 +306,7 @@ const COMMANDS = {
       
       switch (subcmd) {
         case 'start':
-          validatorStart();
+          validatorStartCommand();
           break;
         case 'status':
           validatorStatus();
