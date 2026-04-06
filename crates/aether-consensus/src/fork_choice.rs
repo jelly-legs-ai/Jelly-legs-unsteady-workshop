@@ -4,7 +4,7 @@
 //! based on stake weight and recency.
 
 use crate::{ConsensusError, ConsensusResult};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 /// Block information for fork choice
 #[derive(Debug, Clone)]
@@ -126,10 +126,10 @@ impl ForkChoice {
         &self,
         current: [u8; 32],
     ) -> [u8; 32] {
-        let current_block = match self.blocks.get(&current) {
-            Some(b) => b,
-            None => return current,
-        };
+        // Verify block exists before proceeding
+        if !self.blocks.contains_key(&current) {
+            return current;
+        }
 
         let children = match self.children.get(&current) {
             Some(c) if !c.is_empty() => c,
