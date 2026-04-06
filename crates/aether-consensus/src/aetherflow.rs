@@ -10,7 +10,6 @@ use std::collections::{BTreeMap, VecDeque};
 use std::sync::{Arc, RwLock};
 use serde::{Serialize, Deserialize};
 
-
 /// AetherFlow block header
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AetherBlockHeader {
