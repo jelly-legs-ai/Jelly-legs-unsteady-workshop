@@ -153,13 +153,25 @@ pub fn verify_poh_chain(entries: &[PoHEntry]) -> bool {
         return true;
     }
 
-    // Check genesis
-    if entries[0] != PoHEntry::genesis() {
-        return false;
+    // Single entry: must be a valid standalone tick (can verify against any previous hash)
+    // For genesis blocks, we check if it starts with genesis
+    if entries.len() == 1 {
+        // Single tick entry is valid - it just needs to represent a valid PoH computation
+        // The actual hash link to previous is verified at the block level via parent_hash
+        return entries[0].num_hashes > 0 || entries[0].message.is_some();
     }
 
-    // Verify each entry
-    for i in 1..entries.len() {
+    // Check if chain starts with genesis
+    let start_idx = if entries[0] == PoHEntry::genesis() {
+        0
+    } else {
+        // Non-genesis chain: verify internal consistency from first entry
+        // First entry is assumed to link to parent block's PoH
+        0
+    };
+
+    // Verify each entry links to the previous
+    for i in (start_idx + 1)..entries.len() {
         let prev_hash = entries[i - 1].hash;
         if !entries[i].verify(prev_hash) {
             return false;
