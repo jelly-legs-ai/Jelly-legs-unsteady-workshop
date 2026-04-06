@@ -245,13 +245,50 @@ impl ValidatorState {
     }
 
     pub fn get_connected_validators(&self) -> Vec<ValidatorInfo> {
-        // Return self as the only known validator (MVP)
-        vec![ValidatorInfo {
-            identity_pubkey: "LocalValidator11111111111111111111111111".to_string(),
-            activated_stake: 10_000_000,
-            commission: 10,
-            active: true,
-        }]
+        // Return genesis bootstrap validators + any connected peer validators
+        let mut validators = Vec::new();
+
+        // Include genesis bootstrap validators with real stake data
+        if let Some(genesis) = self.get_genesis() {
+            for bv in &genesis.bootstrap_validators {
+                validators.push(ValidatorInfo {
+                    identity_pubkey: bv.identity_pubkey.clone(),
+                    activated_stake: bv.stake,
+                    commission: bv.commission,
+                    active: bv.active,
+                });
+            }
+        }
+
+        // If no genesis validators, include self from identity
+        if validators.is_empty() {
+            let identity_str = self.inner.identity.read()
+                .ok()
+                .and_then(|id| id.as_ref().map(|i| i.pubkey().to_string()))
+                .unwrap_or_else(|| "Unknown".to_string());
+            validators.push(ValidatorInfo {
+                identity_pubkey: identity_str,
+                activated_stake: 0,
+                commission: 10,
+                active: true,
+            });
+        }
+
+        // Include connected peer validators (deduplicated)
+        if let Ok(peers) = self.inner.peer_pubkeys.read() {
+            for peer in peers.iter() {
+                if !validators.iter().any(|v| &v.identity_pubkey == peer) {
+                    validators.push(ValidatorInfo {
+                        identity_pubkey: peer.clone(),
+                        activated_stake: 0,
+                        commission: 10,
+                        active: true,
+                    });
+                }
+            }
+        }
+
+        validators
     }
 
     pub fn get_vote_accounts(&self) -> Vec<VoteAccountInfo> {
