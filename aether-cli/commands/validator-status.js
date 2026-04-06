@@ -3,9 +3,15 @@
  * 
  * Queries the validator's RPC endpoint and displays status information.
  * Shows slot height, peer count, block production, and epoch info.
+ * 
+ * Uses @jellylegsai/aether-sdk for real blockchain RPC calls.
  */
 
-const http = require('http');
+const path = require('path');
+
+// Import SDK for real blockchain RPC calls
+const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
+const aether = require(sdkPath);
 
 // ANSI colors
 const colors = {
@@ -19,54 +25,10 @@ const colors = {
 };
 
 /**
- * Make an RPC call to the validator
+ * Create SDK client
  */
-function rpcCall(url, method, params = []) {
-  return new Promise((resolve, reject) => {
-    const urlObj = new URL(url);
-    
-    const postData = JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method,
-      params,
-    });
-
-    const options = {
-      hostname: urlObj.hostname,
-      port: urlObj.port || 8899,
-      path: '/',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(postData),
-      },
-    };
-
-    const req = http.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(data);
-          if (json.error) {
-            reject(new Error(json.error.message || JSON.stringify(json.error)));
-          } else {
-            resolve(json.result);
-          }
-        } catch (e) {
-          reject(new Error(`Invalid JSON response: ${data}`));
-        }
-      });
-    });
-
-    req.on('error', (e) => {
-      reject(new Error(`Connection failed: ${e.message}`));
-    });
-
-    req.write(postData);
-    req.end();
-  });
+function createClient(rpcUrl) {
+  return new aether.AetherClient({ rpcUrl });
 }
 
 /**
@@ -181,24 +143,25 @@ async function validatorStatus() {
   let epochInfo = {};
   let blockProduction = {};
 
+  const client = createClient(options.rpcUrl);
+
   try {
-    // Make parallel RPC calls
-    const [slot, blockHeight, transactionCount, epochInfoResult, blockProdResult] = await Promise.all([
-      rpcCall(options.rpcUrl, 'getSlot').catch(e => ({ error: e.message })),
-      rpcCall(options.rpcUrl, 'getBlockHeight').catch(e => ({ error: e.message })),
-      rpcCall(options.rpcUrl, 'getTransactionCount').catch(e => ({ error: e.message })),
-      rpcCall(options.rpcUrl, 'getEpochInfo').catch(e => ({})),
-      options.details ? rpcCall(options.rpcUrl, 'getBlockProduction').catch(e => ({})) : Promise.resolve({}),
+    // Make parallel RPC calls using SDK
+    const [slotResult, blockHeightResult, epochInfoResult, peersResult] = await Promise.all([
+      client.getSlot().catch(e => ({ error: e.message })),
+      client.getBlockHeight().catch(e => ({ error: e.message })),
+      client.getEpochInfo().catch(e => ({})),
+      client.getClusterPeers().catch(e => ([])),
     ]);
 
-    if (typeof slot === 'object' && slot.error) {
+    if (typeof slotResult === 'object' && slotResult.error) {
       if (options.json) {
-        console.log(JSON.stringify({ error: slot.error }, null, 2));
+        console.log(JSON.stringify({ error: slotResult.error }, null, 2));
         process.exit(1);
       }
       console.log();
       console.log(`  ${colors.red}❌ Cannot connect to validator${colors.reset}`);
-      console.log(`     ${colors.yellow}${slot.error}${colors.reset}`);
+      console.log(`     ${colors.yellow}${slotResult.error}${colors.reset}`);
       console.log();
       console.log(`  ${colors.bright}Start the validator first:${colors.reset}`);
       console.log(`    ${colors.cyan}aether-cli validator start${colors.reset}`);
@@ -206,26 +169,22 @@ async function validatorStatus() {
       process.exit(1);
     }
 
-    status.slot = typeof slot === 'number' ? slot : 0;
-    status.blockHeight = typeof blockHeight === 'number' ? blockHeight : status.slot;
-    status.transactionCount = typeof transactionCount === 'number' ? transactionCount : 0;
+    status.slot = typeof slotResult === 'number' ? slotResult : (slotResult.slot || 0);
+    status.blockHeight = typeof blockHeightResult === 'number' ? blockHeightResult : status.slot;
+    status.transactionCount = 0; // Transaction count not available via SDK
+    status.peerCount = Array.isArray(peersResult) ? peersResult.length : 0;
     
     if (epochInfoResult && typeof epochInfoResult === 'object') {
       epochInfo = epochInfoResult;
       status.epoch = epochInfo.epoch || 0;
-      epochInfo.slotIndex = epochInfo.slotIndex || 0;
-      epochInfo.slotsInEpoch = epochInfo.slotsInEpoch || 432000;
+      epochInfo.slotIndex = epochInfo.slotIndex || epochInfo.slot_index || 0;
+      epochInfo.slotsInEpoch = epochInfo.slotsInEpoch || epochInfo.slots_in_epoch || 432000;
     }
     
-    if (blockProdResult && typeof blockProdResult === 'object') {
-      blockProduction = blockProdResult;
-    }
-
-    // Get peer count
-    try {
-      status.peerCount = await rpcCall(options.rpcUrl, 'getPeerCount') || 0;
-    } catch (e) {
-      status.peerCount = 0;
+    if (options.details) {
+      try {
+        blockProduction = await client.getSlotProduction();
+      } catch { /* Block production not available */ }
     }
 
     if (options.json) {
