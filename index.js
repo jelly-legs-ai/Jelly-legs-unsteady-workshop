@@ -42,6 +42,7 @@ const { configCommand } = require('./commands/config');
 const { stakeCommand } = require('./commands/stake');
 const { nftCommand } = require('./commands/nft');
 const { installCommand } = require('./commands/install');
+const { pingCommand } = require('./commands/ping');
 const readline = require('readline');
 
 // CLI version
@@ -243,12 +244,6 @@ const COMMANDS = {
     description: 'Transfer AETH to another address — aether transfer --to <addr> --amount <aeth>',
     handler: () => {
       transferCommand();
-    },
-  },
-  tx: {
-    description: 'Transaction history — aether tx history --address <addr> [--limit 20] [--json]',
-    handler: () => {
-      txHistoryCommand();
     },
   },
   'tx-history': {

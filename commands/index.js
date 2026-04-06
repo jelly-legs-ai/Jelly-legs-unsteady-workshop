@@ -37,6 +37,9 @@ const priceCommand = require('./price');
 const emergencyCommand = require('./emergency');
 const snapshotCommand = require('./snapshot');
 const nftCommand = require('./nft');
+const pingCommand = require('./ping');
+const slotCommand = require('./slot');
+const stakeInfoCommand = require('./stake-info');
 
 module.exports = {
   doctorCommand,
@@ -57,6 +60,7 @@ module.exports = {
   unstakeCommand,
   stakeCommand,
   stakePositionsCommand,
+  stakeInfoCommand,
   networkCommand,
   monitorLoop,
   logsCommand,
@@ -77,4 +81,6 @@ module.exports = {
   emergencyCommand,
   snapshotCommand,
   nftCommand,
+  pingCommand,
+  slotCommand,
 };
