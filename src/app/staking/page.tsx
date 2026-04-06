@@ -2,17 +2,20 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import Head from "next/head";
+import { useWallet } from '@solana/wallet-adapter-react';
+import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 
 /**
- * Staking Page - Integration Fix
+ * Staking Page - REAL WALLET INTEGRATION
  * 
- * GAP IDENTIFIED: The API routes existed but there was no staking page
- * to consume them. This page wires up to:
+ * FIX: Now uses the real Solana wallet adapter from the nav instead of
+ * asking users to manually type wallet addresses. The connected wallet
+ * from Phantom, Solflare, or Backpack is used automatically.
+ * 
+ * Wiring:
  * - /api/stake (GET positions, POST stake, DELETE unstake)
  * - /api/claim (POST claim rewards, GET pending rewards)
  * - /api/wallet/verify (POST verify wallet)
- * 
- * FIXED: Now properly integrates with all chain APIs
  */
 
 interface StakePosition {
@@ -40,9 +43,23 @@ const POOLS = [
   { id: "ath_staking", name: "ATH Governance", apy: 15.5, lockDays: 30, minStake: 1000 },
 ];
 
+/**
+ * Normalize a Solana address to ATH format for API calls.
+ * All addresses passed to the staking API use the ATH prefix.
+ */
+function normalizeATHAddress(solanaAddress: string): string {
+  if (solanaAddress.startsWith('ATH')) return solanaAddress;
+  return `ATH${solanaAddress}`;
+}
+
 export default function StakingPage() {
-  // Wallet State
-  const [walletAddress, setWalletAddress] = useState<string>("");
+  // REAL WALLET: use the adapter connected to Phantom/Solflare/Backpack
+  const { connected, publicKey, connecting } = useWallet();
+  const { setVisible } = useWalletModal();
+
+  // Wallet State (derived from real adapter)
+  const walletAddress = publicKey ? publicKey.toBase58() : '';
+  const athAddress = normalizeATHAddress(walletAddress);
   const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
 
@@ -60,6 +77,59 @@ export default function StakingPage() {
   // UI State
   const [error, setError] = useState<string>("");
   const [success, setSuccess] = useState<string>("");
+
+  /**
+   * INTEGRATION: Verify wallet via /api/wallet/verify using REAL address
+   */
+  const verifyWallet = useCallback(async () => {
+    if (!walletAddress) return;
+
+    setIsVerifying(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch("/api/wallet/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: athAddress }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Verification failed");
+      }
+
+      const data = await response.json();
+      setWalletInfo({
+        address: athAddress,
+        verified: data.verified,
+        canStake: data.canStake || false,
+        balance: data.chainData?.balance || 0,
+        balanceAeth: data.chainData?.balanceAeth || "0",
+      });
+      setSuccess("Wallet verified successfully");
+    } catch (err: any) {
+      setError(err.message || "Wallet verification failed");
+      setWalletInfo(null);
+    } finally {
+      setIsVerifying(false);
+    }
+  }, [walletAddress, athAddress]);
+
+  /**
+   * Auto-verify when a real wallet connects
+   */
+  useEffect(() => {
+    if (connected && publicKey && !walletInfo?.verified) {
+      verifyWallet();
+    }
+    // If disconnected, clear wallet info
+    if (!connected) {
+      setWalletInfo(null);
+      setPositions([]);
+    }
+  }, [connected, publicKey, walletInfo?.verified, verifyWallet]);
 
   /**
    * INTEGRATION: Fetch stake positions from /api/stake
@@ -82,48 +152,6 @@ export default function StakingPage() {
       setIsLoadingPositions(false);
     }
   }, [walletInfo?.address, walletInfo?.verified]);
-
-  /**
-   * INTEGRATION: Verify wallet via /api/wallet/verify
-   */
-  const verifyWallet = async () => {
-    if (!walletAddress.trim()) {
-      setError("Please enter a wallet address");
-      return;
-    }
-
-    setIsVerifying(true);
-    setError("");
-    setSuccess("");
-
-    try {
-      const response = await fetch("/api/wallet/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: walletAddress.trim() }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Verification failed");
-      }
-
-      const data = await response.json();
-      setWalletInfo({
-        address: data.address,
-        verified: data.verified,
-        canStake: data.canStake || false,
-        balance: data.chainData?.balance || 0,
-        balanceAeth: data.chainData?.balanceAeth || "0",
-      });
-      setSuccess("Wallet verified successfully");
-    } catch (err: any) {
-      setError(err.message || "Wallet verification failed");
-      setWalletInfo(null);
-    } finally {
-      setIsVerifying(false);
-    }
-  };
 
   /**
    * INTEGRATION: Stake via POST /api/stake
@@ -310,31 +338,32 @@ export default function StakingPage() {
             </div>
           )}
 
-          {/* Wallet Verification Section */}
-          {!walletInfo?.verified ? (
+          {/* Wallet Connection Section */}
+          {!connected ? (
             <div className="bg-gray-800/50 backdrop-blur-sm border border-red-500/30 rounded-xl p-6 mb-8">
               <h2 className="text-xl font-semibold mb-4 text-red-400">
-                Connect Wallet
+                Connect Your Wallet
               </h2>
-              <div className="flex gap-4">
-                <input
-                  type="text"
-                  value={walletAddress}
-                  onChange={(e) => setWalletAddress(e.target.value)}
-                  placeholder="Enter ATH wallet address (e.g., ATH...)"
-                  className="flex-1 px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:border-red-500 transition-colors"
-                />
-                <button
-                  onClick={verifyWallet}
-                  disabled={isVerifying}
-                  className="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 rounded-lg font-semibold transition-all disabled:opacity-50"
-                >
-                  {isVerifying ? "Verifying..." : "Verify Wallet"}
-                </button>
-              </div>
-              <p className="mt-2 text-sm text-gray-500">
-                Enter your ATH-prefixed wallet address to verify and view stake positions
+              <p className="text-gray-400 text-sm mb-4">
+                Connect your Phantom, Solflare, or Backpack wallet to stake ATH and earn rewards.
               </p>
+              <button
+                onClick={() => setVisible(true)}
+                disabled={connecting}
+                className="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 rounded-lg font-semibold transition-all disabled:opacity-50"
+              >
+                {connecting ? "Connecting..." : "Connect Wallet"}
+              </button>
+            </div>
+          ) : !walletInfo?.verified ? (
+            <div className="bg-gray-800/50 backdrop-blur-sm border border-red-500/30 rounded-xl p-6 mb-8">
+              <h2 className="text-xl font-semibold mb-4 text-red-400">
+                Verifying Wallet...
+              </h2>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                <span className="text-gray-400">Checking balance on chain</span>
+              </div>
             </div>
           ) : (
             <div className="bg-gray-800/50 backdrop-blur-sm border border-green-500/30 rounded-xl p-6 mb-8">

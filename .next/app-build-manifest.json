@@ -15,8 +15,8 @@
       "static/css/0e7ae27fa8e28e9c.css",
       "static/chunks/3a91511d-56e19a9897f3e7d1.js",
       "static/chunks/231-2396417344810cfd.js",
-      "static/chunks/652-7ff35ca89c82dbc8.js",
-      "static/chunks/app/layout-e11603fcd7c50289.js"
+      "static/chunks/938-b571030aeea089b4.js",
+      "static/chunks/app/layout-b77203e03f249a50.js"
     ],
     "/page": [
       "static/chunks/webpack-1ec78fadc7a51b21.js",
@@ -31,7 +31,7 @@
       "static/chunks/fd9d1056-b65947d3417b8eff.js",
       "static/chunks/23-fd6aecde35de09c4.js",
       "static/chunks/main-app-d38629f4806602f6.js",
-      "static/chunks/app/staking/page-f211df6e7ab41d81.js"
+      "static/chunks/app/staking/page-cc82964459d488e2.js"
     ],
     "/staking/layout": [
       "static/chunks/webpack-1ec78fadc7a51b21.js",
