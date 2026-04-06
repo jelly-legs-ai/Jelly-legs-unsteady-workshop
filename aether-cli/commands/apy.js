@@ -3,8 +3,8 @@
  * aether-cli apy
  *
  * Estimate APY for a validator or wallet's stake positions.
- * Fetches recent reward history, computes average yield over the current
- * epoch, and annualises it to an APY figure.
+ * FULLY WIRED TO SDK - Uses @jellylegsai/aether-sdk for all blockchain calls.
+ * No manual HTTP - all calls go through AetherClient with real RPC.
  *
  * Usage:
  *   aether apy                           Show network-wide average APY
@@ -17,10 +17,20 @@
  *   aether apy --validator ATH3xyz...   # Check validator APY
  *   aether apy --address ATHabc...      # Check your wallet's weighted APY
  *   aether apy --json                   # Machine-readable output
+ *
+ * SDK Methods Used:
+ *   - client.getValidatorAPY(address)  → GET /v1/validator/<address>/apy
+ *   - client.getStakePositions(address) → GET /v1/stake/<address>
+ *   - client.getRewards(address)       → GET /v1/rewards/<address>
+ *   - client.getEpochInfo()            → GET /v1/epoch
+ *   - client.getSupply()               → GET /v1/supply
  */
 
-const http = require('http');
-const https = require('https');
+const path = require('path');
+
+// Import SDK — makes REAL HTTP RPC calls to the blockchain
+const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
+const aether = require(sdkPath);
 
 // ANSI colours
 const C = {
@@ -34,86 +44,30 @@ const C = {
   magenta: '\x1b[35m',
 };
 
-const CLI_VERSION = '1.0.0';
+const CLI_VERSION = '1.1.0';
+const EPOCHS_PER_YEAR = 2190; // Aether epochs are ~4 hours
 
 // ---------------------------------------------------------------------------
-// Config
+// SDK Client Setup
 // ---------------------------------------------------------------------------
 
 function getDefaultRpc() {
-  return process.env.AETHER_RPC || 'http://127.0.0.1:8899';
+  return process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
+}
+
+function createClient(rpcUrl) {
+  return new aether.AetherClient({ rpcUrl });
 }
 
 function getDefaultConfig() {
   const fs = require('fs');
-  const path = require('path');
-  const os = require('os');
-  const cfgPath = path.join(os.homedir(), '.aether', 'config.json');
+  const cfgPath = path.join(require('os').homedir(), '.aether', 'config.json');
   if (!fs.existsSync(cfgPath)) return { defaultWallet: null };
   try {
     return JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
   } catch {
     return { defaultWallet: null };
   }
-}
-
-// ---------------------------------------------------------------------------
-// HTTP helpers
-// ---------------------------------------------------------------------------
-
-function httpRequest(rpcUrl, pathStr, timeoutMs = 10000) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(pathStr, rpcUrl);
-    const lib = url.protocol === 'https:' ? https : http;
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'GET',
-      timeout: timeoutMs,
-      headers: { 'Content-Type': 'application/json' },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { resolve({ _raw: data }); }
-      });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
-    req.end();
-  });
-}
-
-function httpPost(rpcUrl, pathStr, body, timeoutMs = 10000) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(pathStr, rpcUrl);
-    const lib = url.protocol === 'https:' ? https : http;
-    const bodyStr = JSON.stringify(body);
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'POST',
-      timeout: timeoutMs,
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(bodyStr),
-      },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { resolve({ _raw: data }); }
-      });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
-    req.write(bodyStr);
-    req.end();
-  });
 }
 
 // ---------------------------------------------------------------------------
@@ -170,175 +124,218 @@ ${C.bright}Usage:${C.reset}
   aether apy --json                       JSON output for scripting
   aether apy --epochs <n>                 Lookback epochs (default: 14, max: 100)
 
+${C.bright}SDK Methods Used:${C.reset}
+  client.getValidatorAPY(address)   → GET /v1/validator/<address>/apy
+  client.getStakePositions(address)   → GET /v1/stake/<address>
+  client.getRewards(address)          → GET /v1/rewards/<address>
+  client.getEpochInfo()               → GET /v1/epoch
+  client.getSupply()                  → GET /v1/supply
+
 ${C.bright}Examples:${C.reset}
   aether apy --validator ATH3J8...       Check a validator's APY
-  aether apy --address ATHabc...          Check your wallet's weighted APY
-  aether apy --json                       Machine-readable output
+  aether apy --address ATHabc...           Check your wallet's weighted APY
+  aether apy --json                      Machine-readable output
 `.trim());
 }
 
 // ---------------------------------------------------------------------------
-// APY calculation
+// APY calculation via SDK (REAL RPC CALLS)
 // ---------------------------------------------------------------------------
 
 /**
- * Estimate APY from reward history.
- *
- * Strategy:
- *   1. Fetch last N epochs of reward history for the target
- *   2. Compute per-epoch yield: rewards_staked
- *   3. Average the yield, then annualise: APY = ((1 + avg_yield) ^ epochs_per_year) - 1
- *
- * Aether epochs are ~4 hours → ~2190 epochs/year
+ * Fetch validator APY via SDK (GET /v1/validator/<address>/apy)
  */
-async function estimateApy({ rpc, validator, address, epochs }) {
-  const EPOCHS_PER_YEAR = 2190;
-
-  // Normalise address: strip ATH prefix for API calls
-  const rawAddr = (validator || address || '').startsWith('ATH')
-    ? (validator || address || '').slice(3)
-    : (validator || address || '');
-
-  // Step 1: fetch epoch info to get current epoch
-  let currentEpoch = null;
-  let epochLength = null;
+async function fetchValidatorApy(client, validatorAddr) {
   try {
-    const epochInfo = await httpRequest(rpc, '/v1/epoch/info');
-    if (!epochInfo.error) {
-      currentEpoch = epochInfo.epoch;
-      epochLength = epochInfo.slots_in_epoch || epochInfo.epoch_length;
-    }
-  } catch { /* use defaults */ }
-
-  // Step 2: fetch reward history
-  // Try /v1/rewards?address=<addr>&epochs=<N> first
-  let rewardHistory = [];
-  try {
-    const fromEpoch = Math.max(0, (currentEpoch || epochs) - epochs);
-    const rewardsRes = await httpRequest(
-      rpc,
-      `/v1/rewards?address=${encodeURIComponent(rawAddr)}&from_epoch=${fromEpoch}&limit=${epochs}`
-    );
-    if (!rewardsRes.error) {
-      rewardHistory = Array.isArray(rewardsRes)
-        ? rewardsRes
-        : (rewardsRes.rewards || []);
-    }
-  } catch { /* try alternate endpoint */ }
-
-  // Fallback: /v1/stake?address=<addr> (contains accumulated rewards)
-  if (rewardHistory.length === 0) {
-    try {
-      const stakeRes = await httpRequest(
-        rpc,
-        `/v1/stake?address=${encodeURIComponent(rawAddr)}`
-      );
-      if (!stakeRes.error) {
-        const accounts = Array.isArray(stakeRes) ? stakeRes : (stakeRes.accounts || []);
-        for (const acc of accounts) {
-          if (acc.rewards !== undefined) {
-            rewardHistory.push({
-              epoch: acc.epoch || currentEpoch,
-              rewards: acc.rewards,
-              lamports: acc.stake_lamports || acc.lamports || 0,
-            });
-          }
-        }
-      }
-    } catch { /* no stake data */ }
+    const result = await client.getValidatorAPY(validatorAddr);
+    return {
+      apy: result.apy ?? result.current_apy ?? result.estimated_apy ?? null,
+      commission: result.commission ?? null,
+      total_stake: result.total_stake ?? result.stake_lamports ?? null,
+      source: 'validator_api',
+      raw: result,
+    };
+  } catch (err) {
+    return { error: err.message, source: 'validator_api' };
   }
+}
 
-  // Step 3: calculate APY
-  if (rewardHistory.length === 0) {
-    // No reward data — try fetching network-wide stats for a ballpark
-    try {
-      const supplyRes = await httpRequest(rpc, '/v1/supply');
-      const epochRes = await httpRequest(rpc, '/v1/epoch/info');
-      if (!supplyRes.error && !epochRes.error) {
-        // Rough estimate: total_reward_rate from inflation schedule
-        // Aether uses ~7% inflation Year 1, declining. Use 7% as starting point.
-        const inflationRate = 0.07; // 7% base, would need real data for precision
-        return {
-          apy: inflationRate,
-          apy_pct: inflationRate * 100,
-          method: 'inflation_model',
-          epoch: currentEpoch,
-          epochs_used: 0,
-          epochs_available: 0,
-          total_staked: supplyRes.total || 0,
-          validator,
-          address,
-          note: 'No reward history available. APY estimated from network inflation model.',
-        };
-      }
-    } catch { /* no network data either */ }
+/**
+ * Calculate wallet APY from stake positions and rewards via SDK
+ */
+async function calculateWalletApy(client, address, epochs) {
+  const rawAddr = address.startsWith('ATH') ? address.slice(3) : address;
 
+  // Parallel SDK calls
+  const [stakePositions, rewards, epochInfo, supply] = await Promise.all([
+    client.getStakePositions(rawAddr).catch(() => []),
+    client.getRewards(rawAddr).catch(() => ({ total: 0, pending: 0, history: [] })),
+    client.getEpochInfo().catch(() => ({ epoch: 0, slotsInEpoch: 432000, slotIndex: 0 })),
+    client.getSupply().catch(() => null),
+  ]);
+
+  const currentEpoch = epochInfo?.epoch ?? 0;
+
+  // No stake positions
+  if (!Array.isArray(stakePositions) || stakePositions.length === 0) {
     return {
       apy: null,
       apy_pct: null,
-      method: 'none',
+      method: 'no_stake',
+      epoch: currentEpoch,
+      address,
+      note: 'No active stake positions found for this address.',
+    };
+  }
+
+  // Calculate total staked
+  const totalStakedLamports = stakePositions.reduce((sum, s) => {
+    return sum + BigInt(s.lamports || s.stake_lamports || 0);
+  }, 0n);
+
+  if (totalStakedLamports === 0n) {
+    return {
+      apy: null,
+      apy_pct: null,
+      method: 'no_active_stake',
+      epoch: currentEpoch,
+      address,
+      note: 'Stake positions found but no active stake amount.',
+    };
+  }
+
+  // Get reward history
+  const rewardHistory = rewards?.history || rewards?.epochs || [];
+  const totalRewardsLamports = BigInt(rewards?.total || rewards?.total_rewards || 0);
+
+  // If we have reward history, calculate from it
+  if (rewardHistory.length > 0 && totalRewardsLamports > 0n) {
+    const epochsWithData = Math.min(rewardHistory.length, epochs);
+    const avgYieldPerEpoch = Number(totalRewardsLamports) / (Number(totalStakedLamports) * epochsWithData);
+    const apy = Math.pow(1 + avgYieldPerEpoch, EPOCHS_PER_YEAR) - 1;
+
+    return {
+      apy,
+      apy_pct: parseFloat((apy * 100).toFixed(2)),
+      method: 'reward_history',
+      epoch: currentEpoch,
+      epochs_used: epochsWithData,
+      epochs_with_rewards: rewardHistory.filter(r => (r.rewards || 0) > 0).length,
+      total_rewards_lamports: totalRewardsLamports.toString(),
+      total_staked_lamports: totalStakedLamports.toString(),
+      avg_yield_per_epoch_pct: parseFloat((avgYieldPerEpoch * 100).toFixed(4)),
+      address,
+      stake_count: stakePositions.length,
+    };
+  }
+
+  // No reward history yet — use network inflation model
+  if (supply && !supply.error) {
+    // Aether uses ~7% inflation Year 1, declining
+    const inflationRate = 0.07;
+    return {
+      apy: inflationRate,
+      apy_pct: 7.0,
+      method: 'inflation_model',
       epoch: currentEpoch,
       epochs_used: 0,
-      error: 'No reward history or network data available. Ensure your validator is running and has reward data.',
-    };
-  }
-
-  // Compute weighted average yield per epoch
-  let totalRewards = 0;
-  let totalStaked = 0;
-  let epochsWithRewards = 0;
-
-  for (const entry of rewardHistory) {
-    const rewards = entry.rewards || 0;
-    const staked = entry.lamports || entry.stake_lamports || 0;
-    totalRewards += rewards;
-    if (staked > 0) totalStaked += staked;
-    if (rewards > 0) epochsWithRewards++;
-  }
-
-  if (totalStaked === 0 || totalRewards === 0) {
-    return {
-      apy: null,
-      apy_pct: null,
-      method: 'insufficient_data',
-      epoch: currentEpoch,
-      epochs_used: rewardHistory.length,
-      epochs_with_rewards: epochsWithRewards,
-      validator,
+      total_staked_lamports: totalStakedLamports.toString(),
       address,
-      note: 'Stake positions exist but no reward data yet. Check back after epoch ends.',
+      stake_count: stakePositions.length,
+      note: 'No reward history available yet. APY estimated from network inflation model.',
     };
   }
 
-  // Average epoch yield = total rewards / (total staked * num epochs)
-  const avgYieldPerEpoch = totalRewards / (totalStaked * rewardHistory.length);
-
-  // Annualise: APY = (1 + yield_per_epoch) ^ epochs_per_year - 1
-  const apy = Math.pow(1 + avgYieldPerEpoch, EPOCHS_PER_YEAR) - 1;
-  const apyPct = apy * 100;
-
+  // No data available
   return {
-    apy,
-    apy_pct: parseFloat(apyPct.toFixed(2)),
-    method: 'reward_history',
+    apy: null,
+    apy_pct: null,
+    method: 'insufficient_data',
     epoch: currentEpoch,
-    epochs_used: rewardHistory.length,
-    epochs_with_rewards: epochsWithRewards,
-    total_rewards_lamports: totalRewards,
-    total_staked_lamports: totalStaked,
-    avg_yield_per_epoch_pct: parseFloat((avgYieldPerEpoch * 100).toFixed(4)),
-    validator,
     address,
+    stake_count: stakePositions.length,
+    note: 'Stake positions exist but no reward data yet. Check back after epoch ends.',
   };
 }
 
 /**
- * Format APY bar: ████░░░░░░
+ * Estimate APY using SDK
  */
+async function estimateApy({ rpc, validator, address, epochs }) {
+  const client = createClient(rpc);
+
+  // Validator-specific APY
+  if (validator) {
+    const rawAddr = validator.startsWith('ATH') ? validator.slice(3) : validator;
+    const validatorApy = await fetchValidatorApy(client, rawAddr);
+
+    if (validatorApy.error) {
+      // Fall back to wallet calculation method
+      return await calculateWalletApy(client, validator, epochs);
+    }
+
+    const apy = validatorApy.apy ?? 0;
+    return {
+      apy,
+      apy_pct: apy !== null ? parseFloat((apy * 100).toFixed(2)) : null,
+      method: 'validator_api',
+      commission: validatorApy.commission,
+      total_stake: validatorApy.total_stake,
+      validator,
+      source: validatorApy.source,
+    };
+  }
+
+  // Wallet APY (weighted across all stake positions)
+  if (address) {
+    return await calculateWalletApy(client, address, epochs);
+  }
+
+  // Network-wide APY
+  try {
+    const [epochInfo, supply] = await Promise.all([
+      client.getEpochInfo().catch(() => null),
+      client.getSupply().catch(() => null),
+    ]);
+
+    if (supply && !supply.error) {
+      const inflationRate = 0.07; // 7% base inflation
+      return {
+        apy: inflationRate,
+        apy_pct: 7.0,
+        method: 'network_inflation_model',
+        epoch: epochInfo?.epoch ?? null,
+        note: 'Network-wide APY estimate based on inflation schedule.',
+      };
+    }
+  } catch (err) {
+    // Fall through
+  }
+
+  return {
+    apy: null,
+    apy_pct: null,
+    method: 'none',
+    error: 'Unable to fetch network data. Is your validator running?',
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Visual formatters
+// ---------------------------------------------------------------------------
+
 function formatApyBar(apyPct, maxPct = 20) {
   const totalBars = 20;
   const filled = Math.min(totalBars, Math.round((apyPct / maxPct) * totalBars));
   return C.green + '█'.repeat(filled) + C.dim + '░'.repeat(totalBars - filled) + C.reset;
+}
+
+function getApyColor(apyPct) {
+  if (apyPct === null || apyPct === undefined) return C.dim;
+  if (apyPct >= 8) return C.green;
+  if (apyPct >= 4) return C.cyan;
+  if (apyPct >= 2) return C.yellow;
+  return C.red;
 }
 
 // ---------------------------------------------------------------------------
@@ -346,13 +343,15 @@ function formatApyBar(apyPct, maxPct = 20) {
 // ---------------------------------------------------------------------------
 
 function outputHuman(apyData, opts) {
-  const { rpc, validator, address, asJson } = opts;
+  const { rpc, validator, address } = opts;
 
   console.log(`\n${C.bright}${C.cyan}── Validator APY Estimate ──────────────────────────────${C.reset}\n`);
 
   const targetLabel = validator
     ? `Validator: ${C.bright}${validator}${C.reset}`
-    : `Address: ${C.bright}${address}${C.reset}`;
+    : address
+    ? `Address: ${C.bright}${address}${C.reset}`
+    : `Network: ${C.bright}Aether Chain${C.reset}`;
   console.log(`  ${C.green}★${C.reset} ${targetLabel}`);
   console.log(`  ${C.dim}  RPC: ${rpc}${C.reset}`);
   console.log();
@@ -369,7 +368,7 @@ function outputHuman(apyData, opts) {
 
   if (apyData.apy_pct === null) {
     console.log(`  ${C.yellow}⚠ APY data unavailable.${C.reset}`);
-    if (apyData.method === 'inflation_model') {
+    if (apyData.method === 'inflation_model' || apyData.method === 'network_inflation_model') {
       console.log(`  ${C.dim}  Using network inflation model as estimate.${C.reset}`);
     }
     console.log();
@@ -377,14 +376,7 @@ function outputHuman(apyData, opts) {
   }
 
   // Main APY display
-  const apyColor = apyData.apy_pct >= 8
-    ? C.green
-    : apyData.apy_pct >= 4
-    ? C.cyan
-    : apyData.apy_pct >= 2
-    ? C.yellow
-    : C.red;
-
+  const apyColor = getApyColor(apyData.apy_pct);
   console.log(`  ${C.bright}${apyColor}${apyData.apy_pct.toFixed(2)}%${C.reset} ${C.dim}APY${C.reset}`);
   console.log();
 
@@ -393,28 +385,45 @@ function outputHuman(apyData, opts) {
   console.log();
 
   // Stats
-  console.log(`  ${C.dim}Method:${C.reset}    ${C.bright}${apyData.method === 'reward_history' ? 'Reward history annualised' : 'Inflation model'}${C.reset}`);
+  const methodLabel = apyData.method === 'reward_history'
+    ? 'Reward history annualised'
+    : apyData.method === 'validator_api'
+    ? 'Validator API'
+    : 'Inflation model';
+  console.log(`  ${C.dim}Method:${C.reset}    ${C.bright}${methodLabel}${C.reset}`);
+
   if (apyData.epoch !== undefined && apyData.epoch !== null) {
     console.log(`  ${C.dim}Epoch:${C.reset}     ${C.bright}#${apyData.epoch}${C.reset}`);
   }
-  console.log(`  ${C.dim}Epochs used:${C.reset} ${apyData.epochs_used}`);
+
+  if (apyData.epochs_used !== undefined) {
+    console.log(`  ${C.dim}Epochs used:${C.reset} ${apyData.epochs_used}`);
+  }
 
   if (apyData.avg_yield_per_epoch_pct !== undefined) {
     console.log(`  ${C.dim}Avg/epoch:${C.reset}  ${C.bright}${apyData.avg_yield_per_epoch_pct.toFixed(4)}%${C.reset}`);
   }
 
   if (apyData.total_rewards_lamports !== undefined && apyData.total_staked_lamports !== undefined) {
-    const totalAeth = (apyData.total_rewards_lamports / 1e9).toFixed(4);
-    const stakedAeth = (apyData.total_staked_lamports / 1e9).toFixed(2);
+    const totalAeth = (Number(apyData.total_rewards_lamports) / 1e9).toFixed(4);
+    const stakedAeth = (Number(apyData.total_staked_lamports) / 1e9).toFixed(2);
     console.log(`  ${C.dim}Total rewards:${C.reset} ${C.green}${totalAeth} AETH${C.reset}`);
     console.log(`  ${C.dim}Total staked:${C.reset}  ${stakedAeth} AETH`);
+  }
+
+  if (apyData.commission !== undefined && apyData.commission !== null) {
+    console.log(`  ${C.dim}Commission:${C.reset}  ${apyData.commission}%`);
+  }
+
+  if (apyData.stake_count !== undefined) {
+    console.log(`  ${C.dim}Stake positions:${C.reset} ${apyData.stake_count}`);
   }
 
   console.log();
 
   // Disclaimer
-  console.log(`  ${C.dim}Note: APY is an estimate based on ${apyData.epochs_used} epoch(s) of reward data.${C.reset}`);
-  console.log(`  ${C.dim}Actual returns may vary. Check aether rewards for precise figures.${C.reset}`);
+  console.log(`  ${C.dim}Note: APY is an estimate based on ${apyData.epochs_used || 0} epoch(s) of reward data.${C.reset}`);
+  console.log(`  ${C.dim}Actual returns may vary. Check 'aether rewards' for precise figures.${C.reset}`);
   console.log();
 }
 
@@ -429,12 +438,15 @@ function outputJson(apyData, opts) {
     avg_yield_per_epoch_pct: apyData.avg_yield_per_epoch_pct,
     total_rewards_lamports: apyData.total_rewards_lamports,
     total_staked_lamports: apyData.total_staked_lamports,
+    commission: apyData.commission,
     validator: apyData.validator,
     address: apyData.address,
+    stake_count: apyData.stake_count,
     note: apyData.note || null,
     error: apyData.error || null,
     rpc: opts.rpc,
     cli_version: CLI_VERSION,
+    sdk_version: 'SDK via AetherClient',
     timestamp: new Date().toISOString(),
   }, null, 2));
 }
@@ -443,7 +455,7 @@ function outputJson(apyData, opts) {
 // Main
 // ---------------------------------------------------------------------------
 
-async function main() {
+async function apyCommand() {
   const opts = parseArgs();
 
   try {
@@ -475,6 +487,13 @@ async function main() {
   }
 }
 
-main();
+// Export for use in index.js
+module.exports = { apyCommand };
 
-module.exports = { apyCommand: main };
+// Run if called directly
+if (require.main === module) {
+  apyCommand().catch(err => {
+    console.error(`\n${C.red}APY command failed:${C.reset} ${err.message}\n`);
+    process.exit(1);
+  });
+}
