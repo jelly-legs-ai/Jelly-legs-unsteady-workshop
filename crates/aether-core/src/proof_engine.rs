@@ -4,7 +4,6 @@
 
 use sha2::{Sha256, Digest};
 use serde::{Deserialize, Serialize};
-use sha2::{Sha256, Digest};
 
 /// Proof of Work result
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,11 +21,10 @@ pub struct ProofResult {
 /// The target data is typically a block header or message to be proven.
 pub fn generate_proof(target_data: &[u8], difficulty: u32) -> ProofResult {
     let difficulty = difficulty.min(256);
-    let mut hasher = Sha256::new();
     let mut nonce: u64 = 0;
 
     loop {
-        hasher = Sha256::new();
+        let mut hasher = Sha256::new();
         hasher.update(target_data);
         hasher.update(&nonce.to_le_bytes());
         let result = hasher.finalize();
@@ -55,7 +53,7 @@ pub fn generate_proof(target_data: &[u8], difficulty: u32) -> ProofResult {
 ///
 /// Returns ProofResult with the found hash, nonce, and difficulty, or None if
 /// no valid nonce is found within the search limit.
-pub fn generate_proof(data: &[u8], difficulty: u32, max_nonce: u64) -> Option<ProofResult> {
+pub fn generate_proof_with_limit(data: &[u8], difficulty: u32, max_nonce: u64) -> Option<ProofResult> {
     // Cap difficulty at 256 for SHA-256
     let difficulty = difficulty.min(256);
     
@@ -72,6 +70,10 @@ pub fn generate_proof(data: &[u8], difficulty: u32, max_nonce: u64) -> Option<Pr
                 hash,
                 nonce,
                 difficulty,
+                timestamp: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
             });
         }
     }
