@@ -145,20 +145,23 @@ async fn handle_http_request(
         // Slot
         ("GET", "/v1/slot") => {
             let current_slot = state.current_slot();
-            // current_block_hash() returns the hash of the most recently produced block,
-            // which corresponds to slot (current_slot - 1) since increment_slot()
-            // is called after produce_block() increments the counter.
+            // Get the block hash for the current slot (most recently produced block)
             let block_hash = block_producer.current_block_hash().await;
-            // The genesis block (slot 0) is its own parent. For all other slots,
-            // look up the actual previous_block_hash from the block at (current_slot - 1),
-            // because the block at `current_slot` hasn't been produced yet.
+            
+            // Get parent block hash correctly:
+            // - For slot 0: use genesis hash from state
+            // - For slot > 0: use the block hash from the previous slot
             let parent_block_hash = if current_slot == 0 {
-                block_hash.clone()
+                // Genesis block's parent is the genesis hash
+                state.get_genesis_hash()
             } else if let Some(block) = block_producer.get_block(current_slot - 1).await {
-                block.previous_block_hash
+                // Previous slot's block hash becomes the parent
+                block.block_hash.clone()
             } else {
-                block_hash.clone()
+                // Fallback: use genesis hash if block not found
+                state.get_genesis_hash()
             };
+            
             let resp = SlotResponse {
                 slot: current_slot,
                 block_hash,

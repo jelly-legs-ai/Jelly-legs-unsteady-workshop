@@ -88,9 +88,12 @@ impl BlockProducer {
         let history = self.block_history.read().await;
         let previous_hash = if let Some(last_block) = history.back() {
             last_block.block_hash.clone()
+        } else if slot == 0 {
+            // First block (slot 0) - use genesis hash as the parent
+            self.state.get_genesis_hash()
         } else {
-            // Genesis block - use zero hash
-            "0000000000000000000000000000000000000000000000000000000000000000".to_string()
+            // Fallback for early slots if history is empty
+            self.state.get_genesis_hash()
         };
         drop(history);
 
@@ -263,10 +266,10 @@ impl BlockProducer {
         history.iter().find(|b| b.slot == slot).cloned()
     }
 
-    /// Get current block hash
+    /// Get current block hash (most recently produced block)
     pub async fn current_block_hash(&self) -> String {
         let history = self.block_history.read().await;
         history.back().map(|b| b.block_hash.clone())
-            .unwrap_or_else(|| "0000000000000000000000000000000000000000000000000000000000000000".to_string())
+            .unwrap_or_else(|| self.state.get_genesis_hash())
     }
 }
