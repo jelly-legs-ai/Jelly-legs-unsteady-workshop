@@ -98,15 +98,40 @@ impl ForkChoice {
         Ok(())
     }
 
-    /// Update stake weight for a block
+    /// Update stake weight for a block and propagate to all ancestors.
+    /// In LMD GHOST, a vote for a block implicitly votes for all ancestors,
+    /// so stake must propagate up the chain to the root.
     pub fn update_stake(
         &mut self,
         hash: [u8; 32],
         additional_stake: u64,
     ) {
-        if let Some(block) = self.blocks.get_mut(&hash) {
-            block.stake_weight += additional_stake;
+        // First, collect the ancestor chain to avoid borrow checker issues
+        let mut ancestors = Vec::new();
+        let mut current = hash;
+        
+        loop {
+            // Don't include root in stake propagation (it has u64::MAX)
+            if current == self.root {
+                break;
+            }
+            
+            ancestors.push(current);
+            
+            if let Some(block) = self.blocks.get(&current) {
+                current = block.parent_hash;
+            } else {
+                break;
+            }
         }
+        
+        // Now update stake for all ancestors (excluding root)
+        for ancestor_hash in ancestors {
+            if let Some(block) = self.blocks.get_mut(&ancestor_hash) {
+                block.stake_weight = block.stake_weight.saturating_add(additional_stake);
+            }
+        }
+        
         self.update_best_block();
     }
 
@@ -426,5 +451,35 @@ mod tests {
 
         let best = fc.get_best_block().unwrap();
         assert_eq!(best.hash, fork_b_4);
+    }
+
+    #[test]
+    fn test_stake_propagation_ancestors() {
+        // LMD GHOST requires that stake updates propagate to all ancestors
+        let root = create_hash(0);
+        let mut fc = ForkChoice::new(root);
+
+        // Build chain: root -> b1 -> b2 -> b3
+        let b1 = create_hash(1);
+        fc.add_block(b1, root, 1, 100).unwrap();
+
+        let b2 = create_hash(2);
+        fc.add_block(b2, b1, 2, 100).unwrap();
+
+        let b3 = create_hash(3);
+        fc.add_block(b3, b2, 3, 100).unwrap();
+
+        // Initial weights: each block has 100 (root has u64::MAX)
+        assert_eq!(fc.get_block(&b1).unwrap().stake_weight, 100);
+        assert_eq!(fc.get_block(&b2).unwrap().stake_weight, 100);
+        assert_eq!(fc.get_block(&b3).unwrap().stake_weight, 100);
+
+        // Update stake on b3 - should propagate to b2, b1, and root
+        fc.update_stake(b3, 50);
+
+        // All ancestors should now have +50 stake (root excluded due to u64::MAX)
+        assert_eq!(fc.get_block(&b1).unwrap().stake_weight, 150);
+        assert_eq!(fc.get_block(&b2).unwrap().stake_weight, 150);
+        assert_eq!(fc.get_block(&b3).unwrap().stake_weight, 150);
     }
 }
