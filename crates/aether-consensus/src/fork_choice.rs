@@ -522,4 +522,26 @@ mod tests {
             _ => panic!("Should return ForkChoiceViolation error"),
         }
     }
+
+    #[test]
+    fn test_add_duplicate_block() {
+        // Verify that adding a block with duplicate hash returns error
+        let root = create_hash(0);
+        let mut fc = ForkChoice::new(root);
+
+        let b1 = create_hash(1);
+        fc.add_block(b1, root, 1, 100).unwrap();
+
+        // Try to add same block again
+        let result = fc.add_block(b1, root, 2, 200);
+        
+        assert!(result.is_err(), "Should return error for duplicate block");
+        
+        match result {
+            Err(ConsensusError::ForkChoiceViolation(msg)) => {
+                assert!(msg.contains("already exists"), "Error message should mention already exists");
+            }
+            _ => panic!("Should return ForkChoiceViolation error"),
+        }
+    }
 }
