@@ -21,6 +21,7 @@ mod network;
 mod state_db;
 mod executor;
 mod persistence;
+mod sync;
 
 pub use block_producer::*;
 pub use config::*;
@@ -33,6 +34,7 @@ pub use rpc_client::*;
 pub use rpc_server::*;
 pub use state::*;
 pub use state_db::*;
+pub use sync::*;
 
 // =============================================================================
 // CLI Structure

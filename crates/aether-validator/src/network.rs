@@ -120,6 +120,42 @@ pub enum GossipMessage {
     GetBlock { slot: u64, requester: String },
     #[serde(rename = "block_response")]
     BlockResponse { slot: u64, block_json: String },
+    // Sync protocol messages
+    #[serde(rename = "get_blocks")]
+    GetBlocks {
+        start_slot: u64,
+        end_slot: u64,
+        requester: String,
+    },
+    #[serde(rename = "blocks_response")]
+    BlocksResponse {
+        blocks_json: String,
+        requester: String,
+    },
+    #[serde(rename = "get_snapshot")]
+    GetSnapshot {
+        slot: u64,
+        requester: String,
+    },
+    #[serde(rename = "snapshot_response")]
+    SnapshotResponse {
+        slot: u64,
+        snapshot_json: String,
+        requester: String,
+    },
+    #[serde(rename = "sync_request")]
+    SyncRequest {
+        current_slot: u64,
+        target_slot: u64,
+        requester: String,
+    },
+    #[serde(rename = "sync_status")]
+    SyncStatus {
+        is_syncing: bool,
+        current_slot: u64,
+        target_slot: Option<u64>,
+        peer_id: String,
+    },
 }
 
 /// Handshake message for peer connection

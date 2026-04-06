@@ -514,4 +514,31 @@ impl BlockProducer {
         history.back().map(|b| b.block_hash.clone())
             .unwrap_or_else(|| self.state.get_genesis_hash())
     }
+
+    /// Get current state root (for snapshots)
+    pub fn get_state_root_sync(&self) -> String {
+        let accounts = self.state_db.get_all_accounts_sync();
+        let mut hasher = Sha256::new();
+        let mut addrs: Vec<_> = accounts.keys().collect();
+        addrs.sort();
+        for addr in addrs {
+            hasher.update(addr);
+            if let Some(acc) = accounts.get(addr) {
+                hasher.update(acc.lamports.to_le_bytes());
+                hasher.update(&acc.owner);
+            }
+        }
+        let result = hasher.finalize();
+        bs58::encode(result).into_string()
+    }
+
+    /// Get all accounts for snapshot creation
+    pub fn get_all_accounts_sync(&self) -> Vec<([u8; 32], Account)> {
+        self.state_db.get_all_accounts_sync()
+    }
+
+    /// Set account for snapshot restore
+    pub fn set_account_sync(&self, address: &[u8; 32], account: Account) {
+        self.state_db.set_account_sync(address, account);
+    }
 }
