@@ -30,6 +30,7 @@ const { broadcastCommand } = require('./commands/broadcast');
 const { apyCommand } = require('./commands/apy');
 const { statsCommand } = require('./commands/stats');
 const { txHistoryCommand } = require('./commands/tx-history');
+const { feesCommand } = require('./commands/fees');
 const readline = require('readline');
 
 // CLI version
@@ -392,6 +393,12 @@ const COMMANDS = {
     handler: () => {
       const { emergencyCommand } = require('./commands/emergency');
       emergencyCommand();
+    },
+  },
+  fees: {
+    description: 'Network fee estimates — aether fees [--json] [--verbose] [--rpc <url>]',
+    handler: () => {
+      feesCommand();
     },
   },
   help: {
