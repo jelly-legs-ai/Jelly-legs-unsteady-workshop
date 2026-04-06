@@ -142,6 +142,27 @@ Only these models work as subagents from this OpenClaw setup:
 
 ---
 
+## Persistent Issues System (Updated 2026-04-05)
+
+### Three Always-Running Issues
+- **#115** Blockchain Core Development — spawns `heartbeat-chain` subagent
+- **#114** Website Integration — spawns `heartbeat-web` subagent  
+- **#116** CLI Development — spawns `heartbeat-cli` subagent
+
+### How It Works
+- I check HEARTBEAT.md on every heartbeat poll (~30 min intervals)
+- I spawn 3 parallel subagents, one per persistent issue
+- Each agent: pulls latest, implements ONE fix, commits/pushes, posts SPECIFIC GitHub comment
+- `heartbeat-state.json` tracks cycle timing
+- GitHub Actions `ai-team-real-work.yml` also runs every 5 min (posts cycle comments, can't spawn agents from CI)
+
+### NPM Packages Published
+- `@jellylegsai/aether-validator-cli@1.0.5` — wallet stake/transfer, sdk types, CLI commands
+- `@jellylegsai/aether-hub@1.0.5` — same as above (aliased)
+- Install: `npm install -g @jellylegsai/aether-validator-cli`
+
+---
+
 ## Open Issues / Blockers
 
 1. **Validator Commitments** — Need ≥10 founding validators confirmed (10K AETH each, 2x bootstrap rewards)
