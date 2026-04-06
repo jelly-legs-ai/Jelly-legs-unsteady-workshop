@@ -4,8 +4,8 @@
   "description": "Aether CLI - Validator Onboarding, Staking, and Blockchain Operations",
   "main": "index.js",
   "bin": {
-    "aether-cli": "./index.js",
-    "aether": "./index.js"
+    "aether-cli": "index.js",
+    "aether": "index.js"
   },
   "scripts": {
     "test": "node test.js && cd sdk && node test.js",
@@ -63,7 +63,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop"
+    "url": "git+https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop.git"
   },
   "engines": {
     "node": ">=14.0.0"
