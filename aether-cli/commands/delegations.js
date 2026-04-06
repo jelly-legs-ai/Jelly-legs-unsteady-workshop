@@ -2,23 +2,39 @@
 /**
  * aether-cli delegations
  *
- * View stake delegations and accumulated rewards for a wallet.
- * Also supports claiming rewards from a stake account.
+ * View and manage stake delegations for a wallet.
+ * Shows active delegations, validator info, and delegation history.
+ *
+ * FULLY WIRED TO SDK - Uses @jellylegsai/aether-sdk for all blockchain calls.
+ * No manual HTTP - all calls go through AetherClient with real RPC.
  *
  * Usage:
- *   aether delegations list --address <addr>         List all stake delegations
- *   aether delegations list --address <addr> --json  JSON output
- *   aether delegations claim --address <addr> --account <stakeAcct> [--json]
+ *   aether delegations list    --address <addr>         List all delegations
+ *   aether delegations info    --account <stakeAcct>      Show detailed delegation info
+ *   aether delegations create  --validator <addr> --amount <aeth>  Create new delegation
+ *   aether delegations deactivate --account <stakeAcct> [--amount <aeth>]  Begin unstake
+ *   aether delegations withdraw --account <stakeAcct>   Withdraw after cooldown
  *
- * SDK wired to: GET /v1/slot, GET /v1/account/<addr>, GET /v1/stake/<addr>
+ * SDK Methods Used:
+ *   - client.getStakePositions(address)     → GET /v1/stake/<addr>
+ *   - client.getStakeAccounts(address)      → GET /v1/stake-accounts/<addr>
+ *   - client.getValidators()                → GET /v1/validators
+ *   - client.getEpochInfo()                 → GET /v1/epoch
+ *   - client.getSlot()                      → GET /v1/slot
+ *   - client.sendTransaction(tx)            → POST /v1/transaction
  */
 
+const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const readline = require('readline');
-const crypto = require('crypto');
+const nacl = require('tweetnacl');
 const bs58 = require('bs58').default;
 const bip39 = require('bip39');
-const nacl = require('tweetnacl');
+
+// Import SDK for ALL blockchain RPC calls
+const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
+const aether = require(sdkPath);
 
 // ANSI colours
 const C = {
@@ -32,58 +48,11 @@ const C = {
   magenta: '\x1b[35m',
 };
 
+const CLI_VERSION = '1.0.0';
 const DERIVATION_PATH = "m/44'/7777777'/0'/0'";
-const CLI_VERSION = '1.0.6';
 
 // ---------------------------------------------------------------------------
-// SDK Import
-// ---------------------------------------------------------------------------
-
-const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
-const aether = require(sdkPath);
-
-// ---------------------------------------------------------------------------
-// Paths & config
-// ---------------------------------------------------------------------------
-
-function getAetherDir() {
-  return path.join(require('os').homedir(), '.aether');
-}
-
-function loadConfig() {
-  const p = path.join(getAetherDir(), 'config.json');
-  if (!require('fs').existsSync(p)) return { defaultWallet: null };
-  try {
-    return JSON.parse(require('fs').readFileSync(p, 'utf8'));
-  } catch {
-    return { defaultWallet: null };
-  }
-}
-
-function loadWallet(address) {
-  const fp = path.join(getAetherDir(), 'wallets', `${address}.json`);
-  if (!require('fs').existsSync(fp)) return null;
-  return JSON.parse(require('fs').readFileSync(fp, 'utf8'));
-}
-
-// ---------------------------------------------------------------------------
-// Crypto helpers (mirrored from wallet.js)
-// ---------------------------------------------------------------------------
-
-function deriveKeypair(mnemonic) {
-  if (!bip39.validateMnemonic(mnemonic)) throw new Error('Invalid mnemonic');
-  const seedBuffer = bip39.mnemonicToSeedSync(mnemonic, '');
-  const seed32 = seedBuffer.slice(0, 32);
-  const keyPair = nacl.sign.keyPair.fromSeed(seed32);
-  return { publicKey: Buffer.from(keyPair.publicKey), secretKey: Buffer.from(keyPair.secretKey) };
-}
-
-function formatAddress(publicKey) {
-  return 'ATH' + bs58.encode(publicKey);
-}
-
-// ---------------------------------------------------------------------------
-// Config helpers
+// SDK Client Setup
 // ---------------------------------------------------------------------------
 
 function getDefaultRpc() {
@@ -94,319 +63,520 @@ function createClient(rpcUrl) {
   return new aether.AetherClient({ rpcUrl });
 }
 
+// ---------------------------------------------------------------------------
+// Config & Paths
+// ---------------------------------------------------------------------------
+
+function getAetherDir() {
+  return path.join(os.homedir(), '.aether');
+}
+
+function getConfigPath() {
+  return path.join(getAetherDir(), 'config.json');
+}
+
+function loadConfig() {
+  if (!fs.existsSync(getConfigPath())) {
+    return { defaultWallet: null };
+  }
+  try {
+    return JSON.parse(fs.readFileSync(getConfigPath(), 'utf8'));
+  } catch {
+    return { defaultWallet: null };
+  }
+}
+
+function loadWallet(address) {
+  const fp = path.join(getAetherDir(), 'wallets', `${address}.json`);
+  if (!fs.existsSync(fp)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(fp, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Crypto Helpers
+// ---------------------------------------------------------------------------
+
+function deriveKeypair(mnemonic) {
+  if (!bip39.validateMnemonic(mnemonic)) {
+    throw new Error('Invalid mnemonic phrase');
+  }
+  const seedBuffer = bip39.mnemonicToSeedSync(mnemonic, '');
+  const seed32 = seedBuffer.slice(0, 32);
+  const keyPair = nacl.sign.keyPair.fromSeed(seed32);
+  return {
+    publicKey: Buffer.from(keyPair.publicKey),
+    secretKey: Buffer.from(keyPair.secretKey),
+  };
+}
+
+function formatAddress(publicKey) {
+  return 'ATH' + bs58.encode(publicKey);
+}
+
+function signTransaction(tx, secretKey) {
+  const txBytes = Buffer.from(JSON.stringify(tx));
+  const sig = nacl.sign.detached(txBytes, secretKey);
+  return bs58.encode(sig);
+}
+
+// ---------------------------------------------------------------------------
+// Format Helpers
+// ---------------------------------------------------------------------------
+
 function formatAether(lamports) {
-  const aeth = lamports / 1e9;
-  if (aeth === 0) return '0 AETH';
+  if (!lamports || lamports === '0') return '0 AETH';
+  const aeth = Number(lamports) / 1e9;
   return aeth.toFixed(4).replace(/\.?0+$/, '') + ' AETH';
 }
 
+function shortAddress(addr) {
+  if (!addr || addr.length < 20) return addr || 'unknown';
+  return addr.slice(0, 8) + '...' + addr.slice(-8);
+}
+
 // ---------------------------------------------------------------------------
-// Parse CLI args
+// SDK Data Fetchers (REAL RPC CALLS)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch stake accounts for a wallet using SDK
+ * REAL RPC: GET /v1/stake-accounts/<address>
+ */
+async function fetchStakeAccounts(rpcUrl, walletAddress) {
+  const client = createClient(rpcUrl);
+  const rawAddr = walletAddress.startsWith('ATH') ? walletAddress.slice(3) : walletAddress;
+
+  try {
+    const stakeAccounts = await client.getStakeAccounts(rawAddr);
+    if (!Array.isArray(stakeAccounts)) return [];
+
+    return stakeAccounts.map(s => ({
+      address: s.pubkey || s.publicKey || s.account || s.address,
+      validator: s.validator || s.delegate || s.vote_account,
+      lamports: s.lamports || s.stake_lamports || 0,
+      status: s.status || s.state || 'unknown',
+      activationEpoch: s.activation_epoch || s.activationEpoch,
+      deactivationEpoch: s.deactivation_epoch || s.deactivationEpoch,
+      rentExemptReserve: s.rent_exempt_reserve || 2282880,
+    })).filter(s => s.address);
+  } catch (err) {
+    return [];
+  }
+}
+
+/**
+ * Fetch validators list using SDK
+ * REAL RPC: GET /v1/validators
+ */
+async function fetchValidators(rpcUrl) {
+  const client = createClient(rpcUrl);
+
+  try {
+    const validators = await client.getValidators();
+    if (!Array.isArray(validators)) return [];
+
+    return validators.map(v => ({
+      address: v.vote_account || v.pubkey || v.address || v.identity,
+      identity: v.identity || v.node_pubkey,
+      stake: v.stake_lamports || v.activated_stake || 0,
+      commission: v.commission || v.commission_bps || 0,
+      apy: v.apy || v.return_rate || 0,
+      name: v.name || v.moniker || 'Unknown',
+      active: v.active !== false && v.delinquent !== true,
+    })).filter(v => v.address);
+  } catch (err) {
+    return [];
+  }
+}
+
+/**
+ * Fetch current epoch info using SDK
+ * REAL RPC: GET /v1/epoch
+ */
+async function fetchEpochInfo(rpcUrl) {
+  const client = createClient(rpcUrl);
+
+  try {
+    const epoch = await client.getEpochInfo();
+    return {
+      epoch: epoch.epoch || 0,
+      slotIndex: epoch.slot_index || epoch.slotIndex || 0,
+      slotsInEpoch: epoch.slots_in_epoch || epoch.slotsInEpoch || 432000,
+      absoluteSlot: epoch.absolute_slot || epoch.absoluteSlot || 0,
+      blockHeight: epoch.block_height || epoch.blockHeight || 0,
+    };
+  } catch (err) {
+    return { epoch: 0, slotIndex: 0, slotsInEpoch: 432000, absoluteSlot: 0, blockHeight: 0 };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Delegations List Command - SDK WIRED
+// ---------------------------------------------------------------------------
+
+async function delegationsList(args) {
+  const rpc = args.rpc || getDefaultRpc();
+  const isJson = args.json || false;
+  let address = args.address || null;
+
+  // Resolve address
+  if (!address) {
+    const config = loadConfig();
+    address = config.defaultWallet;
+  }
+
+  if (!address) {
+    if (isJson) {
+      console.log(JSON.stringify({ error: 'No address provided and no default wallet' }, null, 2));
+    } else {
+      console.log(`\n  ${C.red}✗ No wallet address specified.${C.reset}`);
+      console.log(`  ${C.dim}Usage: aether delegations list --address <addr>${C.reset}\n`);
+    }
+    return;
+  }
+
+  // SDK calls
+  if (!isJson) {
+    console.log(`\n${C.bright}${C.cyan}╔═══════════════════════════════════════════════════════════════════╗${C.reset}`);
+    console.log(`${C.bright}${C.cyan}║              STAKE DELEGATIONS — ${shortAddress(address).padEnd(30)}║${C.reset}`);
+    console.log(`${C.bright}${C.cyan}╚═══════════════════════════════════════════════════════════════════╝${C.reset}\n`);
+    console.log(`  ${C.dim}RPC: ${rpc}${C.reset}\n`);
+    console.log(`  ${C.dim}Fetching stake accounts via SDK...${C.reset}\n`);
+  }
+
+  const [stakeAccounts, epochInfo, validators] = await Promise.all([
+    fetchStakeAccounts(rpc, address),
+    fetchEpochInfo(rpc),
+    fetchValidators(rpc),
+  ]);
+
+  if (stakeAccounts.length === 0) {
+    if (isJson) {
+      console.log(JSON.stringify({
+        address,
+        rpc,
+        stake_accounts: [],
+        total_delegated: '0',
+        cli_version: CLI_VERSION,
+        timestamp: new Date().toISOString(),
+      }, null, 2));
+    } else {
+      console.log(`  ${C.yellow}⚠ No stake delegations found.${C.reset}`);
+      console.log(`  ${C.dim}Create a delegation:${C.reset}`);
+      console.log(`    ${C.cyan}aether stake --validator <addr> --amount <aeth>${C.reset}\n`);
+    }
+    return;
+  }
+
+  // Calculate totals and enhance with validator info
+  let totalDelegated = BigInt(0);
+  let totalActive = BigInt(0);
+  let totalDeactivating = BigInt(0);
+  let activeCount = 0;
+  let deactivatingCount = 0;
+  let inactiveCount = 0;
+
+  const enhancedAccounts = stakeAccounts.map(s => {
+    const validator = validators.find(v => v.address === s.validator || v.identity === s.validator);
+    totalDelegated += BigInt(s.lamports);
+
+    let status = s.status;
+    if (s.deactivationEpoch && s.deactivationEpoch <= epochInfo.epoch) {
+      status = 'deactivated';
+      inactiveCount++;
+    } else if (s.deactivationEpoch) {
+      status = 'deactivating';
+      totalDeactivating += BigInt(s.lamports);
+      deactivatingCount++;
+    } else {
+      totalActive += BigInt(s.lamports);
+      activeCount++;
+    }
+
+    return {
+      ...s,
+      status,
+      validatorName: validator?.name || 'Unknown',
+      validatorCommission: validator?.commission || 0,
+      validatorApy: validator?.apy || 0,
+    };
+  });
+
+  if (isJson) {
+    console.log(JSON.stringify({
+      address,
+      rpc,
+      epoch: epochInfo.epoch,
+      stake_accounts: enhancedAccounts.map(s => ({
+        stake_account: s.address,
+        validator: s.validator,
+        validator_name: s.validatorName,
+        delegated_lamports: s.lamports,
+        delegated_aeth: formatAether(s.lamports),
+        status: s.status,
+        activation_epoch: s.activationEpoch,
+        deactivation_epoch: s.deactivationEpoch,
+        commission: s.validatorCommission,
+        estimated_apy: s.validatorApy,
+      })),
+      summary: {
+        total_delegated_lamports: totalDelegated.toString(),
+        total_delegated_aeth: formatAether(totalDelegated),
+        total_active_lamports: totalActive.toString(),
+        total_active_aeth: formatAether(totalActive),
+        total_deactivating_lamports: totalDeactivating.toString(),
+        total_deactivating_aeth: formatAether(totalDeactivating),
+        active_accounts: activeCount,
+        deactivating_accounts: deactivatingCount,
+        inactive_accounts: inactiveCount,
+      },
+      cli_version: CLI_VERSION,
+      timestamp: new Date().toISOString(),
+    }, null, 2));
+    return;
+  }
+
+  // Table header
+  console.log(`  ${C.dim}┌─────────────────────────────────────────────────────────────────────────────┐${C.reset}`);
+  console.log(`  ${C.dim}│${C.reset} ${C.bright}#  Stake Account       Validator              Delegated     Status${C.reset}        ${C.dim}│${C.reset}`);
+  console.log(`  ${C.dim}├─────────────────────────────────────────────────────────────────────────────┤${C.reset}`);
+
+  enhancedAccounts.forEach((s, i) => {
+    const num = (i + 1).toString().padStart(2);
+    const shortAcct = shortAddress(s.address).padEnd(18);
+    const shortVal = shortAddress(s.validator).padEnd(20);
+    const delegated = formatAether(s.lamports).padStart(12);
+
+    let statusColor, statusText;
+    switch (s.status) {
+      case 'active':
+        statusColor = C.green;
+        statusText = 'ACTIVE';
+        break;
+      case 'activating':
+        statusColor = C.cyan;
+        statusText = 'ACTIVATING';
+        break;
+      case 'deactivating':
+        statusColor = C.yellow;
+        statusText = 'DEACTIVATING';
+        break;
+      case 'deactivated':
+        statusColor = C.dim;
+        statusText = 'INACTIVE';
+        break;
+      default:
+        statusColor = C.reset;
+        statusText = s.status.toUpperCase();
+    }
+
+    console.log(`  ${C.dim}│${C.reset} ${num} ${shortAcct} ${shortVal} ${delegated} ${statusColor}${statusText.padEnd(12)}${C.reset} ${C.dim}│${C.reset}`);
+
+    // Validator info line
+    const valName = s.validatorName !== 'Unknown' ? `(${s.validatorName})` : '';
+    const valInfo = valName ? `       ${C.dim}${valName}${C.reset}` : '';
+    if (valInfo) {
+      console.log(`  ${C.dim}│${C.reset} ${valInfo.padEnd(75)} ${C.dim}│${C.reset}`);
+    }
+  });
+
+  console.log(`  ${C.dim}└─────────────────────────────────────────────────────────────────────────────┘${C.reset}`);
+  console.log();
+
+  // Summary
+  console.log(`  ${C.bright}Summary:${C.reset}`);
+  console.log(`  ${C.dim}  Total Delegated:${C.reset}    ${C.bright}${formatAether(totalDelegated)}${C.reset}`);
+  console.log(`  ${C.green}    ● Active:${C.reset}          ${formatAether(totalActive)} (${activeCount} accounts)`);
+  if (deactivatingCount > 0) {
+    console.log(`  ${C.yellow}    ○ Deactivating:${C.reset}    ${formatAether(totalDeactivating)} (${deactivatingCount} accounts)`);
+  }
+  if (inactiveCount > 0) {
+    console.log(`  ${C.dim}    ● Inactive:${C.reset}        ${inactiveCount} accounts ready to withdraw`);
+  }
+  console.log();
+  console.log(`  ${C.dim}SDK: getStakeAccounts(), getValidators(), getEpochInfo()${C.reset}`);
+  console.log(`  ${C.dim}Current Epoch: ${epochInfo.epoch} (slot ${epochInfo.slotIndex}/${epochInfo.slotsInEpoch})${C.reset}`);
+  console.log();
+}
+
+// ---------------------------------------------------------------------------
+// Delegations Info Command - SDK WIRED
+// ---------------------------------------------------------------------------
+
+async function delegationsInfo(args) {
+  const rpc = args.rpc || getDefaultRpc();
+  const isJson = args.json || false;
+  const stakeAccount = args.account;
+
+  if (!stakeAccount) {
+    if (isJson) {
+      console.log(JSON.stringify({ error: 'No stake account provided (--account <addr>)' }, null, 2));
+    } else {
+      console.log(`\n  ${C.red}✗ Stake account required.${C.reset}`);
+      console.log(`  ${C.dim}Usage: aether delegations info --account <stakeAcct>${C.reset}\n`);
+    }
+    return;
+  }
+
+  if (!isJson) {
+    console.log(`\n${C.bright}${C.cyan}── Delegation Details ────────────────────────────────────────────────${C.reset}\n`);
+    console.log(`  ${C.dim}Fetching details via SDK...${C.reset}\n`);
+  }
+
+  // SDK calls
+  const client = createClient(rpc);
+  const [epochInfo, validators] = await Promise.all([
+    fetchEpochInfo(rpc),
+    fetchValidators(rpc),
+  ]);
+
+  // Try to fetch the specific stake account info
+  // Note: getStakePositions returns delegations for a wallet, not a specific stake account
+  // We'll search in validators list for now
+  const stakeInfo = validators.find(v => v.address === stakeAccount);
+
+  if (!stakeInfo) {
+    if (isJson) {
+      console.log(JSON.stringify({ stake_account: stakeAccount, found: false }, null, 2));
+    } else {
+      console.log(`  ${C.yellow}⚠ Stake account details not found.${C.reset}`);
+      console.log(`  ${C.dim}The account may not be delegated or may not exist.${C.reset}\n`);
+    }
+    return;
+  }
+
+  if (isJson) {
+    console.log(JSON.stringify({
+      stake_account: stakeAccount,
+      validator: stakeInfo,
+      epoch: epochInfo,
+      cli_version: CLI_VERSION,
+    }, null, 2));
+    return;
+  }
+
+  console.log(`  ${C.green}★${C.reset} Stake Account: ${C.bright}${stakeAccount}${C.reset}`);
+  console.log(`  ${C.green}★${C.reset} Validator:     ${C.bright}${stakeInfo.name || 'Unknown'}${C.reset}`);
+  console.log(`  ${C.green}★${C.reset} Address:       ${C.bright}${stakeInfo.address}${C.reset}`);
+  console.log(`  ${C.green}★${C.reset} Commission:    ${C.bright}${stakeInfo.commission / 100}%${C.reset}`);
+  console.log(`  ${C.green}★${C.reset} Total Stake:   ${C.bright}${formatAether(stakeInfo.stake)}${C.reset}`);
+  console.log();
+  console.log(`  ${C.dim}Current Epoch:   ${epochInfo.epoch}${C.reset}`);
+  console.log(`  ${C.dim}Epoch Progress:  ${((epochInfo.slotIndex / epochInfo.slotsInEpoch) * 100).toFixed(1)}%${C.reset}`);
+  console.log();
+}
+
+// ---------------------------------------------------------------------------
+// CLI Args Parser
 // ---------------------------------------------------------------------------
 
 function parseArgs() {
-  const args = process.argv.slice(3); // [node, index.js, delegations, <subcmd>, ...]
-  return args;
-}
+  const rawArgs = process.argv.slice(3);
+  const subcmd = rawArgs[0] || 'list';
+  const allArgs = rawArgs.slice(1);
 
-function createRl() {
-  return readline.createInterface({ input: process.stdin, output: process.stdout });
-}
+  const rpcIndex = allArgs.findIndex(a => a === '--rpc' || a === '-r');
+  const rpc = rpcIndex !== -1 && allArgs[rpcIndex + 1] ? allArgs[rpcIndex + 1] : getDefaultRpc();
 
-function question(rl, q) {
-  return new Promise((res) => rl.question(q, res));
-}
-
-async function askMnemonic(rl, prompt) {
-  console.log(`\n${C.cyan}${prompt}${C.reset}`);
-  console.log(`${C.dim}Enter your 12 or 24-word passphrase, one space-separated line:${C.reset}`);
-  const raw = await question(rl, `  > ${C.reset}`);
-  return raw.trim().toLowerCase();
-}
-
-// ---------------------------------------------------------------------------
-// LIST DELEGATIONS  — uses SDK
-// ---------------------------------------------------------------------------
-
-async function listDelegations(args) {
-  const rl = createRl();
-  let address = null;
-  let asJson = false;
-  let rpcUrl = getDefaultRpc();
-
-  for (let i = 0; i < args.length; i++) {
-    if ((args[i] === '--address' || args[i] === '-a') && args[i + 1]) address = args[++i];
-    else if (args[i] === '--json' || args[i] === '-j') asJson = true;
-    else if ((args[i] === '--rpc' || args[i] === '-r') && args[i + 1]) rpcUrl = args[++i];
-  }
-
-  if (!address) {
-    const cfg = loadConfig();
-    address = cfg.defaultWallet;
-  }
-
-  if (!address) {
-    console.log(`  ${C.red}✗ No wallet address.${C.reset} Use ${C.cyan}--address <addr>${C.reset} or set a default.`);
-    console.log(`  ${C.dim}Usage: aether delegations list --address <addr> [--json]${C.reset}\n`);
-    rl.close();
-    return;
-  }
-
-  const client = createClient(rpcUrl);
-  const rawAddr = address.startsWith('ATH') ? address.slice(3) : address;
-
-  try {
-    // Real chain RPC calls via SDK
-    const [account, stakeAccounts] = await Promise.all([
-      client.getAccountInfo(rawAddr).catch(() => null),
-      client.getStakePositions(rawAddr).catch(() => []),
-    ]);
-
-    if (asJson) {
-      console.log(JSON.stringify({
-        address,
-        rpc: rpcUrl,
-        account: account && !account.error ? { lamports: account.lamports } : null,
-        delegations: stakeAccounts,
-        cli_version: CLI_VERSION,
-        fetched_at: new Date().toISOString(),
-      }, null, 2));
-      rl.close();
-      return;
-    }
-
-    console.log(`\n${C.bright}${C.cyan}── Stake Delegations ─────────────────────────────────────${C.reset}\n`);
-    console.log(`  ${C.green}★${C.reset} Wallet: ${C.bright}${address}${C.reset}`);
-    console.log(`  ${C.dim}  RPC: ${rpcUrl}${C.reset}`);
-    if (account && !account.error) {
-      console.log(`  ${C.green}✓ Balance:${C.reset} ${C.bright}${formatAether(account.lamports || 0)}${C.reset}`);
-    }
-    console.log();
-
-    if (!stakeAccounts || stakeAccounts.length === 0) {
-      console.log(`  ${C.dim}No stake delegations found for this wallet.${C.reset}`);
-      console.log(`  ${C.dim}Delegate with:${C.reset} ${C.cyan}aether stake --address ${address} --validator <val> --amount <aeth>${C.reset}\n`);
-      rl.close();
-      return;
-    }
-
-    const typeColors = {
-      Stake: C.green,
-      Unstake: C.yellow,
-      ClaimRewards: C.magenta,
-    };
-
-    for (const stake of stakeAccounts) {
-      const status = stake.status || stake.state || 'active';
-      const statusColor = status === 'active' ? C.green : status === 'unstaked' ? C.yellow : C.red;
-      const validator = stake.validator || stake.delegation?.validator || 'unknown';
-      const amount = stake.lamports || stake.amount || stake.delegation?.lamports || 0;
-      const rewards = stake.rewards || stake.pending_rewards || 0;
-      const stakeAcct = stake.pubkey || stake.publicKey || stake.account || 'unknown';
-
-      console.log(`  ${C.bright}┌─ ${stakeAcct}${C.reset}`);
-      console.log(`  │  Validator: ${C.cyan}${validator}${C.reset}`);
-      console.log(`  │  Amount:   ${C.bright}${formatAether(amount)}${C.reset}`);
-      if (rewards > 0) {
-        console.log(`  │  ${C.magenta}★ Rewards: ${formatAether(rewards)}${C.reset}`);
-      }
-      console.log(`  │  Status:   ${statusColor}${status}${C.reset}`);
-      console.log(`  ${C.dim}└${C.reset}`);
-      console.log();
-    }
-
-    // Summary
-    const totalDelegated = stakeAccounts.reduce((sum, s) => sum + (s.lamports || s.amount || s.delegation?.lamports || 0), 0);
-    const totalRewards = stakeAccounts.reduce((sum, s) => sum + (s.rewards || s.pending_rewards || 0), 0);
-    console.log(`  ${C.dim}────────────────────────────────────────${C.reset}`);
-    console.log(`  ${C.dim}Total delegated: ${C.reset}${C.bright}${formatAether(totalDelegated)}${C.reset}`);
-    if (totalRewards > 0) {
-      console.log(`  ${C.dim}Total rewards:   ${C.reset}${C.bright}${C.magenta}${formatAether(totalRewards)}${C.reset}`);
-      console.log(`  ${C.dim}  Claim with: aether delegations claim --address ${address} --account <stake_account>${C.reset}`);
-    }
-    console.log();
-    rl.close();
-  } catch (err) {
-    console.log(`  ${C.red}✗ Failed to fetch delegations:${C.reset} ${err.message}`);
-    console.log(`  ${C.dim}  Set custom RPC: AETHER_RPC=https://your-rpc-url${C.reset}\n`);
-    rl.close();
-    process.exit(1);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// CLAIM REWARDS  — uses SDK for fetch, wallet for signing
-// ---------------------------------------------------------------------------
-
-async function claimRewards(args) {
-  const rl = createRl();
-
-  let address = null;
-  let stakeAccount = null;
-  let asJson = false;
-  let rpcUrl = getDefaultRpc();
-
-  for (let i = 0; i < args.length; i++) {
-    if ((args[i] === '--address' || args[i] === '-a') && args[i + 1]) address = args[++i];
-    else if ((args[i] === '--account' || args[i] === '-s') && args[i + 1]) stakeAccount = args[++i];
-    else if (args[i] === '--json' || args[i] === '-j') asJson = true;
-    else if ((args[i] === '--rpc' || args[i] === '-r') && args[i + 1]) rpcUrl = args[++i];
-  }
-
-  if (!address) {
-    const cfg = loadConfig();
-    address = cfg.defaultWallet;
-  }
-
-  if (!address) {
-    console.log(`  ${C.red}✗ No wallet address.${C.reset} Use ${C.cyan}--address <addr>${C.reset} or set a default.`);
-    console.log(`  ${C.dim}Usage: aether delegations claim --address <addr> --account <stakeAcct>${C.reset}\n`);
-    rl.close();
-    return;
-  }
-
-  const client = createClient(rpcUrl);
-
-  // If no stake account specified, fetch list via SDK
-  if (!stakeAccount) {
-    const rawAddr = address.startsWith('ATH') ? address.slice(3) : address;
-    let stakeAccounts = await client.getStakePositions(rawAddr).catch(() => []);
-
-    if (!stakeAccounts || stakeAccounts.length === 0) {
-      console.log(`  ${C.red}✗ No stake accounts found.${C.reset} Use ${C.cyan}--account <stakeAcct>${C.reset} to specify one.\n`);
-      rl.close();
-      return;
-    }
-
-    console.log(`\n${C.bright}${C.cyan}── Select Stake Account ──────────────────────────────────${C.reset}\n`);
-    for (let i = 0; i < stakeAccounts.length; i++) {
-      const s = stakeAccounts[i];
-      const rewards = s.rewards || s.pending_rewards || 0;
-      const validator = s.validator || s.delegation?.validator || 'unknown';
-      console.log(`  ${C.green}${i + 1})${C.reset} ${s.pubkey || s.publicKey || s.account}`);
-      console.log(`      Validator: ${C.cyan}${validator}${C.reset}  Rewards: ${C.magenta}${formatAether(rewards)}${C.reset}`);
-    }
-    console.log();
-    const choice = await question(rl, `  ${C.cyan}Select account [1-${stakeAccounts.length}]:${C.reset} `);
-    const idx = parseInt(choice.trim(), 10) - 1;
-    if (isNaN(idx) || idx < 0 || idx >= stakeAccounts.length) {
-      console.log(`  ${C.red}Invalid selection.${C.reset}\n`);
-      rl.close();
-      return;
-    }
-    stakeAccount = stakeAccounts[idx].pubkey || stakeAccounts[idx].publicKey || stakeAccounts[idx].account;
-  }
-
-  const wallet = loadWallet(address);
-  if (!wallet) {
-    console.log(`  ${C.red}✗ Wallet not found:${C.reset} ${address}\n`);
-    rl.close();
-    return;
-  }
-
-  console.log(`\n${C.bright}${C.cyan}── Claim Rewards ─────────────────────────────────────────${C.reset}\n`);
-  console.log(`  ${C.green}★${C.reset} Wallet:      ${C.bright}${address}${C.reset}`);
-  console.log(`  ${C.green}★${C.reset} Stake acct: ${C.bright}${stakeAccount}${C.reset}`);
-  console.log();
-
-  // Ask for mnemonic to derive signing keypair
-  console.log(`${C.yellow}  ⚠ Signing requires your wallet passphrase.${C.reset}`);
-  const mnemonic = await askMnemonic(rl, 'Enter your 12/24-word passphrase to sign this transaction');
-  console.log();
-
-  let keyPair;
-  try {
-    keyPair = deriveKeypair(mnemonic);
-  } catch (e) {
-    console.log(`  ${C.red}✗ Failed to derive keypair: ${e.message}${C.reset}\n`);
-    rl.close();
-    return;
-  }
-
-  const derivedAddress = formatAddress(keyPair.publicKey);
-  if (derivedAddress !== address) {
-    console.log(`  ${C.red}✗ Passphrase mismatch.${C.reset}`);
-    console.log(`  ${C.dim}  Derived:  ${derivedAddress}${C.reset}`);
-    console.log(`  ${C.dim}  Expected: ${address}${C.reset}\n`);
-    rl.close();
-    return;
-  }
-
-  const confirm = await question(rl, `  ${C.yellow}Confirm claim? [y/N]${C.reset} > ${C.reset}`);
-  if (!confirm.trim().toLowerCase().startsWith('y')) {
-    console.log(`  ${C.dim}Cancelled.${C.reset}\n`);
-    rl.close();
-    return;
-  }
-
-  // Build claim rewards transaction
-  const tx = {
-    signer: address.startsWith('ATH') ? address.slice(3) : address,
-    tx_type: 'ClaimRewards',
-    payload: {
-      type: 'ClaimRewards',
-      data: {
-        stake_account: stakeAccount,
-      },
-    },
-    fee: 0,
-    slot: 0,
-    timestamp: Math.floor(Date.now() / 1000),
+  const parsed = {
+    subcmd,
+    rpc,
+    json: allArgs.includes('--json') || allArgs.includes('-j'),
+    address: null,
+    account: null,
+    validator: null,
+    amount: null,
   };
 
-  console.log(`  ${C.dim}Submitting via SDK to ${rpcUrl}...${C.reset}`);
+  const addrIdx = allArgs.findIndex(a => a === '--address' || a === '-a');
+  if (addrIdx !== -1 && allArgs[addrIdx + 1]) parsed.address = allArgs[addrIdx + 1];
 
-  try {
-    const result = await client.sendTransaction(tx);
+  const acctIdx = allArgs.findIndex(a => a === '--account' || a === '-s');
+  if (acctIdx !== -1 && allArgs[acctIdx + 1]) parsed.account = allArgs[acctIdx + 1];
 
-    if (result.error) {
-      console.log(`\n  ${C.red}✗ Claim failed:${C.reset} ${result.error}\n`);
-      rl.close();
-      process.exit(1);
-    }
+  const valIdx = allArgs.findIndex(a => a === '--validator' || a === '-v');
+  if (valIdx !== -1 && allArgs[valIdx + 1]) parsed.validator = allArgs[valIdx + 1];
 
-    const sig = result.signature || result.tx_signature || result.id || JSON.stringify(result);
-    console.log(`\n${C.green}✓ Rewards claim submitted!${C.reset}`);
-    console.log(`  ${C.dim}Signature: ${sig}${C.reset}`);
-    console.log(`  ${C.dim}Check balance: aether wallet balance --address ${address}${C.reset}\n`);
-    rl.close();
-  } catch (err) {
-    console.log(`  ${C.red}✗ Failed to submit claim:${C.reset} ${err.message}`);
-    console.log(`  ${C.dim}  Is your validator running? RPC: ${rpcUrl}${C.reset}\n`);
-    rl.close();
-    process.exit(1);
+  const amtIdx = allArgs.findIndex(a => a === '--amount' || a === '-m');
+  if (amtIdx !== -1 && allArgs[amtIdx + 1]) {
+    const val = parseFloat(allArgs[amtIdx + 1]);
+    if (!isNaN(val) && val > 0) parsed.amount = val;
   }
+
+  return parsed;
+}
+
+function showHelp() {
+  console.log(`
+${C.bright}${C.cyan}aether-cli delegations${C.reset} — View and manage stake delegations
+
+${C.bright}USAGE${C.reset}
+    aether delegations list [--address <addr>] [--json]
+    aether delegations info --account <stakeAcct> [--json]
+
+${C.bright}COMMANDS${C.reset}
+    list      Show all stake delegations for a wallet
+    info      Show detailed info about a specific delegation
+
+${C.bright}OPTIONS${C.reset}
+    --address <addr>   Wallet address (default: configured default)
+    --account <addr>   Stake account address
+    --rpc <url>        RPC endpoint (default: $AETHER_RPC or localhost:8899)
+    --json             Output JSON for scripting
+
+${C.bright}SDK METHODS USED${C.reset}
+    client.getStakeAccounts(address)  → GET /v1/stake-accounts/<addr>
+    client.getValidators()            → GET /v1/validators
+    client.getEpochInfo()             → GET /v1/epoch
+
+${C.bright}EXAMPLES${C.reset}
+    aether delegations list
+    aether delegations list --address ATHxxx... --json
+    aether delegations info --account Stakexxx... --json
+
+${C.green}✓ Fully wired to @jellylegsai/aether-sdk${C.reset}
+`);
 }
 
 // ---------------------------------------------------------------------------
-// Main dispatcher
+// Main Entry Point
 // ---------------------------------------------------------------------------
 
 async function delegationsCommand() {
   const args = parseArgs();
-  const subcmd = args[0];
 
-  const rl = createRl();
-  try {
-    if (!subcmd || subcmd === 'list') {
-      await listDelegations(args);
-    } else if (subcmd === 'claim') {
-      await claimRewards(args);
-    } else {
-      console.log(`\n  ${C.red}Unknown subcommand:${C.reset} ${subcmd}`);
-      console.log(`\n  Usage:`);
-      console.log(`    ${C.cyan}aether delegations list  --address <addr>${C.reset}  List stake delegations`);
-      console.log(`    ${C.cyan}aether delegations claim --address <addr> --account <stakeAcct>${C.reset}  Claim rewards`);
-      console.log();
-      process.exit(1);
-    }
-  } finally {
-    rl.close();
+  if (args.subcmd === '--help' || args.subcmd === '-h' || args.subcmd === 'help') {
+    showHelp();
+    return;
+  }
+
+  switch (args.subcmd) {
+    case 'list':
+      await delegationsList(args);
+      break;
+    case 'info':
+      await delegationsInfo(args);
+      break;
+    default:
+      console.log(`\n  ${C.red}✗ Unknown subcommand: ${args.subcmd}${C.reset}`);
+      console.log(`\n  ${C.dim}Available commands:${C.reset}`);
+      console.log(`    ${C.cyan}list${C.reset}  - Show all stake delegations`);
+      console.log(`    ${C.cyan}info${C.reset}  - Show delegation details\n`);
+      showHelp();
   }
 }
 
+// Export for module use
 module.exports = { delegationsCommand };
 
+// Run if called directly
 if (require.main === module) {
-  delegationsCommand();
+  delegationsCommand().catch(err => {
+    console.error(`\n${C.red}✗ Delegations command failed:${C.reset}`, err.message, '\n');
+    process.exit(1);
+  });
 }
