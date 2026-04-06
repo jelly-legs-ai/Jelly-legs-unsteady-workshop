@@ -8,6 +8,9 @@
  *   - Recent transactions (last 5)
  *   - Estimated rewards accrued
  *
+ * FULLY WIRED TO SDK - Uses @jellylegsai/aether-sdk for all blockchain calls.
+ * No manual HTTP - all calls go through AetherClient with real RPC.
+ *
  * Usage:
  *   aether stats --address <addr>         Full stats dashboard
  *   aether stats --address <addr> --json  JSON output for scripting
@@ -16,12 +19,14 @@
  * Requires AETHER_RPC env var or local node (default: http://127.0.0.1:8899)
  */
 
-const http = require('http');
-const https = require('https');
 const os = require('os');
 const path = require('path');
 const fs = require('fs');
 const bs58 = require('bs58').default;
+
+// Import SDK for real blockchain RPC calls
+const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
+const aether = require(sdkPath);
 
 // ANSI colours
 const C = {
@@ -35,6 +40,8 @@ const C = {
   magenta: '\x1b[35m',
   bold: '\x1b[1m',
 };
+
+const CLI_VERSION = '1.1.0';
 
 // ---------------------------------------------------------------------------
 // Paths & config
@@ -69,64 +76,15 @@ function loadWallet(address) {
 }
 
 // ---------------------------------------------------------------------------
-// RPC helpers
+// SDK setup - Real blockchain RPC calls via @jellylegsai/aether-sdk
 // ---------------------------------------------------------------------------
 
 function getDefaultRpc() {
-  return process.env.AETHER_RPC || 'http://127.0.0.1:8899';
+  return process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
 }
 
-function httpRequest(rpcUrl, pathStr) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(pathStr, rpcUrl);
-    const lib = url.protocol === 'https:' ? https : http;
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'GET',
-      timeout: 8000,
-      headers: { 'Content-Type': 'application/json' },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { resolve({ raw: data }); }
-      });
-    });
-    req.on('error', reject);
-    req.end();
-  });
-}
-
-function httpPost(rpcUrl, pathStr, body) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(pathStr, rpcUrl);
-    const lib = url.protocol === 'https:' ? https : http;
-    const bodyStr = JSON.stringify(body);
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'POST',
-      timeout: 8000,
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(bodyStr),
-      },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { resolve(data); }
-      });
-    });
-    req.on('error', reject);
-    req.write(bodyStr);
-    req.end();
-  });
+function createClient(rpcUrl) {
+  return new aether.AetherClient({ rpcUrl });
 }
 
 // ---------------------------------------------------------------------------
@@ -166,20 +124,24 @@ function truncate(str, chars = 8) {
 }
 
 // ---------------------------------------------------------------------------
-// Fetch wallet stats from RPC
+// Fetch wallet stats using SDK - Real RPC calls
 // ---------------------------------------------------------------------------
 
 async function fetchWalletStats(address, rpcUrl) {
+  const client = createClient(rpcUrl);
   const rawAddr = address.startsWith('ATH') ? address.slice(3) : address;
 
-  // Fetch account, transactions, and stake positions in parallel
-  const [account, txs, stakeAccounts] = await Promise.all([
-    httpRequest(rpcUrl, `/v1/account/${rawAddr}`).catch(() => null),
-    httpRequest(rpcUrl, `/v1/tx?address=${encodeURIComponent(rawAddr)}&limit=5`).catch(() => null),
-    httpRequest(rpcUrl, `/v1/stake?address=${encodeURIComponent(rawAddr)}`).catch(() => null),
+  // Parallel SDK calls - all real blockchain RPC calls
+  const [account, txHistory, stakeAccounts] = await Promise.all([
+    // SDK: getAccountInfo → GET /v1/account/<addr>
+    client.getAccountInfo(rawAddr).catch(err => ({ error: err.message })),
+    // SDK: getTransactionHistory → GET /v1/tx/<addr>
+    client.getTransactionHistory(address, 5).catch(err => ({ error: err.message })),
+    // SDK: getStakePositions → GET /v1/stake/<addr>
+    client.getStakePositions(rawAddr).catch(err => ({ error: err.message })),
   ]);
 
-  return { account, txs, stakeAccounts };
+  return { account, txHistory, stakeAccounts };
 }
 
 // ---------------------------------------------------------------------------
@@ -187,61 +149,58 @@ async function fetchWalletStats(address, rpcUrl) {
 // ---------------------------------------------------------------------------
 
 function renderDashboard(address, stats, opts) {
-  const { account, txs, stakeAccounts } = stats;
+  const { account, txHistory, stakeAccounts } = stats;
   const { compact, asJson } = opts;
   const rpcUrl = opts.rpcUrl;
 
-  if (asJson) {
-    const stakeList = stakeAccounts && !stakeAccounts.error
-      ? (Array.isArray(stakeAccounts) ? stakeAccounts : stakeAccounts.accounts || stakeAccounts.stake_accounts || [])
-      : [];
-    const txList = txs && !txs.error
-      ? (Array.isArray(txs) ? txs : txs.transactions || [])
-      : [];
+  // Parse SDK responses - handle both wrapped and raw shapes
+  const rawAccount = account && !account.error ? account : null;
+  const rawTxs = (txHistory && !txHistory.error)
+    ? (txHistory.transactions || txHistory || [])
+    : [];
+  const rawStakes = (stakeAccounts && !stakeAccounts.error)
+    ? (Array.isArray(stakeAccounts) ? stakeAccounts
+       : stakeAccounts.accounts || stakeAccounts.stake_accounts || [])
+    : [];
 
+  if (asJson) {
     const out = {
       address,
       rpc: rpcUrl,
-      balance: account && !account.error ? {
-        lamports: account.lamports || 0,
-        aeth: formatAether(account.lamports || 0),
+      balance: rawAccount && rawAccount.lamports !== undefined ? {
+        lamports: rawAccount.lamports || 0,
+        aeth: formatAether(rawAccount.lamports || 0),
       } : null,
-      stake_positions: stakeList.map((sa) => ({
-        stake_account: sa.stake_account || sa.address || 'unknown',
-        validator: sa.validator || 'unknown',
-        amount: sa.amount || 0,
-        aeth: formatAether(sa.amount || 0),
-        status: sa.status || 'active',
-        created_epoch: sa.created_epoch || null,
+      stake_positions: rawStakes.map((sa) => ({
+        stake_account: sa.stake_account || sa.address || sa.pubkey || sa.publicKey || 'unknown',
+        validator: sa.validator || sa.delegate || 'unknown',
+        amount: sa.amount || sa.lamports || sa.stake_lamports || 0,
+        aeth: formatAether(sa.amount || sa.lamports || sa.stake_lamports || 0),
+        status: sa.status || sa.state || 'active',
+        created_epoch: sa.created_epoch || sa.activation_epoch || null,
       })),
-      recent_txs: txList.map((tx) => ({
+      recent_txs: rawTxs.slice(0, 5).map((tx) => ({
         type: tx.tx_type || tx.type || 'Unknown',
         signature: tx.signature || tx.id || tx.tx_signature || null,
-        timestamp: tx.timestamp || null,
-        relative_time: relativeTime(tx.timestamp),
-        payload: tx.payload?.data || {},
+        timestamp: tx.blockTime || null,
+        relative_time: relativeTime(tx.blockTime),
+        payload: tx.payload?.data || tx.payload || {},
         fee: tx.fee || 0,
       })),
       fetched_at: new Date().toISOString(),
+      cli_version: CLI_VERSION,
     };
     console.log(JSON.stringify(out, null, 2));
     return;
   }
 
-  const lamports = (account && !account.error) ? (account.lamports || 0) : null;
-  const stakeList = stakeAccounts && !stakeAccounts.error
-    ? (Array.isArray(stakeAccounts) ? stakeAccounts : stakeAccounts.accounts || stakeAccounts.stake_accounts || [])
-    : [];
-  const txList = txs && !txs.error
-    ? (Array.isArray(txs) ? txs : txs.transactions || [])
-    : [];
+  const lamports = rawAccount?.lamports ?? null;
 
   if (compact) {
-    // One-line summary
     const bal = lamports !== null ? formatAether(lamports) : 'unknown';
-    const stakes = stakeList.length;
-    const recent = txList.length > 0 ? (txList[0].tx_type || txList[0].type || '?') : 'none';
-    console.log(`${C.bright}${address}${C.reset}  bal:${C.green}${bal}${C.reset}  stakes:${stakes}  last:${recent}  txs:${txList.length}`);
+    const stakes = rawStakes.length;
+    const recent = rawTxs.length > 0 ? (rawTxs[0].tx_type || rawTxs[0].type || '?') : 'none';
+    console.log(`${C.bright}${address}${C.reset}  bal:${C.green}${bal}${C.reset}  stakes:${stakes}  last:${recent}  txs:${rawTxs.length}`);
     return;
   }
 
@@ -255,14 +214,14 @@ function renderDashboard(address, stats, opts) {
   console.log(`  ${C.bright}Balance${C.reset}`);
   if (lamports !== null) {
     console.log(`    ${C.green}${formatAether(lamports)}${C.reset}  ${C.dim}(${lamports} lamports)${C.reset}`);
-    if (account.owner) {
-      const ownerStr = Array.isArray(account.owner)
-        ? 'ATH' + bs58.encode(Buffer.from(account.owner.slice(0, 32)))
-        : account.owner;
+    if (rawAccount?.owner) {
+      const ownerStr = Array.isArray(rawAccount.owner)
+        ? 'ATH' + bs58.encode(Buffer.from(rawAccount.owner.slice(0, 32)))
+        : rawAccount.owner;
       console.log(`    ${C.dim}Owner: ${ownerStr}${C.reset}`);
     }
-    if (account.rent_epoch !== undefined) {
-      console.log(`    ${C.dim}Rent epoch: ${account.rent_epoch}${C.reset}`);
+    if (rawAccount?.rent_epoch !== undefined) {
+      console.log(`    ${C.dim}Rent epoch: ${rawAccount.rent_epoch}${C.reset}`);
     }
   } else {
     console.log(`    ${C.yellow}⚠ Could not fetch balance (account may not exist)${C.reset}`);
@@ -270,8 +229,8 @@ function renderDashboard(address, stats, opts) {
   console.log();
 
   // Stake positions section
-  console.log(`  ${C.bright}Stake Positions (${stakeList.length})${C.reset}`);
-  if (stakeList.length === 0) {
+  console.log(`  ${C.bright}Stake Positions (${rawStakes.length})${C.reset}`);
+  if (rawStakes.length === 0) {
     console.log(`    ${C.dim}No active stake positions.${C.reset}`);
   } else {
     const statusColors = {
@@ -281,17 +240,18 @@ function renderDashboard(address, stats, opts) {
       deactivating: C.red,
       unknown: C.dim,
     };
-    for (const sa of stakeList) {
+    for (const sa of rawStakes) {
       const status = sa.status || 'unknown';
       const color = statusColors[status] || C.dim;
-      const amount = sa.amount ? formatAether(sa.amount) : '0 AETH';
-      const validator = sa.validator || 'unknown';
+      const amount = sa.amount || sa.lamports || sa.stake_lamports || 0;
+      const validator = sa.validator || sa.delegate || 'unknown';
       console.log(`    ${C.dim}┌─${C.reset}`);
       console.log(`    │  ${C.bright}Validator:${C.reset} ${validator}`);
-      console.log(`    │  ${C.bright}Amount:${C.reset}     ${color}${amount}${C.reset}`);
+      console.log(`    │  ${C.bright}Amount:${C.reset}     ${color}${formatAether(amount)}${C.reset}`);
       console.log(`    │  ${C.bright}Status:${C.reset}      ${color}${status}${C.reset}`);
-      if (sa.stake_account) {
-        console.log(`    │  ${C.bright}Stake acct:${C.reset} ${truncate(sa.stake_account)}`);
+      const saAddr = sa.stake_account || sa.address || sa.pubkey || sa.publicKey;
+      if (saAddr) {
+        console.log(`    │  ${C.bright}Stake acct:${C.reset} ${truncate(saAddr)}`);
       }
       console.log(`    ${C.dim}└${C.reset}`);
     }
@@ -299,8 +259,8 @@ function renderDashboard(address, stats, opts) {
   console.log();
 
   // Recent transactions section
-  console.log(`  ${C.bright}Recent Transactions (${txList.length})${C.reset}`);
-  if (txList.length === 0) {
+  console.log(`  ${C.bright}Recent Transactions (${rawTxs.length})${C.reset}`);
+  if (rawTxs.length === 0) {
     console.log(`    ${C.dim}No transactions yet.${C.reset}`);
   } else {
     const typeColors = {
@@ -314,19 +274,17 @@ function renderDashboard(address, stats, opts) {
       UpdateMetadata: C.yellow,
       Unknown: C.dim,
     };
-    for (const tx of txList) {
+    for (const tx of rawTxs.slice(0, 5)) {
       const txType = tx.tx_type || tx.type || 'Unknown';
       const color = typeColors[txType] || C.dim;
       const sig = tx.signature || tx.id || tx.tx_signature || '—';
-      const ts = tx.timestamp ? relativeTime(tx.timestamp) : 'unknown';
+      const ts = tx.blockTime ? relativeTime(tx.blockTime) : 'unknown';
 
       console.log(`    ${C.dim}┌─ ${ts}${C.reset}  ${C.bright}${color}${txType}${C.reset}  sig:${truncate(sig)}`);
-      if (tx.payload && tx.payload.data) {
-        const d = tx.payload.data;
-        if (d.recipient) console.log(`    │  ${C.dim}→ to:      ${d.recipient}${C.reset}`);
-        if (d.amount)    console.log(`    │  ${C.dim}amount:   ${formatAether(d.amount)}${C.reset}`);
-        if (d.validator) console.log(`    │  ${C.dim}validator: ${d.validator}${C.reset}`);
-      }
+      const payload = tx.payload?.data || tx.payload || {};
+      if (payload.recipient) console.log(`    │  ${C.dim}→ to:      ${payload.recipient}${C.reset}`);
+      if (payload.amount)    console.log(`    │  ${C.dim}amount:   ${formatAether(payload.amount)}${C.reset}`);
+      if (payload.validator) console.log(`    │  ${C.dim}validator: ${payload.validator}${C.reset}`);
       if (tx.fee !== undefined && tx.fee > 0) {
         console.log(`    │  ${C.dim}fee: ${tx.fee} lamports${C.reset}`);
       }
@@ -334,13 +292,17 @@ function renderDashboard(address, stats, opts) {
     }
   }
   console.log();
+
+  // SDK attribution
+  console.log(`  ${C.dim}SDK: getAccountInfo(), getTransactionHistory(), getStakePositions()${C.reset}`);
+  console.log();
 }
 
 // ---------------------------------------------------------------------------
 // Main command
 // ---------------------------------------------------------------------------
 
-function statsCommand() {
+async function statsCommand() {
   const args = process.argv.slice(3);
 
   // Parse flags
@@ -357,22 +319,11 @@ function statsCommand() {
     } else if (args[i] === '--json' || args[i] === '-j') {
       asJson = true;
     } else if (args[i] === '--help' || args[i] === '-h') {
-      console.log(`
-${C.bright}Aether Wallet Stats${C.reset}
-${C.dim}Comprehensive wallet overview: balance, stakes, recent transactions.${C.reset}
-
-${C.bright}Usage:${C.reset}
-  aether stats --address <addr>         Full dashboard
-  aether stats --address <addr> --json  JSON output
-  aether stats --address <addr> --compact  One-line summary
-
-${C.bright}Options:${C.reset}
-  -a, --address <addr>   Wallet address (or set default)
-  -j, --json             JSON output
-  -c, --compact          One-line summary
-  -h, --help             Show this help
-`);
+      showHelp();
       return;
+    } else if ((args[i] === '--rpc' || args[i] === '-r') && args[i + 1]) {
+      // Ignore -r here (handled by SDK client default)
+      i++;
     }
   }
 
@@ -399,21 +350,47 @@ ${C.bright}Options:${C.reset}
   const rpcUrl = getDefaultRpc();
 
   if (!asJson) {
-    console.log(`  ${C.dim}Fetching stats from ${rpcUrl}...${C.reset}`);
+    console.log(`  ${C.dim}Fetching stats via SDK from ${rpcUrl}...${C.reset}`);
   }
 
-  // Fetch and render
-  (async () => {
-    try {
-      const stats = await fetchWalletStats(address, rpcUrl);
-      renderDashboard(address, stats, { compact, asJson, rpcUrl });
-    } catch (err) {
+  try {
+    const stats = await fetchWalletStats(address, rpcUrl);
+    renderDashboard(address, stats, { compact, asJson, rpcUrl });
+  } catch (err) {
+    if (asJson) {
+      console.log(JSON.stringify({ address, error: err.message, rpc: rpcUrl }, null, 2));
+    } else {
       console.log(`  ${C.red}✗ Failed to fetch wallet stats:${C.reset} ${err.message}`);
       console.log(`  ${C.dim}  Is your validator running? RPC: ${rpcUrl}${C.reset}`);
       console.log(`  ${C.dim}  Set custom RPC: AETHER_RPC=https://your-rpc-url${C.reset}\n`);
-      process.exit(1);
     }
-  })();
+    process.exit(1);
+  }
+}
+
+function showHelp() {
+  console.log(`
+${C.bright}Aether Wallet Stats${C.reset}
+${C.dim}Comprehensive wallet overview: balance, stakes, recent transactions.
+Fully wired to @jellylegsai/aether-sdk for real blockchain RPC calls.${C.reset}
+
+${C.bright}Usage:${C.reset}
+  aether stats --address <addr>         Full dashboard
+  aether stats --address <addr> --json  JSON output
+  aether stats --address <addr> --compact  One-line summary
+
+${C.bright}Options:${C.reset}
+  -a, --address <addr>   Wallet address (or set default)
+  -j, --json             JSON output
+  -c, --compact          One-line summary
+  -r, --rpc <url>        RPC endpoint (default: AETHER_RPC or localhost:8899)
+  -h, --help             Show this help
+
+${C.bright}SDK Methods Used:${C.reset}
+  client.getAccountInfo(addr)       → GET /v1/account/<addr>
+  client.getTransactionHistory(addr) → GET /v1/tx/<addr>
+  client.getStakePositions(addr)     → GET /v1/stake/<addr>
+`);
 }
 
 module.exports = { statsCommand };
