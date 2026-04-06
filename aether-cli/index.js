@@ -207,6 +207,13 @@ const COMMANDS = {
       stakePositionsCommand();
     },
   },
+  'stake-info': {
+    description: 'Get staking info for an address via real chain RPC — aether stake-info <address>',
+    handler: () => {
+      const { stakeInfoCommand } = require('./commands/stake-info');
+      stakeInfoCommand();
+    },
+  },
   unstake: {
     description: 'Unstake AETH — deactivate a stake account — aether unstake --account <stakeAcct> [--amount <aeth>]',
     handler: () => {
