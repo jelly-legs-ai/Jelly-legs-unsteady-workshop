@@ -194,6 +194,15 @@ async fn handle_http_request(
             };
             (200, serde_json::to_string(&resp).unwrap_or_default())
         }
+        // Block height (alias for slot, returns current slot as block height)
+        ("GET", "/v1/blockheight" | "/v1/block_height" | "/v1/height") => {
+            let current_slot = state.current_slot();
+            let resp = serde_json::json!({
+                "blockHeight": current_slot,
+                "slot": current_slot
+            });
+            (200, serde_json::to_string(&resp).unwrap_or_default())
+        }
         // Genesis
         ("GET", "/v1/genesis") => {
             let resp = GenesisResponse {
