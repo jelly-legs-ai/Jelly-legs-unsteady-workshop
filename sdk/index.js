@@ -1221,6 +1221,64 @@ class AetherClient {
   }
 
   // ============================================================
+  // NFT Query Methods - Real blockchain calls for NFT data
+  // ============================================================
+
+  /**
+   * Get NFT details by ID
+   * RPC: GET /v1/nft/<id>
+   * 
+   * @param {string} nftId - NFT ID
+   * @returns {Promise<Object>} NFT details: { id, creator, metadata_url, royalties, supply, max_supply, created_at, update_authority }
+   */
+  async getNFT(nftId) {
+    if (!nftId) throw new AetherSDKError('NFT ID is required', 'VALIDATION_ERROR');
+    return this._executeWithRetry(
+      async () => {
+        const result = await this._httpGet(`/v1/nft/${nftId}`);
+        return result;
+      },
+      'getNFT'
+    );
+  }
+
+  /**
+   * Get NFT holdings for an address
+   * RPC: GET /v1/nft-holdings/<address>
+   * 
+   * @param {string} address - Account address
+   * @returns {Promise<Array>} List of NFT holdings with { id, amount, metadata_url }
+   */
+  async getNFTHoldings(address) {
+    if (!address) throw new AetherSDKError('Address is required', 'VALIDATION_ERROR');
+    return this._executeWithRetry(
+      async () => {
+        const result = await this._httpGet(`/v1/nft-holdings/${address}`);
+        return result.holdings ?? result.nfts ?? result ?? [];
+      },
+      'getNFTHoldings'
+    );
+  }
+
+  /**
+   * Get all NFTs created by an address
+   * RPC: GET /v1/nft-created/<address>
+   * 
+   * @param {string} address - Creator address
+   * @returns {Promise<Array>} List of created NFTs
+   */
+  async getNFTsByCreator(address) {
+    if (!address) throw new AetherSDKError('Address is required', 'VALIDATION_ERROR');
+    return this._executeWithRetry(
+      async () => {
+        const result = await this._httpGet(`/v1/nft-created/${address}`);
+        return result.nfts ?? result.created ?? result ?? [];
+      },
+      'getNFTsByCreator'
+    );
+  }
+
+  // ============================================================
   // Utilities
   // ============================================================
 
@@ -1576,6 +1634,52 @@ async function ping(rpcUrl) {
 }
 
 // ============================================================
+// NFT Convenience Functions (for quick one-off calls)
+// ============================================================
+
+/**
+ * Get NFT details by ID (uses default RPC)
+ * @param {string} nftId - NFT ID
+ * @returns {Promise<Object>} NFT details
+ */
+async function getNFT(nftId) {
+  const client = new AetherClient();
+  try {
+    return await client.getNFT(nftId);
+  } finally {
+    client.destroy();
+  }
+}
+
+/**
+ * Get NFT holdings for an address (uses default RPC)
+ * @param {string} address - Account address
+ * @returns {Promise<Array>} List of NFT holdings
+ */
+async function getNFTHoldings(address) {
+  const client = new AetherClient();
+  try {
+    return await client.getNFTHoldings(address);
+  } finally {
+    client.destroy();
+  }
+}
+
+/**
+ * Get NFTs created by an address (uses default RPC)
+ * @param {string} address - Creator address
+ * @returns {Promise<Array>} List of created NFTs
+ */
+async function getNFTsByCreator(address) {
+  const client = new AetherClient();
+  try {
+    return await client.getNFTsByCreator(address);
+  } finally {
+    client.destroy();
+  }
+}
+
+// ============================================================
 // Exports
 // ============================================================
 
@@ -1614,6 +1718,11 @@ module.exports = {
   getValidatorAPY,
   getPeers,
   getHealth,
+  
+  // NFT queries
+  getNFT,
+  getNFTHoldings,
+  getNFTsByCreator,
   
   // Transactions
   sendTransaction,
