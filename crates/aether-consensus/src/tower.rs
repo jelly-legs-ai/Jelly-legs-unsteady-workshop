@@ -118,7 +118,7 @@ impl TowerConsensus {
         }
     }
 
-    /// Check if a slot is confirmed (has >= 2/3 stake weight in votes)
+    /// Check if a slot is confirmed (has > 2/3 stake weight in votes)
     pub fn is_slot_confirmed(
         &self,
         slot: u64,
@@ -126,11 +126,13 @@ impl TowerConsensus {
     ) -> bool {
         let slot_stake = self.slot_stake.get(&slot).copied().unwrap_or(0);
         
-        // Need > 2/3 for confirmation
-        // Use ceiling division to avoid truncation: (total_stake * 2 + 2) / 3
-        // This ensures we require strictly more than 2/3, not >= truncated 2/3
-        let threshold = (total_stake * 2 + 2) / 3;
-        slot_stake > threshold
+        // Need strictly more than 2/3 for confirmation (Byzantine fault tolerance)
+        // Formula: threshold = floor(2/3 * total_stake) + 1
+        // This ensures slot_stake must be > 2/3, not just >= truncated 2/3
+        // Example: total_stake=100 → threshold=67, need 68 (>66.67)
+        //          total_stake=3   → threshold=2, need 3 (>2)
+        let threshold = (total_stake * 2) / 3 + 1;
+        slot_stake >= threshold
     }
 
     /// Get confirmation depth for a slot
