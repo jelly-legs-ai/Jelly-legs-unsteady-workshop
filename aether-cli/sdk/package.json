@@ -1,0 +1,23 @@
+{
+  "name": "@aether/cli-sdk",
+  "version": "1.0.0",
+  "description": "Aether CLI SDK - Real blockchain RPC client for http://127.0.0.1:8899",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test/sdk.test.js"
+  },
+  "keywords": [
+    "aether",
+    "blockchain",
+    "rpc",
+    "sdk",
+    "validator",
+    "cli"
+  ],
+  "author": "Jelly-legs AI",
+  "license": "MIT",
+  "dependencies": {},
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
