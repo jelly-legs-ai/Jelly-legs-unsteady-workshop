@@ -40,7 +40,17 @@ All real work is posted by `jelly-legs-ai` (NOT `github-actions[bot]`).
 ## Active Issues (Persistent)
 - **#114** (Website) — Labels: `build`, `in-progress`
 - **#115** (Blockchain) — Labels: `build`, `in-progress`
-- **#116** (CLI) — Labels: `build`, `in-progress`
+- **#116** (CLI + SDK) — Labels: `build`, `in-progress`, `sdk` — SDK buildout added 2026-04-06
+
+## SDK Buildout (Issue #116 — Added 2026-04-06)
+All CLI commands should map to installable SDK packages. SDK structure:
+- `@jellylegsai/aether-sdk/core` — RPC, accounts, tx submission
+- `@jellylegsai/aether-sdk/staking` — stake/unstake/claim/rewards
+- `@jellylegsai/aether-sdk/validators` — validator list/info/snapshot
+- `@jellylegsai/aether-sdk/governance` — multisig, proposals
+- `@jellylegsai/aether-sdk/tokens` — FLUX/ATH utilities
+
+Quick install: `aether sdk install` (runs `npm install @jellylegsai/aether-sdk` in user dir)
 
 ## NPM Publishing
 - Token stored in GitHub secret: `NPM_TOKEN`
