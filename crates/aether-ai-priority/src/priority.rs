@@ -72,7 +72,7 @@ pub fn calculate_priority_fee(lane: AIPriorityLane, size_bytes: usize) -> u64 {
     let size_component = match lane {
         AIPriorityLane::Critical => (size_bytes as u64) * 100,   // 100 lamports/byte
         AIPriorityLane::High => (size_bytes as u64) * 10,       // 10 lamports/byte
-        AIPriorityLane::Standard => (size_bytes as u64),        // 1 lamport/byte
+        AIPriorityLane::Standard => size_bytes as u64,        // 1 lamport/byte
     };
     
     base_fee + size_component
@@ -82,7 +82,7 @@ pub fn calculate_priority_fee(lane: AIPriorityLane, size_bytes: usize) -> u64 {
 /// 
 /// During high demand, fees increase to prioritize valuable transactions.
 pub fn calculate_dynamic_fee(
-    lane: AIPriorityLane,
+    _lane: AIPriorityLane,
     base_fee: u64,
     lane_utilization: f64,  // 0.0 to 1.0
 ) -> u64 {
