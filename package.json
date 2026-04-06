@@ -1,0 +1,76 @@
+{
+  "name": "aether-cli",
+  "version": "1.8.0",
+  "description": "Aether CLI - Validator Onboarding, Staking, and Blockchain Operations",
+  "main": "index.js",
+  "bin": {
+    "aether-cli": "./index.js",
+    "aether": "./index.js"
+  },
+  "scripts": {
+    "test": "node test.js && cd sdk && node test.js",
+    "lint": "echo 'No linting configured'",
+    "doctor": "node index.js doctor",
+    "init": "node index.js init",
+    "monitor": "node index.js monitor",
+    "logs": "node index.js logs",
+    "sdk": "node index.js sdk",
+    "sdk-test": "node index.js sdk-test",
+    "wallet": "node index.js wallet",
+    "stake": "node index.js stake",
+    "stake-positions": "node index.js stake-positions",
+    "unstake": "node index.js unstake",
+    "claim": "node index.js claim",
+    "delegations": "node index.js delegations",
+    "rewards": "node index.js rewards",
+    "validators": "node index.js validators",
+    "validator": "node index.js validator",
+    "validator-register": "node index.js validator-register",
+    "validator-start": "node index.js validator-start",
+    "validator-status": "node index.js validator-status",
+    "validator-info": "node index.js validator-info",
+    "multisig": "node index.js multisig",
+    "transfer": "node index.js transfer",
+    "balance": "node index.js balance",
+    "tx-history": "node index.js tx-history",
+    "tx": "node index.js tx-history",
+    "network": "node index.js network",
+    "epoch": "node index.js epoch",
+    "supply": "node index.js supply",
+    "status": "node index.js status",
+    "blockhash": "node index.js blockhash",
+    "tps": "node index.js tps",
+    "fees": "node index.js fees",
+    "apy": "node index.js apy",
+    "account": "node index.js account",
+    "price": "node index.js price",
+    "emergency": "node index.js emergency",
+    "snapshot": "node index.js snapshot",
+    "nft": "node index.js nft",
+    "prepare-publish": "npm pack && echo 'Package ready for publishing'",
+    "version-bump": "node -e \"const fs=require('fs');let p=JSON.parse(fs.readFileSync('package.json'));let v=p.version.split('.');v[2]=parseInt(v[2])+1;p.version=v.join('.');fs.writeFileSync('package.json',JSON.stringify(p,null,2));console.log('Version bumped to',p.version);\""
+  },
+  "keywords": [
+    "aether",
+    "blockchain",
+    "validator",
+    "staking",
+    "cryptocurrency",
+    "multi-signature",
+    "cli"
+  ],
+  "author": "Jelly-legs AI Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "bip39": "^3.0.4",
+    "tweetnacl": "^1.0.3",
+    "bs58": "^5.0.0"
+  }
+}
