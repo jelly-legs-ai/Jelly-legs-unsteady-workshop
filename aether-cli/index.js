@@ -401,6 +401,13 @@ const COMMANDS = {
       feesCommand();
     },
   },
+  claim: {
+    description: 'Claim accumulated staking rewards — aether claim --address <addr> [--json] [--dry-run]',
+    handler: () => {
+      const { claimCommand } = require('./commands/claim');
+      claimCommand();
+    },
+  },
   help: {
     description: 'Show this help message',
     handler: showHelp,
