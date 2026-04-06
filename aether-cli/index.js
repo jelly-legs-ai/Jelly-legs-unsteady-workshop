@@ -42,7 +42,7 @@ const { configCommand } = require('./commands/config');
 const readline = require('readline');
 
 // CLI version
-const VERSION = '1.4.0';
+const VERSION = '1.6.0';
 
 // Parse args early to support flags on commands
 function getCommandArgs() {
