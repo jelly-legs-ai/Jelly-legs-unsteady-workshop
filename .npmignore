@@ -1,0 +1,29 @@
+# Prevent .tgz artifacts from being published
+*.tgz
+
+# Development artifacts
+*.log
+npm-debug.log*
+
+# Test files (keep test/ directory but not coverage)
+coverage/
+.nyc_output/
+
+# Editor directories
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Local config / secrets
+.env
+.env.local
+*.local.json
+
+# Build artifacts
+dist/
+build/
