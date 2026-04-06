@@ -257,6 +257,13 @@ const COMMANDS = {
       txHistoryCommand();
     },
   },
+  tx: {
+    description: 'Look up a transaction by signature — aether tx <signature> [--json] [--wait] [--logs]',
+    handler: () => {
+      const { txCommand } = require('./commands/tx');
+      txCommand();
+    },
+  },
   blockhash: {
     description: 'Get the latest blockhash from the chain (required for signing TXs) — aether blockhash [--json] [--watch]',
     handler: () => {

@@ -11,6 +11,7 @@ const walletCommand = require('./wallet');
 const balanceCommand = require('./balance');
 const transferCommand = require('./transfer');
 const txHistoryCommand = require('./tx-history');
+const txCommand = require('./tx');
 const multisigCommand = require('./multisig');
 const claimCommand = require('./claim');
 const unstakeCommand = require('./unstake');
@@ -50,6 +51,7 @@ module.exports = {
   balanceCommand,
   transferCommand,
   txHistoryCommand,
+  txCommand,
   multisigCommand,
   claimCommand,
   unstakeCommand,
