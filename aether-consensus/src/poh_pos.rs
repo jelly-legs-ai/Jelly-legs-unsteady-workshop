@@ -319,11 +319,6 @@ impl HybridConsensus {
         self.slot += 1;
     }
 
-    /// Initialize from genesis validators
-    pub fn init_from_genesis(&mut self, validators: &[ValidatorInfo]) {
-        self.tower.init_from_genesis(validators);
-    }
-
     /// Process a new block (called when receiving/producing a block)
     pub fn process_block(&mut self, block: &Block, producer: &[u8; 32]) -> Result<(), ConsensusError> {
         // Check initialization
