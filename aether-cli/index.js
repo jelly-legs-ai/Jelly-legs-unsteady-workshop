@@ -32,6 +32,7 @@ const { statsCommand } = require('./commands/stats');
 const { txHistoryCommand } = require('./commands/tx-history');
 const { feesCommand } = require('./commands/fees');
 const { tpsCommand } = require('./commands/tps');
+const { blockhashCommand } = require('./commands/blockhash');
 const readline = require('readline');
 
 // CLI version
@@ -246,6 +247,13 @@ const COMMANDS = {
     description: 'Transaction history for an address — aether tx-history --address <addr> [--limit 20] [--json]',
     handler: () => {
       txHistoryCommand();
+    },
+  },
+  blockhash: {
+    description: 'Get the latest blockhash from the chain (required for signing TXs) — aether blockhash [--json] [--watch]',
+    handler: () => {
+      const { blockhashCommand } = require('./commands/blockhash');
+      blockhashCommand();
     },
   },
   network: {
