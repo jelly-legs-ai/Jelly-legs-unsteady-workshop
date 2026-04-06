@@ -359,7 +359,7 @@ class AetherClient {
   /**
    * Get recent transactions for an address
    * RPC: GET /v1/transactions/<address>?limit=<n>
-   * 
+   *
    * @param {string} address - Account address
    * @param {number} limit - Max transactions to return
    * @returns {Promise<Array>} List of recent transactions
@@ -368,6 +368,32 @@ class AetherClient {
     if (!address) throw new Error('Address is required');
     const result = await this._httpGet(`/v1/transactions/${address}?limit=${limit}`);
     return result.transactions ?? result ?? [];
+  }
+
+  /**
+   * Get all SPL token accounts for a wallet address
+   * RPC: GET /v1/tokens/<address>
+   *
+   * @param {string} address - Account public key (base58)
+   * @returns {Promise<Array>} List of token accounts with mint, amount, decimals
+   */
+  async getTokenAccounts(address) {
+    if (!address) throw new Error('Address is required');
+    const result = await this._httpGet(`/v1/tokens/${address}`);
+    return result.tokens ?? result.accounts ?? result ?? [];
+  }
+
+  /**
+   * Get all stake accounts for a wallet address
+   * RPC: GET /v1/stake-accounts/<address>
+   *
+   * @param {string} address - Account public key (base58)
+   * @returns {Promise<Array>} List of stake accounts
+   */
+  async getStakeAccounts(address) {
+    if (!address) throw new Error('Address is required');
+    const result = await this._httpGet(`/v1/stake-accounts/${address}`);
+    return result.stake_accounts ?? result.delegations ?? result ?? [];
   }
 
   // ============================================================
@@ -833,6 +859,26 @@ async function getRecentTransactions(address, limit = 20) {
 }
 
 /**
+ * Get all SPL token accounts for a wallet (uses default RPC)
+ * @param {string} address - Account address
+ * @returns {Promise<Array>} Token accounts with mint, amount, decimals
+ */
+async function getTokenAccounts(address) {
+  const client = new AetherClient();
+  return client.getTokenAccounts(address);
+}
+
+/**
+ * Get all stake accounts for a wallet (uses default RPC)
+ * @param {string} address - Account address
+ * @returns {Promise<Array>} Stake accounts list
+ */
+async function getStakeAccounts(address) {
+  const client = new AetherClient();
+  return client.getStakeAccounts(address);
+}
+
+/**
  * Get validator APY (uses default RPC)
  * @param {string} validatorAddr - Validator address
  * @returns {Promise<Object>} APY info
@@ -890,6 +936,8 @@ module.exports = {
   getBalance,
   getTransaction,
   getRecentTransactions,
+  getTokenAccounts,
+  getStakeAccounts,
   getValidators,
   getTPS,
   getSupply,
