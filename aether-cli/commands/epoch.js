@@ -14,8 +14,7 @@
  * Requires AETHER_RPC env var (default: http://127.0.0.1:8899)
  */
 
-const http = require('http');
-const https = require('https');
+const path = require('path');
 
 // ANSI colours
 const C = {
@@ -32,68 +31,14 @@ const C = {
 const CLI_VERSION = '1.0.0';
 
 // ---------------------------------------------------------------------------
-// HTTP helpers
+// SDK Import - Real blockchain RPC calls via @jellylegsai/aether-sdk
 // ---------------------------------------------------------------------------
 
-function httpRequest(rpcUrl, pathStr, timeoutMs) {
-  timeoutMs = timeoutMs || 8000;
-  return new Promise(function(resolve, reject) {
-    const url = new URL(pathStr, rpcUrl);
-    const lib = url.protocol === 'https:' ? https : http;
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'GET',
-      timeout: timeoutMs,
-      headers: { 'Content-Type': 'application/json' },
-    }, function(res) {
-      let data = '';
-      res.on('data', function(chunk) { data += chunk; });
-      res.on('end', function() {
-        try { resolve(JSON.parse(data)); }
-        catch { resolve({ raw: data }); }
-      });
-    });
-    req.on('error', reject);
-    req.on('timeout', function() { req.destroy(); reject(new Error('Request timeout')); });
-    req.end();
-  });
-}
-
-function httpPost(rpcUrl, pathStr, body, timeoutMs) {
-  timeoutMs = timeoutMs || 8000;
-  return new Promise(function(resolve, reject) {
-    const url = new URL(pathStr, rpcUrl);
-    const lib = url.protocol === 'https:' ? https : http;
-    const bodyStr = JSON.stringify(body);
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'POST',
-      timeout: timeoutMs,
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(bodyStr),
-      },
-    }, function(res) {
-      let data = '';
-      res.on('data', function(chunk) { data += chunk; });
-      res.on('end', function() {
-        try { resolve(JSON.parse(data)); }
-        catch { resolve({ raw: data }); }
-      });
-    });
-    req.on('error', reject);
-    req.on('timeout', function() { req.destroy(); reject(new Error('Request timeout')); });
-    req.write(bodyStr);
-    req.end();
-  });
-}
+const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
+const aether = require(sdkPath);
 
 function getDefaultRpc() {
-  return process.env.AETHER_RPC || 'http://127.0.0.1:8899';
+  return process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
 }
 
 // ---------------------------------------------------------------------------
@@ -111,46 +56,19 @@ function parseArgs() {
 }
 
 // ---------------------------------------------------------------------------
-// Fetch epoch info from RPC
+// Fetch epoch info from RPC using SDK
 // ---------------------------------------------------------------------------
 
 async function fetchEpochInfo(rpc) {
-  // Try Aether-native endpoint first
+  // Use SDK for real blockchain RPC calls
+  const client = new aether.AetherClient({ rpcUrl: rpc });
   try {
-    const epochInfo = await httpRequest(rpc, '/v1/epoch-info');
-    if (epochInfo && !epochInfo.error && (epochInfo.epoch !== undefined || epochInfo.current_epoch)) {
-      return { data: epochInfo, source: 'aether' };
+    const epochInfo = await client.getEpochInfo();
+    if (epochInfo && (epochInfo.epoch !== undefined || epochInfo.current_epoch)) {
+      return { data: epochInfo, source: 'aether-sdk' };
     }
   } catch(e) {
-    // fall through
-  }
-
-  // Fallback: try Solana-compat JSON-RPC
-  try {
-    const result = await httpPost(rpc, '/', {
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'getEpochInfo',
-    });
-    if (result && result.result) {
-      return { data: result.result, source: 'solana-compat' };
-    }
-  } catch(e) {
-    // fall through
-  }
-
-  // Try getEpochSchedule
-  try {
-    const schedule = await httpPost(rpc, '/', {
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'getEpochSchedule',
-    });
-    if (schedule && schedule.result) {
-      return { data: schedule.result, source: 'schedule-only' };
-    }
-  } catch(e) {
-    // fall through
+    throw new Error('Failed to fetch epoch info from RPC. Is your validator running?');
   }
 
   throw new Error('Failed to fetch epoch info from RPC. Is your validator running?');

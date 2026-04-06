@@ -17,8 +17,7 @@
  * Requires AETHER_RPC env var (default: http://127.0.0.1:8899)
  */
 
-const http = require('http');
-const https = require('https');
+const path = require('path');
 
 // ANSI colours
 const C = {
@@ -36,63 +35,19 @@ const C = {
 const CLI_VERSION = '1.0.0';
 
 // ---------------------------------------------------------------------------
-// Helpers
+// SDK Import - Real blockchain RPC calls via @jellylegsai/aether-sdk
 // ---------------------------------------------------------------------------
 
+const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
+const aether = require(sdkPath);
+
 function getDefaultRpc() {
-  return process.env.AETHER_RPC || 'http://127.0.0.1:8899';
+  return process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
 }
 
-function httpRequest(rpcUrl, pathStr, timeoutMs = 10000) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(pathStr, rpcUrl);
-    const lib = url.protocol === 'https:' ? https : http;
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'GET',
-      timeout: timeoutMs,
-      headers: { 'Content-Type': 'application/json' },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { resolve({ raw: data }); }
-      });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout after ' + timeoutMs + 'ms')); });
-    req.end();
-  });
-}
-
-function httpPost(rpcUrl, pathStr, body, timeoutMs = 10000) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(pathStr, rpcUrl);
-    const lib = url.protocol === 'https:' ? https : http;
-    const bodyStr = JSON.stringify(body);
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'POST',
-      timeout: timeoutMs,
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { resolve({ raw: data }); }
-      });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout after ' + timeoutMs + 'ms')); });
-    req.write(bodyStr);
-    req.end();
-  });
+/** Create SDK client */
+function createClient(rpcUrl) {
+  return new aether.AetherClient({ rpcUrl });
 }
 
 function formatAether(lamports) {
@@ -110,22 +65,23 @@ function formatLargeNum(n) {
 }
 
 // ---------------------------------------------------------------------------
-// Core supply fetchers
+// Core supply fetchers using SDK
 // ---------------------------------------------------------------------------
 
 /**
- * Fetch the total supply of AETH from the chain.
- * Uses the supply inflation schedule / mint account.
+ * Fetch the total supply of AETH from the chain using SDK.
+ * Makes real RPC call: GET /v1/supply
  */
 async function fetchTotalSupply(rpc) {
+  const client = createClient(rpc);
   try {
-    // Primary: dedicated supply endpoint
-    const res = await httpRequest(rpc, '/v1/supply');
-    if (res && !res.error && (res.total !== undefined || res.supply !== undefined)) {
+    // Primary: SDK getSupply() → GET /v1/supply
+    const res = await client.getSupply();
+    if (res && (res.total !== undefined || res.supply !== undefined)) {
       return {
         total: BigInt(res.total || res.supply?.total || 0),
         circulating: BigInt(res.circulating || res.supply?.circulating || 0),
-        nonCirculating: BigInt(res.non_circulating || res.supply?.non_circulating || 0),
+        nonCirculating: BigInt(res.non_circulating || res.nonCirculating || res.supply?.non_circulating || 0),
         source: 'rpc_v1_supply',
       };
     }
@@ -133,8 +89,8 @@ async function fetchTotalSupply(rpc) {
 
   // Fallback: fetch epoch info which contains total token count
   try {
-    const epochInfo = await httpRequest(rpc, '/v1/epoch-info');
-    if (epochInfo && !epochInfo.error) {
+    const epochInfo = await client.getEpochInfo();
+    if (epochInfo) {
       const totalStaked = BigInt(epochInfo.total_staked || 0);
       const rewardsPerEpoch = BigInt(epochInfo.rewards_per_epoch || '2000000000');
       const currentEpoch = BigInt(epochInfo.epoch || 0);
@@ -159,33 +115,27 @@ async function fetchTotalSupply(rpc) {
 }
 
 /**
- * Fetch staked supply by querying stake program accounts.
+ * Fetch staked supply by querying stake program accounts using SDK.
+ * Makes real RPC call: GET /v1/validators
  */
 async function fetchStakedSupply(rpc) {
+  const client = createClient(rpc);
   try {
-    // Try stake program accounts count / total
-    const res = await httpRequest(rpc, '/v1/stake/total');
-    if (res && !res.error && res.total_staked !== undefined) {
-      return BigInt(res.total_staked);
-    }
-  } catch { /* fall through */ }
-
-  try {
-    // Fallback: sum delegated stake across top validators
-    const validators = await httpRequest(rpc, '/v1/validators?limit=50');
+    // SDK getValidators() → GET /v1/validators
+    const validators = await client.getValidators();
     if (validators && Array.isArray(validators)) {
       let total = BigInt(0);
       for (const v of validators) {
-        total += BigInt(v.delegated_stake || v.stake || 0);
+        total += BigInt(v.delegated_stake || v.stake || v.delegatedStake || 0);
       }
       return total;
     }
   } catch { /* fall through */ }
 
   try {
-    // Last resort: epoch info staked amount
-    const epochInfo = await httpRequest(rpc, '/v1/epoch-info');
-    if (epochInfo && !epochInfo.error && epochInfo.total_staked) {
+    // Last resort: epoch info staked amount via SDK
+    const epochInfo = await client.getEpochInfo();
+    if (epochInfo && epochInfo.total_staked) {
       return BigInt(epochInfo.total_staked);
     }
   } catch { /* fall through */ }
@@ -194,10 +144,11 @@ async function fetchStakedSupply(rpc) {
 }
 
 /**
- * Estimate burned supply by querying accounts at known burn/mint addresses.
- * Uses a set of common Aether burn addresses.
+ * Estimate burned supply by querying accounts at known burn/mint addresses using SDK.
+ * Makes real RPC calls: GET /v1/account/<address>
  */
 async function fetchBurnedSupply(rpc) {
+  const client = createClient(rpc);
   const BURN_ADDRESSES = [
     'ATH1111111111111111111111111111111111111',  // mint authority burn
     'ATH2222222222222222222222222222222222222',  // zero authority
@@ -209,8 +160,9 @@ async function fetchBurnedSupply(rpc) {
   for (const addr of BURN_ADDRESSES) {
     try {
       const rawAddr = addr.startsWith('ATH') ? addr.slice(3) : addr;
-      const account = await httpRequest(rpc, `/v1/account/${encodeURIComponent(rawAddr)}`);
-      if (account && !account.error && account.lamports !== undefined && Number(account.lamports) > 0) {
+      // SDK getAccountInfo() → GET /v1/account/<address>
+      const account = await client.getAccountInfo(rawAddr);
+      if (account && account.lamports !== undefined && Number(account.lamports) > 0) {
         totalBurned += BigInt(account.lamports);
       }
     } catch { /* skip inaccessible addresses */ }
