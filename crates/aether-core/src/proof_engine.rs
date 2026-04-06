@@ -120,7 +120,7 @@ mod tests {
     fn test_generate_proof_low_difficulty() {
         // Low difficulty should find a proof quickly
         let data = b"test_data";
-        let result = generate_proof(data, 8, 100_000);
+        let result = generate_proof_with_limit(data, 8, 100_000);
         
         assert!(result.is_some(), "Should find proof for difficulty 8");
         let proof = result.expect("Failed to generate proof");
@@ -132,7 +132,7 @@ mod tests {
     fn test_generate_proof_medium_difficulty() {
         // Medium difficulty should still find a proof
         let data = b"blockchain_test";
-        let result = generate_proof(data, 16, 1_000_000);
+        let result = generate_proof_with_limit(data, 16, 1_000_000);
         
         assert!(result.is_some(), "Should find proof for difficulty 16");
         let proof = result.expect("Failed to generate proof for medium difficulty");
@@ -143,7 +143,7 @@ mod tests {
     fn test_generate_proof_no_solution() {
         // Very high difficulty with low max_nonce should fail
         let data = b"impossible_proof";
-        let result = generate_proof(data, 256, 100);
+        let result = generate_proof_with_limit(data, 256, 100);
         
         assert!(result.is_none(), "Should not find proof for impossible difficulty");
     }
@@ -152,7 +152,7 @@ mod tests {
     fn test_generate_verify_roundtrip() {
         // Generate a proof and verify it
         let data = b"roundtrip_test";
-        let result = generate_proof(data, 12, 500_000);
+        let result = generate_proof_with_limit(data, 12, 500_000);
         
         assert!(result.is_some());
         let proof = result.expect("Failed to generate proof for roundtrip test");
@@ -172,8 +172,8 @@ mod tests {
     fn test_generate_proof_deterministic() {
         // Same input should produce same output
         let data = b"deterministic_test";
-        let result1 = generate_proof(data, 10, 500_000);
-        let result2 = generate_proof(data, 10, 500_000);
+        let result1 = generate_proof_with_limit(data, 10, 500_000);
+        let result2 = generate_proof_with_limit(data, 10, 500_000);
         
         assert!(result1.is_some());
         assert!(result2.is_some());
