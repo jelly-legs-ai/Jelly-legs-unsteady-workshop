@@ -35,8 +35,10 @@ pub struct TowerBFT {
     finalized_slots: VecDeque<u64>,
     /// Last confirmed slot
     last_confirmed_slot: u64,
-    /// Lock threshold for finality (fraction of stake)
-    lock_threshold: f64,
+    /// Lock threshold for finality (2/3 + 1 for BFT)
+    /// Stored as numerator/denominator to avoid float precision issues
+    lock_threshold_num: u64,
+    lock_threshold_den: u64,
 }
 
 impl TowerBFT {
@@ -48,7 +50,8 @@ impl TowerBFT {
             total_stake: 0,
             finalized_slots: VecDeque::with_capacity(32),
             last_confirmed_slot: 0,
-            lock_threshold: 0.67, // 2/3 of stake for finality
+            lock_threshold_num: 2, // 2/3 + 1 for BFT (strictly more than 2/3)
+            lock_threshold_den: 3,
         }
     }
 
@@ -68,6 +71,13 @@ impl TowerBFT {
             return 0.0;
         }
         stake / self.total_stake as f64
+    }
+
+    /// Check if stake meets BFT threshold (>2/3)
+    /// Uses integer arithmetic: stake * 3 > total_stake * 2
+    /// This ensures strictly more than 2/3, avoiding float precision issues
+    fn meets_bft_threshold(&self, stake: u64) -> bool {
+        stake * self.lock_threshold_den > self.total_stake * self.lock_threshold_num
     }
 
     /// Submit a vote from a validator
@@ -145,32 +155,32 @@ impl TowerBFT {
         let lock_slots = 12; // Tower height
 
         for slot in (self.last_confirmed_slot + 1).. {
-            // Sum weights of all validators who voted for this slot
-            let mut slot_weight: f64 = 0.0;
+            // Sum stake weights of all validators who voted for this slot
+            let mut slot_stake: u64 = 0;
             for (_, votes) in &self.votes {
                 for vote in votes.iter().rev() {
                     if vote.slot == slot {
-                        slot_weight += self.get_weight(&vote.validator);
+                        slot_stake += self.stake_weights.get(&vote.validator).copied().unwrap_or(0);
                         break; // Only count latest vote per validator
                     }
                 }
             }
 
-            // Check if lock threshold reached
-            if slot_weight >= self.lock_threshold {
+            // Check if BFT threshold reached (>2/3)
+            if self.meets_bft_threshold(slot_stake) {
                 // Check lock period: need consecutive votes for `lock_slots` slots
                 let mut consecutive = true;
                 for s in (slot.saturating_sub(lock_slots as u64 - 1))..=slot {
-                    let mut s_weight: f64 = 0.0;
+                    let mut s_stake: u64 = 0;
                     for (_, votes) in &self.votes {
                         for vote in votes.iter().rev() {
                             if vote.slot == s {
-                                s_weight += self.get_weight(&vote.validator);
+                                s_stake += self.stake_weights.get(&vote.validator).copied().unwrap_or(0);
                                 break;
                             }
                         }
                     }
-                    if s_weight < self.lock_threshold {
+                    if !self.meets_bft_threshold(s_stake) {
                         consecutive = false;
                         break;
                     }
@@ -206,18 +216,27 @@ impl TowerBFT {
         self.finalized_slots.contains(&slot)
     }
 
-    /// Get confirmation count for a slot (stake weight that voted for it)
-    pub fn get_confirmation_weight(&self, slot: u64) -> f64 {
-        let mut weight: f64 = 0.0;
+    /// Get confirmation stake for a slot (total stake that voted for it)
+    pub fn get_confirmation_stake(&self, slot: u64) -> u64 {
+        let mut stake: u64 = 0;
         for (_, votes) in &self.votes {
             for vote in votes.iter().rev() {
                 if vote.slot == slot {
-                    weight += self.get_weight(&vote.validator);
+                    stake += self.stake_weights.get(&vote.validator).copied().unwrap_or(0);
                     break;
                 }
             }
         }
-        weight
+        stake
+    }
+
+    /// Get confirmation weight for a slot (deprecated, use get_confirmation_stake)
+    pub fn get_confirmation_weight(&self, slot: u64) -> f64 {
+        let stake = self.get_confirmation_stake(slot);
+        if self.total_stake == 0 {
+            return 0.0;
+        }
+        stake as f64 / self.total_stake as f64
     }
 
     fn pubkey_to_addr(pubkey: &[u8]) -> [u8; 32] {
