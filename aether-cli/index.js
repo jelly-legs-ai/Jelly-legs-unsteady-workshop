@@ -170,7 +170,10 @@ const COMMANDS = {
   },
   'kyc generate': {
     description: 'Generate pre-filled KYC link with pubkey, node ID, signature',
-    handler: () => console.log('🚧 kyc generate command under development'),
+    handler: () => {
+      const { kycGenerate } = require('./commands/kyc');
+      kycGenerate();
+    },
   },
   monitor: {
     description: 'Real-time validator dashboard (slot, block height, peers, TPS)',
@@ -543,7 +546,7 @@ function parseArgs() {
     }
   }
 
-  // Single word command
+  // Handle single word commands
   return args[0] || 'help';
 }
 

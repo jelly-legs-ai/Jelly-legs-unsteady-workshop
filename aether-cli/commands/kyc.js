@@ -140,8 +140,11 @@ function generateKycLink(validatorAddr, nodeId, signature, tier) {
 async function kycGenerate() {
   console.log(`\n${C.bright}${C.cyan}── KYC Link Generation ─────────────────────────────────${C.reset}\n`);
 
-  // Parse arguments
-  const args = process.argv.slice(2);
+  // Parse arguments - detect if called directly or via CLI
+  // When called via CLI: node index.js kyc generate --arg
+  // When called directly: node kyc.js generate --arg
+  const isDirectCall = require.main === module;
+  const args = isDirectCall ? process.argv.slice(2) : process.argv.slice(3);
   const options = {
     address: null,
     tier: 'full',
