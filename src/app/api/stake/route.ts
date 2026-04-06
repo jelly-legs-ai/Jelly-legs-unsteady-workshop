@@ -21,8 +21,8 @@ interface StakePosition {
   lockEndDate?: string;
 }
 
-// Path to SDK - 4 levels up from src/app/api/stake/ to workspace root
-const SDK_PATH = process.env.SDK_PATH || '../../../../aether-cli/sdk/index.js';
+// Resolve SDK path at runtime - works from both src/ and dist/server/
+const SDK_PATH = process.env.SDK_PATH || (process.cwd() + '/aether-cli/sdk/index.js');
 
 // Load SDK dynamically
 let AetherClient: any;

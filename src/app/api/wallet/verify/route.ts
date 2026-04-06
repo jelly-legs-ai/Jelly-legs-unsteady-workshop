@@ -10,8 +10,8 @@ import { NextRequest, NextResponse } from 'next/server';
  * - Returns actual balance and account status
  */
 
-// Path to SDK - relative from route file to SDK location
-const SDK_PATH = process.env.SDK_PATH || '../../../../aether-cli/sdk/index.js';
+// Resolve SDK path at runtime - works from both src/ and dist/server/
+const SDK_PATH = process.env.SDK_PATH || (process.cwd() + '/aether-cli/sdk/index.js');
 
 // Load SDK dynamically to avoid issues during build
 let AetherClient: any;
