@@ -39,6 +39,7 @@ const { balanceCommand } = require('./commands/balance');
 const { transferCommand } = require('./commands/transfer');
 const { slotCommand } = require('./commands/slot');
 const { configCommand } = require('./commands/config');
+const { stakeCommand } = require('./commands/stake');
 const readline = require('readline');
 
 // CLI version
@@ -199,14 +200,10 @@ const COMMANDS = {
     },
   },
   stake: {
-    description: 'Stake AETH to a validator — aether stake --validator <addr> --amount <aeth>',
+    description: 'Stake AETH to a validator — aether stake --validator <addr> --amount <aeth> [--list-validators]',
     handler: () => {
-      const { walletCommand } = require('./commands/wallet');
-      // Intercept argv so walletCommand receives 'stake' as the subcmd
-      const originalArgv = process.argv;
-      process.argv = [...originalArgv.slice(0, 2), 'wallet', 'stake', ...originalArgv.slice(3)];
-      walletCommand();
-      process.argv = originalArgv;
+      const { stakeCommand } = require('./commands/stake');
+      stakeCommand();
     },
   },
   'stake-positions': {

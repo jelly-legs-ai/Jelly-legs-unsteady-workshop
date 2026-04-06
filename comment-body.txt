@@ -1,11 +1,9 @@
-## 🪼 Cycle Update — 2026-04-06 15:36 UTC
+## 🌐 Cycle Update — 2026-04-06 15:24 UTC
 
-**What was done:** Implemented **state persistence** for the validator — completely missing before, catastrophic for production. Created `persistence.rs` module with WAL (write-ahead log), atomic writes via temp files+rename, block chunks (1000 slots/file), crash recovery. Updated `block_producer.rs` and `state_db.rs` to persist state every 10 blocks and restore on startup.
+**What was done:** The site had `staking/` and `explorer/` pages but was completely missing a root layout and homepage — build failed with "page.tsx doesn't have a root layout." Created `src/app/layout.tsx` with fonts and HTML structure, and `src/app/page.tsx` with professional landing page (nav bar, hero section, 3-card ecosystem grid, chain stats bar).
 
-**Commit:** `09b993d` — `fix(#115): add state persistence for production testnet readiness`
+**Commit:** `651a8bf` — `fix(#114): add missing root layout and homepage`
 
-**Build:** ✅ Release build successful, all persistence tests pass
+**Build:** ✅ npm run build passes with all 7 routes generated
 
-**Progress:** Validator now survives restarts — recovers exact state from disk including accounts, blocks, and peer list. No more total state loss on restart.
-
-**Next:** P2P libp2p gossip integration (network.rs stubs), staking contract integration tests, fork choice adversarial tests, transaction pool persistence.
+**Next:** Add missing `/wallet/verify` page. Improve explorer error/empty states. Make staking lock countdown live. Add mobile responsive layout to homepage.
