@@ -198,10 +198,8 @@ impl ValidatorState {
         self.inner.epoch.store(slot / slots_per_epoch, Ordering::Relaxed);
         self.inner.transaction_count.fetch_add(1, Ordering::Relaxed);
         
-        if slot.is_multiple_of(32) {
-            self.inner.blocks_produced.fetch_add(1, Ordering::Relaxed);
-            self.inner.vote_count.fetch_add(1, Ordering::Relaxed);
-        }
+        // Note: blocks_produced is now tracked by block_producer.increment_produced_blocks()
+        // to avoid double-counting. Vote count is incremented per-block there as well.
     }
 
     pub fn update_peer_count(&self, count: u64) {
