@@ -35,9 +35,22 @@ pub fn verify_poh_between_blocks(
 ) -> bool {
     // The PoH seed is derived from slot, timestamp, and prev_hash
     // We verify that applying `ticks` SHA-256 operations to prev_block_hash
-    // would produce a hash that matches the PoH seed's derived chain
-    // For MVP: just verify the seed looks random (not all zeros)
-    !poh_seed.iter().all(|&b| b == 0)
+    // produces the poh_seed (or at least one valid hash iteration)
+    // For MVP: verify at least one hash iteration to ensure chain continuity
+    if ticks == 0 {
+        // No ticks - poh_seed should match prev_block_hash exactly
+        return poh_seed == prev_block_hash;
+    }
+    
+    // Verify by recomputing the hash chain
+    let mut current = *prev_block_hash;
+    for _ in 0..ticks {
+        let mut hasher = Sha256::new();
+        hasher.update(&current);
+        current = hasher.finalize().into();
+    }
+    
+    current == *poh_seed
 }
 
 /// Compute the number of PoH ticks between two timestamps

@@ -333,6 +333,13 @@ impl HybridConsensus {
             return Err(ConsensusError::InvalidPoh);
         }
 
+        // CRITICAL: Verify PoH hash is actually derived from previous block hash
+        // This prevents attackers from submitting blocks with random poh_hash values
+        // We verify at least one hash iteration to ensure chain continuity
+        if !verify_poh_between_blocks(&self.last_block_hash, &block.header.poh_hash, 1) {
+            return Err(ConsensusError::InvalidPoh);
+        }
+
         // CRITICAL: Verify block height is sequential (no gaps in slot numbers)
         if block.header.height < self.slot + 1 {
             return Err(ConsensusError::SlotTooOld {
