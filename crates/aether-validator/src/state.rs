@@ -205,11 +205,19 @@ impl ValidatorState {
     }
 
     pub fn add_peer(&self, pubkey: String) {
-        let mut peers = self.inner.peer_pubkeys.write().unwrap();
+        // Safely acquire write lock, return early if poisoned
+        let mut peers = match self.inner.peer_pubkeys.write() {
+            Ok(lock) => lock,
+            Err(_) => return, // Lock poisoned - skip peer addition
+        };
+        
         if !peers.contains(&pubkey) {
             peers.push(pubkey);
             drop(peers);
-            self.inner.peer_count.store(self.inner.peer_pubkeys.read().unwrap().len() as u64, Ordering::Relaxed);
+            // Safely read peer count, skip update if lock is poisoned
+            if let Ok(peer_list) = self.inner.peer_pubkeys.read() {
+                self.inner.peer_count.store(peer_list.len() as u64, Ordering::Relaxed);
+            }
         }
     }
 
@@ -282,12 +290,13 @@ impl ValidatorState {
     }
 
     pub fn set_block_hash(&self, hash: String) {
-        let mut bh = self.inner.block_hash.write().unwrap();
-        *bh = hash;
+        if let Ok(mut bh) = self.inner.block_hash.write() {
+            *bh = hash;
+        }
     }
 
     pub fn get_last_block_hash(&self) -> String {
-        self.inner.block_hash.read().unwrap().clone()
+        self.inner.block_hash.read().map(|bh| bh.clone()).unwrap_or_default()
     }
 
     pub fn increment_produced_blocks(&self) {
