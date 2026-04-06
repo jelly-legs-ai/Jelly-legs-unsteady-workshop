@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
@@ -10,12 +10,14 @@ const NAV_LINKS = [
   { href: '/', label: 'Home' },
   { href: '/staking', label: 'Stake' },
   { href: '/explorer', label: 'Explorer' },
+  { href: '/ai-portal', label: 'AI Portal' },
 ];
 
 export default function Nav() {
   const pathname = usePathname();
   const { connected, publicKey } = useWallet();
   const { connection } = useConnection();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const shortAddress = publicKey
     ? `${publicKey.toBase58().slice(0, 4)}...${publicKey.toBase58().slice(-4)}`
@@ -71,25 +73,21 @@ export default function Nav() {
           {/* Mobile hamburger */}
           <button
             className="md:hidden p-2 text-gray-400 hover:text-white"
-            onClick={() => {
-              const menu = document.getElementById('mobile-menu');
-              if (menu) menu.classList.toggle('hidden');
-            }}
+            onClick={() => setMobileMenuOpen(prev => !prev)}
             aria-label="Toggle menu"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
+              {mobileMenuOpen ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              )}
             </svg>
           </button>
         </div>
 
         {/* Mobile menu */}
-        <div id="mobile-menu" className="hidden md:hidden pb-4">
+        <div id="mobile-menu" className={`md:hidden pb-4 ${mobileMenuOpen ? '' : 'hidden'}`}>
           <div className="flex flex-col gap-1 mb-4">
             {NAV_LINKS.map((link) => {
               const isActive =

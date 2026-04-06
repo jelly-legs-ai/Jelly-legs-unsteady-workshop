@@ -84,7 +84,7 @@ export default function HomePage() {
                 icon: '🤖',
                 title: 'AI Operator Portal',
                 description: 'AI agents and operators connect wallets, pay premium gas for priority lane access, and monitor their positions.',
-                href: '/staking',
+                href: '/ai-portal',
                 cta: 'AI Dashboard',
                 color: 'from-purple-500/20 to-purple-600/10 border-purple-500/30',
               },

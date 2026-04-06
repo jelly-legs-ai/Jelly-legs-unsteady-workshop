@@ -43,15 +43,6 @@ const POOLS = [
   { id: "ath_staking", name: "ATH Governance", apy: 15.5, lockDays: 30, minStake: 1000 },
 ];
 
-/**
- * Normalize a Solana address to ATH format for API calls.
- * All addresses passed to the staking API use the ATH prefix.
- */
-function normalizeATHAddress(solanaAddress: string): string {
-  if (solanaAddress.startsWith('ATH')) return solanaAddress;
-  return `ATH${solanaAddress}`;
-}
-
 export default function StakingPage() {
   // REAL WALLET: use the adapter connected to Phantom/Solflare/Backpack
   const { connected, publicKey, connecting } = useWallet();
@@ -59,7 +50,6 @@ export default function StakingPage() {
 
   // Wallet State (derived from real adapter)
   const walletAddress = publicKey ? publicKey.toBase58() : '';
-  const athAddress = normalizeATHAddress(walletAddress);
   const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
 
@@ -92,7 +82,7 @@ export default function StakingPage() {
       const response = await fetch("/api/wallet/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: athAddress }),
+        body: JSON.stringify({ address: walletAddress }),
       });
 
       if (!response.ok) {
@@ -102,7 +92,7 @@ export default function StakingPage() {
 
       const data = await response.json();
       setWalletInfo({
-        address: athAddress,
+        address: walletAddress,
         verified: data.verified,
         canStake: data.canStake || false,
         balance: data.chainData?.balance || 0,
@@ -115,7 +105,7 @@ export default function StakingPage() {
     } finally {
       setIsVerifying(false);
     }
-  }, [walletAddress, athAddress]);
+  }, [walletAddress, walletInfo?.verified]);
 
   /**
    * Auto-verify when a real wallet connects
