@@ -1,0 +1,47 @@
+{
+  "name": "@jellylegsai/aether-sdk",
+  "version": "0.1.0",
+  "description": "AetherChain SDK - Real blockchain RPC client for the Aether testnet",
+  "main": "lib/sdk/index.js",
+  "types": "lib/sdk/client.d.ts",
+  "bin": {
+    "aether": "./bin/aether.js"
+  },
+  "files": [
+    "lib/sdk/",
+    "bin/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node test/client.test.js",
+    "lint": "echo 'No linter configured'",
+    "build": "echo 'No build step required - pure JS'",
+    "prepublishOnly": "npm test"
+  },
+  "keywords": [
+    "aether",
+    "blockchain",
+    "sdk",
+    "rpc",
+    "validator",
+    "cryptocurrency",
+    "web3"
+  ],
+  "author": "Jelly-legs AI Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop.git",
+    "directory": "aether-cli"
+  },
+  "bugs": {
+    "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues"
+  },
+  "homepage": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/tree/main/aether-cli#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

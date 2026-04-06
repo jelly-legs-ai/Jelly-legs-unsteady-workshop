@@ -1,17 +1,25 @@
-# AetherChain SDK
+# AetherChain SDK (@jellylegsai/aether-sdk)
 
 Real blockchain RPC client for the Aether testnet.
+
+**All SDK functions make actual HTTP calls to the blockchain. No stubs, no mocks.**
 
 ## Installation
 
 ```bash
-npm install  # from aether-cli directory
+npm install @jellylegsai/aether-sdk
+```
+
+Or from source:
+```bash
+cd aether-cli
+npm install
 ```
 
 ## Quick Start
 
 ```javascript
-const { AetherClient } = require('./lib/sdk/client');
+const { AetherClient } = require('@jellylegsai/aether-sdk');
 
 const client = new AetherClient('http://127.0.0.1:8899');
 
@@ -39,6 +47,44 @@ const tx = await client.sendTransaction({
   payload: { recipient: '...', amount: 1000 },
   fee: 5000,
 });
+```
+
+## CLI Usage
+
+The SDK includes a CLI that wires directly to the SDK:
+
+```bash
+# Install globally
+npm install -g @jellylegsai/aether-sdk
+
+# Or run directly
+node bin/aether.js help
+```
+
+### CLI Commands
+
+```bash
+# Chain State
+aether slot              # GET /v1/slot
+aether height            # GET /v1/blockheight
+aether block [slot]      # GET /v1/block?slot=N
+aether genesis           # GET /v1/genesis
+aether epoch             # GET /v1/epoch
+aether block-production  # GET /v1/block_production
+
+# Validators
+aether validators        # GET /v1/validators
+aether validator-info    # GET /v1/validator/info
+aether vote-accounts     # GET /v1/voteAccounts
+
+# Accounts & Transactions
+aether account <addr>    # GET /v1/account/<addr>
+aether supply            # GET /v1/total_supply
+aether tx <sig>          # GET /v1/tx/<sig>
+
+# Health
+aether ping              # Combined reachability check
+aether health            # GET /health
 ```
 
 ## API Reference
@@ -69,7 +115,7 @@ const tx = await client.sendTransaction({
 | `getAccount(addr)` | `GET /v1/account/<addr>` | Account info |
 | `getTotalSupply()` | `GET /v1/total_supply` | Total token supply |
 | `sendTransaction(tx)` | `POST /v1/tx` | Submit transaction |
-| `getTransaction(sig)` | `GET /v1/tx/<sig>` | TX status |
+| `getTransaction(sig)` | `GET /v1/v1/tx/<sig>` | TX status |
 
 ### Health
 
@@ -77,3 +123,20 @@ const tx = await client.sendTransaction({
 |--------|----------|-------------|
 | `health()` | `GET /health` | Health check |
 | `ping()` | - | Combined reachable + slot + healthy |
+
+## Environment Variables
+
+```bash
+AETHER_RPC_URL=http://127.0.0.1:8899  # Override RPC endpoint
+```
+
+## Chain Setup
+
+Chain must be running:
+```bash
+aether-validator.exe start --genesis genesis.json --no-stake
+```
+
+## License
+
+MIT
