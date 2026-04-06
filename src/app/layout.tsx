@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import Nav from '@/components/Nav'
+import Providers from './Providers'
 
 export const metadata: Metadata = {
   title: 'Aether Chain Hub',
@@ -22,8 +22,9 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
-        <Nav />
-        {children}
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   )

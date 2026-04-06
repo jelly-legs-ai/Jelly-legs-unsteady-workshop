@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import NetworkStatus from '@/components/NetworkStatus'
 
 export const metadata: Metadata = {
   title: 'Aether Chain — Layer 1 for AI Workloads',
@@ -57,20 +58,8 @@ export default function HomePage() {
             </Link>
           </div>
 
-          {/* Stats Row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-20">
-            {[
-              { label: 'Slot Time', value: '400ms' },
-              { label: 'Throughput', value: '65K+ TPS' },
-              { label: 'AI Lanes', value: '3 Tiers' },
-              { label: 'Supply', value: '500M AETH' },
-            ].map((stat) => (
-              <div key={stat.label} className="bg-gray-800/40 backdrop-blur-sm border border-gray-700/50 rounded-xl p-4 text-center">
-                <div className="text-2xl font-bold text-white mb-1">{stat.value}</div>
-                <div className="text-sm text-gray-400">{stat.label}</div>
-              </div>
-            ))}
-          </div>
+          {/* Live Network Stats */}
+          <NetworkStatus />
 
           {/* Feature Cards */}
           <div className="grid md:grid-cols-3 gap-6 mb-20">
