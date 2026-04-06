@@ -42,7 +42,7 @@ const { configCommand } = require('./commands/config');
 const readline = require('readline');
 
 // CLI version
-const VERSION = '1.6.0';
+const VERSION = '1.6.2';
 
 // Parse args early to support flags on commands
 function getCommandArgs() {
@@ -223,11 +223,8 @@ const COMMANDS = {
   unstake: {
     description: 'Unstake AETH — deactivate a stake account — aether unstake --account <stakeAcct> [--amount <aeth>]',
     handler: () => {
-      const { walletCommand } = require('./commands/wallet');
-      const originalArgv = process.argv;
-      process.argv = [...originalArgv.slice(0, 2), 'wallet', 'unstake', ...originalArgv.slice(3)];
-      walletCommand();
-      process.argv = originalArgv;
+      const { unstakeCommand } = require('./commands/unstake');
+      unstakeCommand();
     },
   },
   export: {

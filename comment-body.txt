@@ -1,9 +1,11 @@
-## 🌐 Cycle Update — 2026-04-06 14:52 UTC
+## 🪼 Cycle Update — 2026-04-06 15:36 UTC
 
-**What was done:** Fixed SDK path in `src/app/api/claim/route.ts` — was pointing to `../../aether-cli/sdk/index.js` (2 levels), corrected to `../../../aether-cli/sdk/index.js` (3 levels from `api/claim/`). Build passes cleanly.
+**What was done:** Implemented **state persistence** for the validator — completely missing before, catastrophic for production. Created `persistence.rs` module with WAL (write-ahead log), atomic writes via temp files+rename, block chunks (1000 slots/file), crash recovery. Updated `block_producer.rs` and `state_db.rs` to persist state every 10 blocks and restore on startup.
 
-**Commit:** `d0090cb` — `fix(#114): correct SDK path in claim API route`
+**Commit:** `09b993d` — `fix(#115): add state persistence for production testnet readiness`
 
-**Build:** ✅ npm run build passes
+**Build:** ✅ Release build successful, all persistence tests pass
 
-**Next:** Refactor API routes to use direct `fetch()` RPC calls instead of requiring local SDK file — eliminates "SDK not available" warnings, removes complex relative path resolving, makes the site work out-of-the-box without local SDK files.
+**Progress:** Validator now survives restarts — recovers exact state from disk including accounts, blocks, and peer list. No more total state loss on restart.
+
+**Next:** P2P libp2p gossip integration (network.rs stubs), staking contract integration tests, fork choice adversarial tests, transaction pool persistence.
