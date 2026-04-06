@@ -505,4 +505,7 @@ ${C.bright}EXAMPLES${C.reset}
   }
 }
 
-main();
+// Run if called directly
+if (require.main === module) {
+  main();
+}
