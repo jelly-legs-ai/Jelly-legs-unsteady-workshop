@@ -162,21 +162,6 @@ class AetherClient {
   }
 
   /**
-   * Get account info including balance
-   * RPC: GET /v1/account/<address>
-   * 
-   * @param {string} address - Account public key (base58)
-   * @returns {Promise<Object>} Account info: { lamports, owner, data, rent_epoch }
-   */
-  async getAccountInfo(address) {
-    if (!address) {
-      throw new Error('Address is required');
-    }
-    const result = await this._httpGet(`/v1/account/${address}`);
-    return result;
-  }
-
-  /**
    * Get balance in lamports
    * RPC: GET /v1/account/<address>
    * 

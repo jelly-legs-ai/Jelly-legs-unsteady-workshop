@@ -8,7 +8,11 @@ Official Aether Blockchain SDK for Node.js. Every function makes **REAL HTTP RPC
 npm install @jellylegsai/aether-sdk
 ```
 
-Or use locally from the `sdk/` folder in this repo.
+Or use locally from the `sdk/` folder in this repo:
+
+```javascript
+const aether = require('./sdk');
+```
 
 ## Quick Start
 
