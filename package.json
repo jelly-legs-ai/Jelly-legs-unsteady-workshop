@@ -12,8 +12,13 @@
   },
   "dependencies": {
     "@jellylegsai/aether-validator-cli": "https://registry.npmjs.org/@jellylegsai/aether-validator-cli/-/aether-validator-cli-1.0.2.tgz",
+    "@next/env": "^16.2.2",
     "@octokit/rest": "^20.0.2",
-    "next": "14.2.0",
+    "@solana/wallet-adapter-phantom": "^0.9.29",
+    "@solana/wallet-adapter-react": "^0.15.39",
+    "@solana/wallet-adapter-react-ui": "^0.9.39",
+    "@solana/wallet-adapter-solflare": "^0.6.33",
+    "next": "^14.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

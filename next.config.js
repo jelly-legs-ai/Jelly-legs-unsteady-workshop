@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // output: 'export', // Disabled: API routes require server runtime
-  distDir: 'dist',
+  distDir: '.next',
   images: {
     unoptimized: true
   },
