@@ -18,32 +18,29 @@
 
 const os = require('os');
 const path = require('path');
+const fs = require('fs');
 
-// ANSI colours
-const C = {
-  reset: '\x1b[0m',
-  bright: '\x1b[1m',
-  dim: '\x1b[2m',
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  cyan: '\x1b[36m',
-  magenta: '\x1b[35m',
-};
+// Import error handling utilities
+const { 
+  withErrorHandling, 
+  displayError, 
+  validateAddress,
+  createRpcCaller,
+  C 
+} = require('../lib/errors');
 
 // Import SDK — REAL blockchain RPC calls to http://127.0.0.1:8899
 const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
 const aether = require(sdkPath);
 
-const DEFAULT_RPC = process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
-const CLI_VERSION = '1.0.0';
+const CLI_VERSION = '1.5.0';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 function getDefaultRpc() {
-  return process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
+  return process.env.AETHER_RPC || (aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899');
 }
 
 function createClient(rpc) {
@@ -55,12 +52,15 @@ function lamportsToAeth(lamports) {
 }
 
 function loadConfig() {
-  const fs = require('fs');
   const aetherDir = path.join(os.homedir(), '.aether');
   const cfgPath = path.join(aetherDir, 'config.json');
   if (!fs.existsSync(cfgPath)) return { defaultWallet: null };
-  try { return JSON.parse(fs.readFileSync(cfgPath, 'utf8')); }
-  catch { return { defaultWallet: null }; }
+  try { 
+    return JSON.parse(fs.readFileSync(cfgPath, 'utf8')); 
+  }
+  catch { 
+    return { defaultWallet: null }; 
+  }
 }
 
 function shortenAddress(addr) {
@@ -98,179 +98,144 @@ function parseArgs() {
     }
   }
 
-  // If no address provided, try to load default wallet
-  if (!options.address) {
-    const config = loadConfig();
-    if (config.defaultWallet) {
-      options.address = config.defaultWallet;
-    }
-  }
-
   return options;
 }
 
 function showHelp() {
   console.log(`
-${C.bright}${C.cyan}aether-cli balance${C.reset} - Query Account Balance
+${C.bright}${C.cyan}aether-cli balance${C.reset} - Query account balance
 
 ${C.bright}Usage:${C.reset}
   aether balance [address] [options]
 
-${C.bright}Arguments:${C.reset}
-  address         Account public key (base58). If omitted, uses default wallet.
-
 ${C.bright}Options:${C.reset}
-  --rpc <url>     Query a specific RPC endpoint (default: ${DEFAULT_RPC})
-  --json, -j      Output raw JSON for scripting
-  --lamports, -l  Show balance in lamports (not AETH)
-  --help, -h      Show this help message
-
-${C.bright}Description:${C.reset}
-  Queries the Aether blockchain for an account's balance.
-  Every call makes a REAL HTTP RPC request to the configured
-  Aether node — no caching, no stubs, no mocks.
-
-  RPC Endpoint: GET /v1/account/<address>
+  -r, --rpc <url>     RPC endpoint (default: ${getDefaultRpc()})
+  -j, --json         Output as JSON
+  -l, --lamports     Show balance in lamports instead of AETH
+  -h, --help         Show this help message
 
 ${C.bright}Examples:${C.reset}
-  aether balance                           # Default wallet
-  aether balance 8xPt...3nQ                  # Specific address
-  aether balance --json                    # JSON output
-  aether balance --lamports                # Show lamports
-  AETHER_RPC=https://my-node:8899 aether balance
-`);
+  aether balance 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZvJkVG6PkD
+  aether balance --json
+  aether balance --lamports 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZvJkVG6PkD
+`.trim());
 }
 
 // ---------------------------------------------------------------------------
-// Balance query - REAL RPC call via SDK
+// Balance fetching with retry logic
 // ---------------------------------------------------------------------------
 
-async function fetchBalance(rpc, address) {
-  const client = createClient(rpc);
+async function fetchBalance(client, address, options) {
+  const { asJson, showLamports } = options;
   
-  // Real RPC call: GET /v1/account/<address>
-  const account = await client.getAccountInfo(address);
+  // Validate address format
+  try {
+    validateAddress(address);
+  } catch (error) {
+    error.isValidationError = true;
+    throw error;
+  }
+
+  // Create RPC caller with retry logic
+  const getBalance = createRpcCaller(client.getBalance.bind(client), {
+    maxRetries: 3,
+    initialDelay: 500,
+    onRetry: (error, attempt, max) => {
+      if (!asJson) {
+        console.log(
+          `${C.yellow}⚠ Retrying balance fetch (attempt ${attempt}/${max})...${C.reset}`
+        );
+      }
+    },
+  });
+
+  // Fetch balance with retry
+  const lamports = await getBalance(address);
   
-  return {
-    address,
-    lamports: account.lamports !== undefined ? account.lamports : 0,
-    owner: account.owner || null,
-    executable: account.executable || false,
-    rentEpoch: account.rent_epoch !== undefined ? account.rent_epoch : null,
-  };
-}
+  // Handle response
+  if (lamports === undefined || lamports === null) {
+    throw new Error('Received invalid response from RPC');
+  }
 
-// ---------------------------------------------------------------------------
-// Output formatters
-// ---------------------------------------------------------------------------
+  const balanceBigInt = BigInt(lamports);
+  const aeth = lamportsToAeth(balanceBigInt);
 
-function printBalance(data, options) {
-  const { address, lamports, owner, executable, rentEpoch } = data;
-  const { showLamports, rpc } = options;
-
-  const aeth = lamportsToAeth(lamports);
-
-  console.log(`\n${C.bright}${C.cyan}── Aether Account Balance ───────────────────────────────${C.reset}\n`);
-  console.log(`  ${C.bright}Address:${C.reset}    ${C.magenta}${address}${C.reset}`);
-  
-  if (showLamports) {
-    console.log(`  ${C.bright}Balance:${C.reset}    ${C.green}${lamports.toLocaleString()} lamports${C.reset}`);
+  if (asJson) {
+    console.log(JSON.stringify({
+      address,
+      lamports: balanceBigInt.toString(),
+      aeth: parseFloat(aeth),
+      rpc: options.rpc,
+      timestamp: new Date().toISOString(),
+    }, null, 2));
   } else {
-    console.log(`  ${C.bright}Balance:${C.reset}    ${C.green}${aeth} AETH${C.reset}`);
-    console.log(`  ${C.dim}             (${lamports.toLocaleString()} lamports)${C.reset}`);
+    const shortAddr = shortenAddress(address);
+    console.log();
+    console.log(`${C.bright}Account Balance${C.reset}`);
+    console.log(`${C.dim}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C.reset}`);
+    console.log(`${C.cyan}Address:${C.reset}  ${C.bright}${address}${C.reset}`);
+    console.log();
+    
+    if (showLamports) {
+      console.log(`${C.green}${C.bright}${balanceBigInt.toString()}${C.reset} ${C.dim}lamports${C.reset}`);
+    } else {
+      console.log(`${C.green}${C.bright}${aeth}${C.reset} ${C.dim}AETH${C.reset}`);
+      console.log(`${C.dim}(${balanceBigInt.toString()} lamports)${C.reset}`);
+    }
+    
+    console.log();
+    console.log(`${C.dim}RPC: ${options.rpc}${C.reset}`);
+    console.log(`${C.dim}Time: ${new Date().toLocaleString()}${C.reset}`);
+    console.log();
   }
-  
-  if (owner) {
-    console.log(`  ${C.bright}Owner:${C.reset}      ${C.dim}${shortenAddress(owner)}${C.reset}`);
-  }
-  
-  if (executable !== undefined) {
-    const execStr = executable ? `${C.yellow}yes${C.reset}` : `${C.dim}no${C.reset}`;
-    console.log(`  ${C.bright}Executable:${C.reset} ${execStr}`);
-  }
-  
-  if (rentEpoch !== null) {
-    console.log(`  ${C.bright}Rent Epoch:${C.reset} ${C.dim}${rentEpoch}${C.reset}`);
-  }
-  
-  console.log(`  ${C.dim}RPC: ${rpc}${C.reset}\n`);
-}
 
-function printJson(data, rpc) {
-  console.log(JSON.stringify({
-    address: data.address,
-    lamports: data.lamports,
-    aeth: lamportsToAeth(data.lamports),
-    owner: data.owner,
-    executable: data.executable,
-    rentEpoch: data.rentEpoch,
-    rpc,
-    cli_version: CLI_VERSION,
-    timestamp: new Date().toISOString(),
-  }, null, 2));
+  return { address, lamports: balanceBigInt, aeth: parseFloat(aeth) };
 }
 
 // ---------------------------------------------------------------------------
-// Main
+// Main command
 // ---------------------------------------------------------------------------
 
 async function balanceCommand() {
   const options = parseArgs();
-  const { rpc, address, asJson } = options;
+  let address = options.address;
 
-  // Validate address
+  // If no address provided, try to use default wallet
   if (!address) {
-    if (asJson) {
-      console.log(JSON.stringify({
-        error: 'No address provided and no default wallet configured',
-        hint: 'Run "aether init" to set up a wallet, or provide an address',
-      }));
+    const config = loadConfig();
+    if (config.defaultWallet) {
+      address = config.defaultWallet;
+      if (!options.asJson) {
+        console.log(`${C.dim}Using default wallet: ${shortenAddress(address)}${C.reset}`);
+      }
     } else {
-      console.log(`\n${C.red}✗ No address provided${C.reset}`);
-      console.log(`  ${C.dim}Provide an address or run "aether init" to set up a default wallet.${C.reset}`);
-      console.log(`  ${C.dim}Usage: aether balance <address>${C.reset}\n`);
+      const error = new Error('No address provided and no default wallet configured');
+      error.isValidationError = true;
+      throw error;
     }
-    process.exit(1);
   }
 
-  if (!asJson) {
-    console.log(`${C.dim}Querying balance for ${C.cyan}${shortenAddress(address)}${C.dim}...${C.reset}`);
-  }
-
+  const client = createClient(options.rpc);
+  
   try {
-    // Real blockchain RPC call
-    const data = await fetchBalance(rpc, address);
-    
-    if (asJson) {
-      printJson(data, rpc);
-    } else {
-      printBalance(data, options);
+    await fetchBalance(client, address, options);
+  } catch (error) {
+    // Add context to error
+    if (!error.context) {
+      error.context = { address, rpc: options.rpc };
     }
-  } catch (err) {
-    if (asJson) {
-      console.log(JSON.stringify({
-        error: err.message,
-        address,
-        rpc,
-      }));
-    } else {
-      console.log(`\n${C.red}✗ Failed to fetch balance: ${err.message}${C.reset}`);
-      console.log(`  ${C.dim}Address: ${address}${C.reset}`);
-      console.log(`  ${C.dim}RPC: ${rpc}${C.reset}\n`);
-    }
-    process.exit(1);
+    throw error;
   }
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
-
-module.exports = { balanceCommand };
-
+// Run with error handling
 if (require.main === module) {
-  balanceCommand().catch(err => {
-    console.error(`${C.red}✗ Balance command failed: ${err.message}${C.reset}`);
-    process.exit(1);
-  });
+  withErrorHandling(balanceCommand, { exit: true, verbose: process.env.AETHER_VERBOSE === '1' })();
 }
+
+module.exports = { 
+  balanceCommand,
+  parseArgs,
+  fetchBalance,
+  loadConfig,
+};

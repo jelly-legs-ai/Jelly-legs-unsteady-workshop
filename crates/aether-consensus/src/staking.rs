@@ -376,14 +376,25 @@ mod tests {
         let owner = [1u8; 32];
 
         let stake_id = pool.stake(owner, MINIMUM_STAKE_AETH).unwrap();
+
+        // Stake starts locked for STAKE_LOCK_EPOCHS (2 epochs)
+        // Must wait for lock period to pass before initiating withdrawal
+        
+        // Advance past lock period first
+        pool.current_epoch = STAKE_LOCK_EPOCHS + 1;
+        
+        // Now stake is unlocked, can initiate withdrawal
         pool.initiate_withdrawal(stake_id).unwrap();
 
-        // Advance past lock period
-        pool.current_epoch = STAKE_LOCK_EPOCHS + 1;
+        // After withdrawal initiation, there's another lock period
+        // Advance past that too
+        pool.current_epoch = (STAKE_LOCK_EPOCHS * 2) + 2;
 
         // Now should be able to withdraw
         let stake = pool.get_stake(stake_id).unwrap();
-        assert!(stake.can_withdraw(pool.current_epoch));
+        assert!(stake.can_withdraw(pool.current_epoch), 
+            "Stake should be withdrawable at epoch {} (unlock_epoch={})",
+            pool.current_epoch, stake.unlock_epoch);
 
         let amount = pool.complete_withdrawal(stake_id).unwrap();
         assert_eq!(amount, MINIMUM_STAKE_AETH); // No rewards yet
@@ -394,17 +405,20 @@ mod tests {
         let mut pool = StakingPool::new(0);
         let owner = [1u8; 32];
 
-        pool.stake(owner, 1_000_000_000).unwrap(); // 1 AETH worth
+        // Use minimum stake amount (10,000 AETH = 10 trillion motes)
+        pool.stake(owner, MINIMUM_STAKE_AETH).unwrap();
 
-        // Advance epochs
-        pool.current_epoch = 365; // 1 year
+        // Advance epochs - stake unlocks after STAKE_LOCK_EPOCHS (2 epochs)
+        pool.current_epoch = 365; // 1 year (well past lock period)
 
         // Trigger reward distribution
         pool.distribute_rewards();
 
         let stake = pool.get_stake(0).unwrap();
-        // 12% APY on 1 AETH = 0.12 AETH
-        assert!(stake.accumulated_rewards >= 100_000_000); // Allow some variance
+        // 12% APY on 10,000 AETH = 1,200 AETH = 1.2 trillion motes
+        // Allow some variance in calculation
+        assert!(stake.accumulated_rewards >= 1_000_000_000_000, 
+            "Expected >= 1 trillion rewards, got {}", stake.accumulated_rewards);
     }
 
     #[test]
@@ -412,14 +426,15 @@ mod tests {
         let mut pool = StakingPool::new(0);
         let owner = [1u8; 32];
 
-        let stake_id = pool.stake(owner, 1_000_000_000).unwrap();
+        // Use minimum stake amount
+        let stake_id = pool.stake(owner, MINIMUM_STAKE_AETH).unwrap();
 
         // Slash 10%
         let penalty = pool.slash(stake_id, 1000).unwrap();
-        assert_eq!(penalty, 100_000_000); // 10% of 1_000_000_000
+        assert_eq!(penalty, MINIMUM_STAKE_AETH / 10); // 10% of stake
 
         let stake = pool.get_stake(stake_id).unwrap();
-        assert_eq!(stake.amount, 900_000_000);
+        assert_eq!(stake.amount, MINIMUM_STAKE_AETH * 9 / 10); // 90% remaining
     }
 
     #[test]
@@ -429,6 +444,9 @@ mod tests {
         let validator = [2u8; 32];
 
         let stake_id = pool.stake(owner, MINIMUM_STAKE_AETH).unwrap();
+
+        // Advance past lock period before delegation (stake must be unlocked)
+        pool.current_epoch = STAKE_LOCK_EPOCHS + 1;
 
         // Delegate to validator
         pool.delegate(stake_id, validator).unwrap();

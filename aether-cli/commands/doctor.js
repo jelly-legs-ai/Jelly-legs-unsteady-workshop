@@ -18,16 +18,19 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 
-// ANSI colors for terminal output
+// Import error handling utilities
+const { withErrorHandling, C } = require('../lib/errors');
+
+// ANSI colors for terminal output - now using centralized C object
 const colors = {
-  reset: '\x1b[0m',
-  bright: '\x1b[1m',
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  magenta: '\x1b[35m',
-  cyan: '\x1b[36m',
+  reset: C.reset,
+  bright: C.bright,
+  red: C.red,
+  green: C.green,
+  yellow: C.yellow,
+  blue: C.blue,
+  magenta: C.magenta,
+  cyan: C.cyan,
 };
 
 // Minimum requirements per tier (from spec)
@@ -690,15 +693,16 @@ async function interactiveFixMode(results) {
 }
 
 /**
- * Main doctor command
+ * Main doctor command - wrapped with error handling
  */
-async function doctorCommand(options = {}) {
+async function doctorCommandRaw(options = {}) {
   const { autoFix = false, tier = DEFAULT_TIER } = options;
   
   // Validate tier
   if (!TIER_REQUIREMENTS[tier]) {
-    console.log(`${colors.red}Error: Invalid tier '${tier}'. Valid tiers: full, lite, observer${colors.reset}`);
-    return 1;
+    const error = new Error(`Invalid tier '${tier}'. Valid tiers: full, lite, observer`);
+    error.isValidationError = true;
+    throw error;
   }
   
   printHeader(tier);
@@ -732,6 +736,16 @@ async function doctorCommand(options = {}) {
   // Return exit code based on results
   const allPassed = results.every(r => r.passed);
   return allPassed ? 0 : 1;
+}
+
+/**
+ * Main doctor command with error handling
+ */
+async function doctorCommand(options = {}) {
+  return withErrorHandling(doctorCommandRaw, { 
+    exit: false, 
+    verbose: process.env.AETHER_VERBOSE === '1' 
+  })(options);
 }
 
 // Export for use as module
