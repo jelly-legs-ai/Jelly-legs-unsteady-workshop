@@ -67,6 +67,13 @@ impl ForkChoice {
         slot: u64,
         stake_weight: u64,
     ) -> ConsensusResult<()> {
+        // Block hash must be unique
+        if self.blocks.contains_key(&hash) {
+            return Err(ConsensusError::ForkChoiceViolation(
+                format!("Block {:?} already exists", hash)
+            ));
+        }
+
         // Parent must exist
         let parent = self.blocks.get(&parent_hash)
             .ok_or_else(|| ConsensusError::ForkChoiceViolation(

@@ -17,7 +17,7 @@ Task: Pull latest, identify ONE integration gap, implement it, build/verify, com
 
 ## Issue #116 — CLI Development
 Workspace: C:\Users\RM_Ga\.openclaw\workspace\aether-cli
-Task: Pull latest, add ONE new command or fix, npm publish if possible, commit/push, return summary.
+Task: Change to C:\Users\RM_Ga\.openclaw\workspace\aether-cli directory. Pull latest, add ONE new command or fix, npm publish if possible, commit/push, return summary.
 
 ## After agents return:
 Post a DETAILED comment to each GitHub issue with:

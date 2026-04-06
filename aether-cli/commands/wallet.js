@@ -541,37 +541,11 @@ async function connectWallet(rl) {
 
 // ---------------------------------------------------------------------------
 // BALANCE
-// Query chain RPC GET /v1/account/<addr> for real AETH balance
+// Query chain RPC GET /v1/account/<addr> for real AETH balance using SDK
 // ---------------------------------------------------------------------------
 
 function getDefaultRpc() {
-  return process.env.AETHER_RPC || 'http://127.0.0.1:8899';
-}
-
-/**
- * Make HTTP GET request to the RPC endpoint
- */
-function httpRequest(rpcUrl, path) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(path, rpcUrl);
-    const lib = url.protocol === 'https:' ? require('https') : require('http');
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { resolve(data); }
-      });
-    });
-    req.on('error', reject);
-    req.end();
-  });
+  return process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
 }
 
 /**
@@ -612,9 +586,11 @@ async function balanceWallet(rl) {
   console.log();
 
   try {
+    // Use SDK for real blockchain RPC call
+    const client = new aether.AetherClient({ rpcUrl });
     // Strip ATH prefix if present for API call
     const rawAddr = address.startsWith('ATH') ? address.slice(3) : address;
-    const account = await httpRequest(rpcUrl, `/v1/account/${rawAddr}`);
+    const account = await client.getAccountInfo(rawAddr);
     
     if (!account || account.error) {
       console.log(`  ${C.yellow}⚠ Account not found on chain or RPC error.${C.reset}`);

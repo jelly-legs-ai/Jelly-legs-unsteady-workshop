@@ -1,0 +1,7 @@
+## 🪼 Cycle Update — 2026-04-06 05:42 UTC
+
+**What was done:** Added missing `@solana/web3.js` dependency for wallet verification, wired dashboard network stats to real chain API (live validator count from chain status), device count to devices API, cache-busting to activity fetch.
+
+**Commit:** `c551cef` — `fix(#114): add missing @solana/web3.js dependency for wallet verification`
+
+**Next:** Continue wiring remaining dashboard and API endpoints to real chain RPC

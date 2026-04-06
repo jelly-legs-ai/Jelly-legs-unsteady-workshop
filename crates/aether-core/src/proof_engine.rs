@@ -2,6 +2,7 @@
 //!
 //! Proof generation and verification for AetherFlow consensus.
 
+use sha2::{Sha256, Digest};
 use serde::{Deserialize, Serialize};
 
 /// Proof of Work result
@@ -10,6 +11,39 @@ pub struct ProofResult {
     pub hash: [u8; 32],
     pub nonce: u64,
     pub difficulty: u32,
+    pub timestamp: u64,
+}
+
+/// Generate a proof meeting the given difficulty target
+///
+/// Uses SHA-256 hashing with incremental nonce search.
+/// Returns a ProofResult with the winning hash, nonce, and difficulty.
+/// The target data is typically a block header or message to be proven.
+pub fn generate_proof(target_data: &[u8], difficulty: u32) -> ProofResult {
+    let difficulty = difficulty.min(256);
+    let mut hasher = Sha256::new();
+    let mut nonce: u64 = 0;
+
+    loop {
+        hasher = Sha256::new();
+        hasher.update(target_data);
+        hasher.update(&nonce.to_le_bytes());
+        let result = hasher.finalize();
+        let hash: [u8; 32] = result.try_into().unwrap();
+
+        if verify_proof(&hash, difficulty) {
+            return ProofResult {
+                hash,
+                nonce,
+                difficulty,
+                timestamp: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0),
+            };
+        }
+        nonce += 1;
+    }
 }
 
 /// Verify a proof meets difficulty target
