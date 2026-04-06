@@ -1,11 +1,13 @@
 {
-  "name": "aether-hub",
-  "version": "1.2.8",
-  "description": "AeTHer Validator CLI â€” tiered validators (Full/Lite/Observer), system checks, onboarding, and node management",
+  "name": "@jellylegsai/aether-validator-cli",
+  "version": "1.3.1",
+  "description": "Aether Validator CLI — tiered validators (Full/Lite/Observer), system checks, onboarding, staking, and node management",
   "main": "index.js",
   "bin": {
     "aether": "./index.js",
-    "aether-hub": "./index.js"
+    "aether-cli": "./index.js",
+    "aether-hub": "./index.js",
+    "jelly-aether": "./index.js"
   },
   "files": [
     "index.js",
@@ -18,7 +20,7 @@
     "test": "node test/doctor.test.js",
     "start": "node index.js",
     "doctor": "node index.js doctor",
-    "postinstall": "node -e \"console.log('\\n\\n  [Aether] aether-hub installed!\\n\\n  Run: aether start\\n  Docs: https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop\\n')\""
+    "postinstall": "node -e \"console.log('\\n\\n  [Aether] aether-validator-cli installed!\\n\\n  Run: aether start\\n  Docs: https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop\\n')\""
   },
   "keywords": [
     "aether",
@@ -32,7 +34,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop"
+    "url": "git+https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop.git"
   },
   "engines": {
     "node": ">=14.0.0"
