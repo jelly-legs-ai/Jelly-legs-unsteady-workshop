@@ -1,17 +1,9 @@
-## 🪼 Cycle Update — 2026-04-06 14:33 UTC
+## 🌐 Cycle Update — 2026-04-06 14:52 UTC
 
-**What was done:** Fixed 7 critical consensus bugs blocking production testnet:
+**What was done:** Fixed SDK path in `src/app/api/claim/route.ts` — was pointing to `../../aether-cli/sdk/index.js` (2 levels), corrected to `../../../aether-cli/sdk/index.js` (3 levels from `api/claim/`). Build passes cleanly.
 
-1. **Staking minimum amounts** — Tests used 1 AETH but minimum is 10,000 AETH. Fixed to use `MINIMUM_STAKE_AETH` constant.
-2. **Withdrawal logic** — `can_withdraw()` had inverted logic. Fixed to require `pending_withdrawal && current_epoch >= unlock_epoch`.
-3. **Delegation timing** — Delegation was attempted while stake was locked. Fixed by advancing epoch past lock period.
-4. **Withdrawal lock sequencing** — Properly sequenced: wait initial lock → initiate withdrawal → wait withdrawal lock → complete.
-5. **PoH test assertions** — Fixed to verify correct behavior (was testing for wrong results).
-6. **AetherFlow slot management** — `initialize_genesis()` didn't advance `current_slot` to 1, causing genesis to be overwritten. Fixed.
-7. **Block verification tests** — Updated for correct slot management.
+**Commit:** `d0090cb` — `fix(#114): correct SDK path in claim API route`
 
-**Commit:** `0bea261` — `fix(#115): resolve consensus test failures and staking logic bugs`
+**Build:** ✅ npm run build passes
 
-**Build:** ✅ All 45 consensus tests pass. Release build compiles.
-
-**Next:** P2P network layer (libp2p gossip stub), RPC completeness (getAccountInfo, getBalance, simulateTransaction), transaction pool integration with AI priority queue, Tower BFT finality.
+**Next:** Refactor API routes to use direct `fetch()` RPC calls instead of requiring local SDK file — eliminates "SDK not available" warnings, removes complex relative path resolving, makes the site work out-of-the-box without local SDK files.

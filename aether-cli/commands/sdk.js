@@ -430,48 +430,6 @@ async function runInstall(args) {
 }
 
 /**
- * Parse command line args
- */
-function parseArgs() {
-  const args = process.argv.slice(3); // Skip 'aether-cli sdk'
-  
-  if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
-    return 'all';
-  }
-  
-  const subcmd = args[0].toLowerCase();
-  
-  switch (subcmd) {
-    case 'js':
-    case 'javascript':
-    case 'node':
-      return 'js';
-    case 'rust':
-    case 'rs':
-      return 'rust';
-    case 'tokens':
-    case 'token':
-    case 'flux':
-    case 'ath':
-      return 'tokens';
-    case 'docs':
-    case 'doc':
-    case 'documentation':
-      return 'docs';
-    case 'types':
-    case 'type':
-    case 'typedef':
-    case 'typedefs':
-      return 'types';
-    case 'install':
-    case 'i':
-      return 'install';
-    default:
-      return 'all';
-  }
-}
-
-/**
  * Show TypeScript/Rust type definitions for Aether transactions
  */
 function showTypes() {
@@ -651,6 +609,9 @@ function parseArgs() {
     case 'typedef':
     case 'typedefs':
       return 'types';
+    case 'install':
+    case 'i':
+      return 'install';
     default:
       return 'all';
   }
