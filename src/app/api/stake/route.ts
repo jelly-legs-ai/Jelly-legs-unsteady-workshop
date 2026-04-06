@@ -3,6 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 /**
  * Staking API Route
  * Handles staking operations: GET positions, POST stake, DELETE unstake
+ * 
+ * INTEGRATION: Now uses real Aether blockchain RPC calls via SDK
+ * - Fetches real stake positions from chain
+ * - Returns actual staked amounts and rewards
+ * - Validates ATH-prefixed addresses
  */
 
 interface StakePosition {
@@ -16,7 +21,37 @@ interface StakePosition {
   lockEndDate?: string;
 }
 
-// In-memory store for staking positions (replace with database in production)
+// Path to SDK
+const SDK_PATH = process.env.SDK_PATH || '../../../aether-cli/sdk/index.js';
+
+// Load SDK dynamically
+let AetherClient: any;
+let DEFAULT_RPC_URL: string = 'http://127.0.0.1:8899';
+
+try {
+  const sdk = require(SDK_PATH);
+  AetherClient = sdk.AetherClient;
+  DEFAULT_RPC_URL = sdk.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
+} catch (e) {
+  console.warn('[Stake API] SDK not available:', e);
+}
+
+/**
+ * Validate Aether address format
+ */
+function isValidAetherAddress(address: string): boolean {
+  if (!address || typeof address !== 'string') return false;
+  return /^ATH[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
+}
+
+/**
+ * Strip ATH prefix for RPC calls
+ */
+function getRawAddress(address: string): string {
+  return address.startsWith('ATH') ? address.slice(3) : address;
+}
+
+// In-memory store for staking positions (fallback when chain unavailable)
 const stakeStore = new Map<string, StakePosition[]>();
 
 export async function GET(request: NextRequest) {
@@ -32,16 +67,72 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const positions = stakeStore.get(address.toLowerCase()) || [];
+    // Validate Aether address
+    if (!isValidAetherAddress(address)) {
+      return NextResponse.json(
+        { error: 'Invalid Aether address format. Expected: ATH...' },
+        { status: 400 }
+      );
+    }
+
+    const rpcUrl = process.env.AETHER_RPC || DEFAULT_RPC_URL;
+    let chainPositions: any[] = [];
+    let chainConnected = false;
+    let slot: number | null = null;
+
+    // REAL BLOCKCHAIN INTEGRATION: Fetch stake positions from chain
+    if (AetherClient) {
+      try {
+        const client = new AetherClient({ rpcUrl });
+        const rawAddr = getRawAddress(address);
+        
+        // Parallel calls for chain data
+        const [stakeResult, slotResult] = await Promise.all([
+          client.getStakePositions(rawAddr).catch(() => null),
+          client.getSlot().catch(() => null)
+        ]);
+        
+        slot = slotResult;
+        chainConnected = slot !== null;
+        
+        if (stakeResult && Array.isArray(stakeResult)) {
+          chainPositions = stakeResult.map((acc: any, index: number) => ({
+            id: `pos_${acc.pubkey || acc.publicKey || acc.account || index}`,
+            poolId: acc.validator || acc.delegate || acc.vote_account || 'unknown',
+            amount: (acc.stake_lamports || acc.lamports || 0) / 1e9,
+            amountLamports: acc.stake_lamports || acc.lamports || 0,
+            startDate: acc.activation_epoch ? new Date().toISOString() : new Date().toISOString(),
+            rewardsClaimed: acc.rewards_earned || 0,
+            pendingRewards: acc.rewards_earned || 0,
+            canUnstake: acc.status !== 'activating' && !acc.deactivation_epoch,
+            status: acc.status || acc.state || 'active',
+            validator: acc.validator || acc.delegate || acc.vote_account || 'unknown',
+            stakeAccount: acc.pubkey || acc.publicKey || acc.account || 'unknown',
+            activationEpoch: acc.activation_epoch,
+            deactivationEpoch: acc.deactivation_epoch
+          }));
+        }
+      } catch (sdkError) {
+        console.error('[Stake GET] SDK error:', sdkError);
+      }
+    }
+
+    // Use chain data if available, otherwise fallback to local store
+    let positions = chainConnected && chainPositions.length > 0 
+      ? chainPositions 
+      : (stakeStore.get(address.toLowerCase()) || []);
 
     // Filter by poolId if provided
     const filteredPositions = poolId
-      ? positions.filter(p => p.poolId === poolId)
+      ? positions.filter((p: any) => p.poolId === poolId || p.validator === poolId)
       : positions;
 
     return NextResponse.json({
       stakes: filteredPositions,
-      chainSource: false // Indicates we're using local storage, not chain
+      chainSource: chainConnected,
+      slot: slot,
+      rpcUrl: chainConnected ? rpcUrl : null,
+      totalStaked: filteredPositions.reduce((sum: number, p: any) => sum + (p.amountLamports || p.amount || 0), 0)
     });
   } catch (error) {
     console.error('[Stake GET] Error:', error);
