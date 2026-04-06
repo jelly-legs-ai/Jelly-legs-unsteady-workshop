@@ -254,7 +254,7 @@ function startValidatorProcess({ type, path: binaryPath, inPath }, options) {
   if (options.testnet) {
     validatorArgs.push('--testnet');
   }
-  validatorArgs.push('--tier', options.tier);
+  validatorArgs.push('--tier', options.tier.toLowerCase());
   validatorArgs.push('--rpc-addr', options.rpcAddr);
   validatorArgs.push('--p2p-addr', options.p2pAddr);
   if (options.identity) {
