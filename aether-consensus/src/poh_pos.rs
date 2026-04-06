@@ -257,11 +257,11 @@ impl HybridConsensus {
 
     /// Process a new block (called when receiving/producing a block)
     pub fn process_block(&mut self, block: &Block, producer: &[u8; 32]) -> Result<(), ConsensusError> {
-        // Verify PoH sequence
-        // For now, trust the block's PoH seed if block has transactions
-        if !block.transactions.is_empty() {
-            // Would verify: verify_poh_sequence(...)
-            // For MVP, skip verification
+        // CRITICAL: Verify PoH sequence for ALL blocks, including empty ones
+        // Empty blocks must still have valid PoH hashes to prevent attackers
+        // from inserting malformed blocks into the chain
+        if block.header.poh_hash == [0u8; 32] {
+            return Err(ConsensusError::InvalidPoh);
         }
 
         // Run Tower BFT
