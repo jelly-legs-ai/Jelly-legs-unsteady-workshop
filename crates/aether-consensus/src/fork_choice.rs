@@ -126,23 +126,28 @@ impl ForkChoice {
         let mut ancestors = Vec::new();
         let mut current = hash;
         
+        // FIX: Push the target block FIRST before traversing to parent
+        // This ensures the voted block itself receives the stake (core LMD GHOST rule)
+        ancestors.push(current);
+        
         loop {
             // Don't include root in stake propagation (it has u64::MAX)
             if current == self.root {
                 break;
             }
             
-            ancestors.push(current);
-            
             if let Some(block) = self.blocks.get(&current) {
                 current = block.parent_hash;
+                // Only add non-root ancestors
+                if current != self.root {
+                    ancestors.push(current);
+                }
             } else {
                 break;
             }
         }
         
         // Now update stake for the target block AND all ancestors (excluding root)
-        // FIX: The target block itself must receive the stake - this is the core of LMD GHOST
         let mut updated_count = 0;
         for ancestor_hash in ancestors {
             if let Some(block) = self.blocks.get_mut(&ancestor_hash) {

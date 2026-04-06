@@ -200,8 +200,9 @@ Start-Sleep -Seconds 15
 # ─── RPC checks ──────────────────────────────────────────────────────────────
 function Http-Get($url) {
     try {
-        $output = curl.exe -s --connect-timeout 3 --max-time 5 $url 2>$null
-        if ($LASTEXITCODE -eq 0 -and $output) { return $output | ConvertFrom-Json }
+        # Use Invoke-WebRequest with -UseBasicParsing to avoid script execution security prompts
+        $response = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 5 -ErrorAction SilentlyContinue
+        if ($response -and $response.Content) { return $response.Content | ConvertFrom-Json }
     } catch {}
     return $null
 }
