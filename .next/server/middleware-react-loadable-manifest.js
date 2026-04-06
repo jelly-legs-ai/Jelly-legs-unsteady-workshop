@@ -1,0 +1,1 @@
+self.__REACT_LOADABLE_MANIFEST='{"..\\\\node_modules\\\\@solana\\\\wallet-adapter-solflare\\\\lib\\\\esm\\\\adapter.js -> @solflare-wallet/sdk":{"id":6644,"files":["static/chunks/644.264c2d9ae1ace0a7.js"]}}';

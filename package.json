@@ -14,6 +14,7 @@
     "@jellylegsai/aether-validator-cli": "https://registry.npmjs.org/@jellylegsai/aether-validator-cli/-/aether-validator-cli-1.0.2.tgz",
     "@next/env": "^16.2.2",
     "@octokit/rest": "^20.0.2",
+    "@solana/wallet-adapter-backpack": "^0.1.14",
     "@solana/wallet-adapter-phantom": "^0.9.29",
     "@solana/wallet-adapter-react": "^0.15.39",
     "@solana/wallet-adapter-react-ui": "^0.9.39",

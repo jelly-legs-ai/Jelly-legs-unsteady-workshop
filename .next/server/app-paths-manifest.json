@@ -1,0 +1,11 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/claim/route": "app/api/claim/route.js",
+  "/api/stake/route": "app/api/stake/route.js",
+  "/api/explorer/route": "app/api/explorer/route.js",
+  "/api/network-stats/route": "app/api/network-stats/route.js",
+  "/api/wallet/verify/route": "app/api/wallet/verify/route.js",
+  "/page": "app/page.js",
+  "/staking/page": "app/staking/page.js",
+  "/explorer/page": "app/explorer/page.js"
+}
