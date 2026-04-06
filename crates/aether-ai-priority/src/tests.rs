@@ -13,7 +13,7 @@ fn test_priority_lane_ordering() {
 #[test]
 fn test_ai_priority_error_display() {
     let err = AIPriorityError::InvalidSignature("test".to_string());
-    assert!(err.to_string().contains("Invalid signature"));
+    assert!(err.to_string().contains("Invalid AI signature"));
     
     let err = AIPriorityError::LaneFull(AIPriorityLane::Critical);
     assert!(err.to_string().contains("Priority lane full"));
