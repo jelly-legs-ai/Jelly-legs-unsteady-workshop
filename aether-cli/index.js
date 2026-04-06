@@ -31,6 +31,7 @@ const { apyCommand } = require('./commands/apy');
 const { statsCommand } = require('./commands/stats');
 const { txHistoryCommand } = require('./commands/tx-history');
 const { feesCommand } = require('./commands/fees');
+const { tpsCommand } = require('./commands/tps');
 const readline = require('readline');
 
 // CLI version
@@ -399,6 +400,12 @@ const COMMANDS = {
     description: 'Network fee estimates — aether fees [--json] [--verbose] [--rpc <url>]',
     handler: () => {
       feesCommand();
+    },
+  },
+  tps: {
+    description: 'Transactions per second monitor — aether tps [--monitor] [--interval 2] [--json]',
+    handler: () => {
+      tpsCommand();
     },
   },
   claim: {

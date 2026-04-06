@@ -4,6 +4,7 @@
  *
  * Query current network fee estimates for Aether transactions.
  * Shows priority fee tiers (low, medium, high) and recent average fees.
+ * Uses @jellylegsai/aether-sdk for real RPC calls to /v1/fees.
  *
  * Usage:
  *   aether fees                    Show current fee estimates
@@ -12,8 +13,9 @@
  *   aether fees --rpc <url>        Custom RPC endpoint
  */
 
-const https = require('https');
-const http = require('http');
+const path = require('path');
+const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
+const aether = require(sdkPath);
 
 // ANSI colours
 const C = {
@@ -36,92 +38,33 @@ const PRIORITY_LEVELS = {
 };
 
 /**
- * HTTP GET helper
- */
-function httpGet(url, timeout = 8000) {
-  return new Promise((resolve, reject) => {
-    const lib = url.startsWith('https') ? https : http;
-    const parsed = new URL(url);
-    const req = lib.request({
-      hostname: parsed.hostname,
-      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-      path: parsed.pathname + parsed.search,
-      method: 'GET',
-      timeout,
-      headers: { 'Accept': 'application/json', 'User-Agent': 'Aether-CLI/1.0' },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { resolve({ _raw: data }); }
-      });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
-    req.end();
-  });
-}
-
-/**
- * Fetch fee data from Aether RPC endpoint
- * Uses getFeeForMessage or getRecentPrioritizationFees RPC methods
+ * Fetch fee data from Aether RPC endpoint using SDK
+ * Real RPC call: GET /v1/fees
  */
 async function fetchFromRpc(rpcUrl) {
+  const client = new aether.AetherClient({ rpcUrl });
   try {
-    // Try to get recent prioritization fees
-    const body = JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'getRecentPrioritizationFees',
-      params: [],
-    });
-
-    const res = await httpGet(rpcUrl, 5000);
-    if (res && res.result) {
-      const fees = res.result;
-      if (Array.isArray(fees) && fees.length > 0) {
-        const prioritizationFee = fees.reduce((sum, f) => sum + (f.prioritizationFee || 0), 0) / fees.length;
-        return {
-          baseFee: 5000, // Base fee in lamports (typical)
-          prioritizationFee: Math.round(prioritizationFee),
-          totalFee: 5000 + Math.round(prioritizationFee),
-        };
-      }
+    const fees = await client.getFees();
+    if (fees && fees.fee !== undefined) {
+      return {
+        baseFee: fees.baseFee || fees.fee || 5000,
+        prioritizationFee: fees.prioritizationFee || 0,
+        totalFee: fees.totalFee || fees.fee || 5000,
+        raw: fees,
+      };
     }
-  } catch { /* RPC not available */ }
-
-  return null;
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 /**
- * Fetch fee estimates from a public fee oracle API
- * Fallback if local RPC is not available
- */
-async function fetchFromOracle() {
-  try {
-    // Simulated fee oracle response based on network conditions
-    // In production, this would query a real fee oracle service
-    const baseUrl = 'https://api.aether.network/v1/fees';
-    
-    const res = await httpGet(baseUrl, 8000);
-    if (res && res.fees) {
-      return res.fees;
-    }
-  } catch { /* Oracle not available */ }
-
-  return null;
-}
-
-/**
- * Generate simulated fee estimates based on network activity
- * Used as final fallback when no RPC or oracle is available
+ * Generate simulated fee estimates as fallback
+ * Used when RPC endpoint is unavailable
  */
 function generateSimulatedFees() {
-  // Base fee in lamports (1 AETH = 1e9 lamports)
   const baseFee = 5000;
-  
-  // Simulate network congestion levels
   const congestionFactor = 1.0 + (Math.random() * 0.5);
   
   return {
@@ -160,6 +103,48 @@ function generateSimulatedFees() {
 }
 
 /**
+ * Build fee data from RPC response
+ */
+function buildFeeData(rpcFees) {
+  const baseFee = rpcFees.baseFee || 5000;
+  const totalFee = rpcFees.totalFee || baseFee;
+  
+  return {
+    baseFee,
+    levels: {
+      [PRIORITY_LEVELS.LOW]: {
+        lamports: totalFee,
+        aeth: (totalFee / 1e9).toFixed(9),
+        description: 'Economy',
+        color: C.green,
+      },
+      [PRIORITY_LEVELS.MEDIUM]: {
+        lamports: Math.round(totalFee * 1.5),
+        aeth: (totalFee * 1.5 / 1e9).toFixed(9),
+        description: 'Standard',
+        color: C.cyan,
+      },
+      [PRIORITY_LEVELS.HIGH]: {
+        lamports: Math.round(totalFee * 2.5),
+        aeth: (totalFee * 2.5 / 1e9).toFixed(9),
+        description: 'Fast',
+        color: C.yellow,
+      },
+      [PRIORITY_LEVELS.TURBO]: {
+        lamports: Math.round(totalFee * 5),
+        aeth: (totalFee * 5 / 1e9).toFixed(9),
+        description: 'Maximum',
+        color: C.magenta,
+      },
+    },
+    averageFee24h: totalFee,
+    medianFee24h: totalFee,
+    source: 'Aether RPC',
+    timestamp: new Date(),
+  };
+}
+
+/**
  * Format lamports to human-readable string
  */
 function formatLamports(lamports) {
@@ -189,65 +174,23 @@ async function feesCommand() {
   const verbose = args.includes('--verbose') || args.includes('-v');
   const rpcUrl = args.includes('--rpc')
     ? args[args.indexOf('--rpc') + 1]
-    : process.env.AETHER_RPC || 'http://127.0.0.1:8899';
+    : process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
 
-  console.log(`\n${C.bright}${C.cyan}── Aether Network Fees ──────────────────────────────────${C.reset}\n`);
+  if (!asJson) {
+    console.log(`\n${C.bright}${C.cyan}── Aether Network Fees ──────────────────────────────────${C.reset}\n`);
+  }
 
-  // Try to fetch real fee data
+  // Fetch real fee data from RPC using SDK
   let feeData = null;
   let source = 'Simulated';
 
-  // Try local RPC first
   try {
     const rpcFees = await fetchFromRpc(rpcUrl);
     if (rpcFees) {
-      feeData = {
-        baseFee: rpcFees.baseFee,
-        levels: {
-          [PRIORITY_LEVELS.LOW]: {
-            lamports: rpcFees.totalFee,
-            aeth: (rpcFees.totalFee / 1e9).toFixed(9),
-            description: 'Economy',
-            color: C.green,
-          },
-          [PRIORITY_LEVELS.MEDIUM]: {
-            lamports: Math.round(rpcFees.totalFee * 1.5),
-            aeth: (rpcFees.totalFee * 1.5 / 1e9).toFixed(9),
-            description: 'Standard',
-            color: C.cyan,
-          },
-          [PRIORITY_LEVELS.HIGH]: {
-            lamports: Math.round(rpcFees.totalFee * 2.5),
-            aeth: (rpcFees.totalFee * 2.5 / 1e9).toFixed(9),
-            description: 'Fast',
-            color: C.yellow,
-          },
-          [PRIORITY_LEVELS.TURBO]: {
-            lamports: Math.round(rpcFees.totalFee * 5),
-            aeth: (rpcFees.totalFee * 5 / 1e9).toFixed(9),
-            description: 'Maximum',
-            color: C.magenta,
-          },
-        },
-        averageFee24h: rpcFees.totalFee,
-        medianFee24h: rpcFees.totalFee,
-        source: 'Aether RPC',
-        timestamp: new Date(),
-      };
+      feeData = buildFeeData(rpcFees);
       source = 'Aether RPC';
     }
   } catch { /* RPC not available */ }
-
-  // Try oracle if RPC failed
-  if (!feeData) {
-    try {
-      const oracleFees = await fetchFromOracle();
-      if (oracleFees) {
-        feeData = oracleFees;
-        source = 'Aether Oracle';
-      }
-    } catch { /* Oracle not available */ }
-  }
 
   // Use simulated fees as fallback
   if (!feeData) {
@@ -327,7 +270,7 @@ module.exports = { feesCommand };
 // Run if called directly
 if (require.main === module) {
   feesCommand().catch(err => {
-    console.error(`\n${C.red}Fees error:${C.reset}`, err.message, '\n');
+    console.error(`\n${C.red}Fees error:${C.reset} ${err.message}\n`);
     process.exit(1);
   });
 }
