@@ -114,26 +114,23 @@ export default function ExplorerPage() {
           exists: accountInfo !== null,
         });
       } else if (lookupType === "transaction") {
-        // getTransaction RPC
-        const res = await fetch("/api/chain/transfer", {
+        // getTransaction RPC via /api/explorer
+        const res = await fetch("/api/explorer", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            fromAddress: searchInput.trim(),
-            toAddress: searchInput.trim(),
-            amount: 0,
+            signature: searchInput.trim(),
           }),
         });
         const data = await res.json();
-        // Transfer API doesn't do lookups - use a simpler approach
-        if (!res.ok && res.status !== 400) throw new Error(data.error || "Lookup failed");
+        if (!res.ok) throw new Error(data.error || "Lookup failed");
         setTxData({
-          signature: searchInput.trim(),
+          signature: data.signature || searchInput.trim(),
           slot: data.slot || null,
-          blockTime: null,
-          fee: null,
-          status: data.connected ? "confirmed" : "unknown",
-          type: "transfer",
+          blockTime: data.blockTime || null,
+          fee: data.fee || null,
+          status: data.status || "unknown",
+          type: data.type || "transfer",
         });
       } else if (lookupType === "block") {
         // getBlock RPC
