@@ -270,6 +270,6 @@ impl BlockProducer {
     pub async fn current_block_hash(&self) -> String {
         let history = self.block_history.read().await;
         history.back().map(|b| b.block_hash.clone())
-            .unwrap_or_else(|| self.state.get_genesis_hash())
+            .unwrap_or_else(|| self.state.get_last_block_hash())
     }
 }
