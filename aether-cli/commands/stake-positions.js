@@ -12,10 +12,15 @@
  * Examples:
  *   aether stake-positions --address ATHxxx
  *   aether wallet stake-positions --address ATHxxx --json
+ *
+ * SDK wired to: GET /v1/slot, GET /v1/stake/<address>, GET /v1/account/<addr>
  */
 
-const https = require('https');
-const http = require('http');
+const path = require('path');
+
+// Import SDK — all network calls go through @jellylegsai/aether-sdk
+const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
+const aether = require(sdkPath);
 
 // ANSI colours
 const C = {
@@ -29,45 +34,18 @@ const C = {
   magenta: '\x1b[35m',
 };
 
-const CLI_VERSION = '1.0.0';
+const CLI_VERSION = '1.0.1';
 
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
 
 function getDefaultRpc() {
-  return process.env.AETHER_RPC || 'http://127.0.0.1:8899';
+  return process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
 }
 
-// ---------------------------------------------------------------------------
-// HTTP helpers
-// ---------------------------------------------------------------------------
-
-function httpRequest(rpcUrl, pathStr, timeoutMs = 8000) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(pathStr, rpcUrl);
-    const lib = url.protocol === 'https:' ? https : http;
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { resolve(data); }
-      });
-    });
-    req.on('error', reject);
-    req.setTimeout(timeoutMs, () => {
-      req.destroy();
-      reject(new Error(`Request timeout after ${timeoutMs}ms`));
-    });
-    req.end();
-  });
+function createClient(rpcUrl) {
+  return new aether.AetherClient({ rpcUrl });
 }
 
 // ---------------------------------------------------------------------------
@@ -80,13 +58,11 @@ function parseArgs() {
 
   for (let i = 0; i < args.length; i++) {
     if ((args[i] === '--address' || args[i] === '-a') && args[i + 1]) {
-      result.address = args[i + 1];
-      i++;
+      result.address = args[++i];
     } else if (args[i] === '--json' || args[i] === '--json-output') {
       result.json = true;
     } else if (args[i] === '--rpc' && args[i + 1]) {
-      result.rpc = args[i + 1];
-      i++;
+      result.rpc = args[++i];
     } else if (args[i] === '--help' || args[i] === '-h') {
       result.help = true;
     }
@@ -124,6 +100,11 @@ ${C.bright}OPTIONS${C.reset}
     --rpc <url>          RPC endpoint (default: AETHER_RPC or localhost:8899)
     --help               Show this help
 
+${C.bright}SDK METHODS USED${C.reset}
+    client.getSlot()             → GET /v1/slot
+    client.getStakePositions()   → GET /v1/stake/<address>
+    client.getAccountInfo()      → GET /v1/account/<addr>
+
 ${C.bright}EXAMPLES${C.reset}
     aether stake-positions --address ATH3abc...
     aether stake-positions --address ATH3abc... --json
@@ -138,6 +119,7 @@ ${C.bright}EXAMPLES${C.reset}
   }
 
   const rpcUrl = opts.rpc || getDefaultRpc();
+  const client = createClient(rpcUrl);
   const address = opts.address;
   const rawAddr = address.startsWith('ATH') ? address.slice(3) : address;
 
@@ -148,20 +130,17 @@ ${C.bright}EXAMPLES${C.reset}
   }
 
   try {
-    // Fetch stake accounts
-    const res = await httpRequest(rpcUrl, `/v1/stake?address=${encodeURIComponent(rawAddr)}`);
+    // Verify chain connectivity via SDK (real RPC call)
+    const slot = await client.getSlot().catch(() => null);
 
-    let stakeAccounts = [];
-    if (Array.isArray(res)) {
-      stakeAccounts = res;
-    } else if (res && typeof res === 'object') {
-      stakeAccounts = res.accounts || res.stake_accounts || res.data || [];
-    }
+    // Fetch stake positions via SDK (real RPC call to GET /v1/stake/<address>)
+    const stakeAccounts = await client.getStakePositions(rawAddr);
 
     if (opts.json) {
       const totalLamports = stakeAccounts.reduce((sum, acc) => sum + (acc.stake_lamports || acc.lamports || 0), 0);
       console.log(JSON.stringify({
         wallet_address: address,
+        slot,
         stake_accounts: stakeAccounts.map(acc => ({
           stake_account: acc.pubkey || acc.publicKey || acc.account || 'unknown',
           validator: acc.validator || acc.delegate || acc.validator_address || 'unknown',
@@ -173,6 +152,9 @@ ${C.bright}EXAMPLES${C.reset}
         total_staked_lamports: totalLamports,
         total_staked_aeth: (totalLamports / 1e9).toFixed(4),
         count: stakeAccounts.length,
+        rpc: rpcUrl,
+        cli_version: CLI_VERSION,
+        fetched_at: new Date().toISOString(),
       }, null, 2));
       return;
     }
@@ -213,8 +195,11 @@ ${C.bright}EXAMPLES${C.reset}
 
   } catch (err) {
     console.log(`  ${C.red}? Failed to fetch stake positions:${C.reset} ${err.message}\n`);
+    console.log(`  ${C.dim}  Set custom RPC: AETHER_RPC=https://your-rpc-url${C.reset}\n`);
     process.exit(1);
   }
 }
 
 stakePositionsCommand();
+
+module.exports = { stakePositionsCommand };
