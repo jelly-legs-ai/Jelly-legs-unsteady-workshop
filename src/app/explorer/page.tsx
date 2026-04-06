@@ -62,22 +62,56 @@ export default function ExplorerPage() {
 
     try {
       if (lookupType === "address") {
-        const res = await fetch("/api/chain/balance", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ address: searchInput.trim() }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Lookup failed");
+        // Direct RPC call for address lookup (consistent with block lookup pattern)
+        const rpcUrl = process.env.AETHER_RPC || "http://127.0.0.1:8899";
+        const rawAddress = searchInput.trim().startsWith("ATH")
+          ? searchInput.trim().slice(3)
+          : searchInput.trim();
+
+        const [accountRes, slotRes] = await Promise.all([
+          fetch(rpcUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              method: "getAccountInfo",
+              params: [rawAddress, { encoding: "json" }],
+            }),
+          }),
+          fetch(rpcUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              method: "getSlot",
+              params: [],
+            }),
+          }),
+        ]);
+
+        const [accountData, slotData] = await Promise.all([
+          accountRes.json(),
+          slotRes.json(),
+        ]);
+
+        if (accountData.error) throw new Error(accountData.error.message || "Account lookup failed");
+        if (slotData.error) throw new Error(slotData.error.message || "Slot lookup failed");
+
+        const accountInfo = accountData.result?.value;
+        const balanceLamports = accountInfo?.lamports || 0;
+        const balanceAeth = balanceLamports / 1e9;
+
         setAddressData({
-          address: data.address,
-          balance: data.balanceAeth,
-          balanceFormatted: data.balanceFormatted,
-          owner: data.owner,
-          executable: data.executable,
-          rentEpoch: data.rentEpoch,
-          slot: data.slot,
-          exists: data.accountExists,
+          address: searchInput.trim(),
+          balance: balanceAeth,
+          balanceFormatted: `${balanceAeth.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })} ATH`,
+          owner: accountInfo?.owner || null,
+          executable: accountInfo?.executable || false,
+          rentEpoch: accountInfo?.rentEpoch || null,
+          slot: slotData.result,
+          exists: accountInfo !== null,
         });
       } else if (lookupType === "transaction") {
         // getTransaction RPC
