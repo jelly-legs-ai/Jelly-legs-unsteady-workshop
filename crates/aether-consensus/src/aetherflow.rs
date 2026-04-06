@@ -133,17 +133,23 @@ impl AIPriorityQueue {
         let mut standard_lane = VecDeque::new();
         std::mem::swap(&mut standard_lane, &mut self.standard);
 
-        // Critical lane gets 40% of block space
-        let critical_limit = self.max_tx_per_block * 4 / 10;
+        // Lane allocation: Critical 40%, High 30%, Standard 30%
+        // The limit in drain_lane checks result.len() < limit, so we use cumulative limits
+        let critical_pct = self.max_tx_per_block * 4 / 10;
+        let high_pct = self.max_tx_per_block * 3 / 10;
+
+        // Critical lane: drain up to critical_pct transactions (result.len() < critical_pct)
+        let critical_limit = critical_pct;
         self.drain_lane(&mut result, &mut total_compute, &mut critical_lane, critical_limit);
 
-        // High lane gets 30% of block space
-        let high_limit = self.max_tx_per_block * 3 / 10;
+        // High lane: drain up to critical_pct + high_pct total transactions
+        // This ensures high lane gets its 30% after critical's 40%
+        let high_limit = critical_pct + high_pct;
         self.drain_lane(&mut result, &mut total_compute, &mut high_lane, high_limit);
 
-        // Standard lane gets remaining 30%
-        let remaining = self.max_tx_per_block - result.len();
-        self.drain_lane(&mut result, &mut total_compute, &mut standard_lane, remaining);
+        // Standard lane: fill remaining up to max_tx_per_block
+        let remaining_limit = self.max_tx_per_block;
+        self.drain_lane(&mut result, &mut total_compute, &mut standard_lane, remaining_limit);
 
         // Put remaining transactions back
         std::mem::swap(&mut self.critical, &mut critical_lane);
