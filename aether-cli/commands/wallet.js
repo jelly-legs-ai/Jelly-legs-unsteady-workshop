@@ -22,6 +22,9 @@ const bs58 = require('bs58').default;
 // Import SDK for blockchain RPC calls
 const aether = require('../sdk');
 
+// Destructure SDK functions for convenience
+const { createClient } = aether;
+
 // ANSI colours
 const C = {
   reset: '\x1b[0m',
