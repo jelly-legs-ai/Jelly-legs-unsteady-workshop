@@ -496,7 +496,7 @@ function parseArgs() {
   const args = process.argv.slice(2);
 
   // Handle version flag
-  if (args.includes('--version') || args.includes('-v')) {
+  if (args.includes('--version') || args.includes('-v') || args.includes('-V')) {
     return 'version';
   }
 
