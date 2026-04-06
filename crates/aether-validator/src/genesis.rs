@@ -220,7 +220,7 @@ pub fn verify_genesis_hash(genesis: &GenesisBlock) -> bool {
 pub fn generate_genesis_hash() -> String {
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_secs();
     
     let mut hasher = Sha256::new();
@@ -238,7 +238,7 @@ pub fn create_testnet_genesis() -> GenesisBlock {
         chain_id: "aether-testnet-1".to_string(),
         timestamp: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
+            .unwrap_or_default()
             .as_secs() as i64,
         genesis_hash: generate_genesis_hash(),
         bootstrap_validators: Vec::new(),
@@ -266,7 +266,7 @@ pub fn create_genesis_with(
 ) -> GenesisBlock {
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_secs() as i64;
     
     let mut genesis = GenesisBlock {

@@ -396,7 +396,7 @@ async fn handle_http_request(
                         },
                         fee,
                         slot: 0,
-                        timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
+                        timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs(),
                     };
                     
                     match block_producer.submit_transaction(tx).await {
