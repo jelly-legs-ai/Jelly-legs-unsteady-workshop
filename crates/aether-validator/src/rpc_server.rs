@@ -152,22 +152,17 @@ async fn handle_http_request(
             // Get the block hash for the current slot (most recently produced block)
             let block_hash = block_producer.current_block_hash().await;
             
-            // Get parent block hash correctly:
+            // Get parent block hash correctly using checked arithmetic to avoid underflow:
             // - For slot 0: use genesis hash from state
             // - For slot > 0: use the block hash from the previous slot
-            let parent_block_hash = if current_slot == 0 {
-                // Genesis block's parent is the genesis hash
-                state.get_genesis_hash()
-            } else {
-                // Only subtract 1 when slot > 0 to avoid underflow
-                let prev_slot = current_slot - 1;
-                if let Some(block) = block_producer.get_block(prev_slot).await {
-                    // Previous slot's block hash becomes the parent
-                    block.block_hash.clone()
-                } else {
-                    // Fallback: use genesis hash if block not found
-                    state.get_genesis_hash()
+            let parent_block_hash = if let Some(prev_slot) = current_slot.checked_sub(1) {
+                match block_producer.get_block(prev_slot).await {
+                    Some(block) => block.block_hash,
+                    None => state.get_genesis_hash(),
                 }
+            } else {
+                // current_slot is 0, use genesis hash
+                state.get_genesis_hash()
             };
             
             // Check validator health:
@@ -175,15 +170,15 @@ async fn handle_http_request(
             // - Healthy if blocks produced and block_hash is valid
             // - Unhealthy if blocks produced but block_hash is still genesis (sync issue)
             let blocks_produced = state.blocks_produced();
-            let (healthy, error) = if blocks_produced == 0 {
+            let (healthy, error) = if block_hash.is_empty() {
+                // Empty block hash indicates initialization issue - check first
+                (false, Some("Block hash not initialized - validator may not be synced".to_string()))
+            } else if blocks_produced == 0 {
                 // No blocks produced yet - normal for fresh start
                 (true, None)
             } else if block_hash == state.get_genesis_hash() {
                 // Blocks produced but still showing genesis hash = sync issue
                 (false, Some("Validator not producing blocks - blocks_produced > 0 but block hash unchanged".to_string()))
-            } else if block_hash.is_empty() {
-                // Empty block hash indicates initialization issue
-                (false, Some("Block hash not initialized - validator may not be synced".to_string()))
             } else {
                 // Normal operation
                 (true, None)
