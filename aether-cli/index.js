@@ -40,6 +40,7 @@ const { transferCommand } = require('./commands/transfer');
 const { slotCommand } = require('./commands/slot');
 const { configCommand } = require('./commands/config');
 const { stakeCommand } = require('./commands/stake');
+const { nftCommand } = require('./commands/nft');
 const readline = require('readline');
 
 // CLI version
@@ -472,6 +473,12 @@ const COMMANDS = {
       configCommand();
     },
   },
+  nft: {
+    description: 'NFT management — aether nft create|list|transfer|info|update — full SDK-wired suite',
+    handler: () => {
+      nftCommand();
+    },
+  },
   help: {
     description: 'Show this help message',
     handler: showHelp,
@@ -514,6 +521,8 @@ Validator CLI v${VERSION}
   console.log('  aether-cli network --peers     # Detailed peer list');
   console.log('  aether-cli tx history          # Show transaction history');
   console.log('  aether-cli price               # AETH/USD price check');
+  console.log('  aether-cli nft create          # Create NFT with metadata');
+  console.log('  aether-cli nft list            # List NFTs owned by wallet');
   console.log('  aether-cli --version           # Show version');
   console.log('\nDocumentation: https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop');
   console.log('Spec: docs/MINING_VALIDATOR_TOOLS.md\n');

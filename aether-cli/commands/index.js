@@ -34,6 +34,7 @@ const accountCommand = require('./account');
 const priceCommand = require('./price');
 const emergencyCommand = require('./emergency');
 const snapshotCommand = require('./snapshot');
+const nftCommand = require('./nft');
 
 module.exports = {
   doctorCommand,
@@ -71,4 +72,5 @@ module.exports = {
   priceCommand,
   emergencyCommand,
   snapshotCommand,
+  nftCommand,
 };
