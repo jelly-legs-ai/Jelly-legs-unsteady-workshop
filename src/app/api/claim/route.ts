@@ -10,8 +10,8 @@ import { NextRequest, NextResponse } from 'next/server';
  * - Validates ATH-prefixed addresses
  */
 
-// Path to SDK
-const SDK_PATH = process.env.SDK_PATH || '../../aether-cli/sdk/index.js';
+// Path to SDK - loaded lazily at runtime to avoid build errors
+const SDK_PATH = process.env.SDK_PATH || '../../../aether-cli/sdk/index.js';
 
 // Load SDK dynamically
 let AetherClient: any;
