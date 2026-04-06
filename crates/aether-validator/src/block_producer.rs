@@ -106,9 +106,25 @@ impl BlockProducer {
         // Compute PoH seed (proof of history)
         let poh_seed = Self::compute_poh_seed(slot, timestamp, &previous_hash);
         
-        // Execute pending transactions
-        let receipts = self.execute_pending_transactions(slot).await;
-        let state_root = bs58::encode(self.state_db.compute_state_root()).into_string();
+        // Execute pending transactions with error handling
+        let receipts = match self.execute_pending_transactions(slot).await {
+            r if r.is_empty() && slot > 0 => {
+                debug!("Block {} produced with no transactions", slot);
+                r
+            }
+            r => r
+        };
+        
+        // Compute state root with error handling
+        let state_root = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            self.state_db.compute_state_root()
+        })) {
+            Ok(root) => bs58::encode(&root).into_string(),
+            Err(_) => {
+                tracing::error!("Failed to compute state root for block {}", slot);
+                bs58::encode(&[0u8; 32]).into_string() // Fallback to zero hash
+            }
+        };
         
         // Collect TX signatures for the block
         let tx_signatures: Vec<String> = receipts.iter()
@@ -180,15 +196,15 @@ impl BlockProducer {
         for tx in all_txs {
             let tx_compute = self.estimate_compute_units(&tx);
             
-            // Check if adding this tx would exceed limits
-            if total_compute_units + tx_compute > MAX_COMPUTE_UNITS_PER_BLOCK {
-                // Put back in remaining queue
+            // Check if adding this tx would exceed limits (with overflow protection)
+            if total_compute_units.checked_add(tx_compute).is_none() 
+                || total_compute_units + tx_compute > MAX_COMPUTE_UNITS_PER_BLOCK 
+            {
                 remaining_txs.push(tx);
                 continue;
             }
             
             if tx_count >= MAX_TRANSACTIONS_PER_BLOCK {
-                // Put back in remaining queue
                 remaining_txs.push(tx);
                 continue;
             }
@@ -198,26 +214,39 @@ impl BlockProducer {
             txs_to_process.push(tx);
         }
         
-        // Put remaining transactions back in the pool
+        // Put remaining transactions back in the pool in original order (FIFO)
+        // This preserves transaction ordering and prevents starvation
         {
             let mut pool = self.transaction_pool.write().await;
-            for tx in remaining_txs.into_iter().rev() {
-                pool.push_front(tx);
+            for tx in remaining_txs {
+                pool.push_back(tx);
             }
         }
         
+        // Execute transactions with error handling
         for tx in txs_to_process {
-            let result = self.executor.execute(&tx);
-            let receipt = TransactionReceipt {
-                signature: tx.signature.clone(),
-                slot,
-                block_hash: String::new(),
-                tx_type: tx.tx_type.clone(),
-                signer: tx.signer,
-                result,
-                timestamp: tx.timestamp,
-            };
-            receipts.push(receipt);
+            let exec_result = self.executor.execute(&tx);
+            
+            if exec_result.success {
+                let receipt = TransactionReceipt {
+                    signature: tx.signature.clone(),
+                    slot,
+                    block_hash: String::new(),
+                    tx_type: tx.tx_type.clone(),
+                    signer: tx.signer,
+                    result: exec_result,
+                    timestamp: tx.timestamp,
+                };
+                receipts.push(receipt);
+            } else {
+                // Log failed transaction but continue processing others
+                debug!("Transaction {} failed: {:?}", 
+                    bs58::encode(&tx.signature).into_string(), 
+                    exec_result.error);
+                // Re-queue failed transaction for retry in next block
+                let mut pool = self.transaction_pool.write().await;
+                pool.push_back(tx);
+            }
         }
         
         debug!(
