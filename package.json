@@ -1,5 +1,5 @@
 {
-  "name": "aether-cli",
+  "name": "@jellylegsai/aether-cli",
   "version": "1.8.0",
   "description": "Aether CLI - Validator Onboarding, Staking, and Blockchain Operations",
   "main": "index.js",
