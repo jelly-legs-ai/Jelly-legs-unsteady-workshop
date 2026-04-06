@@ -805,4 +805,23 @@ impl ValidatorState {
             active: true,
         }
     }
+
+    /// Advance staking pool epoch (called at epoch boundary)
+    /// This distributes rewards to all active stakes
+    pub fn advance_staking_epoch(&self) -> u64 {
+        if let Ok(mut pool) = self.inner.staking_pool.write() {
+            pool.tick();
+            pool.current_epoch
+        } else {
+            0
+        }
+    }
+
+    /// Get current staking epoch
+    pub fn staking_epoch(&self) -> u64 {
+        match self.inner.staking_pool.read() {
+            Ok(pool) => pool.current_epoch,
+            Err(_) => 0,
+        }
+    }
 }

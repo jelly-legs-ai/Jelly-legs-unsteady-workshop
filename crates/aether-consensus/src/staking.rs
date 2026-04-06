@@ -151,7 +151,17 @@ impl StakingPool {
             return Err(StakingError::AlreadyWithdrawing);
         }
 
-        // Start cooldown - stake unlocks after lock period
+        // IMPORTANT: If stake is already unlocked (past lock period), withdrawal is immediate.
+        // Only apply a new lock period if the stake is still in its initial lock phase.
+        // This prevents penalizing users who wait until after their lock expires.
+        if !stake.is_locked(self.current_epoch) {
+            // Already unlocked - can withdraw immediately, no new lock
+            stake.initiate_withdrawal();
+            // Keep original unlock_epoch (already passed)
+            return Ok(stake.unlock_epoch);
+        }
+
+        // Still locked - start cooldown from current epoch
         stake.unlock_epoch = self.current_epoch + STAKE_LOCK_EPOCHS;
         stake.initiate_withdrawal();
 
@@ -368,6 +378,63 @@ mod tests {
         let stake = pool.get_stake(stake_id).unwrap();
         assert!(!stake.is_locked(2)); // Still unlocked after lock period
         assert!(stake.pending_withdrawal); // But marked for withdrawal
+    }
+
+    #[test]
+    fn test_immediate_withdrawal_after_unlock() {
+        // Test that stakes past their lock period can be withdrawn immediately
+        // without waiting for an additional lock period
+        let mut pool = StakingPool::new(0);
+        let owner = [1u8; 32];
+
+        // Create stake at epoch 0
+        let stake_id = pool.stake(owner, MINIMUM_STAKE_AETH).unwrap();
+        
+        // Advance well past the lock period (STAKE_LOCK_EPOCHS = 2)
+        pool.current_epoch = 10;
+        
+        // Stake should be unlocked
+        assert!(!pool.get_stake(stake_id).unwrap().is_locked(pool.current_epoch));
+        
+        // Initiate withdrawal - should NOT add a new lock period
+        let unlock_epoch = pool.initiate_withdrawal(stake_id).unwrap();
+        
+        // Unlock epoch should still be the original (2), not a new one (10 + 2 = 12)
+        assert_eq!(unlock_epoch, STAKE_LOCK_EPOCHS, "Unlock epoch should remain at original value for already-unlocked stakes");
+        
+        // Should be able to withdraw immediately since current_epoch (10) > unlock_epoch (2)
+        let stake = pool.get_stake(stake_id).unwrap();
+        assert!(stake.can_withdraw(pool.current_epoch), "Should be able to withdraw immediately after initiating withdrawal on unlocked stake");
+    }
+
+    #[test]
+    fn test_withdrawal_relock_while_locked() {
+        // Test that stakes still in their lock period get a new unlock time
+        let mut pool = StakingPool::new(0);
+        let owner = [1u8; 32];
+
+        // Create stake at epoch 0
+        let stake_id = pool.stake(owner, MINIMUM_STAKE_AETH).unwrap();
+        
+        // Advance only 1 epoch - still locked (needs 2 epochs)
+        pool.current_epoch = 1;
+        
+        // Stake should still be locked
+        assert!(pool.get_stake(stake_id).unwrap().is_locked(pool.current_epoch), "Stake should still be locked");
+        
+        // Initiate withdrawal - SHOULD add a new lock period from current epoch
+        let unlock_epoch = pool.initiate_withdrawal(stake_id).unwrap();
+        
+        // New unlock should be current_epoch + STAKE_LOCK_EPOCHS = 1 + 2 = 3
+        assert_eq!(unlock_epoch, pool.current_epoch + STAKE_LOCK_EPOCHS, "Locked stakes should get a new unlock time from current epoch");
+        
+        // Should NOT be able to withdraw at epoch 1
+        pool.current_epoch = 1;
+        assert!(!pool.get_stake(stake_id).unwrap().can_withdraw(pool.current_epoch), "Should not be able to withdraw during new lock period");
+        
+        // Should be able to withdraw at epoch 3 (unlock_epoch)
+        pool.current_epoch = 3;
+        assert!(pool.get_stake(stake_id).unwrap().can_withdraw(pool.current_epoch), "Should be able to withdraw after new lock period");
     }
 
     #[test]

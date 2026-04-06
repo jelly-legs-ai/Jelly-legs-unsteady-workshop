@@ -8,6 +8,11 @@
 //! - Critical: AI governance, emergency operations (10x base fee, 100% to treasury)
 //! - High: AI agent transactions, MEV protection (5x base fee, 50% treasury/50% validators)
 //! - Standard: Regular user transactions (base fee, 100% to validators)
+//!
+//! Transaction Ordering (AI-vs-AI Competition):
+//! Transactions are ordered by priority lane (Critical > High > Standard) and within each
+//! lane by fee (highest fee first). This enables AI operators to compete for block inclusion
+//! by offering higher fees, with the proceeds funding network development.
 
 use crate::executor::Executor;
 use crate::state_db::StateDB;
@@ -26,6 +31,193 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::time::{interval, Duration};
 use tracing::{debug, info, warn};
+
+// ============================================================================
+// Transaction Priority Queue for AI-vs-AI Competition
+// ============================================================================
+
+/// Priority-ordered transaction for the mempool.
+/// Ordered by (lane_priority, fee) descending - highest priority and highest fee first.
+#[derive(Debug, Clone)]
+struct PrioritizedTransaction {
+    /// The actual transaction
+    tx: AetherTransaction,
+    /// Derived priority lane from fee
+    lane: AIPriorityLane,
+    /// Compute units estimate
+    compute_units: u64,
+    /// Arrival sequence (for FIFO fairness within same fee)
+    sequence: u64,
+}
+
+impl PrioritizedTransaction {
+    fn new(tx: AetherTransaction, lane: AIPriorityLane, compute_units: u64, sequence: u64) -> Self {
+        Self { tx, lane, compute_units, sequence }
+    }
+    
+    /// Priority ordering key: (lane_priority, fee, -sequence)
+    /// Higher lane priority first, then higher fee, then earlier arrival (lower sequence wins)
+    fn priority_key(&self) -> (u8, u64, std::cmp::Reverse<u64>) {
+        let lane_priority = match self.lane {
+            AIPriorityLane::Critical => 2,  // Highest
+            AIPriorityLane::High => 1,
+            AIPriorityLane::Standard => 0,  // Lowest
+        };
+        (lane_priority, self.tx.fee, std::cmp::Reverse(self.sequence))
+    }
+}
+
+/// Transaction pool with priority-based ordering for AI competition.
+/// 
+/// Maintains separate internal queues for each lane to enable:
+/// 1. Fair capacity allocation (40% Critical, 30% High, 30% Standard)
+/// 2. Fee-based ordering within each lane (higher fee = earlier execution)
+/// 3. FIFO fairness for same-fee transactions
+struct TransactionPool {
+    /// All transactions awaiting execution
+    transactions: Vec<PrioritizedTransaction>,
+    /// Sequence counter for arrival ordering
+    sequence: u64,
+    /// Maximum transactions per block
+    max_tx_per_block: usize,
+    /// Maximum compute units per block
+    max_compute_per_block: u64,
+}
+
+impl TransactionPool {
+    fn new(max_tx_per_block: usize, max_compute_per_block: u64) -> Self {
+        Self {
+            transactions: Vec::new(),
+            sequence: 0,
+            max_tx_per_block,
+            max_compute_per_block,
+        }
+    }
+    
+    /// Add a transaction to the pool
+    fn push(&mut self, tx: AetherTransaction, compute_units: u64) {
+        let lane = Self::derive_priority_lane(tx.fee);
+        let prioritized = PrioritizedTransaction::new(tx, lane, compute_units, self.sequence);
+        self.sequence += 1;
+        self.transactions.push(prioritized);
+    }
+    
+    /// Derive priority lane from fee amount
+    fn derive_priority_lane(fee: u64) -> AIPriorityLane {
+        if fee >= 1_000_000 {
+            AIPriorityLane::Critical
+        } else if fee >= 500_000 {
+            AIPriorityLane::High
+        } else {
+            AIPriorityLane::Standard
+        }
+    }
+    
+    /// Get transactions for the next block, ordered by priority.
+    /// 
+    /// Allocation strategy:
+    /// - Critical lane: up to 40% of block (AI governance, emergencies)
+    /// - High lane: up to 30% of block (AI agents, MEV protection)
+    /// - Standard lane: remaining capacity (regular users)
+    /// 
+    /// Within each lane, transactions are ordered by fee (highest first) 
+    /// enabling AI operators to compete for inclusion.
+    fn drain_block_transactions(&mut self) -> Vec<AetherTransaction> {
+        // Sort all transactions by priority (highest first)
+        self.transactions.sort_by(|a, b| {
+            // Compare priority keys in reverse (higher priority first)
+            b.priority_key().cmp(&a.priority_key())
+        });
+        
+        let mut result = Vec::new();
+        let mut total_compute: u64 = 0;
+        
+        // Track counts per lane for capacity allocation
+        let critical_limit = self.max_tx_per_block * 4 / 10;  // 40%
+        let high_limit = self.max_tx_per_block * 3 / 10;      // 30%
+        let standard_limit = self.max_tx_per_block * 3 / 10;   // 30%
+        
+        let mut critical_count = 0usize;
+        let mut high_count = 0usize;
+        let mut standard_count = 0usize;
+        
+        // Drain transactions in priority order
+        let mut remaining: Vec<PrioritizedTransaction> = Vec::new();
+        
+        for pt in self.transactions.drain(..) {
+            // Check compute unit limit
+            if total_compute + pt.compute_units > self.max_compute_per_block {
+                remaining.push(pt);
+                continue;
+            }
+            
+            // Check lane capacity
+            let within_lane_capacity = match pt.lane {
+                AIPriorityLane::Critical if critical_count < critical_limit => true,
+                AIPriorityLane::High if high_count < high_limit => true,
+                AIPriorityLane::Standard if standard_count < standard_limit => true,
+                // If lane is full but we have remaining capacity, allow overflow
+                _ if result.len() < self.max_tx_per_block => true,
+                _ => false,
+            };
+            
+            if !within_lane_capacity {
+                remaining.push(pt);
+                continue;
+            }
+            
+            // Accept transaction
+            total_compute += pt.compute_units;
+            result.push(pt.tx);
+            
+            match pt.lane {
+                AIPriorityLane::Critical => critical_count += 1,
+                AIPriorityLane::High => high_count += 1,
+                AIPriorityLane::Standard => standard_count += 1,
+            }
+        }
+        
+        // Put remaining transactions back for next block
+        self.transactions = remaining;
+        
+        result
+    }
+    
+    /// Get pool statistics
+    fn stats(&self) -> PoolStats {
+        let mut critical = 0usize;
+        let mut high = 0usize;
+        let mut standard = 0usize;
+        let mut total_fees = 0u64;
+        
+        for pt in &self.transactions {
+            match pt.lane {
+                AIPriorityLane::Critical => critical += 1,
+                AIPriorityLane::High => high += 1,
+                AIPriorityLane::Standard => standard += 1,
+            }
+            total_fees += pt.tx.fee;
+        }
+        
+        PoolStats {
+            critical_pending: critical,
+            high_pending: high,
+            standard_pending: standard,
+            total_pending: self.transactions.len(),
+            total_fees_pending: total_fees,
+        }
+    }
+}
+
+/// Pool statistics for monitoring
+#[derive(Debug, Clone, Copy)]
+struct PoolStats {
+    critical_pending: usize,
+    high_pending: usize,
+    standard_pending: usize,
+    total_pending: usize,
+    total_fees_pending: u64,
+}
 
 /// Slot duration in milliseconds
 pub const SLOT_TIME_MS: u64 = 400;
@@ -56,7 +248,8 @@ pub struct Block {
 pub struct BlockProducer {
     state: ValidatorState,
     block_history: Arc<RwLock<VecDeque<Block>>>,
-    transaction_pool: Arc<RwLock<VecDeque<AetherTransaction>>>,
+    /// Priority-ordered transaction pool for AI-vs-AI competition
+    transaction_pool: Arc<RwLock<TransactionPool>>,
     state_db: Arc<StateDB>,
     executor: Arc<Executor>,
     persistence: Option<Arc<PersistenceManager>>,
@@ -71,7 +264,10 @@ impl BlockProducer {
         Self {
             state,
             block_history: Arc::new(RwLock::new(VecDeque::with_capacity(MAX_BLOCK_HISTORY))),
-            transaction_pool: Arc::new(RwLock::new(VecDeque::new())),
+            transaction_pool: Arc::new(RwLock::new(TransactionPool::new(
+                MAX_TRANSACTIONS_PER_BLOCK,
+                MAX_COMPUTE_UNITS_PER_BLOCK,
+            ))),
             state_db: Arc::new(state_db),
             executor,
             persistence: None,
@@ -145,7 +341,10 @@ impl BlockProducer {
         Ok(Self {
             state,
             block_history: Arc::new(RwLock::new(VecDeque::with_capacity(MAX_BLOCK_HISTORY))),
-            transaction_pool: Arc::new(RwLock::new(VecDeque::new())),
+            transaction_pool: Arc::new(RwLock::new(TransactionPool::new(
+                MAX_TRANSACTIONS_PER_BLOCK,
+                MAX_COMPUTE_UNITS_PER_BLOCK,
+            ))),
             state_db: Arc::new(state_db),
             executor,
             persistence: Some(persistence),
@@ -249,6 +448,20 @@ impl BlockProducer {
         self.state.set_current_slot(slot);
         self.state.set_block_hash(block_hash.clone());
         self.state.increment_produced_blocks();
+        
+        // Check for epoch transition and advance fee distributor epoch
+        let slots_per_epoch = self.state.get_slots_per_epoch();
+        let prev_slot = slot.saturating_sub(1);
+        let prev_epoch = prev_slot / slots_per_epoch;
+        let current_epoch = slot / slots_per_epoch;
+        
+        if current_epoch > prev_epoch {
+            // Epoch transition - finalize epoch stats in fee distributor
+            let _epoch_stats = self.fee_distributor.advance_epoch();
+            // Also advance staking pool epoch (distributes rewards to all stakes)
+            self.state.advance_staking_epoch();
+            info!("Epoch transition: {} -> {} at slot {}", prev_epoch, current_epoch, slot);
+        }
 
         // Store in rolling history
         {
