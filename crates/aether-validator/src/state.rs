@@ -138,7 +138,7 @@ impl ValidatorState {
             .unwrap()
             .as_ref()
             .map(|g| g.genesis_hash.clone())
-            .unwrap_or_else(|| crate::genesis::generate_genesis_hash())
+            .unwrap_or_else(|| self.inner.block_hash.read().unwrap().clone())
     }
 
     pub fn get_chain_id(&self) -> String {
