@@ -174,10 +174,12 @@ async function fetchBurnedSupply(rpc) {
 /**
  * Fetch circulating supply = total - non-circulating (locked/vesting/burned).
  * Non-circulating includes: burn address, escrow/staking vault, team vesting.
+ * Uses SDK client for RPC calls.
  */
 async function fetchNonCirculatingAccounts(rpc) {
+  const client = createClient(rpc);
   try {
-    const res = await httpRequest(rpc, '/v1/supply/non-circulating');
+    const res = await client._httpGet('/v1/supply/non-circulating');
     if (res && !res.error && Array.isArray(res.accounts)) {
       let total = BigInt(0);
       for (const acct of res.accounts) {

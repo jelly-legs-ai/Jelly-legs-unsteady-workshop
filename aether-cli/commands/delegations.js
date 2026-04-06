@@ -9,10 +9,11 @@
  *   aether delegations list --address <addr>         List all stake delegations
  *   aether delegations list --address <addr> --json  JSON output
  *   aether delegations claim --address <addr> --account <stakeAcct> [--json]
+ *
+ * SDK wired to: GET /v1/slot, GET /v1/account/<addr>, GET /v1/stake/<addr>
  */
 
-const http = require('http');
-const https = require('https');
+const path = require('path');
 const readline = require('readline');
 const crypto = require('crypto');
 const bs58 = require('bs58').default;
@@ -32,18 +33,25 @@ const C = {
 };
 
 const DERIVATION_PATH = "m/44'/7777777'/0'/0'";
-const CLI_VERSION = '1.0.5';
+const CLI_VERSION = '1.0.6';
+
+// ---------------------------------------------------------------------------
+// SDK Import
+// ---------------------------------------------------------------------------
+
+const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
+const aether = require(sdkPath);
 
 // ---------------------------------------------------------------------------
 // Paths & config
 // ---------------------------------------------------------------------------
 
 function getAetherDir() {
-  return require('path').join(require('os').homedir(), '.aether');
+  return path.join(require('os').homedir(), '.aether');
 }
 
 function loadConfig() {
-  const p = require('path').join(getAetherDir(), 'config.json');
+  const p = path.join(getAetherDir(), 'config.json');
   if (!require('fs').existsSync(p)) return { defaultWallet: null };
   try {
     return JSON.parse(require('fs').readFileSync(p, 'utf8'));
@@ -53,7 +61,7 @@ function loadConfig() {
 }
 
 function loadWallet(address) {
-  const fp = require('path').join(getAetherDir(), 'wallets', `${address}.json`);
+  const fp = path.join(getAetherDir(), 'wallets', `${address}.json`);
   if (!require('fs').existsSync(fp)) return null;
   return JSON.parse(require('fs').readFileSync(fp, 'utf8'));
 }
@@ -75,57 +83,15 @@ function formatAddress(publicKey) {
 }
 
 // ---------------------------------------------------------------------------
-// HTTP helpers
+// Config helpers
 // ---------------------------------------------------------------------------
 
-function httpRequest(rpcUrl, path) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(path, rpcUrl);
-    const lib = url.protocol === 'https:' ? https : http;
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'GET',
-      timeout: 8000,
-      headers: { 'Content-Type': 'application/json' },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve({ raw: data }); } });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
-    req.end();
-  });
-}
-
-function httpPost(rpcUrl, path, body) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(path, rpcUrl);
-    const lib = url.protocol === 'https:' ? https : http;
-    const bodyStr = JSON.stringify(body);
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'POST',
-      timeout: 8000,
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve({ raw: data }); } });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
-    req.write(bodyStr);
-    req.end();
-  });
-}
-
 function getDefaultRpc() {
-  return process.env.AETHER_RPC || 'http://127.0.0.1:8899';
+  return process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
+}
+
+function createClient(rpcUrl) {
+  return new aether.AetherClient({ rpcUrl });
 }
 
 function formatAether(lamports) {
@@ -159,7 +125,7 @@ async function askMnemonic(rl, prompt) {
 }
 
 // ---------------------------------------------------------------------------
-// LIST DELEGATIONS
+// LIST DELEGATIONS  — uses SDK
 // ---------------------------------------------------------------------------
 
 async function listDelegations(args) {
@@ -169,9 +135,9 @@ async function listDelegations(args) {
   let rpcUrl = getDefaultRpc();
 
   for (let i = 0; i < args.length; i++) {
-    if ((args[i] === '--address' || args[i] === '-a') && args[i + 1]) address = args[i + 1];
+    if ((args[i] === '--address' || args[i] === '-a') && args[i + 1]) address = args[++i];
     else if (args[i] === '--json' || args[i] === '-j') asJson = true;
-    else if ((args[i] === '--rpc' || args[i] === '-r') && args[i + 1]) rpcUrl = args[i + 1];
+    else if ((args[i] === '--rpc' || args[i] === '-r') && args[i + 1]) rpcUrl = args[++i];
   }
 
   if (!address) {
@@ -186,29 +152,15 @@ async function listDelegations(args) {
     return;
   }
 
+  const client = createClient(rpcUrl);
+  const rawAddr = address.startsWith('ATH') ? address.slice(3) : address;
+
   try {
-    const rawAddr = address.startsWith('ATH') ? address.slice(3) : address;
-
-    // Fetch account info for context
-    const account = await httpRequest(rpcUrl, `/v1/account/${rawAddr}`);
-
-    // Fetch stake accounts for this wallet
-    // The RPC may return stake accounts via a dedicated endpoint or as program accounts
-    let stakeAccounts = [];
-    try {
-      const res = await httpRequest(rpcUrl, `/v1/stake?address=${encodeURIComponent(rawAddr)}`);
-      if (res && !res.error) {
-        stakeAccounts = Array.isArray(res) ? res : (res.accounts || []);
-      }
-    } catch {
-      // Fallback: try program account query
-      try {
-        const res2 = await httpRequest(rpcUrl, `/v1/program/STAKE/accounts?owner=${encodeURIComponent(rawAddr)}`);
-        if (res2 && !res2.error) {
-          stakeAccounts = Array.isArray(res2) ? res2 : (res2.accounts || []);
-        }
-      } catch { /* no stake accounts or RPC doesn't support this endpoint */ }
-    }
+    // Real chain RPC calls via SDK
+    const [account, stakeAccounts] = await Promise.all([
+      client.getAccountInfo(rawAddr).catch(() => null),
+      client.getStakePositions(rawAddr).catch(() => []),
+    ]);
 
     if (asJson) {
       console.log(JSON.stringify({
@@ -216,6 +168,7 @@ async function listDelegations(args) {
         rpc: rpcUrl,
         account: account && !account.error ? { lamports: account.lamports } : null,
         delegations: stakeAccounts,
+        cli_version: CLI_VERSION,
         fetched_at: new Date().toISOString(),
       }, null, 2));
       rl.close();
@@ -230,7 +183,7 @@ async function listDelegations(args) {
     }
     console.log();
 
-    if (stakeAccounts.length === 0) {
+    if (!stakeAccounts || stakeAccounts.length === 0) {
       console.log(`  ${C.dim}No stake delegations found for this wallet.${C.reset}`);
       console.log(`  ${C.dim}Delegate with:${C.reset} ${C.cyan}aether stake --address ${address} --validator <val> --amount <aeth>${C.reset}\n`);
       rl.close();
@@ -282,7 +235,7 @@ async function listDelegations(args) {
 }
 
 // ---------------------------------------------------------------------------
-// CLAIM REWARDS
+// CLAIM REWARDS  — uses SDK for fetch, wallet for signing
 // ---------------------------------------------------------------------------
 
 async function claimRewards(args) {
@@ -294,10 +247,10 @@ async function claimRewards(args) {
   let rpcUrl = getDefaultRpc();
 
   for (let i = 0; i < args.length; i++) {
-    if ((args[i] === '--address' || args[i] === '-a') && args[i + 1]) address = args[i + 1];
-    else if ((args[i] === '--account' || args[i] === '-s') && args[i + 1]) stakeAccount = args[i + 1];
+    if ((args[i] === '--address' || args[i] === '-a') && args[i + 1]) address = args[++i];
+    else if ((args[i] === '--account' || args[i] === '-s') && args[i + 1]) stakeAccount = args[++i];
     else if (args[i] === '--json' || args[i] === '-j') asJson = true;
-    else if ((args[i] === '--rpc' || args[i] === '-r') && args[i + 1]) rpcUrl = args[i + 1];
+    else if ((args[i] === '--rpc' || args[i] === '-r') && args[i + 1]) rpcUrl = args[++i];
   }
 
   if (!address) {
@@ -312,17 +265,14 @@ async function claimRewards(args) {
     return;
   }
 
-  if (!stakeAccount) {
-    // Fetch list first to let user pick
-    let stakeAccounts = [];
-    try {
-      const res = await httpRequest(rpcUrl, `/v1/stake?address=${encodeURIComponent(address.startsWith('ATH') ? address.slice(3) : address)}`);
-      if (res && !res.error) {
-        stakeAccounts = Array.isArray(res) ? res : (res.accounts || []);
-      }
-    } catch { /* noop */ }
+  const client = createClient(rpcUrl);
 
-    if (stakeAccounts.length === 0) {
+  // If no stake account specified, fetch list via SDK
+  if (!stakeAccount) {
+    const rawAddr = address.startsWith('ATH') ? address.slice(3) : address;
+    let stakeAccounts = await client.getStakePositions(rawAddr).catch(() => []);
+
+    if (!stakeAccounts || stakeAccounts.length === 0) {
       console.log(`  ${C.red}✗ No stake accounts found.${C.reset} Use ${C.cyan}--account <stakeAcct>${C.reset} to specify one.\n`);
       rl.close();
       return;
@@ -366,7 +316,7 @@ async function claimRewards(args) {
 
   let keyPair;
   try {
-    keyPair = deriveKeypair(mnemonic, DERIVATION_PATH);
+    keyPair = deriveKeypair(mnemonic);
   } catch (e) {
     console.log(`  ${C.red}✗ Failed to derive keypair: ${e.message}${C.reset}\n`);
     rl.close();
@@ -404,10 +354,10 @@ async function claimRewards(args) {
     timestamp: Math.floor(Date.now() / 1000),
   };
 
-  console.log(`  ${C.dim}Submitting to ${rpcUrl}...${C.reset}`);
+  console.log(`  ${C.dim}Submitting via SDK to ${rpcUrl}...${C.reset}`);
 
   try {
-    const result = await httpPost(rpcUrl, '/v1/tx', tx);
+    const result = await client.sendTransaction(tx);
 
     if (result.error) {
       console.log(`\n  ${C.red}✗ Claim failed:${C.reset} ${result.error}\n`);
