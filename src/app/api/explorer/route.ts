@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import path from 'path';
 
 /**
  * Explorer API Route
@@ -11,7 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 
 // Resolve SDK path at runtime - works from both src/ and dist/server/
-const SDK_PATH = process.env.SDK_PATH || (process.cwd() + '/aether-cli/sdk/index.js');
+const SDK_PATH = process.env.SDK_PATH || path.resolve(process.cwd(), '..', 'aether-cli', 'sdk', 'index.js');
 const DEFAULT_RPC_URL = 'http://127.0.0.1:8899';
 
 let AetherClient: any;
