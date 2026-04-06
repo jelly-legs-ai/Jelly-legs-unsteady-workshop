@@ -36,6 +36,7 @@ const { blockhashCommand } = require('./commands/blockhash');
 const { sdkTestCommand } = require('./commands/sdk-test');
 const { balanceCommand } = require('./commands/balance');
 const { transferCommand } = require('./commands/transfer');
+const { slotCommand } = require('./commands/slot');
 const readline = require('readline');
 
 // CLI version
@@ -427,6 +428,12 @@ const COMMANDS = {
     description: 'Transactions per second monitor — aether tps [--monitor] [--interval 2] [--json]',
     handler: () => {
       tpsCommand();
+    },
+  },
+  slot: {
+    description: 'Get current slot number — aether slot [--json] [--rpc <url>]',
+    handler: () => {
+      slotCommand();
     },
   },
   claim: {
