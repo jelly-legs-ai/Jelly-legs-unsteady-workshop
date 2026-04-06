@@ -167,14 +167,16 @@ async fn handle_http_request(
             };
             
             // Check validator health:
-            // - Healthy if slot is advancing (block_hash != genesis for non-zero slots)
-            // - Unhealthy if stuck on same slot for too long or block hash is invalid
-            let (healthy, error) = if current_slot == 0 && block_hash == state.get_genesis_hash() {
-                // Slot 0 with genesis hash is normal for fresh start
+            // - Healthy if no blocks produced yet (fresh start)
+            // - Healthy if blocks produced and block_hash is valid
+            // - Unhealthy if blocks produced but block_hash is still genesis (sync issue)
+            let blocks_produced = state.blocks_produced();
+            let (healthy, error) = if blocks_produced == 0 {
+                // No blocks produced yet - normal for fresh start
                 (true, None)
-            } else if current_slot > 0 && block_hash == state.get_genesis_hash() {
-                // Non-zero slot but still showing genesis hash = not producing blocks
-                (false, Some("Validator not producing blocks - slot advanced but block hash unchanged".to_string()))
+            } else if block_hash == state.get_genesis_hash() {
+                // Blocks produced but still showing genesis hash = sync issue
+                (false, Some("Validator not producing blocks - blocks_produced > 0 but block hash unchanged".to_string()))
             } else if block_hash.is_empty() {
                 // Empty block hash indicates initialization issue
                 (false, Some("Block hash not initialized - validator may not be synced".to_string()))
