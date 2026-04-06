@@ -21,7 +21,11 @@ impl StateDB {
     }
     
     pub fn init_from_genesis(&self, genesis_accounts: Vec<GenesisAccount>) {
-        let mut accounts = self.accounts.write().unwrap();
+        // Safely acquire write lock, return early if poisoned
+        let mut accounts = match self.accounts.write() {
+            Ok(lock) => lock,
+            Err(_) => return, // Lock poisoned - skip initialization
+        };
         for acc in genesis_accounts {
             let account = Account {
                 lamports: acc.lamports,
@@ -107,9 +111,15 @@ impl StateDB {
     
     #[allow(dead_code)]
     pub async fn increment_nonce(&self, address: &Address) -> u64 {
-        let mut nonce = self.nonce.write().unwrap();
+        // Safely acquire write lock, return 0 if poisoned
+        let mut nonce = match self.nonce.write() {
+            Ok(lock) => lock,
+            Err(_) => return 0, // Lock poisoned
+        };
         let new_nonce = *nonce.entry(*address).or_insert(0) + 1;
-        *nonce.get_mut(address).unwrap() = new_nonce;
+        if let Some(entry) = nonce.get_mut(address) {
+            *entry = new_nonce;
+        }
         new_nonce
     }
     
