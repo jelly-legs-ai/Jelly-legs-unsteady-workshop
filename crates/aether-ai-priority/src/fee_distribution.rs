@@ -682,11 +682,11 @@ mod tests {
         
         // V1 produces a block
         distributor.process_fee([1u8; 64], AIPriorityLane::High, 200_000, 1, 1000);
-        let fees1 = distributor.finalize_block(&v1);
+        let _fees1 = distributor.finalize_block(&v1);
         
         // V2 produces a block
         distributor.process_fee([2u8; 64], AIPriorityLane::Standard, 200_000, 2, 1000);
-        let fees2 = distributor.finalize_block(&v2);
+        let _fees2 = distributor.finalize_block(&v2);
         
         // Both should have rewards
         let r1 = distributor.get_validator_rewards(&v1).unwrap();

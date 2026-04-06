@@ -251,9 +251,9 @@ mod tests {
 
     #[test]
     fn test_verify_poh_chain() {
-        let mut gen = PoHGenerator::new();
+        let _gen = PoHGenerator::new();
         let genesis = PoHEntry::genesis();
-        gen = PoHGenerator::from_hash(genesis.hash);
+        let mut gen = PoHGenerator::from_hash(genesis.hash);
         
         let entry1 = gen.tick();
         let entry2 = gen.tick();

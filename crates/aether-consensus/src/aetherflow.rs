@@ -536,7 +536,7 @@ pub mod constants {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use aether_common::types::*;
+    use aether_common::types::AIPriorityLane;
 
     fn create_test_transaction(lane: AIPriorityLane, fee: u64) -> AetherTransaction {
         AetherTransaction {

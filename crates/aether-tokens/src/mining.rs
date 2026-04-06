@@ -431,7 +431,7 @@ mod tests {
 
     #[test]
     fn test_uptime_calculation() {
-        let mut device = MiningDevice {
+        let device = MiningDevice {
             owner: [1u8; 32],
             tier: DeviceTier::Mobile,
             registered_at: 0,

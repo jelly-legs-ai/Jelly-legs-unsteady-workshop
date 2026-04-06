@@ -162,7 +162,6 @@ fn test_ai_priority_queue_distribution() {
     assert_eq!(critical_count + high_count + standard_count, txs.len());
     
     // Verify ordering: all critical first, then high, then standard
-    let mut seen_critical = false;
     let mut seen_high = false;
     let mut seen_standard = false;
     
@@ -170,7 +169,7 @@ fn test_ai_priority_queue_distribution() {
         match tx.ai_meta.lane {
             AIPriorityLane::Critical => {
                 assert!(!seen_high && !seen_standard, "Critical tx at position {} after lower priority", i);
-                seen_critical = true;
+                // Critical is first, no state change needed
             }
             AIPriorityLane::High => {
                 assert!(!seen_standard, "High tx at position {} after standard", i);
@@ -321,7 +320,7 @@ fn test_epoch_transition() {
     consensus.add_validator(validator);
     
     // Produce blocks until epoch transition
-    let initial_epoch = consensus.current_epoch();
+    let _initial_epoch = consensus.current_epoch();
     
     // Note: In real implementation, we'd produce SLOTS_PER_EPOCH blocks
     // For test, we just verify epoch increments
