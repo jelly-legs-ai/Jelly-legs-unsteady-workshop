@@ -15,8 +15,11 @@
  *   aether history --address ATHxxx --rpc https://rpc.aether.io
  */
 
-const https = require('https');
-const http = require('http');
+const path = require('path');
+
+// Import SDK for real blockchain RPC calls
+const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
+const aether = require(sdkPath);
 
 // ANSI colours
 const C = {
@@ -33,67 +36,15 @@ const C = {
 const CLI_VERSION = '1.0.0';
 
 // ---------------------------------------------------------------------------
-// Config
+// SDK helpers - Real blockchain RPC calls via Aether SDK
 // ---------------------------------------------------------------------------
 
 function getDefaultRpc() {
-  return process.env.AETHER_RPC || 'http://127.0.0.1:8899';
+  return process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
 }
 
-// ---------------------------------------------------------------------------
-// HTTP helpers
-// ---------------------------------------------------------------------------
-
-function httpRequest(rpcUrl, path, timeoutMs = 10000) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(path, rpcUrl);
-    const lib = url.protocol === 'https:' ? https : http;
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'GET',
-      timeout: timeoutMs,
-      headers: { 'Content-Type': 'application/json' },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { resolve({ raw: data }); }
-      });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error(`Request timeout after ${timeoutMs}ms`)); });
-    req.end();
-  });
-}
-
-function httpPost(rpcUrl, path, body, timeoutMs = 15000) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(path, rpcUrl);
-    const lib = url.protocol === 'https:' ? https : http;
-    const bodyStr = JSON.stringify(body);
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'POST',
-      timeout: timeoutMs,
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { resolve({ raw: data }); }
-      });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error(`Request timeout after ${timeoutMs}ms`)); });
-    req.write(bodyStr);
-    req.end();
-  });
+function createClient(rpcUrl) {
+  return new aether.AetherClient({ rpcUrl });
 }
 
 // ---------------------------------------------------------------------------

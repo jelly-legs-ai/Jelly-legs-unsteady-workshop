@@ -19,8 +19,10 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const http = require('http');
-const https = require('https');
+
+// Import SDK for real blockchain RPC calls
+const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
+const aether = require(sdkPath);
 
 // ANSI colours
 const C = {
@@ -59,57 +61,15 @@ function loadConfig() {
 }
 
 // ---------------------------------------------------------------------------
-// HTTP helpers
+// SDK helpers - Real blockchain RPC calls via Aether SDK
 // ---------------------------------------------------------------------------
 
-function httpRequest(rpcUrl, pathStr) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(pathStr, rpcUrl);
-    const lib = url.protocol === 'https:' ? https : http;
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'GET',
-      timeout: 8000,
-      headers: { 'Content-Type': 'application/json' },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve({ raw: data }); } });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
-    req.end();
-  });
-}
-
-function httpPost(rpcUrl, pathStr, body) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(pathStr, rpcUrl);
-    const lib = url.protocol === 'https:' ? https : http;
-    const bodyStr = JSON.stringify(body);
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'POST',
-      timeout: 15000,
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve({ raw: data }); } });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
-    req.write(bodyStr);
-    req.end();
-  });
-}
-
 function getDefaultRpc() {
-  return process.env.AETHER_RPC || 'http://127.0.0.1:8899';
+  return process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
+}
+
+function createClient(rpcUrl) {
+  return new aether.AetherClient({ rpcUrl });
 }
 
 function formatAether(lamports) {
@@ -157,7 +117,8 @@ async function getIdentity(rpcUrl) {
 
   if (identity && identity.vote_account) {
     try {
-      const res = await httpRequest(rpcUrl, `/v1/account/${identity.vote_account}`);
+      const client = createClient(rpcUrl);
+      const res = await client.getAccountInfo(identity.vote_account);
       if (res && !res.error) {
         delegatedStake = res.lamports || 0;
         stakeStatus = 'active';
@@ -191,44 +152,41 @@ async function getNetworkStatus(rpcUrl) {
   let totalPeers = 0;
 
   try {
+    const client = createClient(rpcUrl);
     const results = await Promise.allSettled([
-      httpRequest(rpcUrl, '/v1/slot'),
-      httpRequest(rpcUrl, '/v1/epoch-info'),
-      httpRequest(rpcUrl, '/v1/block-height'),
-      httpRequest(rpcUrl, '/v1/peers'),
-      httpRequest(rpcUrl, '/v1/perf?limit=10'),
+      client.getSlot(),
+      client.getEpochInfo(),
+      client.getBlockHeight(),
+      client.getClusterPeers(),
+      { status: 'rejected', reason: new Error('Perf endpoint not in SDK') },
     ]);
 
-    const [slotRes, epochRes, blockHeightRes, peersRes, perfRes] = results;
+    const [slotRes, epochRes, blockHeightRes, peersRes] = results;
 
-    if (slotRes.status === 'fulfilled' && slotRes.value && !slotRes.value.error) {
-      slot = slotRes.value.slot ?? slotRes.value;
-      if (typeof slot === 'object') slot = slot.slot;
+    if (slotRes.status === 'fulfilled' && slotRes.value !== null) {
+      slot = typeof slotRes.value === 'object' ? slotRes.value.slot : slotRes.value;
     }
-    if (epochRes.status === 'fulfilled' && epochRes.value && !epochRes.value.error) {
+    if (epochRes.status === 'fulfilled' && epochRes.value) {
       const ei = epochRes.value;
       epoch = ei.epoch;
-      slotIndex = ei.slot_index;
-      slotsInEpoch = ei.slots_in_epoch;
-      blockTime = ei.block_time ?? null;
+      slotIndex = ei.slotIndex ?? ei.slot_index;
+      slotsInEpoch = ei.slotsInEpoch ?? ei.slots_in_epoch;
+      blockTime = ei.blockTime ?? ei.block_time ?? null;
     }
-    if (blockHeightRes.status === 'fulfilled' && blockHeightRes.value && !blockHeightRes.value.error) {
+    if (blockHeightRes.status === 'fulfilled' && blockHeightRes.value !== null) {
       blockHeight = typeof blockHeightRes.value === 'object'
-        ? blockHeightRes.value.block_height
+        ? blockHeightRes.value.blockHeight
         : blockHeightRes.value;
     }
-    if (peersRes.status === 'fulfilled' && peersRes.value && !peersRes.value.error) {
-      const pr = peersRes.value;
-      peers = Array.isArray(pr) ? pr : (pr.peers || []);
+    if (peersRes.status === 'fulfilled' && peersRes.value) {
+      peers = Array.isArray(peersRes.value) ? peersRes.value : (peersRes.value.peers || []);
       totalPeers = peers.length;
     }
-    if (perfRes.status === 'fulfilled' && perfRes.value && !perfRes.value.error && Array.isArray(perfRes.value)) {
-      const samples = perfRes.value.slice(-5);
-      if (samples.length > 0) {
-        const totalTPS = samples.reduce((sum, s) => sum + (s.tps || 0), 0);
-        TPS = Math.round(totalTPS / samples.length);
-      }
-    }
+    
+    // Get TPS from SDK
+    try {
+      TPS = await client.getTPS();
+    } catch { /* TPS not available */ }
   } catch { /* Network info unavailable */ }
 
   let syncState = 'unknown';
@@ -278,12 +236,13 @@ async function getStakeSummary(rpcUrl) {
     const walletAddr = cfg.defaultWallet;
 
     if (walletAddr) {
+      const client = createClient(rpcUrl);
       const rawAddr = walletAddr.startsWith('ATH') ? walletAddr.slice(3) : walletAddr;
-      const res = await httpRequest(rpcUrl, `/v1/stake?address=${encodeURIComponent(rawAddr)}`);
+      const res = await client.getStakePositions(rawAddr);
       if (res && !res.error) {
-        const accounts = Array.isArray(res) ? res : (res.accounts || []);
+        const accounts = Array.isArray(res) ? res : (res.accounts || res.stakes || res.delegations || []);
         for (const acc of accounts) {
-          const lamports = BigInt(acc.stake_lamports || acc.lamports || 0);
+          const lamports = BigInt(acc.stake_lamports || acc.lamports || acc.amount || 0);
           const status = (acc.status || acc.state || 'active').toLowerCase();
           const validator = acc.validator || acc.voter || acc.vote_account || 'unknown';
 
@@ -292,7 +251,7 @@ async function getStakeSummary(rpcUrl) {
 
           totalDelegated += lamports;
           positions.push({
-            stake_account: acc.pubkey || acc.publicKey || acc.account || 'unknown',
+            stake_account: acc.pubkey || acc.publicKey || acc.account || acc.stakeAccount || 'unknown',
             validator,
             lamports: lamports.toString(),
             lamports_formatted: formatAether(lamports.toString()),
