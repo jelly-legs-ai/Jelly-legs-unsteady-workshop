@@ -20,6 +20,7 @@ const { networkCommand } = require('./commands/network');
 const { validatorsListCommand } = require('./commands/validators');
 const { delegationsCommand } = require('./commands/delegations');
 const { rewardsCommand } = require('./commands/rewards');
+const { validatorRegisterCommand } = require('./commands/validator-register');
 const { accountCommand } = require('./commands/account');
 const { emergencyCommand } = require('./commands/emergency');
 const { priceCommand } = require('./commands/price');
@@ -41,7 +42,7 @@ const { configCommand } = require('./commands/config');
 const readline = require('readline');
 
 // CLI version
-const VERSION = '1.0.5';
+const VERSION = '1.4.0';
 
 // Parse args early to support flags on commands
 function getCommandArgs() {
@@ -294,8 +295,10 @@ const COMMANDS = {
         console.log('Usage: aether-cli validator <command>');
         console.log('');
         console.log('Commands:');
-        console.log('  start    Start the validator node');
-        console.log('  status   Check validator status');
+        console.log('  start      Start the validator node');
+        console.log('  status     Check validator status');
+        console.log('  info       Get validator info');
+        console.log('  register   Register validator with the network');
         console.log('');
         return;
       }
@@ -310,9 +313,12 @@ const COMMANDS = {
         case 'info':
           validatorInfo();
           break;
+        case 'register':
+          validatorRegisterCommand();
+          break;
         default:
           console.error(`Unknown validator command: ${subcmd}`);
-          console.error('Valid commands: start, status, info');
+          console.error('Valid commands: start, status, info, register');
           process.exit(1);
       }
     },
@@ -449,6 +455,12 @@ const COMMANDS = {
     handler: () => {
       const { claimCommand } = require('./commands/claim');
       claimCommand();
+    },
+  },
+  register: {
+    description: 'Register validator with network — aether register --wallet <addr> --amount <aeth> [--tier full]',
+    handler: () => {
+      validatorRegisterCommand();
     },
   },
   'sdk-test': {
