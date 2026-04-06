@@ -13,10 +13,15 @@
  *   aether validators list --sort stake  Sort by stake (default: score)
  *
  * Requires AETHER_RPC env var (default: http://127.0.0.1:8899)
+ * 
+ * SDK wired to: GET /v1/validators, GET /v1/epoch, GET /v1/supply
  */
 
-const http = require('http');
-const https = require('https');
+const path = require('path');
+
+// Import SDK for real blockchain RPC calls
+const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
+const aether = require(sdkPath);
 
 // ANSI colours
 const C = {
@@ -31,56 +36,12 @@ const C = {
   magenta: '\x1b[35m',
 };
 
-const DEFAULT_RPC = process.env.AETHER_RPC || 'http://127.0.0.1:8899';
-
-// ---------------------------------------------------------------------------
-// HTTP helpers
-// ---------------------------------------------------------------------------
-
-function httpRequest(rpcUrl, path) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(path, rpcUrl);
-    const lib = url.protocol === 'https:' ? https : http;
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'GET',
-      timeout: 8000,
-      headers: { 'Content-Type': 'application/json' },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve({ raw: data }); } });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
-    req.end();
-  });
+function getDefaultRpc() {
+  return process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
 }
 
-function httpPost(rpcUrl, path, body) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(path, rpcUrl);
-    const lib = url.protocol === 'https:' ? https : http;
-    const bodyStr = JSON.stringify(body);
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'POST',
-      timeout: 8000,
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve(data); } });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
-    req.write(bodyStr);
-    req.end();
-  });
+function createClient(rpcUrl) {
+  return new aether.AetherClient({ rpcUrl });
 }
 
 // ---------------------------------------------------------------------------
@@ -90,7 +51,7 @@ function httpPost(rpcUrl, path, body) {
 function parseArgs() {
   const args = process.argv.slice(3); // [node, index.js, validators, list, ...]
   const opts = {
-    rpc: DEFAULT_RPC,
+    rpc: getDefaultRpc(),
     subcmd: 'list',
     tier: null,
     asJson: false,
@@ -137,6 +98,7 @@ function parseArgs() {
 }
 
 function showHelp() {
+  const defaultRpc = getDefaultRpc();
   console.log(`
 ${C.bright}${C.cyan}aether-cli validators${C.reset} - List and inspect Aether validators
 
@@ -148,16 +110,21 @@ ${C.bright}Options (list):${C.reset}
   -t, --tier <type>   Filter by tier: full, lite, observer
   -s, --sort <field>  Sort by: stake, score, apy, uptime, name (default: score)
   -l, --limit <n>     Max validators to show (default: 100, max: 500)
-  -r, --rpc <url>     RPC endpoint (default: ${DEFAULT_RPC} or $AETHER_RPC)
+  -r, --rpc <url>     RPC endpoint (default: ${defaultRpc} or $AETHER_RPC)
   -j, --json          Output raw JSON (for scripting)
   -h, --help          Show this help message
 
 ${C.bright}Options (rank):${C.reset}
   -t, --tier <type>   Filter by tier: full, lite, observer
   -l, --limit <n>     Max validators to show (default: 50, max: 200)
-  -r, --rpc <url>     RPC endpoint (default: ${DEFAULT_RPC} or $AETHER_RPC)
+  -r, --rpc <url>     RPC endpoint (default: ${defaultRpc} or $AETHER_RPC)
   -j, --json          Output raw JSON (for scripting)
   -h, --help          Show this help message
+
+${C.bright}SDK Methods Used:${C.reset}
+  client.getValidators()  → GET /v1/validators
+  client.getEpochInfo()   → GET /v1/epoch
+  client.getSupply()      → GET /v1/supply
 
 ${C.bright}Examples:${C.reset}
   aether validators list                  # All validators, sorted by score
@@ -173,46 +140,40 @@ ${C.bright}Examples:${C.reset}
 }
 
 // ---------------------------------------------------------------------------
-// Data fetchers
+// Data fetchers using SDK - Real blockchain RPC calls
 // ---------------------------------------------------------------------------
 
-/** Fetch all validators from the network */
+/** Fetch all validators from the network using SDK */
 async function fetchValidators(rpc) {
   try {
-    // Try /v1/validators first (standard Aether RPC endpoint)
-    const res = await httpRequest(rpc, '/v1/validators');
-    if (res && !res.error) {
-      if (Array.isArray(res)) return res;
-      if (res.validators && Array.isArray(res.validators)) return res.validators;
-      if (res.accounts && Array.isArray(res.accounts)) return res.accounts;
-    }
-    // Fallback: POST to a validators query endpoint
-    const res2 = await httpPost(rpc, '/v1/validators', {});
-    if (res2 && !res2.error) {
-      if (Array.isArray(res2)) return res2;
-      if (res2.validators && Array.isArray(res2.validators)) return res2.validators;
-    }
-    return [];
+    const client = createClient(rpc);
+    // SDK getValidators() → GET /v1/validators
+    const result = await client.getValidators();
+    return Array.isArray(result) ? result : [];
   } catch {
     return [];
   }
 }
 
-/** Fetch epoch info for APY calculations */
+/** Fetch epoch info for APY calculations using SDK */
 async function fetchEpochInfo(rpc) {
   try {
-    const res = await httpRequest(rpc, '/v1/epoch-info');
-    return res;
+    const client = createClient(rpc);
+    // SDK getEpochInfo() → GET /v1/epoch
+    const result = await client.getEpochInfo();
+    return result || null;
   } catch {
     return null;
   }
 }
 
-/** Fetch network-wide stake totals for APY estimation */
+/** Fetch network-wide stake totals for APY estimation using SDK */
 async function fetchSupply(rpc) {
   try {
-    const res = await httpRequest(rpc, '/v1/supply');
-    return res;
+    const client = createClient(rpc);
+    // SDK getSupply() → GET /v1/supply
+    const result = await client.getSupply();
+    return result || null;
   } catch {
     return null;
   }
