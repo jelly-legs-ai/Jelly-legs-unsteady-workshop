@@ -2,20 +2,23 @@
 //!
 //! Produces blocks at a fixed interval (400ms per slot) with PoH hashing.
 //! Includes transaction execution and mempool management.
+//! Persists blocks to disk for crash recovery.
 
 use crate::executor::Executor;
 use crate::state_db::StateDB;
 use crate::state::ValidatorState;
+use crate::persistence::{PersistenceManager, PersistedBlock, PersistedAccount};
 use aether_core::{
     AetherTransaction, Account, Address, TransactionReceipt, TransactionPayload,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::VecDeque;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::time::{interval, Duration};
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 /// Slot duration in milliseconds
 pub const SLOT_TIME_MS: u64 = 400;
@@ -49,6 +52,8 @@ pub struct BlockProducer {
     transaction_pool: Arc<RwLock<VecDeque<AetherTransaction>>>,
     state_db: Arc<StateDB>,
     executor: Arc<Executor>,
+    persistence: Option<Arc<PersistenceManager>>,
+    _ledger_path: PathBuf,
 }
 
 impl BlockProducer {
@@ -60,7 +65,82 @@ impl BlockProducer {
             transaction_pool: Arc::new(RwLock::new(VecDeque::new())),
             state_db: Arc::new(state_db),
             executor,
+            persistence: None,
+            _ledger_path: PathBuf::from("ledger"),
         }
+    }
+    
+    /// Create block producer with persistence enabled
+    pub fn with_persistence(state: ValidatorState, state_db: StateDB, ledger_path: PathBuf) -> anyhow::Result<Self> {
+        let executor = Arc::new(Executor::new(state_db.clone()));
+        let persistence = Arc::new(PersistenceManager::new(&ledger_path)?);
+        
+        // Try to restore previous state
+        if let Some(snapshot) = persistence.load_snapshot()? {
+            info!("Restoring validator state from snapshot: slot={}, blocks={}", 
+                snapshot.current_slot, snapshot.blocks_produced);
+            state.set_current_slot(snapshot.current_slot);
+            state.set_block_hash(snapshot.block_hash.clone());
+            // Restore blocks produced count
+            for _ in 0..snapshot.blocks_produced {
+                state.increment_produced_blocks();
+            }
+            
+            // Restore peers
+            for peer in snapshot.peers {
+                state.add_peer(peer);
+            }
+        }
+        
+        // Restore accounts
+        let accounts = persistence.load_accounts()?;
+        if !accounts.is_empty() {
+            info!("Restoring {} accounts from disk", accounts.len());
+            for acc in accounts {
+                let addr = acc.address;
+                let account = Account {
+                    lamports: acc.lamports,
+                    owner: acc.owner,
+                    data: acc.data,
+                    rent_epoch: acc.rent_epoch,
+                };
+                state_db.set_account_sync(&addr, account);
+            }
+        }
+        
+        // Restore recent blocks into history
+        if let Some(latest_slot) = persistence.get_latest_slot()? {
+            let start = latest_slot.saturating_sub(MAX_BLOCK_HISTORY as u64);
+            let blocks = persistence.load_blocks_range(start, latest_slot + 1)?;
+            if !blocks.is_empty() {
+                info!("Restoring {} blocks from disk (slots {}-{})", 
+                    blocks.len(), start, latest_slot);
+                let mut history = VecDeque::with_capacity(MAX_BLOCK_HISTORY);
+                for b in blocks {
+                    history.push_back(Block {
+                        slot: b.slot,
+                        timestamp: b.timestamp,
+                        previous_block_hash: b.previous_block_hash,
+                        block_hash: b.block_hash,
+                        transactions: b.transactions,
+                        receipts: vec![], // Receipts not restored (can be recomputed if needed)
+                        poh_seed: b.poh_seed,
+                        state_root: b.state_root,
+                    });
+                }
+                // Block history will be set via Arc in run()
+            }
+        }
+        
+        Ok(Self {
+            state,
+            block_history: Arc::new(RwLock::new(VecDeque::with_capacity(MAX_BLOCK_HISTORY))),
+            transaction_pool: Arc::new(RwLock::new(VecDeque::new())),
+            state_db: Arc::new(state_db),
+            executor,
+            persistence: Some(persistence),
+            _ledger_path: ledger_path,
+        })
     }
 
     /// Start the block production loop
@@ -167,6 +247,11 @@ impl BlockProducer {
                 history.pop_front();
             }
         }
+        
+        // Persist block and state to disk (every 10 blocks to reduce I/O)
+        if slot % 10 == 0 {
+            self.persist_state().await;
+        }
 
         debug!(
             "Produced block {} with hash {} ({} transactions)",
@@ -174,6 +259,66 @@ impl BlockProducer {
             &block.block_hash[..16.min(block.block_hash.len())],
             block.transactions.len()
         );
+    }
+    
+    /// Persist current state to disk (called periodically)
+    async fn persist_state(&self) {
+        if let Some(ref pm) = self.persistence {
+            // Save validator snapshot
+            let snapshot = crate::persistence::ValidatorSnapshot {
+                current_slot: self.state.current_slot(),
+                block_hash: self.state.get_last_block_hash(),
+                blocks_produced: self.state.blocks_produced(),
+                transaction_count: self.state.transaction_count(),
+                genesis_hash: self.state.get_genesis_hash(),
+                chain_id: self.state.get_chain_id(),
+                peers: Vec::new(), // Peers tracked separately in NetworkState
+                timestamp: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs(),
+            };
+            
+            if let Err(e) = pm.save_snapshot(&snapshot) {
+                warn!("Failed to persist validator snapshot: {}", e);
+            }
+            
+            // Save accounts
+            let accounts = self.state_db.get_all_accounts_sync();
+            let persisted: Vec<PersistedAccount> = accounts.into_iter()
+                .map(|(addr, acc)| PersistedAccount {
+                    address: addr,
+                    lamports: acc.lamports,
+                    owner: acc.owner,
+                    data: acc.data,
+                    rent_epoch: acc.rent_epoch,
+                })
+                .collect();
+            
+            if let Err(e) = pm.save_accounts(&persisted) {
+                warn!("Failed to persist accounts: {}", e);
+            }
+            
+            // Save latest block
+            let history = self.block_history.read().await;
+            if let Some(latest_block) = history.back() {
+                let persisted_block = PersistedBlock {
+                    slot: latest_block.slot,
+                    timestamp: latest_block.timestamp,
+                    previous_block_hash: latest_block.previous_block_hash.clone(),
+                    block_hash: latest_block.block_hash.clone(),
+                    transactions: latest_block.transactions.clone(),
+                    poh_seed: latest_block.poh_seed.clone(),
+                    state_root: latest_block.state_root.clone(),
+                };
+                
+                if let Err(e) = pm.save_block(&persisted_block) {
+                    warn!("Failed to persist block: {}", e);
+                }
+            }
+            
+            debug!("Persisted state at slot {}", snapshot.current_slot);
+        }
     }
 
     /// Execute all pending transactions and return receipts

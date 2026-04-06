@@ -20,6 +20,7 @@ mod rpc_server;
 mod network;
 mod state_db;
 mod executor;
+mod persistence;
 
 pub use block_producer::*;
 pub use config::*;
@@ -27,6 +28,7 @@ pub use executor::*;
 pub use genesis::*;
 pub use keypair::*;
 pub use network::*;
+pub use persistence::*;
 pub use rpc_client::*;
 pub use rpc_server::*;
 pub use state::*;
@@ -368,13 +370,13 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
         info!("Loading genesis from: {}", path.display());
         let genesis = load_genesis_from_file(path)?;
         info!("Genesis loaded: chain_id={}, genesis_hash={}", genesis.chain_id, genesis.genesis_hash);
-        let state = ValidatorState::with_genesis(identity, *testnet, ledger_path, path)?;
+        let state = ValidatorState::with_genesis(identity, *testnet, ledger_path.clone(), path)?;
         // Override tier from CLI flag
         state.set_tier(validator_tier, Some(tier_config.clone()));
         state
     } else {
         info!("No genesis file specified - starting with internal genesis");
-        let state = ValidatorState::new(identity, *testnet, ledger_path)?;
+        let state = ValidatorState::new(identity, *testnet, ledger_path.clone())?;
         // Set tier from CLI flag
         state.set_tier(validator_tier, Some(tier_config.clone()));
         state
@@ -400,8 +402,17 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
         }).collect());
     }
 
-    // Create block producer with state DB
-    let block_producer = Arc::new(BlockProducer::new(validator_state.clone(), state_db));
+    // Create block producer with persistence enabled for production testnet
+    let persistence = PersistenceManager::new(&ledger_path)?;
+    info!("State persistence enabled at {}", ledger_path.display());
+    if persistence.has_persisted_state() {
+        info!("Found existing persisted state - will restore on startup");
+    }
+    let block_producer = Arc::new(BlockProducer::with_persistence(
+        validator_state.clone(), 
+        state_db,
+        ledger_path.clone()
+    )?);
 
     // Start block producer
     let bp_for_rpc = block_producer.clone();

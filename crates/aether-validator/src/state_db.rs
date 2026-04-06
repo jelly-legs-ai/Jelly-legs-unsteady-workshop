@@ -138,6 +138,14 @@ impl StateDB {
         self.accounts.read().map(|a| a.len()).unwrap_or(0)
     }
     
+    /// Get all accounts (for persistence)
+    pub fn get_all_accounts_sync(&self) -> Vec<(Address, Account)> {
+        match self.accounts.read() {
+            Ok(accounts) => accounts.iter().map(|(k, v)| (*k, v.clone())).collect(),
+            Err(_) => Vec::new(),
+        }
+    }
+    
     pub fn compute_state_root(&self) -> [u8; 32] {
         let accounts = match self.accounts.read() {
             Ok(a) => a,
