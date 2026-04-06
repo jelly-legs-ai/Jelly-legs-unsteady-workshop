@@ -281,6 +281,11 @@ fn select_weighted_leader(
     total_stake: u64,
     seed: &mut [u8; 32],
 ) -> [u8; 32] {
+    // Handle empty producer list gracefully - return zero pubkey instead of panicking
+    if weighted_producers.is_empty() {
+        return [0u8; 32];
+    }
+    
     let random_value = next_random(seed);
     let threshold = (random_value as u128 * total_stake as u128 / u64::MAX as u128) as u64;
     
@@ -294,8 +299,8 @@ fn select_weighted_leader(
         }
     }
     
-    // Fallback to last producer
-    let last = weighted_producers.last().unwrap();
+    // Fallback to last producer (safe - we checked for empty above)
+    let last = weighted_producers.last().expect("weighted_producers should not be empty");
     let mut result = [0u8; 32];
     result.copy_from_slice(&last.0[..32.min(last.0.len())]);
     result
