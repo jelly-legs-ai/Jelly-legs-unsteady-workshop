@@ -101,11 +101,20 @@ impl ForkChoice {
     /// Update stake weight for a block and propagate to all ancestors.
     /// In LMD GHOST, a vote for a block implicitly votes for all ancestors,
     /// so stake must propagate up the chain to the root.
+    /// 
+    /// Returns the number of blocks whose stake was updated, or an error if the block doesn't exist.
     pub fn update_stake(
         &mut self,
         hash: [u8; 32],
         additional_stake: u64,
-    ) {
+    ) -> ConsensusResult<usize> {
+        // Verify block exists first
+        if !self.blocks.contains_key(&hash) {
+            return Err(ConsensusError::ForkChoiceViolation(
+                format!("Block {:?} not found for stake update", hash)
+            ));
+        }
+
         // First, collect the ancestor chain to avoid borrow checker issues
         let mut ancestors = Vec::new();
         let mut current = hash;
@@ -126,13 +135,16 @@ impl ForkChoice {
         }
         
         // Now update stake for all ancestors (excluding root)
+        let mut updated_count = 0;
         for ancestor_hash in ancestors {
             if let Some(block) = self.blocks.get_mut(&ancestor_hash) {
                 block.stake_weight = block.stake_weight.saturating_add(additional_stake);
+                updated_count += 1;
             }
         }
         
         self.update_best_block();
+        Ok(updated_count)
     }
 
     /// Update best block based on LMD GHOST fork choice rule
@@ -474,12 +486,32 @@ mod tests {
         assert_eq!(fc.get_block(&b2).unwrap().stake_weight, 100);
         assert_eq!(fc.get_block(&b3).unwrap().stake_weight, 100);
 
-        // Update stake on b3 - should propagate to b2, b1, and root
-        fc.update_stake(b3, 50);
+        // Update stake on b3 - should propagate to b2, b1 (3 blocks total)
+        let updated = fc.update_stake(b3, 50).unwrap();
+        assert_eq!(updated, 3, "Should update 3 blocks (b1, b2, b3)");
 
         // All ancestors should now have +50 stake (root excluded due to u64::MAX)
         assert_eq!(fc.get_block(&b1).unwrap().stake_weight, 150);
         assert_eq!(fc.get_block(&b2).unwrap().stake_weight, 150);
         assert_eq!(fc.get_block(&b3).unwrap().stake_weight, 150);
+    }
+
+    #[test]
+    fn test_update_stake_nonexistent_block() {
+        // Verify that updating stake on non-existent block returns error
+        let root = create_hash(0);
+        let mut fc = ForkChoice::new(root);
+
+        let fake_hash = create_hash(99);
+        let result = fc.update_stake(fake_hash, 100);
+        
+        assert!(result.is_err(), "Should return error for non-existent block");
+        
+        match result {
+            Err(ConsensusError::ForkChoiceViolation(msg)) => {
+                assert!(msg.contains("not found"), "Error message should mention block not found");
+            }
+            _ => panic!("Should return ForkChoiceViolation error"),
+        }
     }
 }

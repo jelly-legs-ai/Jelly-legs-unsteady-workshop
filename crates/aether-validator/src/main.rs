@@ -309,10 +309,17 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
 
     // Enforce stake requirements based on tier (unless --no-stake for testing)
     if !no_stake {
-        // TODO: Load actual stake from stake account or genesis
-        // For now, we'll check against a placeholder stake value
-        // In production, this would query the stake program
-        let current_stake: u64 = 0; // Placeholder - will be loaded from stake account
+        // Load actual stake from genesis configuration
+        let current_stake: u64 = if let Some(ref genesis) = genesis_config {
+            // Look up this validator's stake in the genesis bootstrap validators
+            genesis.bootstrap_validators
+                .iter()
+                .find(|v| v.identity_pubkey == identity_pubkey.to_string())
+                .map(|v| v.stake)
+                .unwrap_or(0)
+        } else {
+            0
+        };
 
         match validator_tier {
             ValidatorTier::Full => {
