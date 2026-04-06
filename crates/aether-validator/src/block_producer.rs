@@ -7,7 +7,7 @@ use crate::executor::Executor;
 use crate::state_db::StateDB;
 use crate::state::ValidatorState;
 use aether_core::{
-    AetherTransaction, Account, Address, TransactionReceipt,
+    AetherTransaction, Account, Address, TransactionReceipt, TransactionPayload,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -22,6 +22,12 @@ pub const SLOT_TIME_MS: u64 = 400;
 
 /// Maximum blocks to keep in rolling history
 pub const MAX_BLOCK_HISTORY: usize = 1000;
+
+/// Maximum compute units per block (must match consensus spec in aether-consensus)
+pub const MAX_COMPUTE_UNITS_PER_BLOCK: u64 = 48_000_000;
+
+/// Maximum transactions per block
+pub const MAX_TRANSACTIONS_PER_BLOCK: usize = 10_000;
 
 /// A produced block
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -155,16 +161,50 @@ impl BlockProducer {
     }
 
     /// Execute all pending transactions and return receipts
+    /// Enforces compute unit limit (MAX_COMPUTE_UNITS_PER_BLOCK) and transaction count limit.
     async fn execute_pending_transactions(&self, slot: u64) -> Vec<TransactionReceipt> {
         let mut receipts = Vec::new();
+        let mut total_compute_units: u64 = 0;
+        let mut tx_count: usize = 0;
         
-        // Drain up to 100 transactions from the pool
-        let txs_to_process = {
+        // First, drain all transactions from the pool
+        let all_txs = {
             let mut pool = self.transaction_pool.write().await;
-            let count = pool.len().min(100);
-            let txs: Vec<_> = pool.drain(0..count).collect();
-            txs
+            pool.drain(..).collect::<Vec<_>>()
         };
+        
+        // Select transactions respecting compute and count limits
+        let mut txs_to_process = Vec::new();
+        let mut remaining_txs = Vec::new();
+        
+        for tx in all_txs {
+            let tx_compute = self.estimate_compute_units(&tx);
+            
+            // Check if adding this tx would exceed limits
+            if total_compute_units + tx_compute > MAX_COMPUTE_UNITS_PER_BLOCK {
+                // Put back in remaining queue
+                remaining_txs.push(tx);
+                continue;
+            }
+            
+            if tx_count >= MAX_TRANSACTIONS_PER_BLOCK {
+                // Put back in remaining queue
+                remaining_txs.push(tx);
+                continue;
+            }
+            
+            total_compute_units += tx_compute;
+            tx_count += 1;
+            txs_to_process.push(tx);
+        }
+        
+        // Put remaining transactions back in the pool
+        {
+            let mut pool = self.transaction_pool.write().await;
+            for tx in remaining_txs.into_iter().rev() {
+                pool.push_front(tx);
+            }
+        }
         
         for tx in txs_to_process {
             let result = self.executor.execute(&tx);
@@ -180,7 +220,35 @@ impl BlockProducer {
             receipts.push(receipt);
         }
         
+        debug!(
+            "Executed {} transactions using {} compute units (limit: {})",
+            receipts.len(),
+            total_compute_units,
+            MAX_COMPUTE_UNITS_PER_BLOCK
+        );
+        
         receipts
+    }
+
+    /// Estimate compute units for a transaction based on its type
+    /// These estimates should match the actual execution costs in executor.rs
+    fn estimate_compute_units(&self, tx: &AetherTransaction) -> u64 {
+        // Base cost for signature verification and transaction processing
+        const BASE_COST: u64 = 150_000;
+        
+        // Additional cost based on transaction type
+        let type_cost = match &tx.payload {
+            TransactionPayload::Transfer { .. } => 50_000,
+            TransactionPayload::Stake { .. } => 200_000,
+            TransactionPayload::Unstake { .. } => 200_000,
+            TransactionPayload::ClaimRewards { .. } => 150_000,
+            TransactionPayload::CreateNFT { .. } => 300_000,
+            TransactionPayload::MintNFT { .. } => 250_000,
+            TransactionPayload::TransferNFT { .. } => 180_000,
+            TransactionPayload::UpdateMetadata { .. } => 120_000,
+        };
+        
+        BASE_COST + type_cost
     }
 
     /// Submit a transaction to the mempool
