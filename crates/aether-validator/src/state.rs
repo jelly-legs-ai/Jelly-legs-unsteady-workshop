@@ -190,8 +190,12 @@ impl ValidatorState {
     pub fn increment_slot(&self) {
         let slot = self.inner.current_slot.fetch_add(1, Ordering::Relaxed) + 1;
         self.inner.block_height.store(slot, Ordering::Relaxed);
-        self.inner.slot_index.store(slot % 432_000, Ordering::Relaxed);
-        self.inner.epoch.store(slot / 432_000, Ordering::Relaxed);
+        // Use genesis epoch duration for slot index and epoch calculation
+        let slots_per_epoch = self.get_genesis()
+            .map(|g| g.rewards.epoch_duration)
+            .unwrap_or(432_000);
+        self.inner.slot_index.store(slot % slots_per_epoch, Ordering::Relaxed);
+        self.inner.epoch.store(slot / slots_per_epoch, Ordering::Relaxed);
         self.inner.transaction_count.fetch_add(1, Ordering::Relaxed);
         
         if slot.is_multiple_of(32) {
@@ -223,10 +227,14 @@ impl ValidatorState {
 
     pub fn epoch_info(&self) -> EpochInfo {
         let slot = self.current_slot();
+        // Read epoch duration from genesis config, default to 432_000 if not available
+        let slots_in_epoch = self.get_genesis()
+            .map(|g| g.rewards.epoch_duration)
+            .unwrap_or(432_000);
         EpochInfo {
-            epoch: slot / 432_000,
-            slot_index: slot % 432_000,
-            slots_in_epoch: 432_000,
+            epoch: slot / slots_in_epoch,
+            slot_index: slot % slots_in_epoch,
+            slots_in_epoch,
             absolute_slot: slot,
             transaction_count: self.transaction_count(),
         }
@@ -242,6 +250,13 @@ impl ValidatorState {
             slots_in_epoch: epoch.slots_in_epoch,
             absolute_slot: epoch.absolute_slot,
         }
+    }
+
+    /// Get slots per epoch from genesis config
+    pub fn get_slots_per_epoch(&self) -> u64 {
+        self.get_genesis()
+            .map(|g| g.rewards.epoch_duration)
+            .unwrap_or(432_000)
     }
 
     pub fn get_connected_validators(&self) -> Vec<ValidatorInfo> {
