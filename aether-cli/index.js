@@ -35,6 +35,7 @@ const { tpsCommand } = require('./commands/tps');
 const { blockhashCommand } = require('./commands/blockhash');
 const { sdkTestCommand } = require('./commands/sdk-test');
 const { balanceCommand } = require('./commands/balance');
+const { transferCommand } = require('./commands/transfer');
 const readline = require('readline');
 
 // CLI version
@@ -239,11 +240,7 @@ const COMMANDS = {
   transfer: {
     description: 'Transfer AETH to another address — aether transfer --to <addr> --amount <aeth>',
     handler: () => {
-      const { walletCommand } = require('./commands/wallet');
-      const originalArgv = process.argv;
-      process.argv = [...originalArgv.slice(0, 2), 'wallet', 'transfer', ...originalArgv.slice(3)];
-      walletCommand();
-      process.argv = originalArgv;
+      transferCommand();
     },
   },
   tx: {
