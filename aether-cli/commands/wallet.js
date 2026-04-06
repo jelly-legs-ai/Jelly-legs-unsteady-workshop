@@ -628,36 +628,8 @@ async function balanceWallet(rl) {
 }
 
 // ---------------------------------------------------------------------------
-// HTTP helpers for POST requests
+// Transaction helpers using SDK
 // ---------------------------------------------------------------------------
-
-function httpPost(rpcUrl, path, body) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(path, rpcUrl);
-    const lib = url.protocol === 'https:' ? require('https') : require('http');
-    const bodyStr = JSON.stringify(body);
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(bodyStr),
-      },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { resolve(data); }
-      });
-    });
-    req.on('error', reject);
-    req.write(bodyStr);
-    req.end();
-  });
-}
 
 /**
  * Sign a transaction using the wallet's secret key.
@@ -670,10 +642,14 @@ function signTransaction(tx, secretKey) {
 }
 
 /**
- * Compute SHA-512 hash of data (as hex string) — used for tx id
+ * Submit a transaction using SDK client.sendTransaction()
+ * @param {Object} tx - Transaction object (must have signature set)
+ * @param {string} rpcUrl - RPC endpoint
+ * @returns {Promise<Object>} Transaction result
  */
-function sha512hex(data) {
-  return crypto.createHash('sha512').update(data).digest('hex');
+async function submitViaSDK(tx, rpcUrl) {
+  const client = new aether.AetherClient({ rpcUrl });
+  return client.sendTransaction(tx);
 }
 
 // ---------------------------------------------------------------------------
@@ -773,6 +749,15 @@ async function stakeWallet(rl) {
     return;
   }
 
+  // Fetch current slot via SDK for the transaction
+  const rpcUrl = getDefaultRpc();
+  let currentSlot = 0;
+  try {
+    currentSlot = await new aether.AetherClient({ rpcUrl }).getSlot();
+  } catch (e) {
+    // Continue with slot 0 if RPC unavailable
+  }
+
   // Build the transaction
   const tx = {
     signer: address.startsWith('ATH') ? address.slice(3) : address,
@@ -784,26 +769,31 @@ async function stakeWallet(rl) {
         amount: lamports,
       },
     },
-    fee: 0,
-    slot: 0,
+    fee: 5000,
+    slot: currentSlot,
     timestamp: Math.floor(Date.now() / 1000),
   };
 
-  const rpcUrl = getDefaultRpc();
-  console.log(`  ${C.dim}Submitting to ${rpcUrl}...${C.reset}`);
+  // Sign transaction with wallet secret key
+  tx.signature = signTransaction(tx, keyPair.secretKey);
+
+  console.log(`  ${C.dim}Submitting via SDK to ${rpcUrl}...${C.reset}`);
 
   try {
-    const result = await httpPost(rpcUrl, '/v1/tx', tx);
+    // Submit via SDK (real RPC POST /v1/transaction)
+    const result = await submitViaSDK(tx, rpcUrl);
 
     if (result.error) {
       console.log(`\n  ${C.red}✗ Transaction failed:${C.reset} ${result.error}\n`);
       process.exit(1);
     }
 
-    const sig = result.signature || result.tx_signature || result.id || JSON.stringify(result);
+    const sig = result.signature || result.tx_signature || result.txid || result.id || JSON.stringify(result);
     console.log(`\n${C.green}✓ Stake transaction submitted!${C.reset}`);
-    console.log(`  ${C.dim}Signature:${C.reset} ${sig}`);
-    console.log(`  ${C.dim}Use: aether-cli validator status${C.reset} to monitor.\n`);
+    console.log(`  ${C.dim}Signature:${C.reset} ${C.cyan}${sig}${C.reset}`);
+    console.log(`  ${C.dim}Slot:${C.reset} ${result.slot || currentSlot}`);
+    console.log(`  ${C.dim}SDK: sendTransaction()${C.reset}`);
+    console.log(`  ${C.dim}Check: aether delegations list --address ${address}${C.reset}\n`);
   } catch (err) {
     console.log(`  ${C.red}✗ Failed to submit transaction:${C.reset} ${err.message}`);
     console.log(`  ${C.dim}Is your validator running? RPC: ${rpcUrl}${C.reset}\n`);
@@ -907,36 +897,51 @@ async function transferWallet(rl) {
     return;
   }
 
+  // Fetch current slot via SDK
+  const rpcUrl = getDefaultRpc();
+  let currentSlot = 0;
+  try {
+    currentSlot = await new aether.AetherClient({ rpcUrl }).getSlot();
+  } catch (e) {
+    // Continue with slot 0
+  }
+
+  // Build transfer transaction
   const tx = {
     signer: address.startsWith('ATH') ? address.slice(3) : address,
     tx_type: 'Transfer',
     payload: {
       type: 'Transfer',
       data: {
-        recipient,
+        recipient: recipient.startsWith('ATH') ? recipient.slice(3) : recipient,
         amount: lamports,
         nonce: Math.floor(Math.random() * 0xffffffff),
       },
     },
-    fee: 0,
-    slot: 0,
+    fee: 5000,
+    slot: currentSlot,
     timestamp: Math.floor(Date.now() / 1000),
   };
 
-  const rpcUrl = getDefaultRpc();
-  console.log(`  ${C.dim}Submitting to ${rpcUrl}...${C.reset}`);
+  // Sign transaction
+  tx.signature = signTransaction(tx, keyPair.secretKey);
+
+  console.log(`  ${C.dim}Submitting via SDK to ${rpcUrl}...${C.reset}`);
 
   try {
-    const result = await httpPost(rpcUrl, '/v1/tx', tx);
+    // Submit via SDK
+    const result = await submitViaSDK(tx, rpcUrl);
 
     if (result.error) {
       console.log(`\n  ${C.red}✗ Transaction failed:${C.reset} ${result.error}\n`);
       process.exit(1);
     }
 
-    const sig = result.signature || result.tx_signature || result.id || JSON.stringify(result);
+    const sig = result.signature || result.tx_signature || result.txid || result.id || JSON.stringify(result);
     console.log(`\n${C.green}✓ Transfer transaction submitted!${C.reset}`);
-    console.log(`  ${C.dim}Signature:${C.reset} ${sig}`);
+    console.log(`  ${C.dim}Signature:${C.reset} ${C.cyan}${sig}${C.reset}`);
+    console.log(`  ${C.dim}Slot:${C.reset} ${result.slot || currentSlot}`);
+    console.log(`  ${C.dim}SDK: sendTransaction()${C.reset}`);
     console.log(`  ${C.dim}Check balance: aether wallet balance --address ${address}${C.reset}\n`);
   } catch (err) {
     console.log(`  ${C.red}✗ Failed to submit transaction:${C.reset} ${err.message}`);
@@ -1441,6 +1446,15 @@ async function unstakeWallet(rl) {
     return;
   }
 
+  // Fetch current slot via SDK
+  const rpcUrl = getDefaultRpc();
+  let currentSlot = 0;
+  try {
+    currentSlot = await new aether.AetherClient({ rpcUrl }).getSlot();
+  } catch (e) {
+    // Continue with slot 0
+  }
+
   // Build the unstake transaction
   const txData = {
     type: 'Unstake',
@@ -1456,25 +1470,30 @@ async function unstakeWallet(rl) {
     signer: address.startsWith('ATH') ? address.slice(3) : address,
     tx_type: 'Unstake',
     payload: txData,
-    fee: 0,
-    slot: 0,
+    fee: 5000,
+    slot: currentSlot,
     timestamp: Math.floor(Date.now() / 1000),
   };
 
-  const rpcUrl = getDefaultRpc();
-  console.log(`  ${C.dim}Submitting to ${rpcUrl}...${C.reset}`);
+  // Sign transaction
+  tx.signature = signTransaction(tx, keyPair.secretKey);
+
+  console.log(`  ${C.dim}Submitting via SDK to ${rpcUrl}...${C.reset}`);
 
   try {
-    const result = await httpPost(rpcUrl, '/v1/tx', tx);
+    // Submit via SDK
+    const result = await submitViaSDK(tx, rpcUrl);
 
     if (result.error) {
       console.log(`\n  ${C.red}✗ Unstake failed:${C.reset} ${result.error}\n`);
       process.exit(1);
     }
 
-    const sig = result.signature || result.tx_signature || result.id || JSON.stringify(result);
+    const sig = result.signature || result.tx_signature || result.txid || result.id || JSON.stringify(result);
     console.log(`\n${C.green}✓ Unstake transaction submitted!${C.reset}`);
-    console.log(`  ${C.dim}Signature:${C.reset} ${sig}`);
+    console.log(`  ${C.dim}Signature:${C.reset} ${C.cyan}${sig}${C.reset}`);
+    console.log(`  ${C.dim}Slot:${C.reset} ${result.slot || currentSlot}`);
+    console.log(`  ${C.dim}SDK: sendTransaction()${C.reset}`);
     console.log(`  ${C.dim}Stake will deactivate over the next epoch.${C.reset}`);
     console.log(`  ${C.dim}Check status: aether delegations list --address ${address}${C.reset}\n`);
   } catch (err) {
