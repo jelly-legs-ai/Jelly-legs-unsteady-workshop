@@ -1,6 +1,6 @@
 {
   "name": "@jellylegsai/aether-validator-cli",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Aether Validator CLI - tiered validators (Full/Lite/Observer), system checks, onboarding, staking, and node management",
   "main": "index.js",
   "bin": {
@@ -46,6 +46,9 @@
     "win32"
   ],
   "preferGlobal": true,
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "bip32": "^5.0.1",
     "bip39": "^3.1.0",
