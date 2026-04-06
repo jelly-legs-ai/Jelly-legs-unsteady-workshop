@@ -61,104 +61,61 @@ export default function ExplorerPage() {
     setBlockData(null);
 
     try {
+      // Route ALL lookups through /api/explorer — server-side RPC, no CORS issues
+      const payload: any = { type: lookupType };
+
       if (lookupType === "address") {
-        // Direct RPC call for address lookup (consistent with block lookup pattern)
-        const rpcUrl = process.env.AETHER_RPC || "http://127.0.0.1:8899";
-        const rawAddress = searchInput.trim().startsWith("ATH")
-          ? searchInput.trim().slice(3)
-          : searchInput.trim();
-
-        const [accountRes, slotRes] = await Promise.all([
-          fetch(rpcUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              jsonrpc: "2.0",
-              id: 1,
-              method: "getAccountInfo",
-              params: [rawAddress, { encoding: "json" }],
-            }),
-          }),
-          fetch(rpcUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              jsonrpc: "2.0",
-              id: 1,
-              method: "getSlot",
-              params: [],
-            }),
-          }),
-        ]);
-
-        const [accountData, slotData] = await Promise.all([
-          accountRes.json(),
-          slotRes.json(),
-        ]);
-
-        if (accountData.error) throw new Error(accountData.error.message || "Account lookup failed");
-        if (slotData.error) throw new Error(slotData.error.message || "Slot lookup failed");
-
-        const accountInfo = accountData.result?.value;
-        const balanceLamports = accountInfo?.lamports || 0;
-        const balanceAeth = balanceLamports / 1e9;
-
-        setAddressData({
-          address: searchInput.trim(),
-          balance: balanceAeth,
-          balanceFormatted: `${balanceAeth.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })} ATH`,
-          owner: accountInfo?.owner || null,
-          executable: accountInfo?.executable || false,
-          rentEpoch: accountInfo?.rentEpoch || null,
-          slot: slotData.result,
-          exists: accountInfo !== null,
-        });
+        payload.address = searchInput.trim();
       } else if (lookupType === "transaction") {
-        // getTransaction RPC via /api/explorer
-        const res = await fetch("/api/explorer", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            signature: searchInput.trim(),
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Lookup failed");
-        setTxData({
-          signature: data.signature || searchInput.trim(),
-          slot: data.slot || null,
-          blockTime: data.blockTime || null,
-          fee: data.fee || null,
-          status: data.status || "unknown",
-          type: data.type || "transfer",
-        });
+        payload.signature = searchInput.trim();
       } else if (lookupType === "block") {
-        // getBlock RPC
         const blockNum = parseInt(searchInput.trim());
         if (isNaN(blockNum) || blockNum < 0) {
           throw new Error("Block height must be a non-negative number");
         }
-        const rpcUrl = process.env.AETHER_RPC || "http://127.0.0.1:8899";
-        const rpcRes = await fetch(rpcUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            id: 1,
-            method: "getBlock",
-            params: [blockNum, { encoding: "json", maxSupportedTransactionVersion: 0 }],
-          }),
+        payload.blockHeight = blockNum;
+      }
+
+      const res = await fetch("/api/explorer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Lookup failed");
+      }
+
+      if (lookupType === "address") {
+        setAddressData({
+          address: data.address,
+          balance: data.balance,
+          balanceFormatted: data.balanceFormatted,
+          owner: data.owner,
+          executable: data.executable,
+          rentEpoch: data.rentEpoch,
+          slot: data.slot,
+          exists: data.exists,
         });
-        const rpcData = await rpcRes.json();
-        if (rpcData.error) throw new Error(rpcData.error.message || "Block lookup failed");
-        const result = rpcData.result;
+      } else if (lookupType === "transaction") {
+        setTxData({
+          signature: data.signature,
+          slot: data.slot,
+          blockTime: data.blockTime,
+          fee: data.fee,
+          status: data.status,
+          type: data.txType || "transfer",
+        });
+      } else if (lookupType === "block") {
         setBlockData({
-          blockHeight: blockNum,
-          slot: result?.slot || blockNum,
-          epoch: result?.epoch || null,
-          blockTime: result?.blockTime || null,
-          transactions: result?.transactions?.length || 0,
-          blockHash: result?.blockhash || null,
+          blockHeight: data.blockHeight,
+          slot: data.slot,
+          epoch: data.epoch,
+          blockTime: data.blockTime,
+          transactions: data.transactions,
+          blockHash: data.blockHash,
         });
       }
     } catch (err: any) {
