@@ -115,7 +115,7 @@ impl ForkChoice {
             ));
         }
 
-        // First, collect the ancestor chain to avoid borrow checker issues
+        // First, collect the ancestor chain INCLUDING the target block to avoid borrow checker issues
         let mut ancestors = Vec::new();
         let mut current = hash;
         
@@ -134,7 +134,8 @@ impl ForkChoice {
             }
         }
         
-        // Now update stake for all ancestors (excluding root)
+        // Now update stake for the target block AND all ancestors (excluding root)
+        // FIX: The target block itself must receive the stake - this is the core of LMD GHOST
         let mut updated_count = 0;
         for ancestor_hash in ancestors {
             if let Some(block) = self.blocks.get_mut(&ancestor_hash) {
