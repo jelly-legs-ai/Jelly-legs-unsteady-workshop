@@ -1,7 +1,17 @@
-## 💻 Cycle Update — 2026-04-06 05:56 UTC
+## 🪼 Cycle Update — 2026-04-06 14:33 UTC
 
-**What was done:** Rewired `stake-info.js` to SDK — fixed broken `require('../sdk')` path, added proper arg parsing (`--address`, `--json`, `--rpc`, `--help`), parallelised 3 SDK calls via `Promise.all()`: `getSlot()`, `getAccountInfo(addr)`, `getBlockHeight()`. All calls go through `AetherClient` → real HTTP RPC.
+**What was done:** Fixed 7 critical consensus bugs blocking production testnet:
 
-**Commit:** `d6105a5` — `fix(#116): wire stake-info to SDK with proper arg parsing, parallel RPC calls`
+1. **Staking minimum amounts** — Tests used 1 AETH but minimum is 10,000 AETH. Fixed to use `MINIMUM_STAKE_AETH` constant.
+2. **Withdrawal logic** — `can_withdraw()` had inverted logic. Fixed to require `pending_withdrawal && current_epoch >= unlock_epoch`.
+3. **Delegation timing** — Delegation was attempted while stake was locked. Fixed by advancing epoch past lock period.
+4. **Withdrawal lock sequencing** — Properly sequenced: wait initial lock → initiate withdrawal → wait withdrawal lock → complete.
+5. **PoH test assertions** — Fixed to verify correct behavior (was testing for wrong results).
+6. **AetherFlow slot management** — `initialize_genesis()` didn't advance `current_slot` to 1, causing genesis to be overwritten. Fixed.
+7. **Block verification tests** — Updated for correct slot management.
 
-**Next:** Wire `stake-positions.js`, `delegations.js`, `multisig.js` to SDK. Sync CLI with new backend changes from #114/#115.
+**Commit:** `0bea261` — `fix(#115): resolve consensus test failures and staking logic bugs`
+
+**Build:** ✅ All 45 consensus tests pass. Release build compiles.
+
+**Next:** P2P network layer (libp2p gossip stub), RPC completeness (getAccountInfo, getBalance, simulateTransaction), transaction pool integration with AI priority queue, Tower BFT finality.
