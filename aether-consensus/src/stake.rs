@@ -94,7 +94,19 @@ impl StakePosition {
             start_time: now,
             lock_period,
             accumulated_rewards: 0,
-            last_claim: now,
+            last_claim: now, // Set to start_time so rewards accrue from stake inception
+        }
+    }
+    
+    /// Create a new stake position with explicit start time (for testing/genesis)
+    pub fn new_with_start_time(owner: String, amount: u64, lock_period: u64, start_time: u64) -> Self {
+        Self {
+            owner,
+            amount,
+            start_time,
+            lock_period,
+            accumulated_rewards: 0,
+            last_claim: start_time, // Rewards accrue from the actual start time
         }
     }
     
@@ -335,4 +347,84 @@ pub struct StakeInfoPosition {
     pub lock_remaining: Option<u64>,
     pub accumulated_rewards: u64,
     pub total_value: u64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_stake_position_creation() {
+        let pos = StakePosition::new("test_owner".to_string(), 1_000_000, 0);
+        assert_eq!(pos.owner, "test_owner");
+        assert_eq!(pos.amount, 1_000_000);
+        assert_eq!(pos.lock_period, 0);
+        assert_eq!(pos.accumulated_rewards, 0);
+        // last_claim should equal start_time so rewards accrue from inception
+        assert_eq!(pos.last_claim, pos.start_time);
+    }
+
+    #[test]
+    fn test_stake_position_with_custom_start_time() {
+        let custom_start = 1_000_000_000;
+        let pos = StakePosition::new_with_start_time(
+            "test_owner".to_string(),
+            1_000_000,
+            0,
+            custom_start,
+        );
+        assert_eq!(pos.start_time, custom_start);
+        assert_eq!(pos.last_claim, custom_start);
+    }
+
+    #[test]
+    fn test_rewards_accrue_from_start_time() {
+        // Create a position with a start time 1 year in the past
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let one_year_ago = now - (365 * 24 * 60 * 60);
+        
+        let mut pos = StakePosition::new_with_start_time(
+            "test_owner".to_string(),
+            1_000_000_000, // 1000 AETH
+            0, // Flexible
+            one_year_ago,
+        );
+        
+        // After 1 year with 14% APY and 1.0x multiplier, should earn ~140M rewards
+        pos.accrue_rewards();
+        
+        // Rewards should be approximately 14% of stake (140M)
+        // Allow some variance due to timing
+        assert!(pos.accumulated_rewards > 100_000_000);
+        assert!(pos.accumulated_rewards < 200_000_000);
+    }
+
+    #[test]
+    fn test_stake_tier_multipliers() {
+        assert_eq!(StakeTier::Flexible.multiplier(), 1.0);
+        assert_eq!(StakeTier::Short.multiplier(), 1.1);
+        assert_eq!(StakeTier::Medium.multiplier(), 1.25);
+        assert_eq!(StakeTier::Long.multiplier(), 1.5);
+        assert_eq!(StakeTier::VeryLong.multiplier(), 1.75);
+        assert_eq!(StakeTier::Locked.multiplier(), 2.0);
+    }
+
+    #[test]
+    fn test_stake_pool_operations() {
+        let mut pool = StakePool::new();
+        
+        // Stake tokens
+        let idx = pool.stake("owner1".to_string(), 1_000_000_000, 0);
+        assert!(idx.is_ok());
+        assert_eq!(idx.unwrap(), 0);
+        assert_eq!(pool.total_stake, 1_000_000_000);
+        
+        // Get stake info
+        let info = pool.get_stake_info("owner1");
+        assert!(info.is_some());
+        assert_eq!(info.unwrap().total_staked, 1_000_000_000);
+    }
 }

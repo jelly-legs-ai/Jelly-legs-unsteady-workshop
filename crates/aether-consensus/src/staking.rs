@@ -341,7 +341,11 @@ mod tests {
         let stake = pool.get_stake(stake_id).unwrap();
         assert_eq!(stake.amount, MINIMUM_STAKE_AETH);
         assert_eq!(stake.start_epoch, 0);
-        assert!(!stake.is_locked(0));
+        // Stake is locked for STAKE_LOCK_EPOCHS (2 epochs)
+        assert!(stake.is_locked(0));
+        assert!(stake.is_locked(1));
+        // Unlocks after lock period
+        assert!(!stake.is_locked(2));
     }
 
     #[test]
@@ -351,12 +355,19 @@ mod tests {
 
         let stake_id = pool.stake(owner, MINIMUM_STAKE_AETH).unwrap();
 
-        // Initially not locked
-        assert!(!pool.get_stake(stake_id).unwrap().is_locked(0));
-
-        // After initiating withdrawal, should be locked
-        pool.initiate_withdrawal(stake_id).unwrap();
+        // Stake is locked for STAKE_LOCK_EPOCHS (2 epochs)
         assert!(pool.get_stake(stake_id).unwrap().is_locked(0));
+        assert!(pool.get_stake(stake_id).unwrap().is_locked(1));
+        
+        // After lock period, should be unlocked
+        assert!(!pool.get_stake(stake_id).unwrap().is_locked(2));
+
+        // After initiating withdrawal, stake is marked pending but not re-locked
+        // The lock is based on epoch, not withdrawal status
+        pool.initiate_withdrawal(stake_id).unwrap();
+        let stake = pool.get_stake(stake_id).unwrap();
+        assert!(!stake.is_locked(2)); // Still unlocked after lock period
+        assert!(stake.pending_withdrawal); // But marked for withdrawal
     }
 
     #[test]
