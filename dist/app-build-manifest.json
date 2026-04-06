@@ -12,28 +12,15 @@
       "static/chunks/fd9d1056-1f4c605cebad2e8d.js",
       "static/chunks/23-daf2fcf8c82eaa88.js",
       "static/chunks/main-app-d38629f4806602f6.js",
-      "static/chunks/app/layout-a1f3e0348dbd0e6e.js"
+      "static/chunks/app/layout-e111a98f4ccb0192.js"
     ],
     "/page": [
       "static/chunks/webpack-35b091ca5c5192ac.js",
       "static/chunks/fd9d1056-1f4c605cebad2e8d.js",
       "static/chunks/23-daf2fcf8c82eaa88.js",
       "static/chunks/main-app-d38629f4806602f6.js",
-      "static/chunks/app/page-bf18a9923b5b07bc.js"
-    ],
-    "/staking/page": [
-      "static/chunks/webpack-35b091ca5c5192ac.js",
-      "static/chunks/fd9d1056-1f4c605cebad2e8d.js",
-      "static/chunks/23-daf2fcf8c82eaa88.js",
-      "static/chunks/main-app-d38629f4806602f6.js",
-      "static/chunks/app/staking/page-d343e6595af2ea84.js"
-    ],
-    "/staking/layout": [
-      "static/chunks/webpack-35b091ca5c5192ac.js",
-      "static/chunks/fd9d1056-1f4c605cebad2e8d.js",
-      "static/chunks/23-daf2fcf8c82eaa88.js",
-      "static/chunks/main-app-d38629f4806602f6.js",
-      "static/chunks/app/staking/layout-8ad8dbb7af53c418.js"
+      "static/chunks/231-8f5ab9b627c597d6.js",
+      "static/chunks/app/page-1797ce0ba26c3377.js"
     ],
     "/explorer/page": [
       "static/chunks/webpack-35b091ca5c5192ac.js",
@@ -48,6 +35,20 @@
       "static/chunks/23-daf2fcf8c82eaa88.js",
       "static/chunks/main-app-d38629f4806602f6.js",
       "static/chunks/app/explorer/layout-3b39ed4964b45266.js"
+    ],
+    "/staking/page": [
+      "static/chunks/webpack-35b091ca5c5192ac.js",
+      "static/chunks/fd9d1056-1f4c605cebad2e8d.js",
+      "static/chunks/23-daf2fcf8c82eaa88.js",
+      "static/chunks/main-app-d38629f4806602f6.js",
+      "static/chunks/app/staking/page-d343e6595af2ea84.js"
+    ],
+    "/staking/layout": [
+      "static/chunks/webpack-35b091ca5c5192ac.js",
+      "static/chunks/fd9d1056-1f4c605cebad2e8d.js",
+      "static/chunks/23-daf2fcf8c82eaa88.js",
+      "static/chunks/main-app-d38629f4806602f6.js",
+      "static/chunks/app/staking/layout-8ad8dbb7af53c418.js"
     ]
   }
 }
