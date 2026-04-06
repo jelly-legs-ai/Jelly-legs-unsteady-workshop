@@ -334,8 +334,17 @@ impl HybridConsensus {
         }
 
         // CRITICAL: Verify block height is sequential (no gaps in slot numbers)
-        if block.header.height != self.slot + 1 {
-            return Err(ConsensusError::SlotTooOld);
+        if block.header.height < self.slot + 1 {
+            return Err(ConsensusError::SlotTooOld {
+                expected: self.slot + 1,
+                actual: block.header.height,
+            });
+        }
+        if block.header.height > self.slot + 1 {
+            return Err(ConsensusError::SlotInFuture {
+                expected: self.slot + 1,
+                actual: block.header.height,
+            });
         }
 
         // Run Tower BFT
@@ -364,7 +373,7 @@ impl HybridConsensus {
 }
 
 /// Consensus errors
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum ConsensusError {
     #[error("Invalid PoH sequence")]
     InvalidPoh,
@@ -372,8 +381,109 @@ pub enum ConsensusError {
     InsufficientStake,
     #[error("Unknown validator")]
     UnknownValidator,
-    #[error("Slot too old")]
-    SlotTooOld,
+    #[error("Slot too old: expected {expected}, got {actual}")]
+    SlotTooOld { expected: u64, actual: u64 },
+    #[error("Slot in future: expected {expected}, got {actual}")]
+    SlotInFuture { expected: u64, actual: u64 },
     #[error("Double vote detected")]
     DoubleVote,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aether_core::{Block, BlockHeader, Hash};
+
+    #[test]
+    fn test_slot_too_old_error() {
+        let mut consensus = HybridConsensus::new();
+        let validators = vec![ValidatorInfo {
+            address: [1u8; 32],
+            stake: 1000,
+            commission: 500,
+        }];
+        consensus.init_from_genesis(&validators);
+
+        // Create a block with old slot height
+        let old_block = Block {
+            header: BlockHeader {
+                height: 0, // Old slot
+                prev_hash: [0u8; 32],
+                timestamp: 12345,
+                poh_hash: [99u8; 32],
+                state_root: [0u8; 32],
+            },
+            transactions: vec![],
+        };
+
+        let result = consensus.process_block(&old_block, &[1u8; 32]);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ConsensusError::SlotTooOld { expected, actual } => {
+                assert_eq!(expected, 1);
+                assert_eq!(actual, 0);
+            }
+            _ => panic!("Expected SlotTooOld error"),
+        }
+    }
+
+    #[test]
+    fn test_slot_in_future_error() {
+        let mut consensus = HybridConsensus::new();
+        let validators = vec![ValidatorInfo {
+            address: [1u8; 32],
+            stake: 1000,
+            commission: 500,
+        }];
+        consensus.init_from_genesis(&validators);
+
+        // Create a block with future slot height
+        let future_block = Block {
+            header: BlockHeader {
+                height: 5, // Future slot
+                prev_hash: [0u8; 32],
+                timestamp: 12345,
+                poh_hash: [99u8; 32],
+                state_root: [0u8; 32],
+            },
+            transactions: vec![],
+        };
+
+        let result = consensus.process_block(&future_block, &[1u8; 32]);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ConsensusError::SlotInFuture { expected, actual } => {
+                assert_eq!(expected, 1);
+                assert_eq!(actual, 5);
+            }
+            _ => panic!("Expected SlotInFuture error"),
+        }
+    }
+
+    #[test]
+    fn test_valid_block_processing() {
+        let mut consensus = HybridConsensus::new();
+        let validators = vec![ValidatorInfo {
+            address: [1u8; 32],
+            stake: 1000,
+            commission: 500,
+        }];
+        consensus.init_from_genesis(&validators);
+
+        // Create a valid block with correct slot height
+        let valid_block = Block {
+            header: BlockHeader {
+                height: 1, // Correct next slot
+                prev_hash: [0u8; 32],
+                timestamp: 12345,
+                poh_hash: [99u8; 32],
+                state_root: [0u8; 32],
+            },
+            transactions: vec![],
+        };
+
+        let result = consensus.process_block(&valid_block, &[1u8; 32]);
+        assert!(result.is_ok());
+        assert_eq!(consensus.slot, 1);
+    }
 }
