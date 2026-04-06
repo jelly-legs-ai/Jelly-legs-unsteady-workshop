@@ -651,7 +651,17 @@ async function main() {
   }
 }
 
-main().catch(err => {
-  console.error(`\n${C.red}Error in emergency command:${C.reset}`, err.message, '\n');
-  process.exit(1);
-});
+// Exported emergency command handler for CLI integration
+async function emergencyCommand() {
+  return main();
+}
+
+// Run if called directly
+if (require.main === module) {
+  main().catch(err => {
+    console.error(`\n${C.red}Error in emergency command:${C.reset}`, err.message, '\n');
+    process.exit(1);
+  });
+}
+
+module.exports = { emergencyCommand };

@@ -532,5 +532,7 @@ function main() {
   }
 }
 
-// Run CLI
-main();
+// Run CLI only if executed directly
+if (require.main === module) {
+  main();
+}

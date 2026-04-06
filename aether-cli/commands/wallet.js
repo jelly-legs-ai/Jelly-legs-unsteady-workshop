@@ -19,6 +19,9 @@ const bip39 = require('bip39');
 const nacl = require('tweetnacl');
 const bs58 = require('bs58').default;
 
+// Import SDK for blockchain RPC calls
+const aether = require('../sdk');
+
 // ANSI colours
 const C = {
   reset: '\x1b[0m',

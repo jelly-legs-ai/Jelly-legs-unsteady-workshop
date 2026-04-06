@@ -456,6 +456,9 @@ ${C.bright}EXAMPLES${C.reset}
   }
 }
 
+// Export for CLI integration
+module.exports = { txHistoryCommand: main };
+
 // Run if called directly
 if (require.main === module) {
   main();
