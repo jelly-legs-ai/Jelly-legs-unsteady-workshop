@@ -124,29 +124,42 @@ impl ValidatorState {
         })
     }
 
-    // Genesis accessors
+    // Genesis accessors - safe versions that handle poisoned locks gracefully
     pub fn has_genesis(&self) -> bool {
-        self.inner.genesis.read().unwrap().is_some()
+        self.inner.genesis.read().map(|g| g.is_some()).unwrap_or(false)
     }
 
     pub fn get_genesis(&self) -> Option<GenesisBlock> {
-        self.inner.genesis.read().unwrap().clone()
+        self.inner.genesis.read().ok().and_then(|g| g.clone())
     }
 
     pub fn get_genesis_hash(&self) -> String {
-        self.inner.genesis.read()
-            .unwrap()
-            .as_ref()
-            .map(|g| g.genesis_hash.clone())
-            .unwrap_or_else(|| self.inner.block_hash.read().unwrap().clone())
+        // Safely read genesis hash without panicking on poisoned lock
+        match self.inner.genesis.read() {
+            Ok(genesis_opt) => {
+                genesis_opt
+                    .as_ref()
+                    .map(|g| g.genesis_hash.clone())
+                    .unwrap_or_else(|| self.inner.block_hash.read().map(|bh| bh.clone()).unwrap_or_default())
+            }
+            Err(_) => {
+                // Lock poisoned - return current block hash as fallback
+                self.inner.block_hash.read().map(|bh| bh.clone()).unwrap_or_default()
+            }
+        }
     }
 
     pub fn get_chain_id(&self) -> String {
-        self.inner.genesis.read()
-            .unwrap()
-            .as_ref()
-            .map(|g| g.chain_id.clone())
-            .unwrap_or_else(|| "aether-testnet-1".to_string())
+        // Safely read chain ID without panicking on poisoned lock
+        match self.inner.genesis.read() {
+            Ok(genesis_opt) => {
+                genesis_opt
+                    .as_ref()
+                    .map(|g| g.chain_id.clone())
+                    .unwrap_or_else(|| "aether-testnet-1".to_string())
+            }
+            Err(_) => "aether-testnet-1".to_string(),
+        }
     }
 
     // Slot and block accessors
@@ -235,21 +248,25 @@ impl ValidatorState {
 
     pub fn get_vote_accounts(&self) -> Vec<VoteAccountInfo> {
         // Return bootstrap validators from genesis as vote accounts
-        self.inner.genesis.read()
-            .unwrap()
-            .as_ref()
-            .map(|g| {
-                g.bootstrap_validators
-                    .iter()
-                    .map(|v| VoteAccountInfo {
-                        pubkey: v.identity_pubkey.clone(),
-                        validator_pubkey: v.identity_pubkey.clone(),
-                        commission: v.commission,
-                        active: true,
+        match self.inner.genesis.read() {
+            Ok(genesis_opt) => {
+                genesis_opt
+                    .as_ref()
+                    .map(|g| {
+                        g.bootstrap_validators
+                            .iter()
+                            .map(|v| VoteAccountInfo {
+                                pubkey: v.identity_pubkey.clone(),
+                                validator_pubkey: v.identity_pubkey.clone(),
+                                commission: v.commission,
+                                active: true,
+                            })
+                            .collect()
                     })
-                    .collect()
-            })
-            .unwrap_or_else(Vec::new)
+                    .unwrap_or_else(Vec::new)
+            }
+            Err(_) => Vec::new(),
+        }
     }
 
     pub fn set_current_slot(&self, slot: u64) {
@@ -280,31 +297,33 @@ impl ValidatorState {
 
     pub fn get_initial_balances(&self) -> Vec<(String, u64)> {
         // Return genesis initial balances if loaded
-        self.inner.genesis.read()
-            .unwrap()
-            .as_ref()
-            .map(|g| {
-                g.bootstrap_validators
-                    .iter()
-                    .map(|v| (v.identity_pubkey.clone(), v.stake))
-                    .collect()
-            })
-            .unwrap_or_default()
+        match self.inner.genesis.read() {
+            Ok(genesis_opt) => {
+                genesis_opt
+                    .as_ref()
+                    .map(|g| {
+                        g.bootstrap_validators
+                            .iter()
+                            .map(|v| (v.identity_pubkey.clone(), v.stake))
+                            .collect()
+                    })
+                    .unwrap_or_default()
+            }
+            Err(_) => Vec::new(),
+        }
     }
 
     pub fn get_slot_time_ms(&self) -> u64 {
         self.inner.genesis.read()
-            .unwrap()
-            .as_ref()
-            .map(|g| g.consensus.slot_time_ms)
+            .ok()
+            .and_then(|g| g.as_ref().map(|g| g.consensus.slot_time_ms))
             .unwrap_or(400)
     }
 
     pub fn get_tower_finality(&self) -> u64 {
         self.inner.genesis.read()
-            .unwrap()
-            .as_ref()
-            .map(|g| g.consensus.tower_finality)
+            .ok()
+            .and_then(|g| g.as_ref().map(|g| g.consensus.tower_finality))
             .unwrap_or(12)
     }
 
@@ -314,12 +333,12 @@ impl ValidatorState {
 
     /// Get the validator's tier
     pub fn tier(&self) -> ValidatorTier {
-        *self.inner.tier.read().unwrap()
+        self.inner.tier.read().map(|t| *t).unwrap_or(ValidatorTier::Observer)
     }
 
     /// Get the tier configuration
     pub fn tier_config(&self) -> Option<TierConfig> {
-        self.inner.tier_config.read().unwrap().clone()
+        self.inner.tier_config.read().ok().and_then(|t| t.clone())
     }
 
     /// Check if this validator is a Full validator
@@ -360,10 +379,12 @@ impl ValidatorState {
 
     /// Set the validator tier (used during initialization)
     pub fn set_tier(&self, tier: ValidatorTier, config: Option<TierConfig>) {
-        let mut tier_lock = self.inner.tier.write().unwrap();
-        let mut config_lock = self.inner.tier_config.write().unwrap();
-        *tier_lock = tier;
-        *config_lock = config;
+        if let Ok(mut tier_lock) = self.inner.tier.write() {
+            *tier_lock = tier;
+        }
+        if let Ok(mut config_lock) = self.inner.tier_config.write() {
+            *config_lock = config;
+        }
     }
 
     // ========================================================================
