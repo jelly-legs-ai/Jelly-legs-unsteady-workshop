@@ -944,7 +944,7 @@ async function transferWallet(rl) {
 
 // ---------------------------------------------------------------------------
 // TX HISTORY
-// Fetch and display recent transactions for an address
+// Fetch and display recent transactions for an address using SDK
 // ---------------------------------------------------------------------------
 
 async function txHistory(rl) {
@@ -992,11 +992,14 @@ async function txHistory(rl) {
   }
 
   try {
+    // Create SDK client
+    const client = createClient(rpcUrl);
+    
     // Fetch account info first (for context)
-    const account = await httpRequest(rpcUrl, `/v1/account/${rawAddr}`);
+    const account = await client.getAccount(rawAddr);
 
-    // Fetch transactions for this address
-    const txs = await httpRequest(rpcUrl, `/v1/tx?address=${encodeURIComponent(rawAddr)}&limit=${limit}`);
+    // Fetch transactions for this address using SDK
+    const txs = await client.getRecentTransactions(rawAddr, limit);
 
     if (asJson) {
       const out = {
@@ -1219,20 +1222,18 @@ async function stakePositions(rl) {
   }
 
   try {
-    // Fetch stake accounts for this address
-    const res = await httpRequest(rpcUrl, `/v1/stake?address=${encodeURIComponent(rawAddr)}`);
-
-    let stakeAccounts = [];
-    if (res && !res.error) {
-      stakeAccounts = Array.isArray(res) ? res : (res.accounts || res.stake_accounts || []);
-    }
+    // Create SDK client for real blockchain calls
+    const client = createClient(rpcUrl);
+    
+    // Fetch stake accounts for this address using SDK (real RPC GET /v1/stake/<addr>)
+    const stakeAccounts = await client.getStakeAccounts(rawAddr);
 
     if (asJson) {
       const out = {
         address,
         rpc: rpcUrl,
         stake_accounts: stakeAccounts.map(acc => ({
-          stake_account: acc.pubkey || acc.publicKey || acc.account,
+          stake_account: acc.pubkey || acc.publicKey || acc.account || acc.address,
           validator: acc.validator || acc.voter || acc.vote_account,
           stake_lamports: acc.stake_lamports || acc.lamports || 0,
           stake_aeth: (acc.stake_lamports || acc.lamports || 0) / 1e9,
@@ -1358,17 +1359,16 @@ async function unstakeWallet(rl) {
     return;
   }
 
-  // Resolve stake account: --account flag, or query chain for first active stake
+    // Resolve stake account: --account flag, or query chain for first active stake
   if (!stakeAccount) {
     const rpcUrl = getDefaultRpc();
     const rawAddr = address.startsWith('ATH') ? address.slice(3) : address;
 
     let stakeAccounts = [];
     try {
-      const res = await httpRequest(rpcUrl, `/v1/stake?address=${encodeURIComponent(rawAddr)}`);
-      if (res && !res.error) {
-        stakeAccounts = Array.isArray(res) ? res : (res.accounts || []);
-      }
+      // Use SDK for real blockchain call
+      const client = createClient(rpcUrl);
+      stakeAccounts = await client.getStakeAccounts(rawAddr);
     } catch { /* no stake accounts */ }
 
     if (stakeAccounts.length === 0) {

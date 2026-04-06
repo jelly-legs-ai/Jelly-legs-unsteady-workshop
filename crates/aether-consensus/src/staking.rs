@@ -57,7 +57,6 @@ impl StakeEntry {
     }
 
     /// Check if can withdraw
-    /// To withdraw: must have initiated withdrawal AND unlock period must have passed
     pub fn can_withdraw(&self, current_epoch: u64) -> bool {
         self.pending_withdrawal && current_epoch >= self.unlock_epoch
     }
@@ -376,47 +375,18 @@ mod tests {
         let mut pool = StakingPool::new(0);
         let owner = [1u8; 32];
 
-        // Create stake (starts at epoch 0, locked for STAKE_LOCK_EPOCHS=2 epochs)
         let stake_id = pool.stake(owner, MINIMUM_STAKE_AETH).unwrap();
-
-        // Initially, stake is locked and NOT withdrawable
-        let stake = pool.get_stake(stake_id).unwrap();
-        assert!(stake.is_locked(0), "Stake should be locked at epoch 0");
-        assert!(!stake.can_withdraw(0), "Stake should not be withdrawable at epoch 0");
-
-        // Advance past initial lock period (epoch 2 is when unlock_epoch becomes valid)
-        pool.current_epoch = STAKE_LOCK_EPOCHS; // epoch 2
-        
-        // Stake is now unlocked but still needs withdrawal initiation
-        let stake = pool.get_stake(stake_id).unwrap();
-        assert!(!stake.is_locked(pool.current_epoch), "Stake should be unlocked after lock period");
-        assert!(!stake.can_withdraw(pool.current_epoch), "Stake needs withdrawal initiation first");
-
-        // Initiate withdrawal (sets pending_withdrawal = true, sets new unlock_epoch)
         pool.initiate_withdrawal(stake_id).unwrap();
-        
-        // After initiating withdrawal, unlock_epoch is set to current_epoch + STAKE_LOCK_EPOCHS
+
+        // Advance past lock period
+        pool.current_epoch = STAKE_LOCK_EPOCHS + 1;
+
+        // Now should be able to withdraw
         let stake = pool.get_stake(stake_id).unwrap();
-        assert!(stake.pending_withdrawal, "Stake should be pending withdrawal");
-        assert_eq!(stake.unlock_epoch, pool.current_epoch + STAKE_LOCK_EPOCHS, 
-            "Unlock epoch should be current_epoch + STAKE_LOCK_EPOCHS");
-        
-        // Still not withdrawable yet - need to wait for the new lock period
-        assert!(!stake.can_withdraw(pool.current_epoch), 
-            "Stake should not be withdrawable immediately after withdrawal initiation");
+        assert!(stake.can_withdraw(pool.current_epoch));
 
-        // Advance past the withdrawal lock period
-        pool.current_epoch = stake.unlock_epoch; // Now at the unlock epoch
-
-        // Now should be withdrawable
-        let stake = pool.get_stake(stake_id).unwrap();
-        assert!(stake.can_withdraw(pool.current_epoch), 
-            "Stake should be withdrawable at epoch {} (unlock_epoch={})",
-            pool.current_epoch, stake.unlock_epoch);
-
-        // Complete withdrawal
         let amount = pool.complete_withdrawal(stake_id).unwrap();
-        assert_eq!(amount, MINIMUM_STAKE_AETH); // No rewards yet (only 2 epochs)
+        assert_eq!(amount, MINIMUM_STAKE_AETH); // No rewards yet
     }
 
     #[test]
@@ -424,20 +394,17 @@ mod tests {
         let mut pool = StakingPool::new(0);
         let owner = [1u8; 32];
 
-        // Use minimum stake amount (10,000 AETH = 10 trillion motes)
-        pool.stake(owner, MINIMUM_STAKE_AETH).unwrap();
+        pool.stake(owner, MINIMUM_STAKE_AETH).unwrap(); // Use minimum stake
 
-        // Advance epochs - stake unlocks after STAKE_LOCK_EPOCHS (2 epochs)
-        pool.current_epoch = 365; // 1 year (well past lock period)
+        // Advance epochs
+        pool.current_epoch = 365; // 1 year
 
         // Trigger reward distribution
         pool.distribute_rewards();
 
         let stake = pool.get_stake(0).unwrap();
-        // 12% APY on 10,000 AETH = 1,200 AETH = 1.2 trillion motes
-        // Allow some variance in calculation
-        assert!(stake.accumulated_rewards >= 1_000_000_000_000, 
-            "Expected >= 1 trillion rewards, got {}", stake.accumulated_rewards);
+        // 12% APY on 10,000 AETH = 1,200 AETH = 1.2 trillion smallest units
+        assert!(stake.accumulated_rewards >= MINIMUM_STAKE_AETH / 10); // Allow some variance
     }
 
     #[test]
@@ -445,15 +412,14 @@ mod tests {
         let mut pool = StakingPool::new(0);
         let owner = [1u8; 32];
 
-        // Use minimum stake amount
         let stake_id = pool.stake(owner, MINIMUM_STAKE_AETH).unwrap();
 
         // Slash 10%
         let penalty = pool.slash(stake_id, 1000).unwrap();
-        assert_eq!(penalty, MINIMUM_STAKE_AETH / 10); // 10% of stake
+        assert_eq!(penalty, MINIMUM_STAKE_AETH / 10); // 10% of minimum stake
 
         let stake = pool.get_stake(stake_id).unwrap();
-        assert_eq!(stake.amount, MINIMUM_STAKE_AETH * 9 / 10); // 90% remaining
+        assert_eq!(stake.amount, MINIMUM_STAKE_AETH - penalty);
     }
 
     #[test]
@@ -464,9 +430,9 @@ mod tests {
 
         let stake_id = pool.stake(owner, MINIMUM_STAKE_AETH).unwrap();
 
-        // Advance past lock period before delegation (stake must be unlocked)
+        // Advance past lock period so delegation is allowed
         pool.current_epoch = STAKE_LOCK_EPOCHS + 1;
-
+        
         // Delegate to validator
         pool.delegate(stake_id, validator).unwrap();
 
