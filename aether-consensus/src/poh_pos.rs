@@ -253,11 +253,28 @@ impl Default for TowerBFT {
     }
 }
 
+/// Slot info returned by validator status endpoint
+#[derive(Debug, Clone)]
+pub struct SlotInfo {
+    /// Current slot number
+    pub slot: u64,
+    /// Last confirmed slot
+    pub last_confirmed_slot: u64,
+    /// Last block hash
+    pub last_block_hash: Hash,
+    /// Is validator healthy
+    pub healthy: bool,
+    /// Error message if unhealthy
+    pub error: Option<String>,
+}
+
 /// Hybrid consensus coordinator
 pub struct HybridConsensus {
     pub slot: u64,
     pub tower: TowerBFT,
     pub last_block_hash: Hash,
+    /// Is validator initialized and running
+    pub initialized: bool,
 }
 
 impl HybridConsensus {
@@ -266,7 +283,40 @@ impl HybridConsensus {
             slot: 0,
             tower: TowerBFT::new(),
             last_block_hash: [0u8; 32],
+            initialized: false,
         }
+    }
+
+    /// Initialize consensus from genesis (must be called before processing blocks)
+    pub fn init_from_genesis(&mut self, validators: &[ValidatorInfo]) {
+        self.tower.init_from_genesis(validators);
+        self.initialized = true;
+    }
+
+    /// Get current slot info for validator status endpoint
+    pub fn get_slot_info(&self) -> SlotInfo {
+        if !self.initialized {
+            return SlotInfo {
+                slot: 0,
+                last_confirmed_slot: 0,
+                last_block_hash: [0u8; 32],
+                healthy: false,
+                error: Some("Validator not initialized - call init_from_genesis first".to_string()),
+            };
+        }
+
+        SlotInfo {
+            slot: self.slot,
+            last_confirmed_slot: self.tower.last_confirmed(),
+            last_block_hash: self.last_block_hash,
+            healthy: true,
+            error: None,
+        }
+    }
+
+    /// Increment slot (called when producing/processing a new block)
+    pub fn increment_slot(&mut self) {
+        self.slot += 1;
     }
 
     /// Initialize from genesis validators
@@ -276,11 +326,21 @@ impl HybridConsensus {
 
     /// Process a new block (called when receiving/producing a block)
     pub fn process_block(&mut self, block: &Block, producer: &[u8; 32]) -> Result<(), ConsensusError> {
+        // Check initialization
+        if !self.initialized {
+            return Err(ConsensusError::UnknownValidator);
+        }
+
         // CRITICAL: Verify PoH sequence for ALL blocks, including empty ones
         // Empty blocks must still have valid PoH hashes to prevent attackers
         // from inserting malformed blocks into the chain
         if block.header.poh_hash == [0u8; 32] {
             return Err(ConsensusError::InvalidPoh);
+        }
+
+        // CRITICAL: Verify block height is sequential (no gaps in slot numbers)
+        if block.header.height != self.slot + 1 {
+            return Err(ConsensusError::SlotTooOld);
         }
 
         // Run Tower BFT

@@ -16,6 +16,10 @@ pub struct SlotResponse {
     pub slot: u64,
     pub block_hash: String,
     pub parent_block_hash: String,
+    /// Is validator healthy and synchronized
+    pub healthy: bool,
+    /// Error message if unhealthy (null if healthy)
+    pub error: Option<String>,
 }
 
 /// Block response
@@ -162,10 +166,29 @@ async fn handle_http_request(
                 state.get_genesis_hash()
             };
             
+            // Check validator health:
+            // - Healthy if slot is advancing (block_hash != genesis for non-zero slots)
+            // - Unhealthy if stuck on same slot for too long or block hash is invalid
+            let (healthy, error) = if current_slot == 0 && block_hash == state.get_genesis_hash() {
+                // Slot 0 with genesis hash is normal for fresh start
+                (true, None)
+            } else if current_slot > 0 && block_hash == state.get_genesis_hash() {
+                // Non-zero slot but still showing genesis hash = not producing blocks
+                (false, Some("Validator not producing blocks - slot advanced but block hash unchanged".to_string()))
+            } else if block_hash.is_empty() {
+                // Empty block hash indicates initialization issue
+                (false, Some("Block hash not initialized - validator may not be synced".to_string()))
+            } else {
+                // Normal operation
+                (true, None)
+            };
+            
             let resp = SlotResponse {
                 slot: current_slot,
                 block_hash,
                 parent_block_hash,
+                healthy,
+                error,
             };
             (200, serde_json::to_string(&resp).unwrap_or_default())
         }
