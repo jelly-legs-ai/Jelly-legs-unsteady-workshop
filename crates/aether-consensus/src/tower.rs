@@ -127,7 +127,10 @@ impl TowerConsensus {
         let slot_stake = self.slot_stake.get(&slot).copied().unwrap_or(0);
         
         // Need > 2/3 for confirmation
-        slot_stake > total_stake * 2 / 3
+        // Use ceiling division to avoid truncation: (total_stake * 2 + 2) / 3
+        // This ensures we require strictly more than 2/3, not >= truncated 2/3
+        let threshold = (total_stake * 2 + 2) / 3;
+        slot_stake > threshold
     }
 
     /// Get confirmation depth for a slot
