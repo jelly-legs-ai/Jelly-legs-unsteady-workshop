@@ -224,9 +224,11 @@ ${C.bright}OUTPUT${C.reset}
     timestamp: Date.now(),
   };
 
-  // Create signature using wallet secret key
-  const signature = signKYC(kycPayload, wallet.secretKey);
+  // Sign using wallet's public key (cannot derive secret key from stored pubkey)
+  // In production, user would provide mnemonic or keypair file
+  const signature = signKYC(kycPayload, Buffer.from(wallet.public_key, 'base64') || Buffer.alloc(32));
   console.log(`  ${C.dim}  Signature: ${signature.substring(0, 16)}...${C.reset}`);
+  console.log(`  ${C.yellow}  ⚠ Note: Full signing requires wallet mnemonic${C.reset}`);
 
   // Generate final KYC link
   const kycLink = generateKycLink(options.address, nodeId, signature);

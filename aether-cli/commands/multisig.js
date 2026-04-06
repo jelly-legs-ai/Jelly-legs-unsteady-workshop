@@ -102,60 +102,40 @@ function isValidAddress(addr) {
 }
 
 // ---------------------------------------------------------------------------
-// HTTP helpers
+// SDK Integration - Real blockchain RPC calls
 // ---------------------------------------------------------------------------
 
+const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
+const aether = require(sdkPath);
+
 function getDefaultRpc() {
-  return process.env.AETHER_RPC || 'http://127.0.0.1:8899';
+  return process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
 }
 
-function httpRequest(rpcUrl, pathStr, timeoutMs = 10000) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(pathStr, rpcUrl);
-    const lib = url.protocol === 'https:' ? require('https') : require('http');
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'GET',
-      timeout: timeoutMs,
-      headers: { 'Content-Type': 'application/json' },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve({ _raw: data }); } });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
-    req.end();
-  });
+function createClient(rpcUrl) {
+  return new aether.AetherClient({ rpcUrl });
 }
 
-function httpPost(rpcUrl, pathStr, body, timeoutMs = 15000) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(pathStr, rpcUrl);
-    const lib = url.protocol === 'https:' ? require('https') : require('http');
-    const bodyStr = JSON.stringify(body);
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'POST',
-      timeout: timeoutMs,
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(bodyStr),
-      },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve({ _raw: data }); } });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
-    req.write(bodyStr);
-    req.end();
-  });
+/**
+ * Fetch account balance via SDK (GET /v1/account/<addr>)
+ */
+async function fetchAccountBalance(rpcUrl, address) {
+  const client = createClient(rpcUrl);
+  try {
+    const rawAddr = address.startsWith('ATH') ? address.slice(3) : address;
+    const account = await client.getAccountInfo(rawAddr);
+    return account && !account.error ? account.lamports : 0;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Submit transaction via SDK (POST /v1/transaction)
+ */
+async function submitTransaction(rpcUrl, tx) {
+  const client = createClient(rpcUrl);
+  return client.sendTransaction(tx);
 }
 
 function formatAether(lamports) {
@@ -356,12 +336,11 @@ async function listMultisig(rl, args) {
     console.log(`  ${C.dim}  Threshold: ${ms.threshold}/${ms.signers.length}  Signers: ${ms.signers.length}${C.reset}`);
     console.log(`  ${C.dim}  Created:   ${new Date(ms.created_at).toLocaleString()}${C.reset}`);
 
-    // Fetch on-chain balance
+    // Fetch on-chain balance via SDK (REAL RPC GET /v1/account/<addr>)
     try {
-      const rawAddr = ms.address.startsWith('ATH') ? ms.address.slice(3) : ms.address;
-      const account = await httpRequest(rpcUrl, `/v1/account/${rawAddr}`);
-      if (!account.error && account.lamports !== undefined) {
-        console.log(`  ${C.green}✓ Balance:${C.reset} ${C.bright}${formatAether(account.lamports)}${C.reset}`);
+      const balance = await fetchAccountBalance(rpcUrl, ms.address);
+      if (balance !== null) {
+        console.log(`  ${C.green}✓ Balance:${C.reset} ${C.bright}${formatAether(balance)}${C.reset}`);
       }
     } catch {}
 
@@ -419,17 +398,11 @@ async function infoMultisig(rl, args) {
   }
   console.log();
 
-  // On-chain balance
+  // On-chain balance via SDK (REAL RPC GET /v1/account/<addr>)
   try {
-    const rawAddr = ms.address.startsWith('ATH') ? ms.address.slice(3) : ms.address;
-    const account = await httpRequest(rpcUrl, `/v1/account/${rawAddr}`);
-    if (!account.error && account.lamports !== undefined) {
-      console.log(`  ${C.green}✓ Balance:${C.reset} ${C.bright}${formatAether(account.lamports)}${C.reset}`);
-      if (account.owner) {
-        console.log(`  ${C.dim}  Owner: ${account.owner}${C.reset}`);
-      }
-    } else {
-      console.log(`  ${C.yellow}⚠ Account not found on chain (may have 0 balance).${C.reset}`);
+    const balance = await fetchAccountBalance(rpcUrl, ms.address);
+    if (balance !== null) {
+      console.log(`  ${C.green}✓ Balance:${C.reset} ${C.bright}${formatAether(balance)}${C.reset}`);
     }
   } catch (err) {
     console.log(`  ${C.yellow}⚠ Could not fetch balance: ${err.message}${C.reset}`);
@@ -547,17 +520,16 @@ async function sendMultisig(rl, args) {
   console.log(`  ${C.green}★${C.reset} Amount:   ${C.bright}${amount} AETH${C.reset} (${lamports.toLocaleString()} lamports)`);
   console.log();
 
-  // Fetch balance check
+  // Fetch balance check via SDK (REAL RPC GET /v1/account/<addr>)
   try {
-    const rawAddr = address.startsWith('ATH') ? address.slice(3) : address;
-    const account = await httpRequest(rpcUrl, `/v1/account/${rawAddr}`);
-    if (!account.error && account.lamports !== undefined) {
-      if (account.lamports < lamports) {
+    const balance = await fetchAccountBalance(rpcUrl, address);
+    if (balance !== null) {
+      if (balance < lamports) {
         console.log(`  ${C.red}✗ Insufficient balance.${C.reset}`);
-        console.log(`  ${C.dim}  Have: ${formatAether(account.lamports)}  Need: ${formatAether(lamports)}${C.reset}\n`);
+        console.log(`  ${C.dim}  Have: ${formatAether(balance)}  Need: ${formatAether(lamports)}${C.reset}\n`);
         return;
       }
-      console.log(`  ${C.green}✓ Balance check passed:${C.reset} ${formatAether(account.lamports)}`);
+      console.log(`  ${C.green}✓ Balance check passed:${C.reset} ${formatAether(balance)}`);
     }
   } catch (err) {
     console.log(`  ${C.yellow}⚠ Could not verify balance: ${err.message}${C.reset}`);
@@ -632,8 +604,9 @@ async function sendMultisig(rl, args) {
 
   console.log(`  ${C.green}✓ Collected ${signatures.length} signature(s). Submitting...${C.reset}`);
 
+  // Submit via SDK (REAL RPC POST /v1/transaction)
   try {
-    const result = await httpPost(rpcUrl, '/v1/tx', tx);
+    const result = await submitTransaction(rpcUrl, tx);
 
     if (result.error) {
       console.log(`\n  ${C.red}✗ Transaction failed:${C.reset} ${result.error}\n`);
@@ -646,7 +619,8 @@ async function sendMultisig(rl, args) {
     console.log(`  ${C.dim}From: ${address}${C.reset}`);
     console.log(`  ${C.dim}To: ${recipient}${C.reset}`);
     console.log(`  ${C.dim}Amount: ${formatAether(lamports)}${C.reset}`);
-    console.log(`  ${C.dim}Signers used: ${signatures.length}/${ms.signers.length}${C.reset}\n`);
+    console.log(`  ${C.dim}Signers used: ${signatures.length}/${ms.signers.length}${C.reset}`);
+    console.log(`  ${C.dim}SDK: sendTransaction()${C.reset}\n`);
   } catch (err) {
     console.log(`  ${C.red}✗ Failed to submit transaction:${C.reset} ${err.message}`);
     console.log(`  ${C.dim}  Is your validator running? RPC: ${rpcUrl}${C.reset}\n`);
