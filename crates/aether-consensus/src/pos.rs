@@ -95,10 +95,14 @@ impl StakePool {
     }
 
     /// Add or update validator stake
+    /// Note: Preserves delegated_stake when updating existing validator to avoid data loss
     pub fn update_stake(&mut self, validator: ValidatorStake) {
         if let Some(existing) = self.validators.iter_mut()
             .find(|v| v.pubkey == validator.pubkey) {
+            // Preserve delegated_stake from existing record to avoid losing delegation data
+            let preserved_delegated = existing.delegated_stake;
             *existing = validator;
+            existing.delegated_stake = preserved_delegated;
         } else {
             self.validators.push(validator);
         }
