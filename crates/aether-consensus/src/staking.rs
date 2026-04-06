@@ -23,6 +23,8 @@ pub struct StakeEntry {
     pub pending_withdrawal: bool,
     /// Accumulated rewards
     pub accumulated_rewards: u64,
+    /// Epoch when rewards were last calculated (prevents double-counting)
+    pub last_reward_epoch: u64,
 }
 
 impl StakeEntry {
@@ -36,6 +38,7 @@ impl StakeEntry {
             delegated_to: None,
             pending_withdrawal: false,
             accumulated_rewards: 0,
+            last_reward_epoch: epoch,
         }
     }
 
@@ -173,14 +176,15 @@ impl StakingPool {
         Ok(amount)
     }
 
-    /// Calculate reward for a stake
+    /// Calculate reward for a stake (only since last distribution to prevent double-counting)
     pub fn calculate_reward(&self, stake: &StakeEntry) -> u64 {
         if stake.amount == 0 {
             return 0;
         }
 
-        let epochs_staked = self.current_epoch.saturating_sub(stake.start_epoch);
-        let epochs_elapsed = epochs_staked.min(365 * 4); // Cap at 4 years for APY calc
+        // Calculate rewards only for epochs since last distribution
+        let epochs_since_last = self.current_epoch.saturating_sub(stake.last_reward_epoch);
+        let epochs_elapsed = epochs_since_last.min(365 * 4); // Cap at 4 years for APY calc
 
         // Simple APY calculation: amount * rate * epochs / epochs_per_year
         let epochs_per_year = 365;
@@ -196,6 +200,7 @@ impl StakingPool {
             if self.stakes[stake_id].amount > 0 && !self.stakes[stake_id].pending_withdrawal {
                 let reward = self.calculate_reward(&self.stakes[stake_id]);
                 self.stakes[stake_id].accumulated_rewards += reward;
+                self.stakes[stake_id].last_reward_epoch = self.current_epoch;
                 self.total_rewards += reward;
             }
         }
