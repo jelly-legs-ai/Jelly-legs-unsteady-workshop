@@ -5,6 +5,8 @@
  * Quick RPC health check — measures latency, verifies connectivity,
  * and reports node version and slot info.
  *
+ * Uses @jellylegsai/aether-sdk for REAL HTTP RPC calls.
+ *
  * Usage:
  *   aether ping                   Ping default RPC (AETHER_RPC or localhost:8899)
  *   aether ping --rpc <url>       Ping a specific RPC endpoint
@@ -17,8 +19,9 @@
  *   aether ping --count 5 --json         # 5 pings, JSON output for alerting
  */
 
-const http = require('http');
-const https = require('https');
+const path = require('path');
+const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
+const aether = require(sdkPath);
 
 // ANSI colours
 const C = {
@@ -38,82 +41,25 @@ const CLI_VERSION = '1.0.6';
 // ---------------------------------------------------------------------------
 
 function getDefaultRpc() {
-  return process.env.AETHER_RPC || 'http://127.0.0.1:8899';
-}
-
-function httpRequest(rpcUrl, pathStr, timeoutMs = 8000) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(pathStr, rpcUrl);
-    const lib = url.protocol === 'https:' ? https : http;
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'GET',
-      timeout: timeoutMs,
-      headers: { 'Content-Type': 'application/json' },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { resolve({ raw: data }); }
-      });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
-    req.end();
-  });
-}
-
-function httpPost(rpcUrl, pathStr, body, timeoutMs = 8000) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(pathStr, rpcUrl);
-    const lib = url.protocol === 'https:' ? https : http;
-    const bodyStr = JSON.stringify(body);
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'POST',
-      timeout: timeoutMs,
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { resolve({ raw: data }); }
-      });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
-    req.write(bodyStr);
-    req.end();
-  });
+  return process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
 }
 
 // ---------------------------------------------------------------------------
-// Single ping: measure latency to /v1/slot
+// Single ping: measure latency to /v1/slot using SDK
 // ---------------------------------------------------------------------------
 
 async function pingOnce(rpcUrl) {
+  const client = new aether.AetherClient({ rpcUrl });
   const start = Date.now();
   let slot = null;
   let error = null;
   let latencyMs = null;
 
   try {
-    // Use POST to /v1/slot (some nodes only support POST)
-    const result = await httpPost(rpcUrl, '/v1/slot', {}, 8000);
+    // Real RPC call via SDK: POST /v1/slot
+    const result = await client.getSlot();
     latencyMs = Date.now() - start;
-
-    if (result && result.error) {
-      error = result.error;
-    } else {
-      slot = result.slot ?? result;
-      if (typeof slot === 'object') slot = slot.slot;
-    }
+    slot = result;
   } catch (err) {
     latencyMs = Date.now() - start;
     error = err.message;
