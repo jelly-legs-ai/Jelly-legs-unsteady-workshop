@@ -158,12 +158,16 @@ async fn handle_http_request(
             let parent_block_hash = if current_slot == 0 {
                 // Genesis block's parent is the genesis hash
                 state.get_genesis_hash()
-            } else if let Some(block) = block_producer.get_block(current_slot - 1).await {
-                // Previous slot's block hash becomes the parent
-                block.block_hash.clone()
             } else {
-                // Fallback: use genesis hash if block not found
-                state.get_genesis_hash()
+                // Only subtract 1 when slot > 0 to avoid underflow
+                let prev_slot = current_slot - 1;
+                if let Some(block) = block_producer.get_block(prev_slot).await {
+                    // Previous slot's block hash becomes the parent
+                    block.block_hash.clone()
+                } else {
+                    // Fallback: use genesis hash if block not found
+                    state.get_genesis_hash()
+                }
             };
             
             // Check validator health:
