@@ -3,12 +3,25 @@
   "version": "2.0.0",
   "description": "12-Clawdbot Real-Time Workflow Dashboard",
   "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
     "generate-data": "node scripts/generate-dashboard-data.js",
     "test": "echo \"Tests not implemented yet\""
   },
   "dependencies": {
     "@jellylegsai/aether-validator-cli": "https://registry.npmjs.org/@jellylegsai/aether-validator-cli/-/aether-validator-cli-1.0.2.tgz",
-    "@octokit/rest": "^20.0.2"
+    "@octokit/rest": "^20.0.2",
+    "next": "14.2.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "typescript": "^5.4.0"
   },
   "repository": {
     "type": "git",
