@@ -394,6 +394,27 @@ impl ValidatorState {
     pub fn tier(&self) -> ValidatorTier {
         self.inner.tier.read().map(|t| *t).unwrap_or(ValidatorTier::Observer)
     }
+    
+    /// Get the validator identity public key as bytes, if available.
+    pub fn identity_pubkey_bytes(&self) -> Option<[u8; 32]> {
+        let identity = self.inner.identity.read().ok()?;
+        let identity = identity.as_ref()?;
+        let pubkey_str = identity.pubkey();
+        let decoded = bs58::decode(&pubkey_str).into_vec().ok()?;
+        if decoded.len() < 32 {
+            return None;
+        }
+        let mut key = [0u8; 32];
+        key.copy_from_slice(&decoded[..32]);
+        Some(key)
+    }
+    
+    /// Get the validator identity public key as a bs58 string, if available.
+    pub fn identity_pubkey(&self) -> Option<String> {
+        let identity = self.inner.identity.read().ok()?;
+        let identity = identity.as_ref()?;
+        Some(identity.pubkey())
+    }
 
     /// Get the tier configuration
     pub fn tier_config(&self) -> Option<TierConfig> {

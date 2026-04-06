@@ -25,7 +25,7 @@ use crate::state::ValidatorState;
 use crate::block_producer::BlockProducer;
 use crate::persistence::PersistenceManager;
 use crate::block_producer::Block;
-use aether_core::TransactionReceipt;
+
 use sha2::{Digest, Sha256};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
@@ -313,7 +313,7 @@ impl SyncManager {
         let mut sorted_blocks = blocks;
         sorted_blocks.sort_by_key(|b| b.block.slot);
         
-        let start_slot = self.validator_state.current_slot();
+        let _start_slot = self.validator_state.current_slot();
         
         for sync_block in sorted_blocks {
             // Verify slot sequence
@@ -402,7 +402,7 @@ impl SyncManager {
     pub async fn create_snapshot(&self) -> Result<StateSnapshot, SyncError> {
         let slot = self.validator_state.current_slot();
         let block_hash = self.block_producer.current_block_hash().await;
-        let state_root = self.block_producer.get_state_root().await;
+        let state_root = self.block_producer.get_state_root_sync();
         let epoch = slot / 432_000; // SLOTS_PER_EPOCH
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -410,7 +410,7 @@ impl SyncManager {
             .as_secs();
         
         // Get all accounts from state
-        let accounts = self.block_producer.get_all_accounts().await;
+        let accounts = self.block_producer.get_all_accounts_sync();
         let total_supply = self.block_producer.total_supply().await;
         
         let snapshot_accounts: Vec<SnapshotAccount> = accounts.into_iter()
@@ -508,7 +508,7 @@ impl SyncManager {
                 data: account.data,
                 rent_epoch: account.rent_epoch,
             };
-            self.block_producer.set_account(&account.address, acc).await;
+            self.block_producer.set_account_sync(&account.address, acc);
         }
         
         // Update validator state

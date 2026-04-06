@@ -3,6 +3,11 @@
 //! Produces blocks at a fixed interval (400ms per slot) with PoH hashing.
 //! Includes transaction execution and mempool management.
 //! Persists blocks to disk for crash recovery.
+//!
+//! AI Priority Lanes:
+//! - Critical: AI governance, emergency operations (10x base fee, 100% to treasury)
+//! - High: AI agent transactions, MEV protection (5x base fee, 50% treasury/50% validators)
+//! - Standard: Regular user transactions (base fee, 100% to validators)
 
 use crate::executor::Executor;
 use crate::state_db::StateDB;
@@ -11,6 +16,8 @@ use crate::persistence::{PersistenceManager, PersistedBlock, PersistedAccount};
 use aether_core::{
     AetherTransaction, Account, Address, TransactionReceipt, TransactionPayload,
 };
+use aether_ai_priority::fee_distribution::{FeeDistributor, FeeReceipt, FeeEconomicsSummary, FeeDistributionConfig};
+use aether_common::types::AIPriorityLane;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::VecDeque;
@@ -54,6 +61,8 @@ pub struct BlockProducer {
     executor: Arc<Executor>,
     persistence: Option<Arc<PersistenceManager>>,
     _ledger_path: PathBuf,
+    /// AI Priority Fee Distributor — integrated into block production
+    fee_distributor: Arc<FeeDistributor>,
 }
 
 impl BlockProducer {
@@ -67,6 +76,7 @@ impl BlockProducer {
             executor,
             persistence: None,
             _ledger_path: PathBuf::from("ledger"),
+            fee_distributor: Arc::new(FeeDistributor::new()),
         }
     }
     
@@ -140,6 +150,7 @@ impl BlockProducer {
             executor,
             persistence: Some(persistence),
             _ledger_path: ledger_path,
+            fee_distributor: Arc::new(FeeDistributor::new()),
         })
     }
 
@@ -323,6 +334,7 @@ impl BlockProducer {
 
     /// Execute all pending transactions and return receipts
     /// Enforces compute unit limit (MAX_COMPUTE_UNITS_PER_BLOCK) and transaction count limit.
+    /// Integrates AI Priority Fee Distributor for fee processing and lane-aware ordering.
     async fn execute_pending_transactions(&self, slot: u64) -> Vec<TransactionReceipt> {
         let mut receipts = Vec::new();
         let mut total_compute_units: u64 = 0;
@@ -368,11 +380,32 @@ impl BlockProducer {
             }
         }
         
-        // Execute transactions with error handling
+        // Get timestamp for fee receipts
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        
+        // Execute transactions with error handling, processing fees via AI Priority Fee Distributor
         for tx in txs_to_process {
             let exec_result = self.executor.execute(&tx);
             
             if exec_result.success {
+                // Derive AI Priority Lane from the transaction's fee amount
+                // This determines fee distribution: Critical(10x,100% treasury), High(5x,50/50), Standard(base,100% validators)
+                let lane = derive_priority_lane(tx.fee);
+                let compute_units = self.estimate_compute_units(&tx);
+                
+                // Process fee through the AI Priority Fee Distributor
+                // This calculates how the fee is split between treasury and validators based on lane
+                let _fee_receipt = self.fee_distributor.process_fee(
+                    tx.signature,
+                    lane,
+                    compute_units,
+                    slot,
+                    timestamp,
+                );
+                
                 let receipt = TransactionReceipt {
                     signature: tx.signature.clone(),
                     slot,
@@ -394,6 +427,13 @@ impl BlockProducer {
             }
         }
         
+        // Finalize block: distribute validator fees to the block producer
+        // The block producer's identity is used as the validator key for fee rewards
+        if let Some(identity_bytes) = self.state.identity_pubkey_bytes() {
+            let _validator_fees = self.fee_distributor.finalize_block(&identity_bytes);
+        }
+        // If no identity (shouldn't happen in normal operation), fees are still tracked but not credited
+        
         debug!(
             "Executed {} transactions using {} compute units (limit: {})",
             receipts.len(),
@@ -402,6 +442,22 @@ impl BlockProducer {
         );
         
         receipts
+    }
+    
+    /// Derive AI Priority Lane from transaction fee.
+    /// 
+    /// Fee thresholds:
+    /// - Critical: >= 1_000_000 lamports (10x base fee, 100% to treasury)
+    /// - High:     >= 500_000 lamports (5x base fee, 50% treasury / 50% validators)
+    /// - Standard: < 500_000 lamports (base fee, 100% to validators)
+    fn derive_priority_lane(fee: u64) -> AIPriorityLane {
+        if fee >= 1_000_000 {
+            AIPriorityLane::Critical
+        } else if fee >= 500_000 {
+            AIPriorityLane::High
+        } else {
+            AIPriorityLane::Standard
+        }
     }
 
     /// Estimate compute units for a transaction based on its type
@@ -519,11 +575,12 @@ impl BlockProducer {
     pub fn get_state_root_sync(&self) -> String {
         let accounts = self.state_db.get_all_accounts_sync();
         let mut hasher = Sha256::new();
-        let mut addrs: Vec<_> = accounts.keys().collect();
+        let mut addrs: Vec<_> = accounts.iter().map(|(addr, _)| addr).collect();
         addrs.sort();
         for addr in addrs {
             hasher.update(addr);
-            if let Some(acc) = accounts.get(addr) {
+            // Find account for this address in the vector
+            if let Some((_, acc)) = accounts.iter().find(|(a, _)| a == addr) {
                 hasher.update(acc.lamports.to_le_bytes());
                 hasher.update(&acc.owner);
             }
@@ -540,5 +597,11 @@ impl BlockProducer {
     /// Set account for snapshot restore
     pub fn set_account_sync(&self, address: &[u8; 32], account: Account) {
         self.state_db.set_account_sync(address, account);
+    }
+    
+    /// Get a reference to the AI Priority Fee Distributor.
+    /// Used by the RPC server to expose fee economics and lane stats.
+    pub fn fee_distributor(&self) -> Arc<FeeDistributor> {
+        self.fee_distributor.clone()
     }
 }
