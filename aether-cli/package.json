@@ -1,6 +1,6 @@
 {
   "name": "@jellylegsai/aether-validator-cli",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "Aether Validator CLI - tiered validators (Full/Lite/Observer), system checks, onboarding, staking, and node management",
   "main": "index.js",
   "bin": {
