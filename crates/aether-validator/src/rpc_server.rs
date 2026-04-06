@@ -167,20 +167,18 @@ async fn handle_http_request(
             
             // Check validator health:
             // - Healthy if no blocks produced yet (fresh start)
-            // - Healthy if blocks produced and block_hash is valid
+            // - Healthy if blocks produced and block_hash has advanced from genesis
             // - Unhealthy if blocks produced but block_hash is still genesis (sync issue)
             let blocks_produced = state.blocks_produced();
-            let (healthy, error) = if block_hash.is_empty() {
-                // Empty block hash indicates initialization issue - check first
-                (false, Some("Block hash not initialized - validator may not be synced".to_string()))
-            } else if blocks_produced == 0 {
-                // No blocks produced yet - normal for fresh start
+            let genesis_hash = state.get_genesis_hash();
+            let (healthy, error) = if blocks_produced == 0 {
+                // No blocks produced yet - normal for fresh start, even if hash is empty/genesis
                 (true, None)
-            } else if block_hash == state.get_genesis_hash() {
-                // Blocks produced but still showing genesis hash = sync issue
+            } else if block_hash.is_empty() || block_hash == genesis_hash {
+                // Blocks produced but hash hasn't advanced from genesis/empty = sync issue
                 (false, Some("Validator not producing blocks - blocks_produced > 0 but block hash unchanged".to_string()))
             } else {
-                // Normal operation
+                // Normal operation - blocks produced and hash has advanced
                 (true, None)
             };
             

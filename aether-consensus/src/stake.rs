@@ -86,7 +86,7 @@ impl StakePosition {
     pub fn new(owner: String, amount: u64, lock_period: u64) -> Self {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time before epoch")
             .as_secs();
         Self {
             owner,
@@ -106,8 +106,7 @@ impl StakePosition {
     /// Check if stake is still locked
     pub fn is_locked(&self) -> bool {
         let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time before epoch")
             .as_secs();
         now < self.start_time + self.lock_period
     }
@@ -119,8 +118,7 @@ impl StakePosition {
         }
         
         let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time before epoch")
             .as_secs();
         
         // Time elapsed since last claim (in years)
@@ -139,8 +137,7 @@ impl StakePosition {
         let rewards = self.calculate_rewards();
         self.accumulated_rewards += rewards;
         self.last_claim = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time before epoch")
             .as_secs();
     }
     
@@ -236,8 +233,7 @@ impl StakePool {
         }
         
         let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time before epoch")
             .as_secs();
         
         // Create unstake request with no additional lock (already served original lock)
@@ -259,8 +255,7 @@ impl StakePool {
         let request = self.unstake_requests.remove(&key).ok_or("No unstake request found")?;
         
         let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time before epoch")
             .as_secs();
         
         if now < request.unlock_time {
@@ -305,7 +300,8 @@ impl StakePool {
                 tier: format!("{:?}", pos.tier()),
                 lock_remaining: if pos.is_locked() {
                     Some(pos.start_time + pos.lock_period - SystemTime::now()
-                        .duration_since(UNIX_EPOCH).unwrap().as_secs())
+                        .expect("system time before epoch")
+                        .as_secs())
                 } else {
                     None
                 },
