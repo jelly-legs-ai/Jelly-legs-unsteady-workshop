@@ -198,8 +198,12 @@ fn test_tower_consensus_confirmation() {
         tower.process_vote(*v, 1, stake_per_validator).unwrap();
     }
     
-    // Not confirmed yet (need confirmations)
-    assert!(!tower.is_slot_confirmed(1, total_stake));
+    // Slot 1 IS confirmed by stake weight (>2/3 have voted)
+    // is_slot_confirmed checks stake threshold, not confirmation depth
+    assert!(tower.is_slot_confirmed(1, total_stake));
+    
+    // But root is not set yet - need 32 confirmations (confirmation_depth)
+    assert_eq!(tower.get_root_slot(), 0);
     
     // Build confirmations - each validator votes on subsequent slots
     for confirmations in 2..=33 {
@@ -208,10 +212,7 @@ fn test_tower_consensus_confirmation() {
         }
     }
     
-    // Now slot 1 should have enough confirmations
-    assert!(tower.is_slot_confirmed(1, total_stake));
-    
-    // Root should be at least slot 1
+    // Now root should be set after 32 confirmations
     assert!(tower.get_root_slot() >= 1);
 }
 
