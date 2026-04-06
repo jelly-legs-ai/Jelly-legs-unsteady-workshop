@@ -219,7 +219,7 @@ async function validatorStatus() {
 }
 
 // Export for use as module
-module.exports = { validatorStatus, rpcCall };
+module.exports = { validatorStatus };
 
 // Run if called directly
 if (require.main === module) {

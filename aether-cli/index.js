@@ -34,6 +34,7 @@ const { feesCommand } = require('./commands/fees');
 const { tpsCommand } = require('./commands/tps');
 const { blockhashCommand } = require('./commands/blockhash');
 const { sdkTestCommand } = require('./commands/sdk-test');
+const { balanceCommand } = require('./commands/balance');
 const readline = require('readline');
 
 // CLI version
@@ -262,6 +263,13 @@ const COMMANDS = {
     handler: () => {
       const { blockhashCommand } = require('./commands/blockhash');
       blockhashCommand();
+    },
+  },
+  balance: {
+    description: 'Query account balance — aether balance [address] [--json] [--lamports] [--rpc <url>]',
+    handler: () => {
+      const { balanceCommand } = require('./commands/balance');
+      balanceCommand();
     },
   },
   network: {

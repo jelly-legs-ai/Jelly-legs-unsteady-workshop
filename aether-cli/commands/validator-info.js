@@ -634,7 +634,13 @@ async function main() {
   console.log();
 }
 
-main().catch(err => {
-  console.error(`\n${C.red}✗ Validator info failed:${C.reset} ${err.message}\n`);
-  process.exit(1);
-});
+// Export for module use
+module.exports = { validatorInfo: main };
+
+// Only run if called directly (not when required as module)
+if (require.main === module) {
+  main().catch(err => {
+    console.error(`\n${C.red}✗ Validator info failed:${C.reset} ${err.message}\n`);
+    process.exit(1);
+  });
+}
