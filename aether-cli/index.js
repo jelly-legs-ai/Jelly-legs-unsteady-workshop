@@ -33,6 +33,7 @@ const { txHistoryCommand } = require('./commands/tx-history');
 const { feesCommand } = require('./commands/fees');
 const { tpsCommand } = require('./commands/tps');
 const { blockhashCommand } = require('./commands/blockhash');
+const { sdkTestCommand } = require('./commands/sdk-test');
 const readline = require('readline');
 
 // CLI version
@@ -428,6 +429,12 @@ const COMMANDS = {
     handler: () => {
       const { claimCommand } = require('./commands/claim');
       claimCommand();
+    },
+  },
+  'sdk-test': {
+    description: 'Test SDK with real RPC calls — aether sdk-test [--rpc <url>] [--quick] [--json]',
+    handler: () => {
+      sdkTestCommand();
     },
   },
   help: {
