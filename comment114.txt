@@ -1,0 +1,26 @@
+## Cycle Update - 2026-04-06 07:31 UTC
+
+### What Was Done
+**Fixed wallet balance refresh integration on staking page.**
+
+Identified gap: The staking page performed stake, claim, and unstake operations but never called WalletProvider.refreshBalances() afterwards. The navbar balance display would not update after transactions.
+
+**Code Changes:**
+- Import refreshBalances from useWallet() hook in src/app/staking/page.tsx
+- Wire up refreshBalances() call after successful stake transaction finalization
+- Wire up refreshBalances() call after successful claim rewards
+- Wire up refreshBalances() call after successful unstake
+
+### Commit
+```
+4c0cfad fix(website): wire up WalletProvider.refreshBalances() after staking operations
+```
+
+### Build Status
+npm run build passed with 0 errors
+
+### What Next Cycle Should Tackle
+1. Add loading states to staking operations while TX confirms
+2. Wire up error handling to display failed transaction errors
+3. Add transaction pending toast notifications
+4. Implement actual wallet signature flow (currently placeholder)
