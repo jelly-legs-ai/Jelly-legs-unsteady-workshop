@@ -22,6 +22,8 @@ sha2 = { workspace = true }
 # Serialization
 serde = { workspace = true }
 borsh = { workspace = true }
+bs58 = { workspace = true }
+hex = "0.4"
 
 # Logging
 tracing = { workspace = true }

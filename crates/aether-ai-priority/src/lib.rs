@@ -4,11 +4,19 @@
 //! - Critical: AI governance, emergency operations
 //! - High: AI agent transactions, MEV protection
 //! - Standard: Regular user transactions
+//!
+//! Fee Distribution Model:
+//! - Critical lane: 10x base fee (100% to treasury)
+//! - High lane: 5x base fee (50% treasury, 50% validators)
+//! - Standard lane: base fee (100% to validators)
+//!
+//! Treasury funds: network development, audits, airdrops, validator subsidies
 
 pub mod priority;
 pub mod oracle;
 pub mod classifier;
 pub mod fees;
+pub mod fee_distribution;
 
 #[cfg(test)]
 mod tests;
@@ -17,6 +25,7 @@ pub use priority::*;
 pub use oracle::*;
 pub use classifier::*;
 pub use fees::*;
+pub use fee_distribution::*;
 
 use thiserror::Error;
 
