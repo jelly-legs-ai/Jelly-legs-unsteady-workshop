@@ -3,13 +3,13 @@
 //! Main consensus engine that combines PoH + PoS with AI priority lanes.
 
 use crate::{ConsensusError, ConsensusResult};
-use crate::poh::{PoHGenerator, PoHEntry, verify_poh_chain, HASHES_PER_TICK};
+use crate::poh::{PoHGenerator, PoHEntry, verify_poh_chain};
 use crate::pos::{StakePool, LeaderSchedule, ValidatorStake};
-use aether_common::{AIPriorityLane, AITransactionMeta, ValidatorTier, SLOT_TIME_MS, SignatureBytes};
+use aether_common::{AIPriorityLane, AITransactionMeta, SLOT_TIME_MS, SignatureBytes};
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::{Arc, RwLock};
 use serde::{Serialize, Deserialize};
-use std::time::{Duration, Instant};
+
 
 /// AetherFlow block header
 #[derive(Debug, Clone, Serialize, Deserialize)]

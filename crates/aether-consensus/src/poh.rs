@@ -6,7 +6,7 @@
 
 use sha2::{Sha256, Digest};
 use serde::{Serialize, Deserialize};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 /// Number of hashes per tick (target ~400ms per tick)
 pub const HASHES_PER_TICK: u64 = 2_000_000; // ~2M hashes = ~400ms on modern CPU
