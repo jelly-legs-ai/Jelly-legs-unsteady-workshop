@@ -16,7 +16,7 @@ use crate::persistence::{PersistenceManager, PersistedBlock, PersistedAccount};
 use aether_core::{
     AetherTransaction, Account, Address, TransactionReceipt, TransactionPayload,
 };
-use aether_ai_priority::fee_distribution::{FeeDistributor, FeeReceipt, FeeEconomicsSummary, FeeDistributionConfig};
+use aether_ai_priority::fee_distribution::FeeDistributor;
 use aether_common::types::AIPriorityLane;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -393,7 +393,7 @@ impl BlockProducer {
             if exec_result.success {
                 // Derive AI Priority Lane from the transaction's fee amount
                 // This determines fee distribution: Critical(10x,100% treasury), High(5x,50/50), Standard(base,100% validators)
-                let lane = derive_priority_lane(tx.fee);
+                let lane = self.derive_priority_lane(tx.fee);
                 let compute_units = self.estimate_compute_units(&tx);
                 
                 // Process fee through the AI Priority Fee Distributor
@@ -450,7 +450,7 @@ impl BlockProducer {
     /// - Critical: >= 1_000_000 lamports (10x base fee, 100% to treasury)
     /// - High:     >= 500_000 lamports (5x base fee, 50% treasury / 50% validators)
     /// - Standard: < 500_000 lamports (base fee, 100% to validators)
-    fn derive_priority_lane(fee: u64) -> AIPriorityLane {
+    fn derive_priority_lane(&self, fee: u64) -> AIPriorityLane {
         if fee >= 1_000_000 {
             AIPriorityLane::Critical
         } else if fee >= 500_000 {

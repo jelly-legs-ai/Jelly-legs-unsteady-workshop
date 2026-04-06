@@ -1,9 +1,12 @@
 //! HTTP RPC Server
 //!
 //! Provides HTTP endpoints for validator state queries and transaction submission.
+//! Includes AI Priority Lane endpoints for fee economics and lane configuration.
 
 use crate::block_producer::BlockProducer;
 use crate::state::ValidatorState;
+use aether_ai_priority::fee_distribution::FeeDistributionConfig;
+use bs58;
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -92,6 +95,14 @@ pub async fn start_rpc_server(
     info!("  GET  /v1/tx/<signature>    - Get transaction status");
     info!("  GET  /v1/account/<address> - Get account info");
     info!("  GET  /v1/total_supply      - Get total token supply");
+    info!("  === AI Priority Lane Endpoints ===");
+    info!("  GET  /v1/ai_priority/lanes       - Lane config + current fee economics");
+    info!("  GET  /v1/ai_priority/economics    - Fee economics summary");
+    info!("  GET  /v1/ai_priority/epoch        - Current epoch fee stats");
+    info!("  GET  /v1/ai_priority/epoch/<N>    - Fee stats for epoch N");
+    info!("  GET  /v1/ai_priority/treasury    - Treasury state + history");
+    info!("  GET  /v1/ai_priority/rewards/<addr> - Validator fee rewards");
+    info!("  POST /v1/ai_priority/submit       - Submit transaction with lane field");
 
     loop {
         match listener.accept().await {
@@ -228,6 +239,208 @@ async fn handle_http_request(
         ("GET", "/v1/block_production") => {
             let bp = state.block_production();
             (200, serde_json::to_string(&bp).unwrap_or_default())
+        }
+        // ========== AI Priority Lane Endpoints ==========
+        // Get lane configuration and current fee economics
+        ("GET", "/v1/ai_priority/lanes" | "/v1/ai_priority/config") => {
+            let fd = block_producer.fee_distributor();
+            let stats = fd.current_epoch_stats();
+            let treasury = fd.treasury_state();
+            let cfg = FeeDistributionConfig::default();
+            let resp = serde_json::json!({
+                "lanes": {
+                    "critical": {
+                        "multiplier": 10,
+                        "min_fee": cfg.min_critical_fee,
+                        "treasury_share_bps": 10000,
+                        "validator_share_bps": 0,
+                        "description": "AI governance, emergency operations (10x base fee, 100% to treasury)"
+                    },
+                    "high": {
+                        "multiplier": 5,
+                        "min_fee": cfg.min_high_fee,
+                        "treasury_share_bps": 5000,
+                        "validator_share_bps": 5000,
+                        "description": "AI agent transactions, MEV protection (5x base fee, 50/50 split)"
+                    },
+                    "standard": {
+                        "multiplier": 1,
+                        "min_fee": cfg.base_fee_per_cu,
+                        "treasury_share_bps": 0,
+                        "validator_share_bps": 10000,
+                        "description": "Regular user transactions (base fee, 100% to validators)"
+                    }
+                },
+                "current_epoch": fd.current_epoch(),
+                "epoch_stats": {
+                    "critical_fees": stats.critical_fees,
+                    "critical_tx_count": stats.critical_tx_count,
+                    "high_fees": stats.high_fees,
+                    "high_tx_count": stats.high_tx_count,
+                    "standard_fees": stats.standard_fees,
+                    "standard_tx_count": stats.standard_tx_count,
+                    "total_treasury_fees": stats.treasury_fees,
+                    "total_validator_fees": stats.validator_fees,
+                    "total_burned": stats.burned_fees
+                },
+                "treasury": {
+                    "address": bs58::encode(treasury.address).into_string(),
+                    "lifetime_fees": treasury.lifetime_fees,
+                    "epoch_fees": treasury.epoch_fees,
+                    "lifetime_burned": treasury.lifetime_burned
+                }
+            });
+            (200, serde_json::to_string(&resp).unwrap_or_default())
+        }
+        // Get fee economics summary
+        ("GET", "/v1/ai_priority/economics") => {
+            let fd = block_producer.fee_distributor();
+            let summary = fd.fee_economics_summary();
+            (200, serde_json::to_string(&summary).unwrap_or_default())
+        }
+        // Get current epoch fee statistics
+        ("GET", "/v1/ai_priority/epoch_stats" | "/v1/ai_priority/epoch") => {
+            let fd = block_producer.fee_distributor();
+            let stats = fd.current_epoch_stats();
+            (200, serde_json::to_string(&stats).unwrap_or_default())
+        }
+        // Get fee stats for a specific epoch
+        ("GET", path) if path.starts_with("/v1/ai_priority/epoch_stats/") || path.starts_with("/v1/ai_priority/epoch/") => {
+            let epoch_str = path.split('/').last().unwrap_or("");
+            if let Ok(epoch) = epoch_str.parse::<u64>() {
+                let fd = block_producer.fee_distributor();
+                if let Some(stats) = fd.get_epoch_stats(epoch) {
+                    (200, serde_json::to_string(&stats).unwrap_or_default())
+                } else {
+                    (404, serde_json::json!({"error": "Epoch not found", "epoch": epoch}).to_string())
+                }
+            } else {
+                (400, r#"{"error":"Invalid epoch number"}"#.to_string())
+            }
+        }
+        // Get treasury state
+        ("GET", "/v1/ai_priority/treasury") => {
+            let fd = block_producer.fee_distributor();
+            let treasury = fd.treasury_state();
+            let resp = serde_json::json!({
+                "address": bs58::encode(treasury.address).into_string(),
+                "lifetime_fees": treasury.lifetime_fees,
+                "epoch_fees": treasury.epoch_fees,
+                "lifetime_burned": treasury.lifetime_burned,
+                "recent_epochs": treasury.epoch_history.iter().map(|e| {
+                    serde_json::json!({
+                        "epoch": e.epoch,
+                        "treasury_fees": e.treasury_fees,
+                        "validator_fees": e.validator_fees,
+                        "burned": e.burned_fees,
+                        "critical_tx": e.critical_tx_count,
+                        "high_tx": e.high_tx_count,
+                        "standard_tx": e.standard_tx_count
+                    })
+                }).collect::<Vec<_>>()
+            });
+            (200, serde_json::to_string(&resp).unwrap_or_default())
+        }
+        // Get validator fee rewards by pubkey
+        ("GET", path) if path.starts_with("/v1/ai_priority/validator_rewards/") 
+                      || path.starts_with("/v1/ai_priority/rewards/") => {
+            let addr_str = path.split('/').last().unwrap_or("");
+            let addr_bytes = bs58::decode(addr_str).into_vec().unwrap_or_default();
+            let mut addr = [0u8; 32];
+            addr.copy_from_slice(&addr_bytes[..32.min(addr_bytes.len())]);
+            
+            let fd = block_producer.fee_distributor();
+            if let Some(rewards) = fd.get_validator_rewards(&addr) {
+                (200, serde_json::to_string(&rewards).unwrap_or_default())
+            } else {
+                (404, serde_json::json!({
+                    "error": "Validator not found or has no fee rewards",
+                    "validator": addr_str
+                }).to_string())
+            }
+        }
+        // Submit transaction with AI priority lane (accepts lane in body)
+        ("POST", "/v1/ai_priority/submit") => {
+            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
+            let body = &request_str[body_start..];
+            match serde_json::from_str::<serde_json::Value>(body) {
+                Ok(json) => {
+                    let tx_type = json.get("tx_type").and_then(|v| v.as_str()).unwrap_or("transfer");
+                    let signer = json.get("signer").and_then(|v| v.as_str()).unwrap_or("");
+                    let payload = json.get("payload");
+                    let sig_str = json.get("signature").and_then(|v| v.as_str()).unwrap_or("");
+                    let fee = json.get("fee").and_then(|v| v.as_u64()).unwrap_or(0);
+                    // AI Priority Lane: critical, high, or standard (defaults to standard)
+                    let lane_str = json.get("lane").and_then(|v| v.as_str()).unwrap_or("standard");
+                    let lane = match lane_str {
+                        "critical" => "critical",
+                        "high" => "high",
+                        _ => "standard",
+                    };
+                    
+                    // Minimum fee enforcement based on lane
+                    let min_fee = match lane {
+                        "critical" => 1_000_000u64,
+                        "high" => 500_000u64,
+                        _ => 5_000u64,
+                    };
+                    let final_fee = fee.max(min_fee);
+                    
+                    let sig_bytes = bs58::decode(sig_str).into_vec().unwrap_or_default();
+                    let mut signature = [0u8; 64];
+                    signature.copy_from_slice(&sig_bytes[..64.min(sig_bytes.len())]);
+                    
+                    let signer_bytes = bs58::decode(signer).into_vec().unwrap_or_default();
+                    let mut signer_arr = [0u8; 32];
+                    signer_arr.copy_from_slice(&signer_bytes[..32.min(signer_bytes.len())]);
+                    
+                    let tx = aether_core::AetherTransaction {
+                        signature,
+                        signer: signer_arr,
+                        tx_type: match tx_type {
+                            "transfer" => aether_core::TransactionType::Transfer,
+                            "stake" => aether_core::TransactionType::Stake,
+                            "unstake" => aether_core::TransactionType::Unstake,
+                            "claim_rewards" => aether_core::TransactionType::ClaimRewards,
+                            "create_nft" => aether_core::TransactionType::CreateNFT,
+                            "mint_nft" => aether_core::TransactionType::MintNFT,
+                            "transfer_nft" => aether_core::TransactionType::TransferNFT,
+                            "update_metadata" => aether_core::TransactionType::UpdateMetadata,
+                            _ => aether_core::TransactionType::Transfer,
+                        },
+                        payload: aether_core::TransactionPayload::Transfer {
+                            recipient: payload.and_then(|p| p.get("recipient")).and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                            amount: payload.and_then(|p| p.get("amount")).and_then(|v| v.as_u64()).unwrap_or(0),
+                            nonce: payload.and_then(|p| p.get("nonce")).and_then(|v| v.as_u64()).unwrap_or(0),
+                        },
+                        fee: final_fee,
+                        slot: 0,
+                        timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs(),
+                    };
+                    
+                    match block_producer.submit_transaction(tx).await {
+                        Ok(sig) => {
+                            let resp = serde_json::json!({
+                                "signature": sig,
+                                "slot": state.current_slot(),
+                                "lane": lane,
+                                "fee": final_fee,
+                                "min_fee_for_lane": min_fee,
+                                "message": format!("Transaction submitted via {} lane", lane)
+                            });
+                            (200, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                        Err(e) => {
+                            let resp = serde_json::json!({"error": e});
+                            (500, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                    }
+                }
+                Err(e) => {
+                    let resp = serde_json::json!({"error": format!("Parse error: {}", e)});
+                    (400, serde_json::to_string(&resp).unwrap_or_default())
+                }
+            }
         }
         // Validator info
         ("GET", "/v1/validator/info") => {
