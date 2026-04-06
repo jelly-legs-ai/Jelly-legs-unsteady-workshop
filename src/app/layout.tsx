@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Nav from '@/components/Nav'
 
 export const metadata: Metadata = {
   title: 'Aether Chain Hub',
@@ -21,6 +22,7 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
+        <Nav />
         {children}
       </body>
     </html>
