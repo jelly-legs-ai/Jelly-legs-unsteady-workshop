@@ -1,0 +1,10 @@
+{
+  "lastCycle": "2026-04-06T08:18:00Z",
+  "directiveRefresh": "2026-04-06T09:24:00Z",
+  "models": {
+    "#115_blockchain": "glm-5:cloud",
+    "#114_website": "minimax-m2.7:cloud",
+    "#116_cli": "kimi-k2.5:cloud"
+  },
+  "notes": "Updated HEARTBEAT.md: new model assignments, agents now read last 'Next:' section from GitHub comments to pick up exactly where previous cycle left off — no restarting or repeating."
+}
