@@ -105,7 +105,7 @@ export default function StakingPage() {
     } finally {
       setIsVerifying(false);
     }
-  }, [walletAddress, walletInfo?.verified]);
+  }, [walletAddress]);
 
   /**
    * Auto-verify when a real wallet connects
