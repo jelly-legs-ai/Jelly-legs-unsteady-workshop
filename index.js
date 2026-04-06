@@ -451,6 +451,13 @@ const COMMANDS = {
       slotCommand();
     },
   },
+  multisig: {
+    description: 'Multi-signature wallet management — create, list, info, send, add-signer — aether multisig <subcommand>',
+    handler: () => {
+      const { multisigCommand } = require('./commands/multisig');
+      multisigCommand();
+    },
+  },
   claim: {
     description: 'Claim accumulated staking rewards — aether claim --address <addr> [--json] [--dry-run]',
     handler: () => {
