@@ -28,7 +28,7 @@ pub fn generate_proof(target_data: &[u8], difficulty: u32) -> ProofResult {
         hasher.update(target_data);
         hasher.update(&nonce.to_le_bytes());
         let result = hasher.finalize();
-        let hash: [u8; 32] = result.try_into().unwrap();
+        let hash: [u8; 32] = result.try_into().unwrap_or([0u8; 32]);
 
         if verify_proof(&hash, difficulty) {
             return ProofResult {
@@ -123,7 +123,7 @@ mod tests {
         let result = generate_proof(data, 8, 100_000);
         
         assert!(result.is_some(), "Should find proof for difficulty 8");
-        let proof = result.unwrap();
+        let proof = result.expect("Failed to generate proof");
         assert!(verify_proof(&proof.hash, proof.difficulty));
         assert!(proof.nonce < 100_000);
     }
@@ -135,7 +135,7 @@ mod tests {
         let result = generate_proof(data, 16, 1_000_000);
         
         assert!(result.is_some(), "Should find proof for difficulty 16");
-        let proof = result.unwrap();
+        let proof = result.expect("Failed to generate proof for medium difficulty");
         assert!(verify_proof(&proof.hash, proof.difficulty));
     }
 
@@ -155,7 +155,7 @@ mod tests {
         let result = generate_proof(data, 12, 500_000);
         
         assert!(result.is_some());
-        let proof = result.unwrap();
+        let proof = result.expect("Failed to generate proof for roundtrip test");
         
         // Verify the proof is valid
         assert!(verify_proof(&proof.hash, proof.difficulty));
@@ -178,8 +178,8 @@ mod tests {
         assert!(result1.is_some());
         assert!(result2.is_some());
         
-        let proof1 = result1.unwrap();
-        let proof2 = result2.unwrap();
+        let proof1 = result1.expect("Failed to generate proof (run 1)");
+        let proof2 = result2.expect("Failed to generate proof (run 2)");
         
         assert_eq!(proof1.nonce, proof2.nonce);
         assert_eq!(proof1.hash, proof2.hash);

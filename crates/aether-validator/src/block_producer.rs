@@ -87,8 +87,8 @@ impl BlockProducer {
     async fn produce_block(&self, slot: u64) {
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64;
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
 
         // Get previous block hash
         let history = self.block_history.read().await;
