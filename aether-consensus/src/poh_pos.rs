@@ -104,6 +104,12 @@ impl TowerBFT {
             return Err(ConsensusError::UnknownValidator);
         }
 
+        // CRITICAL: Verify block's prev_hash matches expected chain history
+        // This prevents validators from inserting blocks into wrong fork
+        if block.header.prev_hash != *prev_block_hash {
+            return Err(ConsensusError::InvalidPoh);
+        }
+
         // Verify PoH seed is valid (recompute from block data)
         // For MVP: skip detailed verification if block is empty
         if block.transactions.is_empty() {
