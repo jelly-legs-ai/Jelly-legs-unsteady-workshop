@@ -199,8 +199,9 @@ impl StakePool {
         }
         
         let position = StakePosition::new(owner.clone(), amount, lock_period);
-        let idx = self.positions.entry(owner.clone()).or_insert_with(Vec::new).len();
-        self.positions.get_mut(&owner).unwrap().push(position);
+        let positions = self.positions.entry(owner.clone()).or_insert_with(Vec::new);
+        let idx = positions.len();
+        positions.push(position);
         self.total_stake += amount;
         
         Ok(idx)
@@ -213,11 +214,11 @@ impl StakePool {
         let mut total_rewards: u64 = 0;
         for pos in positions.iter_mut() {
             pos.accrue_rewards();
-            total_rewards += pos.accumulated_rewards;
+            total_rewards = total_rewards.saturating_add(pos.accumulated_rewards);
             pos.accumulated_rewards = 0;
         }
         
-        self.total_rewards += total_rewards;
+        self.total_rewards = self.total_rewards.saturating_add(total_rewards);
         Ok(total_rewards)
     }
     
