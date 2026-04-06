@@ -57,8 +57,9 @@ impl StakeEntry {
     }
 
     /// Check if can withdraw
+    /// To withdraw: must have initiated withdrawal AND unlock period must have passed
     pub fn can_withdraw(&self, current_epoch: u64) -> bool {
-        !self.pending_withdrawal && current_epoch >= self.unlock_epoch
+        self.pending_withdrawal && current_epoch >= self.unlock_epoch
     }
 
     /// Start withdrawal process
@@ -375,29 +376,47 @@ mod tests {
         let mut pool = StakingPool::new(0);
         let owner = [1u8; 32];
 
+        // Create stake (starts at epoch 0, locked for STAKE_LOCK_EPOCHS=2 epochs)
         let stake_id = pool.stake(owner, MINIMUM_STAKE_AETH).unwrap();
 
-        // Stake starts locked for STAKE_LOCK_EPOCHS (2 epochs)
-        // Must wait for lock period to pass before initiating withdrawal
+        // Initially, stake is locked and NOT withdrawable
+        let stake = pool.get_stake(stake_id).unwrap();
+        assert!(stake.is_locked(0), "Stake should be locked at epoch 0");
+        assert!(!stake.can_withdraw(0), "Stake should not be withdrawable at epoch 0");
+
+        // Advance past initial lock period (epoch 2 is when unlock_epoch becomes valid)
+        pool.current_epoch = STAKE_LOCK_EPOCHS; // epoch 2
         
-        // Advance past lock period first
-        pool.current_epoch = STAKE_LOCK_EPOCHS + 1;
-        
-        // Now stake is unlocked, can initiate withdrawal
+        // Stake is now unlocked but still needs withdrawal initiation
+        let stake = pool.get_stake(stake_id).unwrap();
+        assert!(!stake.is_locked(pool.current_epoch), "Stake should be unlocked after lock period");
+        assert!(!stake.can_withdraw(pool.current_epoch), "Stake needs withdrawal initiation first");
+
+        // Initiate withdrawal (sets pending_withdrawal = true, sets new unlock_epoch)
         pool.initiate_withdrawal(stake_id).unwrap();
+        
+        // After initiating withdrawal, unlock_epoch is set to current_epoch + STAKE_LOCK_EPOCHS
+        let stake = pool.get_stake(stake_id).unwrap();
+        assert!(stake.pending_withdrawal, "Stake should be pending withdrawal");
+        assert_eq!(stake.unlock_epoch, pool.current_epoch + STAKE_LOCK_EPOCHS, 
+            "Unlock epoch should be current_epoch + STAKE_LOCK_EPOCHS");
+        
+        // Still not withdrawable yet - need to wait for the new lock period
+        assert!(!stake.can_withdraw(pool.current_epoch), 
+            "Stake should not be withdrawable immediately after withdrawal initiation");
 
-        // After withdrawal initiation, there's another lock period
-        // Advance past that too
-        pool.current_epoch = (STAKE_LOCK_EPOCHS * 2) + 2;
+        // Advance past the withdrawal lock period
+        pool.current_epoch = stake.unlock_epoch; // Now at the unlock epoch
 
-        // Now should be able to withdraw
+        // Now should be withdrawable
         let stake = pool.get_stake(stake_id).unwrap();
         assert!(stake.can_withdraw(pool.current_epoch), 
             "Stake should be withdrawable at epoch {} (unlock_epoch={})",
             pool.current_epoch, stake.unlock_epoch);
 
+        // Complete withdrawal
         let amount = pool.complete_withdrawal(stake_id).unwrap();
-        assert_eq!(amount, MINIMUM_STAKE_AETH); // No rewards yet
+        assert_eq!(amount, MINIMUM_STAKE_AETH); // No rewards yet (only 2 epochs)
     }
 
     #[test]
