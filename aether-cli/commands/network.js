@@ -14,10 +14,9 @@
  *   aether-cli network --rpc <url> # Query a specific RPC endpoint
  *   aether-cli network --peers     # Detailed peer list
  *   aether-cli network --epoch     # Current epoch and consensus info
+ *
+ * Uses @jellylegsai/aether-sdk for real blockchain RPC calls to http://127.0.0.1:8899
  */
-
-const http = require('http');
-const https = require('https');
 
 // ANSI colours
 const C = {
@@ -33,85 +32,12 @@ const C = {
   white: '\x1b[37m',
 };
 
-const DEFAULT_RPC = process.env.AETHER_RPC || 'http://127.0.0.1:8899';
+// Import SDK for real blockchain RPC calls
+const path = require('path');
+const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
+const aether = require(sdkPath);
 
-// ---------------------------------------------------------------------------
-// HTTP helpers
-// ---------------------------------------------------------------------------
-
-function httpRequest(rpcUrl, path, options = {}) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(path, rpcUrl);
-    const isHttps = url.protocol === 'https:';
-    const lib = isHttps ? https : http;
-
-    const reqOptions = {
-      hostname: url.hostname,
-      port: url.port || (isHttps ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'GET',
-      timeout: 5000,
-      headers: { 'Content-Type': 'application/json' },
-    };
-
-    const req = lib.request(reqOptions, (res) => {
-      let data = '';
-      res.on('data', (chunk) => (data += chunk));
-      res.on('end', () => {
-        try {
-          resolve(JSON.parse(data));
-        } catch {
-          resolve({ raw: data });
-        }
-      });
-    });
-
-    req.on('error', reject);
-    req.on('timeout', () => {
-      req.destroy();
-      reject(new Error('Request timeout'));
-    });
-
-    req.end();
-  });
-}
-
-function httpPost(rpcUrl, path, body) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(path, rpcUrl);
-    const isHttps = url.protocol === 'https:';
-    const lib = isHttps ? https : http;
-    const bodyStr = JSON.stringify(body);
-
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (isHttps ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'POST',
-      timeout: 5000,
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(bodyStr),
-      },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => (data += chunk));
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { resolve(data); }
-      });
-    });
-
-    req.on('error', reject);
-    req.on('timeout', () => {
-      req.destroy();
-      reject(new Error('Request timeout'));
-    });
-
-    req.write(bodyStr);
-    req.end();
-  });
-}
+const DEFAULT_RPC = process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
 
 // ---------------------------------------------------------------------------
 // Argument parsing
@@ -168,79 +94,79 @@ ${C.bright}Examples:${C.reset}
 }
 
 // ---------------------------------------------------------------------------
-// Network data fetchers
+// Network data fetchers using SDK (real blockchain RPC calls)
 // ---------------------------------------------------------------------------
 
-/** GET /v1/slot — current network slot */
+/** Create SDK client for custom RPC */
+function createClient(rpc) {
+  return new aether.AetherClient({ rpcUrl: rpc });
+}
+
+/** GET /v1/slot — current network slot (via SDK) */
 async function getSlot(rpc) {
   try {
-    const res = await httpRequest(rpc, '/v1/slot');
-    return res.slot ?? res.root_slot ?? null;
+    const client = createClient(rpc);
+    return await client.getSlot();
   } catch {
     return null;
   }
 }
 
-/** GET /v1/block_height — current network block height */
+/** GET /v1/blockheight — current network block height (via SDK) */
 async function getBlockHeight(rpc) {
   try {
-    const res = await httpRequest(rpc, '/v1/block_height');
-    return res.block_height ?? null;
+    const client = createClient(rpc);
+    return await client.getBlockHeight();
   } catch {
     return null;
   }
 }
 
-/** GET /v1/validators — list of validators / peers */
+/** GET /v1/validators — list of validators / peers (via SDK) */
 async function getValidators(rpc) {
   try {
-    const res = await httpRequest(rpc, '/v1/validators');
-    if (res.validators && Array.isArray(res.validators)) {
-      return res.validators;
-    }
-    if (Array.isArray(res)) return res;
-    return [];
+    const client = createClient(rpc);
+    return await client.getValidators();
   } catch {
     return [];
   }
 }
 
-/** GET /v1/epoch — current epoch and consensus info */
+/** GET /v1/epoch — current epoch and consensus info (via SDK) */
 async function getEpoch(rpc) {
   try {
-    const res = await httpRequest(rpc, '/v1/epoch');
-    return res;
+    const client = createClient(rpc);
+    return await client.getEpochInfo();
   } catch {
     return null;
   }
 }
 
-/** POST /v1/slot_production — slot production stats */
+/** POST /v1/slot_production — slot production stats (via SDK) */
 async function getSlotProduction(rpc) {
   try {
-    // Try slot production endpoint
-    const res = await httpPost(rpc, '/v1/slot_production', {});
-    return res;
+    const client = createClient(rpc);
+    return await client.getSlotProduction();
   } catch {
     return null;
   }
 }
 
-/** GET /v1/tps — TPS estimate from network */
+/** GET /v1/tps — TPS estimate from network (via SDK) */
 async function getTPS(rpc) {
   try {
-    const res = await httpRequest(rpc, '/v1/tps');
-    return res.tps ?? res.tps_avg ?? res.transactions_per_second ?? null;
+    const client = createClient(rpc);
+    return await client.getTPS();
   } catch {
     return null;
   }
 }
 
-/** GET /v1/supply — token supply info */
+/** GET /v1/supply — token supply info (via SDK) */
 async function getSupply(rpc) {
   try {
-    const res = await httpRequest(rpc, '/v1/supply');
-    return res;
+    const client = createClient(rpc);
+    return await client.getSupply();
   } catch {
     return null;
   }

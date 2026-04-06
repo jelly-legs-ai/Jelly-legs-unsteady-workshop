@@ -10,11 +10,10 @@
  *   aether account --address <addr> --json  JSON output for scripting
  *   aether account --address <addr> --data  Show raw account data as base64/hex
  *
- * Requires AETHER_RPC env var (default: http://127.0.0.1:8899)
+ * Uses @jellylegsai/aether-sdk for real blockchain RPC calls to http://127.0.0.1:8899
  */
 
-const http = require('http');
-const https = require('https');
+const path = require('path');
 const bs58 = require('bs58').default;
 
 // ANSI colours
@@ -29,37 +28,12 @@ const C = {
   magenta: '\x1b[35m',
 };
 
-// ---------------------------------------------------------------------------
-// HTTP helpers
-// ---------------------------------------------------------------------------
-
-function httpRequest(rpcUrl, path) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(path, rpcUrl);
-    const lib = url.protocol === 'https:' ? https : http;
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'GET',
-      timeout: 8000,
-      headers: { 'Content-Type': 'application/json' },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { resolve({ raw: data }); }
-      });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
-    req.end();
-  });
-}
+// Import SDK for real blockchain RPC calls
+const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
+const aether = require(sdkPath);
 
 function getDefaultRpc() {
-  return process.env.AETHER_RPC || 'http://127.0.0.1:8899';
+  return process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
 }
 
 function formatAether(lamports) {
@@ -73,7 +47,7 @@ function formatAether(lamports) {
 // ---------------------------------------------------------------------------
 
 function parseArgs() {
-  return process.argv.slice(3); // [node, index.js, account, ...]
+  return process.argv.slice(2); // [node, account.js, ...]
 }
 
 function findArg(args, ...flags) {
@@ -165,7 +139,9 @@ async function accountCommand() {
   }
 
   try {
-    const account = await httpRequest(rpcUrl, `/v1/account/${apiAddress}`);
+    // Use SDK for real blockchain RPC call
+    const client = new aether.AetherClient({ rpcUrl: rpcUrl });
+    const account = await client.getAccountInfo(apiAddress);
 
     if (!account || account.error) {
       if (asJson) {

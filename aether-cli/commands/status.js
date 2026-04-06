@@ -15,9 +15,8 @@
  * Requires AETHER_RPC env var (default: http://127.0.0.1:8899)
  */
 
-const http = require('http');
-const https = require('https');
 const os = require('os');
+const path = require('path');
 
 // ANSI colours
 const C = {
@@ -33,66 +32,20 @@ const C = {
 
 const CLI_VERSION = '1.0.0';
 
+// Import SDK for real blockchain RPC calls
+const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
+const aether = require(sdkPath);
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 function getDefaultRpc() {
-  return process.env.AETHER_RPC || 'http://127.0.0.1:8899';
+  return process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
 }
 
-function httpRequest(rpcUrl, pathStr, timeoutMs = 10000) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(pathStr, rpcUrl);
-    const lib = url.protocol === 'https:' ? https : http;
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'GET',
-      timeout: timeoutMs,
-      headers: { 'Content-Type': 'application/json' },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { resolve({ raw: data }); }
-      });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout after ' + timeoutMs + 'ms')); });
-    req.end();
-  });
-}
-
-function httpPost(rpcUrl, pathStr, body, timeoutMs = 10000) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(pathStr, rpcUrl);
-    const lib = url.protocol === 'https:' ? https : http;
-    const bodyStr = JSON.stringify(body);
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'POST',
-      timeout: timeoutMs,
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(bodyStr),
-      },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { resolve(data); }
-      });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout after ' + timeoutMs + 'ms')); });
-    req.end();
-  });
+function createClient(rpc) {
+  return new aether.AetherClient({ rpcUrl: rpc });
 }
 
 function formatAether(lamports) {
@@ -124,7 +77,7 @@ function loadIdentity() {
 // ---------------------------------------------------------------------------
 
 async function statusCommand() {
-  const args = process.argv.slice(3); // skip "aether status"
+  const args = process.argv.slice(2); // [node, status.js, ...]
   const isJson = args.includes('--json') || args.includes('-j');
   const isCompact = args.includes('--compact');
   const includeValidator = args.includes('--validator');
@@ -168,130 +121,133 @@ async function statusCommand() {
     return;
   }
 
-  printDashboard(data, errors, includeValidator);
+  printDashboard(data, errors, includeValidator, rpc);
 }
 
 async function fetchEpochInfo(rpc) {
-  const [epochResp, slotResp] = await Promise.all([
-    httpPost(rpc, '/v1/epoch/info', { jsonrpc: '2.0', id: 1, method: 'getEpochInfo' }),
-    httpPost(rpc, '/v1Slot', { jsonrpc: '2.0', id: 1, method: 'getSlot' }),
-  ]);
+  const client = createClient(rpc);
+  try {
+    const epoch = await client.getEpochInfo();
+    const currentSlot = epoch.absoluteSlot || epoch.slot || 0;
+    const slotsInEpoch = epoch.slotsInEpoch || 432000;
+    const slotIndex = epoch.slotIndex || (currentSlot % slotsInEpoch);
+    const epochProgress = slotsInEpoch > 0 ? (slotIndex / slotsInEpoch * 100).toFixed(1) : '0';
 
-  const epoch = epochResp?.result || {};
-  const currentSlot = slotResp?.result || epoch.currentSlot || 0;
-  const slotsInEpoch = epoch.slotsInEpoch || 432000;
-  const slotIndex = currentSlot % slotsInEpoch;
-  const epochProgress = slotsInEpoch > 0 ? (slotIndex / slotsInEpoch * 100).toFixed(1) : '0';
+    // Estimate time remaining (assuming 400ms slots)
+    const slotsRemaining = slotsInEpoch - slotIndex;
+    const secsRemaining = Math.round(slotsRemaining * 0.4);
+    const minsRemaining = Math.round(secsRemaining / 60);
+    const timeStr = minsRemaining >= 60
+      ? `${Math.floor(minsRemaining / 60)}h ${minsRemaining % 60}m`
+      : `${minsRemaining}m`;
 
-  // Estimate time remaining (assuming 400ms slots)
-  const slotsRemaining = slotsInEpoch - slotIndex;
-  const secsRemaining = Math.round(slotsRemaining * 0.4);
-  const minsRemaining = Math.round(secsRemaining / 60);
-  const timeStr = minsRemaining >= 60
-    ? `${Math.floor(minsRemaining / 60)}h ${minsRemaining % 60}m`
-    : `${minsRemaining}m`;
-
-  return {
-    epoch: epoch.epoch || 0,
-    absoluteSlot: currentSlot,
-    slotIndex,
-    slotsInEpoch,
-    progress: epochProgress,
-    timeRemaining: timeStr,
-    totalSlots: epoch.totalSlots || 0,
-  };
+    return {
+      epoch: epoch.epoch || 0,
+      absoluteSlot: currentSlot,
+      slotIndex,
+      slotsInEpoch,
+      progress: epochProgress,
+      timeRemaining: timeStr,
+      totalSlots: epoch.totalSlots || 0,
+    };
+  } catch (e) {
+    throw new Error('Epoch info fetch failed: ' + e.message);
+  }
 }
 
 async function fetchSupplyInfo(rpc) {
-  const resp = await httpPost(rpc, '/v1/supply', { jsonrpc: '2.0', id: 1, method: 'getSupply' });
-  const supply = resp?.result?.value || {};
-  const total = BigInt(supply.total || 0);
-  const circulating = BigInt(supply.circulating || 0);
-  const nonCirculating = BigInt(supply.nonCirculating || 0);
+  const client = createClient(rpc);
+  try {
+    const supply = await client.getSupply();
+    const total = BigInt(supply.total || 0);
+    const circulating = BigInt(supply.circulating || 0);
+    const nonCirculating = BigInt(supply.nonCirculating || 0);
 
-  return {
-    total: total.toString(),
-    totalFormatted: formatAether(total.toString()),
-    circulating: circulating.toString(),
-    circulatingFormatted: formatAether(circulating.toString()),
-    nonCirculating: nonCirculating.toString(),
-    nonCirculatingFormatted: formatAether(nonCirculating.toString()),
-  };
+    return {
+      total: total.toString(),
+      totalFormatted: formatAether(total.toString()),
+      circulating: circulating.toString(),
+      circulatingFormatted: formatAether(circulating.toString()),
+      nonCirculating: nonCirculating.toString(),
+      nonCirculatingFormatted: formatAether(nonCirculating.toString()),
+    };
+  } catch (e) {
+    throw new Error('Supply info fetch failed: ' + e.message);
+  }
 }
 
 async function fetchNetworkInfo(rpc) {
-  const [slotResp, blockResp, peersResp] = await Promise.all([
-    httpPost(rpc, '/v1Slot', { jsonrpc: '2.0', id: 1, method: 'getSlot' }),
-    httpPost(rpc, '/v1Block', { jsonrpc: '2.0', id: 1, method: 'getBlockTime', params: [0] }),
-    httpPost(rpc, '/v1Peers', { jsonrpc: '2.0', id: 1, method: 'getClusterPeers' }),
-  ]);
+  const client = createClient(rpc);
+  try {
+    const [slot, blockHeight, peers] = await Promise.all([
+      client.getSlot(),
+      client.getBlockHeight(),
+      client.getClusterPeers(),
+    ]);
 
-  const blockHeight = slotResp?.result || 0;
-  const blockTime = blockResp?.result || null;
-  const peers = Array.isArray(peersResp?.result) ? peersResp.result : [];
-
-  return {
-    blockHeight,
-    blockTime,
-    peerCount: peers.length,
-    peers: peers.slice(0, 5), // first 5 for detail
-  };
+    return {
+      blockHeight: blockHeight || slot || 0,
+      blockTime: null,
+      peerCount: Array.isArray(peers) ? peers.length : 0,
+      peers: (Array.isArray(peers) ? peers : []).slice(0, 5),
+    };
+  } catch (e) {
+    throw new Error('Network info fetch failed: ' + e.message);
+  }
 }
 
 async function fetchVersionInfo(rpc) {
+  const client = createClient(rpc);
   try {
-    const resp = await httpPost(rpc, '/v1Version', { jsonrpc: '2.0', id: 1, method: 'getVersion' });
-    return resp?.result || {};
+    return await client.getVersion();
   } catch {
     return {};
   }
 }
 
 async function fetchRewardsSummary(rpc, address) {
-  // Fetch stake accounts for wallet, then fetch rewards for each
-  const allAccountsResp = await httpPost(rpc, '/v1Stake/accounts', {
-    jsonrpc: '2.0', id: 1, method: 'getStakeAccounts', params: [address],
-  }).catch(() => null);
+  const client = createClient(rpc);
+  try {
+    // Get stake positions for the address (real RPC call via SDK)
+    const stakePositions = await client.getStakePositions(address);
+    
+    if (!stakePositions || stakePositions.length === 0) return null;
 
-  const stakeAccounts = (allAccountsResp?.result?.value || [])
-    .filter(a => a.owner && (!Array.isArray(a.owner) || a.owner.length > 0))
-    .map(a => a.pubkey || a);
-
-  if (stakeAccounts.length === 0) return null;
-
-  const rewardsResults = await Promise.all(
-    stakeAccounts.slice(0, 10).map(async (sa) => {
-      try {
-        const resp = await httpPost(rpc, '/v1Stake/rewards', {
-          jsonrpc: '2.0', id: 1, method: 'getStakeRewards', params: [sa],
-        });
-        const rewards = resp?.result?.rewards || [];
-        let total = BigInt(0);
-        for (const r of rewards) {
-          total += BigInt(r.estimatedReward || 0);
+    const rewardsResults = await Promise.all(
+      stakePositions.slice(0, 10).map(async (stake) => {
+        try {
+          const stakeAccount = stake.stakeAccount || stake.account || stake.pubkey || stake;
+          const rewards = await client.getRewards(stakeAccount);
+          const total = BigInt(rewards.total || rewards.amount || 0);
+          return { 
+            stakeAccount, 
+            estimatedRewards: total.toString(), 
+            estimatedRewardsFormatted: formatAether(total.toString()) 
+          };
+        } catch {
+          return { stakeAccount: stake.stakeAccount || stake, estimatedRewards: '0', estimatedRewardsFormatted: '0 AETH' };
         }
-        return { stakeAccount: sa, estimatedRewards: total.toString(), estimatedRewardsFormatted: formatAether(total.toString()) };
-      } catch {
-        return { stakeAccount: sa, estimatedRewards: '0', estimatedRewardsFormatted: '0 AETH' };
-      }
-    })
-  );
+      })
+    );
 
-  let totalRewards = BigInt(0);
-  for (const r of rewardsResults) {
-    totalRewards += BigInt(r.estimatedRewards);
+    let totalRewards = BigInt(0);
+    for (const r of rewardsResults) {
+      totalRewards += BigInt(r.estimatedRewards);
+    }
+
+    return {
+      address,
+      totalRewards: totalRewards.toString(),
+      totalRewardsFormatted: formatAether(totalRewards.toString()),
+      activeAccounts: rewardsResults.filter(r => BigInt(r.estimatedRewards) > 0n).length,
+      totalAccounts: rewardsResults.length,
+    };
+  } catch (e) {
+    throw new Error('Rewards fetch failed: ' + e.message);
   }
-
-  return {
-    address,
-    totalRewards: totalRewards.toString(),
-    totalRewardsFormatted: formatAether(totalRewards.toString()),
-    activeAccounts: rewardsResults.filter(r => BigInt(r.estimatedRewards) > 0n).length,
-    totalAccounts: rewardsResults.length,
-  };
 }
 
-function printDashboard(data, errors, includeValidator) {
+function printDashboard(data, errors, includeValidator, rpc) {
   const { epoch, supply, network, version, validator, rewards, defaultWallet } = data;
 
   console.log(`\n${C.bright}${C.cyan}  ╔══════════════════════════════════════════════════════════╗${C.reset}`);
