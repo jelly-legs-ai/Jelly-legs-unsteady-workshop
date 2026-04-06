@@ -131,141 +131,42 @@ function formatStatus(status) {
 }
 
 // ---------------------------------------------------------------------------
-// Core RPC calls
+// Parse a transaction result into a normalized display object
 // ---------------------------------------------------------------------------
 
-/**
- * Fetch confirmed transaction signatures for an address using getSignaturesForAddress.
- */
-async function fetchTxSignatures(rpcUrl, address, limit) {
-  const body = {
-    jsonrpc: '2.0',
-    id: 1,
-    method: 'getSignaturesForAddress',
-    params: [
-      address,
-      { limit },
-    ],
-  };
-  return httpPost(rpcUrl, '/', body);
-}
+function parseTransaction(txResult) {
+  const blockTime = txResult.blockTime;
+  const slot = txResult.slot;
+  const status = txResult.status || 'confirmed';
 
-/**
- * Fetch a specific confirmed transaction by signature.
- */
-async function fetchTx(rpcUrl, signature) {
-  const body = {
-    jsonrpc: '2.0',
-    id: 1,
-    method: 'getTransaction',
-    params: [
-      signature,
-      { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 },
-    ],
-  };
-  return httpPost(rpcUrl, '/', body);
-}
-
-/**
- * Parse a transaction result into a normalized display object.
- */
-function parseTransaction(txResult, sigInfo) {
-  const blockTime = sigInfo.blockTime || txResult.blockTime;
-  const slot = sigInfo.slot;
-  const status = sigInfo.err ? 'failed' : (sigInfo.confirmationStatus || 'confirmed');
-
-  let txType = 'unknown';
+  let txType = txResult.tx_type || txResult.type || 'unknown';
   let amount = 0;
-  let fee = txResult.meta?.fee || 0;
-  let fromAddr = null;
+  let fee = txResult.fee || 0;
+  let fromAddr = txResult.signer || null;
   let toAddr = null;
-  let memo = null;
+  let memo = txResult.memo || null;
 
-  try {
-    const msg = txResult.transaction?.message;
-    if (msg) {
-      // Parse instructions for transfer/stake types
-      const instructions = msg.instructions || [];
-      for (const ix of instructions) {
-        const programId = ix.programId || (ix.parsed && ix.parsed.info && ix.parsed.type);
-        // Native transfer
-        if (ix.parsed && ix.parsed.type === 'transfer') {
-          txType = 'transfer';
-          const info = ix.parsed.info;
-          fromAddr = info.source || info.from;
-          toAddr = info.destination || info.to;
-          amount = info.lamports || info.amount || 0;
-        } else if (ix.parsed && ix.parsed.type === 'stake') {
-          txType = 'stake';
-          const info = ix.parsed.info;
-          fromAddr = info.from || info.funder;
-          toAddr = info.validator;
-          amount = info.lamports || info.amount || 0;
-        } else if (ix.parsed && ix.parsed.type === 'withdrawStake') {
-          txType = 'unstake';
-          const info = ix.parsed.info;
-          toAddr = info.destination || info.withdrawer;
-          amount = info.lamports || info.amount || 0;
-        } else if (ix.parsed && ix.parsed.type === 'vote') {
-          txType = 'vote';
-        } else if (ix.parsed && ix.parsed.type === 'initialize') {
-          txType = 'initialize';
-        } else if (ix.parsed && ix.parsed.type === 'createAccount') {
-          txType = 'create';
-        } else if (ix.parsed && ix.parsed.type === 'approve') {
-          txType = 'stake';
-          const info = ix.parsed.info || {};
-          fromAddr = info.from || info.owner;
-          toAddr = info.stake;
-          amount = info.amount || info.lamports || 0;
-        } else if (ix.parsed && ix.parsed.type === 'delegate') {
-          txType = 'stake';
-          const info = ix.parsed.info || {};
-          fromAddr = info.stake || info.from;
-          toAddr = info.validator;
-          amount = info.lamports || 0;
-        } else if (ix.parsed && ix.parsed.type === 'withdraw') {
-          txType = 'unstake';
-          const info = ix.parsed.info || {};
-          toAddr = info.destination;
-          amount = info.lamports || 0;
-        }
-        // Check memo
-        if (ix.memo) memo = ix.memo;
-      }
-
-      // Fallback: try legacy instructions if no parsed instructions
-      if (!instructions.length || instructions.every(ix => !ix.parsed)) {
-        for (const ix of instructions) {
-          if (ix.data === 'AAAA' || ix.data === '2ugJ4ELK3wW9qNXH' || !ix.data) {
-            txType = 'transfer';
-          }
-        }
-      }
-
-      // Compute fee
-      if (txResult.meta) {
-        fee = txResult.meta.fee || 0;
-        if (txResult.meta.postBalances && txResult.meta.preBalances) {
-          // Try to detect native transfer from balance changes
-          for (let i = 0; i < txResult.meta.postBalances.length; i++) {
-            const diff = txResult.meta.postBalances[i] - txResult.meta.preBalances[i];
-            if (diff < 0) {
-              amount = Math.abs(diff);
-              if (!fromAddr) fromAddr = msg.accountKeys?.[i];
-            } else if (diff > 0 && amount === 0) {
-              if (!toAddr) toAddr = msg.accountKeys?.[i];
-            }
-          }
-        }
-      }
+  // Parse payload for details
+  if (txResult.payload) {
+    const payload = txResult.payload;
+    if (payload.amount !== undefined) {
+      amount = Number(payload.amount);
     }
-  } catch (e) {
-    // Parsing failed — use defaults
+    if (payload.recipient) {
+      toAddr = payload.recipient;
+    }
+    if (payload.validator) {
+      toAddr = payload.validator;
+      txType = 'stake';
+    }
+    if (payload.stake_account) {
+      fromAddr = payload.stake_account;
+      txType = 'unstake';
+    }
   }
 
   return {
-    signature: sigInfo.signature || sigInfo.signatures?.[0],
+    signature: txResult.signature,
     slot,
     blockTime,
     status,
@@ -362,6 +263,14 @@ function displayJson(txs, meta) {
 
 async function main() {
   const opts = parseArgs();
+  // Shift args if this module was called via index.js (extra argument in argv)
+  // Detect by checking if first non-option arg after 'tx' is the command name
+  const args = process.argv.slice(2);
+  const txIdx = args.indexOf('tx');
+  const historyIdx = args.indexOf('history');
+  if (txIdx !== -1 && historyIdx !== -1) {
+    // Already parsed correctly above - no action needed
+  }
 
   if (opts.help) {
     console.log(`
@@ -400,46 +309,11 @@ ${C.bright}EXAMPLES${C.reset}
   }
 
   try {
-    // Step 1: Get transaction signatures
-    const sigsResult = await fetchTxSignatures(rpcUrl, opts.address, limit);
-
-    if (sigsResult.error) {
-      throw new Error(sigsResult.error.message || JSON.stringify(sigsResult.error));
-    }
-
-    const signatures = Array.isArray(sigsResult.result) ? sigsResult.result : [];
-
-    if (signatures.length === 0) {
-      if (!opts.json) {
-        displayTxTable([]);
-      } else {
-        displayJson([], { address: opts.address, rpc: rpcUrl, limit });
-      }
-      return;
-    }
-
-    // Step 2: Fetch each transaction in parallel (up to 10 at a time)
-    const txResults = [];
-    const BATCH = 10;
-
-    for (let i = 0; i < signatures.length; i += BATCH) {
-      const batch = signatures.slice(i, i + BATCH);
-      const batchPromises = batch.map(sig => fetchTx(rpcUrl, sig.signature).catch(err => ({ error: err.message })));
-      const batchResults = await Promise.all(batchPromises);
-      txResults.push(...batchResults);
-    }
-
-    // Step 3: Parse and normalize
-    const txs = txResults
-      .map((res, idx) => {
-        if (res.error) return null;
-        try {
-          return parseTransaction(res.result || {}, signatures[idx] || {});
-        } catch {
-          return null;
-        }
-      })
-      .filter(Boolean);
+    // Use SDK for real blockchain RPC calls
+    const client = createClient(rpcUrl);
+    const history = await client.getTransactionHistory(opts.address, limit);
+    
+    const txs = (history.transactions || []).map(tx => parseTransaction(tx));
 
     if (opts.json) {
       displayJson(txs, { address: opts.address, rpc: rpcUrl, limit });
@@ -448,9 +322,16 @@ ${C.bright}EXAMPLES${C.reset}
     }
 
   } catch (err) {
-    console.log(`\n  ${C.red}✗ Failed to fetch transaction history:${C.reset} ${err.message}\n`);
-    if (err.stack && !opts.json) {
-      console.log(`  ${C.dim}${err.stack.split('\n').slice(0, 3).join('\n  ')}${C.reset}\n`);
+    if (opts.json) {
+      console.log(JSON.stringify({
+        error: err.message,
+        address: opts.address,
+        rpc: rpcUrl,
+      }, null, 2));
+    } else {
+      console.log(`\n  ${C.red}✗ Failed to fetch transaction history:${C.reset} ${err.message}\n`);
+      console.log(`  ${C.dim}  Is your validator running? RPC: ${rpcUrl}${C.reset}`);
+      console.log(`  ${C.dim}  Set custom RPC: AETHER_RPC=https://your-rpc-url${C.reset}\n`);
     }
     process.exit(1);
   }

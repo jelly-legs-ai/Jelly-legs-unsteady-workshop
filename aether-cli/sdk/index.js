@@ -371,6 +371,42 @@ class AetherClient {
   }
 
   /**
+   * Get transaction history with signatures for an address
+   * RPC: POST /v1/transactions/history (or GET /v1/transactions/<address>?limit=<n>)
+   *
+   * @param {string} address - Account address
+   * @param {number} limit - Max transactions to return
+   * @returns {Promise<Object>} Transaction history with signatures and details
+   */
+  async getTransactionHistory(address, limit = 20) {
+    if (!address) throw new Error('Address is required');
+    // First get signatures
+    const sigResult = await this._httpPost('/v1/transactions/history', { address, limit });
+    if (sigResult.error) {
+      throw new Error(sigResult.error.message || sigResult.error);
+    }
+    const signatures = sigResult.signatures || sigResult.result || [];
+    
+    // Fetch full transaction details for each signature (up to 10 at a time)
+    const BATCH = 10;
+    const txs = [];
+    for (let i = 0; i < signatures.length; i += BATCH) {
+      const batch = signatures.slice(i, i + BATCH);
+      const batchPromises = batch.map(sig => 
+        this.getTransaction(sig.signature || sig).catch(() => null)
+      );
+      const batchResults = await Promise.all(batchPromises);
+      txs.push(...batchResults.filter(Boolean));
+    }
+    
+    return {
+      signatures: signatures,
+      transactions: txs,
+      address: address,
+    };
+  }
+
+  /**
    * Get all SPL token accounts for a wallet address
    * RPC: GET /v1/tokens/<address>
    *
@@ -859,6 +895,17 @@ async function getRecentTransactions(address, limit = 20) {
 }
 
 /**
+ * Get transaction history with signatures for an address (uses default RPC)
+ * @param {string} address - Account address
+ * @param {number} limit - Max transactions
+ * @returns {Promise<Object>} Transaction history with signatures and details
+ */
+async function getTransactionHistory(address, limit = 20) {
+  const client = new AetherClient();
+  return client.getTransactionHistory(address, limit);
+}
+
+/**
  * Get all SPL token accounts for a wallet (uses default RPC)
  * @param {string} address - Account address
  * @returns {Promise<Array>} Token accounts with mint, amount, decimals
@@ -936,6 +983,7 @@ module.exports = {
   getBalance,
   getTransaction,
   getRecentTransactions,
+  getTransactionHistory,
   getTokenAccounts,
   getStakeAccounts,
   getValidators,
