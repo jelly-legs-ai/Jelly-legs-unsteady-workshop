@@ -1,18 +1,19 @@
 {
   "name": "@jellylegsai/aether-validator-cli",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Aether Validator CLI - tiered validators (Full/Lite/Observer), system checks, onboarding, staking, and node management",
   "main": "index.js",
   "bin": {
-    "aether": "./index.js",
-    "aether-cli": "./index.js",
-    "aether-hub": "./index.js",
-    "jelly-aether": "./index.js"
+    "aether": "index.js",
+    "aether-cli": "index.js",
+    "aether-hub": "index.js",
+    "jelly-aether": "index.js"
   },
   "files": [
     "index.js",
     "commands/",
     "sdk/",
+    "lib/",
     "test/",
     "README.md",
     "LICENSE"
