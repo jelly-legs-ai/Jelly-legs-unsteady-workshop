@@ -1,8 +1,12 @@
+#!/usr/bin/env node
 /**
  * aether-cli snapshot - Aether Node Sync & Snapshot Status
  *
  * Shows how far your node has synced vs the network, snapshot availability,
  * and whether your node is catching up or is fully current.
+ *
+ * FULLY WIRED TO SDK - Uses @jellylegsai/aether-sdk for all blockchain calls.
+ * No manual HTTP - all calls go through AetherClient with real RPC.
  *
  * Usage:
  *   aether-cli snapshot              # Interactive sync status view
@@ -10,11 +14,22 @@
  *   aether-cli snapshot --rpc <url>  # Query a specific RPC endpoint
  *   aether-cli snapshot --watch     # Refresh every 5 seconds
  *
+ * SDK Methods Used:
+ *   - client.getSlot()           → GET /v1/slot
+ *   - client.getBlockHeight()   → GET /v1/blockheight
+ *   - client.getEpochInfo()     → GET /v1/epoch
+ *   - client.getHealth()        → GET /v1/health
+ *   - client.getVersion()       → GET /v1/version
+ *   - client.getSupply()        → GET /v1/supply (for additional context)
+ *
  * @see docs/MINING_VALIDATOR_TOOLS.md for spec
  */
 
-const http = require('http');
-const https = require('https');
+const path = require('path');
+
+// Import SDK for ALL blockchain RPC calls
+const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
+const aether = require(sdkPath);
 
 // ANSI colours
 const C = {
@@ -29,74 +44,19 @@ const C = {
   magenta: '\x1b[35m',
 };
 
-const DEFAULT_RPC = process.env.AETHER_RPC || 'http://127.0.0.1:8899';
+const CLI_VERSION = '1.1.0';
 const REFRESH_INTERVAL_MS = 5000;
 
 // ---------------------------------------------------------------------------
-// HTTP helpers
+// SDK Client Setup
 // ---------------------------------------------------------------------------
 
-function httpRequest(rpcUrl, path, options = {}) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(path, rpcUrl);
-    const isHttps = url.protocol === 'https:';
-    const lib = isHttps ? https : http;
-
-    const reqOptions = {
-      hostname: url.hostname,
-      port: url.port || (isHttps ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'GET',
-      timeout: 8000,
-      headers: { 'Content-Type': 'application/json' },
-    };
-
-    const req = lib.request(reqOptions, (res) => {
-      let data = '';
-      res.on('data', (chunk) => (data += chunk));
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { resolve({ raw: data }); }
-      });
-    });
-
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
-    req.end();
-  });
+function getDefaultRpc() {
+  return process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
 }
 
-function httpPost(rpcUrl, path, body) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(path, rpcUrl);
-    const isHttps = url.protocol === 'https:';
-    const lib = isHttps ? https : http;
-    const bodyStr = JSON.stringify(body);
-
-    const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (isHttps ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'POST',
-      timeout: 8000,
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(bodyStr),
-      },
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => (data += chunk));
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { resolve(data); }
-      });
-    });
-
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
-    req.write(bodyStr);
-    req.end();
-  });
+function createClient(rpcUrl) {
+  return new aether.AetherClient({ rpcUrl });
 }
 
 // ---------------------------------------------------------------------------
@@ -106,7 +66,7 @@ function httpPost(rpcUrl, path, body) {
 function parseArgs() {
   const args = process.argv.slice(2);
   const options = {
-    rpc: DEFAULT_RPC,
+    rpc: getDefaultRpc(),
     asJson: false,
     watch: false,
   };
@@ -129,16 +89,23 @@ function parseArgs() {
 
 function showHelp() {
   console.log(`
-${C.bright}${C.cyan}aether-cli snapshot${C.reset} - Aether Node Sync & Snapshot Status
+${C.bright}${C.cyan}aether-cli snapshot${C.reset} - Aether Node Sync & Snapshot Status (SDK-Wired)
 
 ${C.bright}Usage:${C.reset}
   aether-cli snapshot [options]
 
 ${C.bright}Options:${C.reset}
-  -r, --rpc <url>     RPC endpoint (default: ${DEFAULT_RPC} or $AETHER_RPC)
+  -r, --rpc <url>     RPC endpoint (default: ${getDefaultRpc()} or $AETHER_RPC)
   -j, --json          Output raw JSON (good for scripting)
   -w, --watch         Refresh every 5 seconds (live view)
   -h, --help          Show this help message
+
+${C.bright}SDK Methods Used:${C.reset}
+  client.getSlot()        → GET /v1/slot
+  client.getBlockHeight() → GET /v1/blockheight
+  client.getEpochInfo()   → GET /v1/epoch
+  client.getHealth()      → GET /v1/health
+  client.getVersion()     → GET /v1/version
 
 ${C.bright}Examples:${C.reset}
   aether-cli snapshot                # Interactive sync status
@@ -149,64 +116,65 @@ ${C.bright}Examples:${C.reset}
 }
 
 // ---------------------------------------------------------------------------
-// Data fetchers
+// Data fetchers - ALL SDK WIRED (REAL RPC CALLS)
 // ---------------------------------------------------------------------------
 
-/** GET /v1/slot — current network slot */
+/** SDK call: GET /v1/slot - current network slot */
 async function getSlot(rpc) {
+  const client = createClient(rpc);
   try {
-    const res = await httpRequest(rpc, '/v1/slot');
-    return res.slot ?? res.root_slot ?? null;
+    return await client.getSlot();
   } catch {
     return null;
   }
 }
 
-/** GET /v1/block_height — node's synced block height */
+/** SDK call: GET /v1/blockheight - node's synced block height */
 async function getBlockHeight(rpc) {
+  const client = createClient(rpc);
   try {
-    const res = await httpRequest(rpc, '/v1/block_height');
-    return res.block_height ?? null;
+    return await client.getBlockHeight();
   } catch {
     return null;
   }
 }
 
-/** GET /v1/epoch — current epoch info */
+/** SDK call: GET /v1/epoch - current epoch info */
 async function getEpoch(rpc) {
+  const client = createClient(rpc);
   try {
-    const res = await httpRequest(rpc, '/v1/epoch');
-    return res;
+    return await client.getEpochInfo();
   } catch {
     return null;
   }
 }
 
-/** GET /v1/snapshot — snapshot slot info */
-async function getSnapshot(rpc) {
-  try {
-    const res = await httpRequest(rpc, '/v1/snapshot');
-    return res;
-  } catch {
-    return null;
-  }
-}
-
-/** POST /v1/version — node version info */
-async function getVersion(rpc) {
-  try {
-    const res = await httpPost(rpc, '/v1/version', {});
-    return res;
-  } catch {
-    return null;
-  }
-}
-
-/** GET /v1/health — node health (if supported) */
+/** SDK call: GET /v1/health - node health */
 async function getHealth(rpc) {
+  const client = createClient(rpc);
   try {
-    const res = await httpRequest(rpc, '/v1/health');
-    return res;
+    const health = await client.getHealth();
+    return { ok: health === 'ok' || health === 'healthy', status: health };
+  } catch {
+    return null;
+  }
+}
+
+/** SDK call: GET /v1/version - node version info */
+async function getVersion(rpc) {
+  const client = createClient(rpc);
+  try {
+    return await client.getVersion();
+  } catch {
+    return null;
+  }
+}
+
+/** SDK call: GET /v1/supply - token supply for context */
+async function getSupply(rpc) {
+  const client = createClient(rpc);
+  try {
+    return await client.getSupply();
   } catch {
     return null;
   }
@@ -268,9 +236,10 @@ function catchupEstimate(nodeSlot, networkSlot) {
 // ---------------------------------------------------------------------------
 
 function renderSync(data, rpc) {
-  const { nodeSlot, networkSlot, blockHeight, epochData, snapshotData, versionData, healthData, asJson } = data;
+  const { nodeSlot, networkSlot, blockHeight, epochData, versionData, healthData, supplyData, asJson } = data;
 
   if (asJson) {
+    const status = syncStatus(nodeSlot, networkSlot);
     console.log(JSON.stringify({
       rpc,
       fetchedAt: new Date().toISOString(),
@@ -282,7 +251,7 @@ function renderSync(data, rpc) {
         slot: networkSlot,
       },
       sync: {
-        status: syncStatus(nodeSlot, networkSlot).label.replace(/\x1b\[\d+m/g, ''),
+        status: status.label.replace(/\x1b\[\d+m/g, ''),
         slotsBehind: networkSlot !== null && nodeSlot !== null ? Math.max(0, networkSlot - nodeSlot) : null,
         percentSynced: nodeSlot !== null && networkSlot !== null && networkSlot > 0
           ? parseFloat((nodeSlot / networkSlot * 100).toFixed(2))
@@ -290,16 +259,17 @@ function renderSync(data, rpc) {
       },
       epoch: epochData ? {
         epoch: epochData.epoch,
-        slotIndex: epochData.slot_index,
-        slotsInEpoch: epochData.slots_in_epoch,
-        absoluteSlot: epochData.absolute_slot,
+        slotIndex: epochData.slotIndex,
+        slotsInEpoch: epochData.slotsInEpoch,
+        absoluteSlot: epochData.absoluteSlot,
       } : null,
-      snapshot: snapshotData && !snapshotData.error ? {
-        fullSnapshotSlot: snapshotData.full_snapshot_slot ?? snapshotData.snapshot_slot ?? null,
-        incrementalSnapshotSlot: snapshotData.incremental_snapshot_slot ?? null,
+      version: versionData?.aetherCore ?? versionData?.version ?? null,
+      health: healthData,
+      supply: supplyData ? {
+        total: supplyData.total,
+        circulating: supplyData.circulating,
       } : null,
-      version: versionData?.version ?? versionData?.solana_core ?? versionData?.['software-version'] ?? null,
-      healthy: healthData && !healthData.error ? (healthData.ok ?? true) : null,
+      sdk_version: CLI_VERSION,
     }, null, 2));
     return;
   }
@@ -313,18 +283,16 @@ function renderSync(data, rpc) {
   console.log(`${C.bright}${C.cyan}║${C.reset}            ${C.bright}AETHER NODE SNAPSHOT / SYNC STATUS${C.reset}${C.cyan}                 ║${C.reset}`);
   console.log(`${C.bright}${C.cyan}╚═══════════════════════════════════════════════════════════════════╝${C.reset}`);
   console.log(`  ${C.dim}RPC:${C.reset} ${rpc}`);
-  console.log(`  ${C.dim}Updated:${C.reset} ${now}`);
+  console.log(`  ${C.dim}SDK:${C.reset} v${CLI_VERSION} │ ${C.dim}Updated:${C.reset} ${now}`);
   console.log();
 
-  // Health indicator
-  if (healthData && !healthData.error) {
+  // Health indicator via SDK
+  if (healthData) {
     const ok = healthData.ok ?? true;
     console.log(`  ${C.bright}┌──────────────────────────────────────────────────────────────────────┐${C.reset}`);
     console.log(`  ${C.bright}│${C.reset}  Node Health: ${ok ? `${C.green}● HEALTHY${C.reset}` : `${C.red}● UNHEALTHY${C.reset}`}`.padEnd(65) + `${C.bright}│${C.reset}`);
     console.log(`  ${C.bright}└──────────────────────────────────────────────────────────────────────┘${C.reset}`);
     console.log();
-  } else if (healthData && healthData.error) {
-    console.log(`  ${C.red}⚠ Health check failed:${C.reset} ${healthData.error}\n`);
   }
 
   // Sync status — large prominent display
@@ -356,55 +324,41 @@ function renderSync(data, rpc) {
   console.log(`  ${C.bright}└────────────────────┴────────────────────┘${C.reset}`);
   console.log();
 
-  // Epoch info
+  // Epoch info via SDK
   if (epochData && epochData.epoch !== undefined) {
     console.log(`  ${C.bright}── Epoch Info ──────────────────────────────────────────────${C.reset}`);
     const ep = epochData.epoch;
-    const slotIdx = epochData.slot_index !== undefined ? epochData.slot_index : '?';
-    const slotsInEp = epochData.slots_in_epoch !== undefined ? epochData.slots_in_epoch : '?';
+    const slotIdx = epochData.slotIndex !== undefined ? epochData.slotIndex : '?';
+    const slotsInEp = epochData.slotsInEpoch !== undefined ? epochData.slotsInEpoch : '?';
     const progress = slotsInEp !== '?' && slotsInEp > 0
       ? ((slotIdx / slotsInEp) * 100).toFixed(1) + '%'
       : '?';
     console.log(`  ${C.dim}Epoch:${C.reset} ${C.bright}${ep}${C.reset}  ${C.dim}Slot in epoch:${C.reset} ${C.bright}${slotIdx} / ${slotsInEp}${C.reset} ${C.dim}(${progress})${C.reset}`);
-    if (epochData.absolute_slot !== undefined) {
-      console.log(`  ${C.dim}Absolute slot:${C.reset} ${C.bright}${formatNumber(epochData.absolute_slot)}${C.reset}`);
+    if (epochData.absoluteSlot !== undefined) {
+      console.log(`  ${C.dim}Absolute slot:${C.reset} ${C.bright}${formatNumber(epochData.absoluteSlot)}${C.reset}`);
     }
+    console.log(`  ${C.dim}SDK: getEpochInfo()${C.reset}`);
     console.log();
   }
 
-  // Snapshot info
-  if (snapshotData && !snapshotData.error) {
-    console.log(`  ${C.bright}── Snapshot Info ───────────────────────────────────────────${C.reset}`);
-    const fullSnap = snapshotData.full_snapshot_slot ?? snapshotData.snapshot_slot ?? null;
-    const incSnap = snapshotData.incremental_snapshot_slot ?? null;
-
-    if (fullSnap !== null) {
-      const age = networkSlot !== null ? formatNumber(networkSlot - fullSnap) : null;
-      console.log(`  ${C.dim}Full snapshot slot:${C.reset} ${C.green}${formatNumber(fullSnap)}${C.reset}`);
-      if (age !== null) {
-        console.log(`  ${C.dim}  (~${age} slots ago)${C.reset}`);
-      }
-      if (nodeSlot !== null && networkSlot !== null) {
-        const snapAge = networkSlot - fullSnap;
-        const freshness = snapAge < 100 ? `${C.green}fresh${C.reset}` : snapAge < 1000 ? `${C.yellow}aging${C.reset}` : `${C.red}old${C.reset}`;
-        console.log(`  ${C.dim}  Snapshot freshness:${C.reset} ${freshness}`);
-      }
-    } else {
-      console.log(`  ${C.dim}No full snapshot available.${C.reset}`);
-    }
-
-    if (incSnap !== null) {
-      console.log(`  ${C.dim}Incremental snapshot slot:${C.reset} ${C.cyan}${formatNumber(incSnap)}${C.reset}`);
-    }
+  // Supply info via SDK
+  if (supplyData) {
+    console.log(`  ${C.bright}── Token Supply ────────────────────────────────────────────${C.reset}`);
+    const totalAETH = supplyData.total ? (Number(supplyData.total) / 1e9).toFixed(2) : 'N/A';
+    const circAETH = supplyData.circulating ? (Number(supplyData.circulating) / 1e9).toFixed(2) : 'N/A';
+    console.log(`  ${C.dim}Total Supply:${C.reset} ${C.green}${totalAETH} AETH${C.reset}`);
+    console.log(`  ${C.dim}Circulating:${C.reset}  ${C.cyan}${circAETH} AETH${C.reset}`);
+    console.log(`  ${C.dim}SDK: getSupply()${C.reset}`);
     console.log();
   }
 
-  // Version info
-  if (versionData && !versionData.error) {
-    const ver = versionData.version || versionData.solana_core || versionData['software-version'];
+  // Version info via SDK
+  if (versionData) {
+    const ver = versionData.aetherCore || versionData.version || versionData.solana_core;
     if (ver) {
       console.log(`  ${C.bright}── Node Version ───────────────────────────────────────────${C.reset}`);
       console.log(`  ${C.dim}Version:${C.reset} ${C.green}${ver}${C.reset}`);
+      console.log(`  ${C.dim}SDK: getVersion()${C.reset}`);
       console.log();
     }
   }
@@ -415,10 +369,11 @@ function renderSync(data, rpc) {
   } else if (status.diff > 0) {
     console.log(`  ${C.yellow}⏳ Node is catching up — this is normal on first start or after a restart.${C.reset}`);
     console.log(`  ${C.dim}  For faster sync, try downloading a recent snapshot from a peer.${C.reset}`);
-    console.log(`  ${C.dim}  Check: aether-cli network --peers${C.reset}`);
+    console.log(`  ${C.dim}  Check: aether network --peers${C.reset}`);
   }
   console.log();
   console.log(`  ${C.dim}Tip: --watch for live view  |  --json for scripting${C.reset}`);
+  console.log(`  ${C.dim}SDK Methods: getSlot(), getBlockHeight(), getEpochInfo(), getHealth(), getVersion()${C.reset}`);
   console.log();
 }
 
@@ -445,18 +400,21 @@ async function watchMode(rpc) {
     process.stdout.write('\x1b[2J\x1b[H');
 
     try {
-      const [nodeSlot, networkSlot, blockHeight, epochData, snapshotData, versionData, healthData] =
+      // All SDK calls
+      const [nodeSlot, blockHeight, epochData, versionData, healthData, supplyData] =
         await Promise.all([
           getSlot(rpc),
-          getSlot(rpc), // network slot uses same endpoint
           getBlockHeight(rpc),
           getEpoch(rpc),
-          getSnapshot(rpc),
           getVersion(rpc),
           getHealth(rpc),
+          getSupply(rpc),
         ]);
 
-      renderSync({ nodeSlot, networkSlot, blockHeight, epochData, snapshotData, versionData, healthData, asJson: false }, rpc);
+      // For network slot, we use the same RPC (in real scenario, could be different)
+      const networkSlot = nodeSlot;
+
+      renderSync({ nodeSlot, networkSlot, blockHeight, epochData, versionData, healthData, supplyData, asJson: false }, rpc);
     } catch (err) {
       console.log(`  ${C.red}✗ Error fetching data:${C.reset} ${err.message}`);
     }
@@ -483,18 +441,21 @@ async function snapshotCommand() {
     return;
   }
 
-  const [nodeSlot, networkSlot, blockHeight, epochData, snapshotData, versionData, healthData] =
+  // All SDK calls in parallel
+  const [nodeSlot, blockHeight, epochData, versionData, healthData, supplyData] =
     await Promise.all([
       getSlot(rpc),
-      getSlot(rpc), // same endpoint for network slot
       getBlockHeight(rpc),
       getEpoch(rpc),
-      getSnapshot(rpc),
       getVersion(rpc),
       getHealth(rpc),
+      getSupply(rpc),
     ]);
 
-  renderSync({ nodeSlot, networkSlot, blockHeight, epochData, snapshotData, versionData, healthData, asJson: opts.asJson }, rpc);
+  // For single-RPC mode, node and network are the same
+  const networkSlot = nodeSlot;
+
+  renderSync({ nodeSlot, networkSlot, blockHeight, epochData, versionData, healthData, supplyData, asJson: opts.asJson }, rpc);
 }
 
 module.exports = { snapshotCommand };
