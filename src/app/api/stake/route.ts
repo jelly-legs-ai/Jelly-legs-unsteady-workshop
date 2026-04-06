@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import path from 'path';
+import { AetherClient, DEFAULT_RPC_URL } from '@/lib/aether-sdk';
 
 /**
  * Staking API Route
@@ -22,20 +22,7 @@ interface StakePosition {
   lockEndDate?: string;
 }
 
-// Resolve SDK path at runtime - works from both src/ and dist/server/
-const SDK_PATH = process.env.SDK_PATH || path.resolve(process.cwd(), '..', 'aether-cli', 'sdk', 'index.js');
-
-// Load SDK dynamically
-let AetherClient: any;
-let DEFAULT_RPC_URL: string = 'http://127.0.0.1:8899';
-
-try {
-  const sdk = require(SDK_PATH);
-  AetherClient = sdk.AetherClient;
-  DEFAULT_RPC_URL = sdk.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
-} catch (e) {
-  console.warn('[Stake API] SDK not available:', e);
-}
+const DEFAULT_RPC = DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
 
 /**
  * Validate Aether address format
@@ -76,7 +63,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const rpcUrl = process.env.AETHER_RPC || DEFAULT_RPC_URL;
+    const rpcUrl = process.env.AETHER_RPC || DEFAULT_RPC;
     let chainPositions: any[] = [];
     let chainConnected = false;
     let slot: number | null = null;

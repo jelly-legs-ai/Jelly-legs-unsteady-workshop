@@ -1,30 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import path from 'path';
-
-/**
- * Wallet Verification API Route
- * Handles wallet address verification for staking and other operations
- * 
- * INTEGRATION: Now uses real Aether blockchain RPC calls via SDK
- * - Validates ATH-prefixed addresses
- * - Fetches real account info from chain
- * - Returns actual balance and account status
- */
-
-// Resolve SDK path at runtime - works from both src/ and dist/server/
-const SDK_PATH = process.env.SDK_PATH || path.resolve(process.cwd(), '..', 'aether-cli', 'sdk', 'index.js');
-
-// Load SDK dynamically to avoid issues during build
-let AetherClient: any;
-let DEFAULT_RPC_URL: string = 'http://127.0.0.1:8899';
-
-try {
-  const sdk = require(SDK_PATH);
-  AetherClient = sdk.AetherClient;
-  DEFAULT_RPC_URL = sdk.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
-} catch (e) {
-  console.warn('[Wallet Verify] SDK not available, will use fallback mode:', e);
-}
+import { AetherClient, DEFAULT_RPC_URL } from '@/lib/aether-sdk';
 
 /**
  * Validate Aether address format (ATH prefix + base58)
@@ -76,12 +51,13 @@ export async function POST(request: NextRequest) {
         const rawAddr = getRawAddress(address);
         
         // Parallel chain calls
-        const [accountInfo, slot] = await Promise.all([
+        const [accountInfoRaw, slot] = await Promise.all([
           client.getAccountInfo(rawAddr).catch(() => null),
           client.getSlot().catch(() => null)
         ]);
         
         chainConnected = slot !== null;
+        const accountInfo = accountInfoRaw as any;
         
         if (accountInfo && !accountInfo.error) {
           chainData = {
@@ -165,13 +141,14 @@ export async function GET(request: NextRequest) {
       const client = new AetherClient({ rpcUrl });
       const rawAddr = getRawAddress(address);
       
-      const [accountInfo, slot, balance] = await Promise.all([
+      const [accountInfoRaw, slot, balance] = await Promise.all([
         client.getAccountInfo(rawAddr).catch(() => null),
         client.getSlot().catch(() => null),
         client.getBalance(rawAddr).catch(() => 0)
       ]);
       
       chainConnected = slot !== null;
+      const accountInfo = accountInfoRaw as any;
       
       chainData = {
         exists: accountInfo !== null && !accountInfo.error,

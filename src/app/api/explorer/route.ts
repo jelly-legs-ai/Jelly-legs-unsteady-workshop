@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import path from 'path';
+import { AetherClient, DEFAULT_RPC_URL } from '@/lib/aether-sdk';
 
 /**
  * Explorer API Route
@@ -11,18 +11,7 @@ import path from 'path';
  * All calls go through server-side RPC — no CORS issues, no RPC URL exposure
  */
 
-// Resolve SDK path at runtime - works from both src/ and dist/server/
-const SDK_PATH = process.env.SDK_PATH || path.resolve(process.cwd(), '..', 'aether-cli', 'sdk', 'index.js');
-const DEFAULT_RPC_URL = 'http://127.0.0.1:8899';
-
-let AetherClient: any;
-
-try {
-  const sdk = require(SDK_PATH);
-  AetherClient = sdk.AetherClient;
-} catch (e) {
-  console.warn('[Explorer API] SDK not available:', e);
-}
+const DEFAULT_RPC = DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
 
 /**
  * Make RPC call to Aether RPC
@@ -165,7 +154,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const rpcUrl = process.env.AETHER_RPC || DEFAULT_RPC_URL;
+    const rpcUrl = process.env.AETHER_RPC || DEFAULT_RPC;
     let result: any;
 
     try {

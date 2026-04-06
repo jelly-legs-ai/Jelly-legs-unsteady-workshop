@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import path from 'path';
+import { AetherClient, DEFAULT_RPC_URL } from '@/lib/aether-sdk';
 
 /**
  * Claim Rewards API Route
@@ -11,20 +11,7 @@ import path from 'path';
  * - Validates ATH-prefixed addresses
  */
 
-// Resolve SDK path at runtime - works from both src/ and dist/server/
-const SDK_PATH = process.env.SDK_PATH || path.resolve(process.cwd(), '..', 'aether-cli', 'sdk', 'index.js');
-
-// Load SDK dynamically
-let AetherClient: any;
-let DEFAULT_RPC_URL: string = 'http://127.0.0.1:8899';
-
-try {
-  const sdk = require(SDK_PATH);
-  AetherClient = sdk.AetherClient;
-  DEFAULT_RPC_URL = sdk.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
-} catch (e) {
-  console.warn('[Claim API] SDK not available:', e);
-}
+const DEFAULT_RPC = DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
 
 /**
  * Validate Aether address format
@@ -61,7 +48,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const rpcUrl = process.env.AETHER_RPC || DEFAULT_RPC_URL;
+    const rpcUrl = process.env.AETHER_RPC || DEFAULT_RPC;
     let chainRewards: any = null;
     let chainConnected = false;
 
@@ -71,12 +58,13 @@ export async function POST(request: NextRequest) {
         const client = new AetherClient({ rpcUrl });
         const rawAddr = getRawAddress(address);
         
-        const [rewardsResult, slot] = await Promise.all([
+        const [rewardsResultRaw, slot] = await Promise.all([
           client.getRewards(rawAddr).catch(() => null),
           client.getSlot().catch(() => null)
         ]);
         
         chainConnected = slot !== null;
+        const rewardsResult = rewardsResultRaw as any;
         
         if (rewardsResult && !rewardsResult.error) {
           chainRewards = {
@@ -137,7 +125,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const rpcUrl = process.env.AETHER_RPC || DEFAULT_RPC_URL;
+    const rpcUrl = process.env.AETHER_RPC || DEFAULT_RPC;
     let chainRewards: any = null;
     let chainConnected = false;
 
@@ -147,12 +135,13 @@ export async function GET(request: NextRequest) {
         const client = new AetherClient({ rpcUrl });
         const rawAddr = getRawAddress(address);
         
-        const [rewardsResult, slot] = await Promise.all([
+        const [rewardsResultRaw, slot] = await Promise.all([
           client.getRewards(rawAddr).catch(() => null),
           client.getSlot().catch(() => null)
         ]);
         
         chainConnected = slot !== null;
+        const rewardsResult = rewardsResultRaw as any;
         
         if (rewardsResult && !rewardsResult.error) {
           chainRewards = {
