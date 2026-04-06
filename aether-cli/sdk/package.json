@@ -1,0 +1,33 @@
+{
+  "name": "@jellylegsai/aether-sdk",
+  "version": "1.0.0",
+  "description": "Official Aether Blockchain SDK - Real HTTP RPC calls to Aether chain",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": [
+    "index.js",
+    "rpc.js",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node test.js",
+    "build": "node -e \"require('./index.js'); console.log('SDK build OK')\""
+  },
+  "keywords": [
+    "aether",
+    "blockchain",
+    "sdk",
+    "crypto",
+    "rpc",
+    "web3"
+  ],
+  "author": "Jelly-legs AI Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
