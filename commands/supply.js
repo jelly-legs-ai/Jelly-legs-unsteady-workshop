@@ -2,390 +2,482 @@
 /**
  * aether-cli supply
  *
- * Display Aether network token supply metrics:
- *   - Total supply of AETH (all accounts + locked/escrow)
- *   - Circulating supply (liquid, tradeable tokens)
- *   - Staked supply (locked in stake accounts)
- *   - Burned supply (tokens sent to burn address / invalid addresses)
+ * Query Aether token supply information from the blockchain.
+ * Shows total supply, circulating supply, non-circulating supply,
+ * and supply breakdown with visual indicators.
  *
  * Usage:
- *   aether supply                  Show supply overview
- *   aether supply --json          JSON output for scripting/monitoring
- *   aether supply --rpc <url>     Query a specific RPC endpoint
- *   aether supply --verbose       Show breakdown by account type
+ *   aether supply                    Show detailed supply info
+ *   aether supply --json             JSON output for scripting
+ *   aether supply --rpc <url>        Query specific RPC endpoint
+ *   aether supply --watch            Watch mode - updates every 5 seconds
+ *   aether supply --compare          Compare with theoretical max
  *
- * Requires AETHER_RPC env var (default: http://127.0.0.1:8899)
+ * SDK wired to: GET /v1/supply
+ * SDK Function: sdk.getSupply()
  */
 
 const path = require('path');
 
-// ANSI colours
-const C = {
-  reset: '\x1b[0m',
-  bright: '\x1b[1m',
-  dim: '\x1b[2m',
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  cyan: '\x1b[36m',
-  magenta: '\x1b[35m',
-  bold: '\x1b[1m',
-};
-
-const CLI_VERSION = '1.0.0';
-
-// ---------------------------------------------------------------------------
-// SDK Import - Real blockchain RPC calls via @jellylegsai/aether-sdk
-// ---------------------------------------------------------------------------
-
+// Import SDK for real blockchain RPC calls
 const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
 const aether = require(sdkPath);
+
+// Import UI framework
+const {
+  C,
+  BRANDING,
+  indicators,
+  success,
+  error,
+  warning,
+  info,
+  highlight,
+  dim,
+  startSpinner,
+  stopSpinner,
+  drawBox,
+  drawTable,
+  progressBarColored,
+} = require('../lib/ui');
+
+const CLI_VERSION = '1.0.0';
+const WATCH_INTERVAL_MS = 5000;
+
+// Supply constants
+const MAX_SUPPLY_AETH = 1_000_000_000; // 1 billion AETH theoretical max
+
+// ============================================================================
+// SDK Setup
+// ============================================================================
 
 function getDefaultRpc() {
   return process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
 }
 
-/** Create SDK client */
 function createClient(rpcUrl) {
   return new aether.AetherClient({ rpcUrl });
 }
 
+// ============================================================================
+// ASCII Art & Branding
+// ============================================================================
+
+const SUPPLY_LOGO = `
+${C.cyan}    ╔══════════════════════════════════════════════════════════╗${C.reset}
+${C.cyan}    ║${C.reset}  ${C.bright}${C.yellow}◆${C.reset} ${C.bright}AETHER TOKEN SUPPLY${C.reset}${' '.repeat(30)}${C.dim}v${CLI_VERSION}${C.reset}  ${C.cyan}║${C.reset}
+${C.cyan}    ║${C.reset}     ${C.dim}On-chain supply metrics and tokenomics${C.reset}${' '.repeat(20)}${C.cyan}║${C.reset}
+${C.cyan}    ╚══════════════════════════════════════════════════════════╝${C.reset}`;
+
+// ============================================================================
+// Format Helpers
+// ============================================================================
+
 function formatAether(lamports) {
+  if (!lamports && lamports !== 0) return 'N/A';
   const aeth = Number(lamports) / 1e9;
   if (aeth === 0) return '0 AETH';
-  return aeth.toFixed(4).replace(/\.?0+$/, '') + ' AETH';
+  if (aeth >= 1_000_000) {
+    return aeth.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' AETH';
+  }
+  return aeth.toFixed(6).replace(/\.?0+$/, '') + ' AETH';
 }
 
-function formatAethFull(lamports) {
-  return (Number(lamports) / 1e9).toFixed(6) + ' AETH';
+function formatNumber(num) {
+  if (!num && num !== 0) return 'N/A';
+  return Number(num).toLocaleString();
 }
 
-function formatLargeNum(n) {
-  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+function formatPercentage(numerator, denominator) {
+  if (!denominator || denominator === 0) return 'N/A';
+  const pct = (Number(numerator) / Number(denominator)) * 100;
+  return pct.toFixed(2) + '%';
 }
 
-// ---------------------------------------------------------------------------
-// Core supply fetchers using SDK
-// ---------------------------------------------------------------------------
+function formatCompact(n) {
+  if (!n) return 'N/A';
+  const num = Number(n);
+  if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+  if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+  if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
+  return num.toString();
+}
 
-/**
- * Fetch the total supply of AETH from the chain using SDK.
- * Makes real RPC call: GET /v1/supply
- */
-async function fetchTotalSupply(rpc) {
-  const client = createClient(rpc);
+// ============================================================================
+// Argument Parsing
+// ============================================================================
+
+function parseArgs() {
+  const args = process.argv.slice(2);
+  return {
+    rpc: args.includes('--rpc') ? args[args.indexOf('--rpc') + 1] : getDefaultRpc(),
+    asJson: args.includes('--json') || args.includes('-j'),
+    watch: args.includes('--watch') || args.includes('-w'),
+    compare: args.includes('--compare') || args.includes('-c'),
+    help: args.includes('--help') || args.includes('-h'),
+  };
+}
+
+function showHelp() {
+  console.log(`
+${C.bright}${C.cyan}aether-cli supply${C.reset} — Token Supply Information
+
+${C.bright}USAGE${C.reset}
+    aether supply [options]
+
+${C.bright}OPTIONS${C.reset}
+    -r, --rpc <url>      RPC endpoint (default: ${getDefaultRpc()})
+    -j, --json           Output as JSON
+    -w, --watch          Watch mode - updates every 5 seconds
+    -c, --compare        Show comparison with theoretical max supply
+    -h, --help           Show this help
+
+${C.bright}SDK METHODS USED${C.reset}
+    ${C.dim}client.getSupply()     → GET /v1/supply${C.reset}
+    ${C.dim}client.getEpochInfo()  → GET /v1/epoch${C.reset}
+
+${C.bright}EXAMPLES${C.reset}
+    aether supply                    # Detailed supply view
+    aether supply --json             # JSON for scripting
+    aether supply --watch            # Live updates
+    aether supply --compare          # Compare with max supply
+    aether supply --rpc https://api.aether.io
+
+${C.bright}OUTPUT FIELDS${C.reset}
+    • Total Supply       — Total minted AETH (lamports)
+    • Circulating        — AETH in active circulation
+    • Non-Circulating    — Locked, staked, or reserved AETH
+    • Staked             — AETH delegated to validators
+    • Inflation Rate     — Current epoch inflation
+`);
+}
+
+// ============================================================================
+// SDK Data Fetching (REAL RPC CALLS)
+// ============================================================================
+
+async function fetchSupplyData(rpcUrl) {
+  const client = createClient(rpcUrl);
+
   try {
-    // Primary: SDK getSupply() → GET /v1/supply
-    const res = await client.getSupply();
-    if (res && (res.total !== undefined || res.supply !== undefined)) {
-      return {
-        total: BigInt(res.total || res.supply?.total || 0),
-        circulating: BigInt(res.circulating || res.supply?.circulating || 0),
-        nonCirculating: BigInt(res.non_circulating || res.nonCirculating || res.supply?.non_circulating || 0),
-        source: 'rpc_v1_supply',
-      };
-    }
-  } catch { /* fall through */ }
+    // Parallel SDK calls for supply and epoch info
+    const [supplyResult, epochInfo] = await Promise.all([
+      client.getSupply().catch(() => null),
+      client.getEpochInfo().catch(() => null),
+    ]);
 
-  // Fallback: fetch epoch info which contains total token count
-  try {
-    const epochInfo = await client.getEpochInfo();
-    if (epochInfo) {
-      const totalStaked = BigInt(epochInfo.total_staked || 0);
-      const rewardsPerEpoch = BigInt(epochInfo.rewards_per_epoch || '2000000000');
-      const currentEpoch = BigInt(epochInfo.epoch || 0);
-      // Rough estimate: total supply ~= minted so far + remaining allocation
-      // Aether has ~500M AETH max supply, minted gradually over 100 years
-      const maxSupply = BigInt('500000000000000000'); // 500M * 1e9
-      const mintedPerEpoch = rewardsPerEpoch;
-      const minted = mintedPerEpoch * currentEpoch;
-      // Some tokens are locked/vesting; assume ~30% is non-circulating
-      const estimatedTotal = minted < maxSupply ? minted : maxSupply;
-      const estimatedCirculating = estimatedTotal - BigInt(BigInt(estimatedTotal) / BigInt(3));
-      return {
-        total: estimatedTotal,
-        circulating: estimatedCirculating,
-        nonCirculating: estimatedTotal - estimatedCirculating,
-        source: 'epoch_info_estimate',
-      };
+    if (!supplyResult) {
+      throw new Error('No supply data returned from RPC');
     }
-  } catch { /* fall through */ }
 
-  return null;
+    // Normalize supply data from various RPC response formats
+    const total = supplyResult.total || supplyResult.total_supply || supplyResult.totalSupply || 0;
+    const circulating = supplyResult.circulating || supplyResult.circulating_supply || supplyResult.circulatingSupply || 0;
+    const nonCirculating = supplyResult.nonCirculating || supplyResult.non_circulating || supplyResult.nonCirculatingSupply || (total - circulating);
+    const staked = supplyResult.staked || supplyResult.total_staked || supplyResult.delegated || 0;
+    const rewards = supplyResult.rewards || supplyResult.validator_rewards || 0;
+
+    return {
+      total: BigInt(total),
+      circulating: BigInt(circulating),
+      nonCirculating: BigInt(nonCirculating),
+      staked: BigInt(staked),
+      rewards: BigInt(rewards),
+      epoch: epochInfo?.epoch || 0,
+      slot: epochInfo?.absoluteSlot || 0,
+      fetchedAt: new Date().toISOString(),
+    };
+  } catch (err) {
+    throw new Error(`Failed to fetch supply: ${err.message}`);
+  }
 }
 
-/**
- * Fetch staked supply by querying stake program accounts using SDK.
- * Makes real RPC call: GET /v1/validators
- */
-async function fetchStakedSupply(rpc) {
-  const client = createClient(rpc);
-  try {
-    // SDK getValidators() → GET /v1/validators
-    const validators = await client.getValidators();
-    if (validators && Array.isArray(validators)) {
-      let total = BigInt(0);
-      for (const v of validators) {
-        total += BigInt(v.delegated_stake || v.stake || v.delegatedStake || 0);
-      }
-      return total;
-    }
-  } catch { /* fall through */ }
+// ============================================================================
+// Visual Rendering
+// ============================================================================
 
-  try {
-    // Last resort: epoch info staked amount via SDK
-    const epochInfo = await client.getEpochInfo();
-    if (epochInfo && epochInfo.total_staked) {
-      return BigInt(epochInfo.total_staked);
-    }
-  } catch { /* fall through */ }
+function renderSupplyBox(data, opts = {}) {
+  const { total, circulating, nonCirculating, staked, epoch, slot } = data;
+  const { compare } = opts;
 
-  return BigInt(0);
-}
+  const totalAeth = Number(total) / 1e9;
+  const circulatingAeth = Number(circulating) / 1e9;
+  const nonCirculatingAeth = Number(nonCirculating) / 1e9;
+  const stakedAeth = Number(staked) / 1e9;
 
-/**
- * Estimate burned supply by querying accounts at known burn/mint addresses using SDK.
- * Makes real RPC calls: GET /v1/account/<address>
- */
-async function fetchBurnedSupply(rpc) {
-  const client = createClient(rpc);
-  const BURN_ADDRESSES = [
-    'ATH1111111111111111111111111111111111111',  // mint authority burn
-    'ATH2222222222222222222222222222222222222',  // zero authority
-    'ATHburn000000000000000000000000000000',     // burn address
+  // Calculate percentages
+  const circulatingPct = total > 0 ? (circulatingAeth / totalAeth) * 100 : 0;
+  const nonCircPct = total > 0 ? (nonCirculatingAeth / totalAeth) * 100 : 0;
+  const stakedPct = total > 0 ? (stakedAeth / totalAeth) * 100 : 0;
+
+  // Circulation ratio
+  const circulationRatio = circulating > 0
+    ? ((Number(circulating) / Number(total)) * 100).toFixed(2)
+    : '0.00';
+
+  console.log(SUPPLY_LOGO);
+  console.log();
+
+  // Main supply box
+  const supplyContent = `
+${C.bright}Total Supply${C.reset}
+${C.cyan}${formatAether(total)}${C.reset} ${C.dim}(${formatNumber(total)} lamports)${C.reset}
+
+${C.bright}Circulating${C.reset}     ${C.green}${formatAether(circulating)}${C.reset}
+${C.bright}Non-Circulating${C.reset} ${C.yellow}${formatAether(nonCirculating)}${C.reset}
+${C.bright}Staked${C.reset}          ${C.magenta}${formatAether(staked)}${C.reset}
+
+${C.dim}Circulation Ratio: ${C.bright}${circulationRatio}%${C.reset}
+${C.dim}Current Epoch:     ${C.bright}${epoch}${C.reset}
+${C.dim}Current Slot:      ${C.bright}${formatNumber(slot)}${C.reset}
+`.trim();
+
+  console.log(drawBox(supplyContent, {
+    style: 'double',
+    title: 'SUPPLY OVERVIEW',
+    titleColor: C.cyan + C.bright,
+    borderColor: C.cyan,
+    width: 60,
+  }));
+
+  console.log();
+
+  // Distribution bars
+  console.log(`  ${C.bright}Supply Distribution:${C.reset}\n`);
+
+  const barWidth = 40;
+
+  // Circulating bar
+  const circFill = Math.round((circulatingPct / 100) * barWidth);
+  const circBar = `${C.green}${'█'.repeat(circFill)}${C.dim}${'░'.repeat(barWidth - circFill)}${C.reset}`;
+  console.log(`  ${C.green}●${C.reset} Circulating      ${circBar} ${C.green}${circulatingPct.toFixed(1)}%${C.reset}`);
+
+  // Non-circulating bar
+  const ncFill = Math.round((nonCircPct / 100) * barWidth);
+  const ncBar = `${C.yellow}${'█'.repeat(ncFill)}${C.dim}${'░'.repeat(barWidth - ncFill)}${C.reset}`;
+  console.log(`  ${C.yellow}●${C.reset} Non-Circulating  ${ncBar} ${C.yellow}${nonCircPct.toFixed(1)}%${C.reset}`);
+
+  // Staked bar (subset of circulating or total)
+  const stakedOfTotal = stakedAeth / totalAeth * 100;
+  const stakedFill = Math.round((stakedOfTotal / 100) * barWidth);
+  const stakedBar = `${C.magenta}${'█'.repeat(stakedFill)}${C.dim}${'░'.repeat(barWidth - stakedFill)}${C.reset}`;
+  console.log(`  ${C.magenta}●${C.reset} Staked           ${stakedBar} ${C.magenta}${stakedOfTotal.toFixed(1)}%${C.reset}`);
+
+  console.log();
+
+  // Comparison with max supply if requested
+  if (compare) {
+    const pctOfMax = (totalAeth / MAX_SUPPLY_AETH) * 100;
+    const remaining = MAX_SUPPLY_AETH - totalAeth;
+
+    console.log(`  ${C.bright}Comparison with Theoretical Max:${C.reset}\n`);
+    console.log(`  ${C.dim}Max Supply:${C.reset}      ${C.bright}${formatCompact(MAX_SUPPLY_AETH * 1e9)}${C.reset}`);
+    console.log(`  ${C.dim}Current:${C.reset}         ${C.cyan}${formatCompact(Number(total))}${C.reset}`);
+    console.log(`  ${C.dim}Remaining:${C.reset}       ${C.green}${formatCompact(remaining * 1e9)}${C.reset}`);
+    console.log(`  ${C.dim}% of Max:${C.reset}        ${C.bright}${pctOfMax.toFixed(4)}%${C.reset}`);
+
+    const maxFill = Math.round((pctOfMax / 100) * barWidth);
+    const maxBar = `${C.cyan}${'█'.repeat(maxFill)}${C.dim}${'░'.repeat(barWidth - maxFill)}${C.reset}`;
+    console.log(`\n  ${C.dim}Supply Cap:${C.reset} ${maxBar} ${C.cyan}${pctOfMax.toFixed(2)}%${C.reset}`);
+    console.log();
+  }
+
+  // Tokenomics stats table
+  const statsRows = [
+    ['Metric', 'Value', 'Percentage'],
+    ['─'.repeat(20), '─'.repeat(25), '─'.repeat(12)],
+    ['Total Supply', formatAether(total), '100%'],
+    ['Circulating', formatAether(circulating), `${circulatingPct.toFixed(2)}%`],
+    ['Non-Circulating', formatAether(nonCirculating), `${nonCircPct.toFixed(2)}%`],
+    ['Staked', formatAether(staked), `${stakedPct.toFixed(2)}%`],
   ];
 
-  let totalBurned = BigInt(0);
+  console.log(`  ${C.bright}Tokenomics Breakdown:${C.reset}\n`);
+  console.log(drawTable(['', '', ''], [
+    [`${C.cyan}Total Supply${C.reset}`, C.bright + formatAether(total) + C.reset, '100%'],
+    [`${C.green}Circulating${C.reset}`, formatAether(circulating), `${circulatingPct.toFixed(2)}%`],
+    [`${C.yellow}Non-Circulating${C.reset}`, formatAether(nonCirculating), `${nonCircPct.toFixed(2)}%`],
+    [`${C.magenta}Staked${C.reset}`, formatAether(staked), `${stakedPct.toFixed(2)}%`],
+  ], {
+    borderStyle: 'single',
+    headerColor: C.bright,
+  }));
 
-  for (const addr of BURN_ADDRESSES) {
+  console.log();
+
+  // Network health indicator
+  const healthStatus = stakedPct > 50
+    ? `${C.green}✓ Healthy${C.reset} - High stake ratio indicates network security`
+    : stakedPct > 30
+      ? `${C.yellow}⚠ Moderate${C.reset} - Adequate stake ratio`
+      : `${C.red}✗ Low${C.reset} - Low stake ratio may indicate risk`;
+
+  console.log(`  ${C.bright}Network Health:${C.reset} ${healthStatus}`);
+  console.log();
+
+  // Footer
+  console.log(`  ${C.dim}Data fetched: ${data.fetchedAt}${C.reset}`);
+  console.log(`  ${C.dim}RPC: ${opts.rpc}${C.reset}`);
+  console.log(`  ${C.dim}SDK: @jellylegsai/aether-sdk${C.reset}`);
+  console.log();
+}
+
+function renderJson(data, rpc) {
+  const output = {
+    total: {
+      lamports: data.total.toString(),
+      aeth: (Number(data.total) / 1e9).toFixed(9),
+      formatted: formatAether(data.total),
+    },
+    circulating: {
+      lamports: data.circulating.toString(),
+      aeth: (Number(data.circulating) / 1e9).toFixed(9),
+      formatted: formatAether(data.circulating),
+      percentage: ((Number(data.circulating) / Number(data.total)) * 100).toFixed(2),
+    },
+    nonCirculating: {
+      lamports: data.nonCirculating.toString(),
+      aeth: (Number(data.nonCirculating) / 1e9).toFixed(9),
+      formatted: formatAether(data.nonCirculating),
+      percentage: ((Number(data.nonCirculating) / Number(data.total)) * 100).toFixed(2),
+    },
+    staked: {
+      lamports: data.staked.toString(),
+      aeth: (Number(data.staked) / 1e9).toFixed(9),
+      formatted: formatAether(data.staked),
+      percentage: ((Number(data.staked) / Number(data.total)) * 100).toFixed(2),
+    },
+    epoch: data.epoch,
+    slot: data.slot,
+    rpc,
+    fetched_at: data.fetchedAt,
+    cli_version: CLI_VERSION,
+    sdk: '@jellylegsai/aether-sdk',
+  };
+  console.log(JSON.stringify(output, null, 2));
+}
+
+// ============================================================================
+// Watch Mode
+// ============================================================================
+
+async function watchMode(rpc, compare) {
+  const clearScreen = () => {
+    process.stdout.write('\x1Bc');
+  };
+
+  let iteration = 0;
+  const spinnerFrames = ['◐', '◓', '◑', '◒'];
+
+  while (true) {
     try {
-      const rawAddr = addr.startsWith('ATH') ? addr.slice(3) : addr;
-      // SDK getAccountInfo() → GET /v1/account/<address>
-      const account = await client.getAccountInfo(rawAddr);
-      if (account && account.lamports !== undefined && Number(account.lamports) > 0) {
-        totalBurned += BigInt(account.lamports);
+      clearScreen();
+      const data = await fetchSupplyData(rpc);
+
+      console.log(SUPPLY_LOGO);
+      console.log();
+      console.log(`  ${C.dim}Watch mode enabled | Update ${iteration + 1} | Press Ctrl+C to exit${C.reset}`);
+      console.log();
+
+      // Simple inline display for watch mode
+      const totalAeth = Number(data.total) / 1e9;
+      const circAeth = Number(data.circulating) / 1e9;
+      const ncAeth = Number(data.nonCirculating) / 1e9;
+      const stakedAeth = Number(data.staked) / 1e9;
+
+      console.log(`  ${C.bright}Total:${C.reset}        ${C.cyan}${formatAether(data.total)}${C.reset}`);
+      console.log(`  ${C.bright}Circulating:${C.reset}  ${C.green}${formatAether(data.circulating)}${C.reset} (${((circAeth/totalAeth)*100).toFixed(2)}%)`);
+      console.log(`  ${C.bright}Non-Circ:${C.reset}     ${C.yellow}${formatAether(data.nonCirculating)}${C.reset} (${((ncAeth/totalAeth)*100).toFixed(2)}%)`);
+      console.log(`  ${C.bright}Staked:${C.reset}       ${C.magenta}${formatAether(data.staked)}${C.reset} (${((stakedAeth/totalAeth)*100).toFixed(2)}%)`);
+      console.log(`  ${C.bright}Epoch:${C.reset}        ${C.bright}${data.epoch}${C.reset}`);
+      console.log(`  ${C.dim}Last update: ${data.fetchedAt}${C.reset}`);
+
+      if (compare) {
+        const pctOfMax = (totalAeth / MAX_SUPPLY_AETH) * 100;
+        console.log();
+        console.log(`  ${C.dim}% of Max Supply: ${C.bright}${pctOfMax.toFixed(4)}%${C.reset}`);
       }
-    } catch { /* skip inaccessible addresses */ }
-  }
 
-  return totalBurned;
-}
+      console.log();
+      console.log(`  ${C.dim}${spinnerFrames[iteration % 4]} Waiting ${WATCH_INTERVAL_MS/1000}s for next update...${C.reset}`);
 
-/**
- * Fetch circulating supply = total - non-circulating (locked/vesting/burned).
- * Non-circulating includes: burn address, escrow/staking vault, team vesting.
- * Uses SDK client for RPC calls.
- */
-async function fetchNonCirculatingAccounts(rpc) {
-  const client = createClient(rpc);
-  try {
-    const res = await client._httpGet('/v1/supply/non-circulating');
-    if (res && !res.error && Array.isArray(res.accounts)) {
-      let total = BigInt(0);
-      for (const acct of res.accounts) {
-        total += BigInt(acct.lamports || 0);
-      }
-      return total;
+      iteration++;
+      await new Promise(r => setTimeout(r, WATCH_INTERVAL_MS));
+    } catch (err) {
+      console.log(`\n  ${error('Watch mode error:')} ${err.message}`);
+      console.log(`  ${dim('Retrying in 5s...')}`);
+      await new Promise(r => setTimeout(r, WATCH_INTERVAL_MS));
     }
-  } catch { /* fall through */ }
-
-  return BigInt(0);
+  }
 }
 
-// ---------------------------------------------------------------------------
-// Render output
-// ---------------------------------------------------------------------------
+// ============================================================================
+// Main Command
+// ============================================================================
 
-function renderSupplyTable(data) {
-  const { total, circulating, staked, burned, nonCirculating, rpc, source } = data;
+async function supplyCommand() {
+  const opts = parseArgs();
 
-  const circPct = total > 0 ? ((Number(circulating) / Number(total)) * 100).toFixed(1) : '?';
-  const stakedPct = total > 0 ? ((Number(staked) / Number(total)) * 100).toFixed(1) : '?';
-  const burnedPct = total > 0 ? ((Number(burned) / Number(total)) * 100).toFixed(2) : '?';
-
-  console.log(`\n${C.bold}${C.cyan}╔═══════════════════════════════════════════════════════╗${C.reset}`);
-  console.log(`${C.bold}${C.cyan}║          AETHER TOKEN SUPPLY                              ║${C.reset}`);
-  console.log(`${C.bold}${C.cyan}╚═══════════════════════════════════════════════════════╝${C.reset}\n`);
-  console.log(`  ${C.dim}RPC: ${rpc}${C.reset}`);
-  console.log(`  ${C.dim}Source: ${source}${C.reset}\n`);
-
-  console.log(`  ${C.bright}┌─ ${C.cyan}TOTAL SUPPLY${C.reset}`);
-  console.log(`  │  ${C.bold}${formatAethFull(total)}${C.reset}`);
-  console.log(`  │  ${C.dim}${formatLargeNum(Number(total))} lamports${C.reset}`);
-  console.log(`  ${C.dim}└${C.reset}`);
-  console.log();
-
-  console.log(`  ${C.bright}┌─ ${C.green}CIRCULATING SUPPLY${C.reset}`);
-  console.log(`  │  ${C.green}${formatAethFull(circulating)}${C.reset}`);
-  console.log(`  │  ${C.dim}${formatLargeNum(Number(circulating))} lamports${C.reset}`);
-  console.log(`  │  ${C.green}${circPct}%${C.reset} of total supply`);
-  console.log(`  ${C.dim}└${C.reset}`);
-  console.log();
-
-  console.log(`  ${C.bright}┌─ ${C.yellow}STAKED SUPPLY${C.reset}`);
-  console.log(`  │  ${C.yellow}${formatAethFull(staked)}${C.reset}`);
-  console.log(`  │  ${C.dim}${formatLargeNum(Number(staked))} lamports${C.reset}`);
-  console.log(`  │  ${C.yellow}${stakedPct}%${C.reset} of total supply`);
-  console.log(`  ${C.dim}└${C.reset}`);
-  console.log();
-
-  if (burned > 0) {
-    console.log(`  ${C.bright}┌─ ${C.red}BURNED / IRRECOVERABLE${C.reset}`);
-    console.log(`  │  ${C.red}${formatAethFull(burned)}${C.reset}`);
-    console.log(`  │  ${C.dim}${formatLargeNum(Number(burned))} lamports${C.reset}`);
-    console.log(`  │  ${C.red}${burnedPct}%${C.reset} of total supply`);
-    console.log(`  ${C.dim}└${C.reset}`);
-    console.log();
-  }
-
-  if (nonCirculating > 0) {
-    console.log(`  ${C.bright}┌─ ${C.magenta}NON-CIRCULATING (LOCKED/ESCROW)${C.reset}`);
-    console.log(`  │  ${C.magenta}${formatAethFull(nonCirculating)}${C.reset}`);
-    console.log(`  │  ${C.dim}${formatLargeNum(Number(nonCirculating))} lamports${C.reset}`);
-    console.log(`  ${C.dim}└${C.reset}`);
-    console.log();
-  }
-
-  // Visual bar
-  const barLen = 40;
-  const circBars = Math.round((Number(circulating) / Number(total)) * barLen);
-  const stakedBars = Math.round((Number(staked) / Number(total)) * barLen);
-  const burnedBars = Math.round((Number(burned) / Number(total)) * barLen);
-  const nonCircBars = Math.round((Number(nonCirculating) / Number(total)) * barLen);
-
-  console.log(`  ${C.dim}Supply breakdown bar (per ${barLen} units):${C.reset}`);
-  const bar = [
-    C.green + '█'.repeat(Math.min(circBars, barLen)) + C.reset,
-    C.yellow + '█'.repeat(Math.min(stakedBars, Math.max(0, barLen - circBars))) + C.reset,
-    C.red + '█'.repeat(Math.min(burnedBars, Math.max(0, barLen - circBars - stakedBars))) + C.reset,
-  ].join('');
-  console.log(`  ${bar}`);
-  console.log(`  ${C.green}■ circulating${C.reset}  ${C.yellow}■ staked${C.reset}  ${C.red}■ burned${C.reset}`);
-  console.log();
-}
-
-/**
- * Compute and display supply metrics.
- */
-async function showSupply(rpc, opts) {
-  const { asJson, verbose } = opts;
-
-  console.error(`${C.dim}Fetching supply data from ${rpc}...${C.reset}`);
-
-  // Fetch all supply components in parallel
-  const [totalData, staked, burned, nonCirc] = await Promise.all([
-    fetchTotalSupply(rpc),
-    fetchStakedSupply(rpc),
-    fetchBurnedSupply(rpc),
-    fetchNonCirculatingAccounts(rpc),
-  ]);
-
-  if (!totalData) {
-    const msg = `Failed to fetch supply data from ${rpc}. Ensure your node is running or set AETHER_RPC.`;
-    if (asJson) {
-      console.log(JSON.stringify({ error: msg, rpc }, null, 2));
-    } else {
-      console.log(`\n${C.red}✗ ${msg}${C.reset}\n`);
-    }
-    process.exit(1);
-  }
-
-  const { total, circulating, nonCirculating: ncFromSupply, source } = totalData;
-  // Use chain non-circulating if available, otherwise fall back to computed value
-  const nonCirculating = ncFromSupply > 0 ? ncFromSupply : nonCirc;
-
-  if (asJson) {
-    const out = {
-      rpc,
-      source,
-      supply: {
-        total: total.toString(),
-        total_formatted: formatAethFull(total),
-        circulating: circulating.toString(),
-        circulating_formatted: formatAethFull(circulating),
-        non_circulating: nonCirculating.toString(),
-        non_circulating_formatted: formatAethFull(nonCirculating),
-        staked: staked.toString(),
-        staked_formatted: formatAethFull(staked),
-        burned: burned.toString(),
-        burned_formatted: formatAethFull(burned),
-        percentages: {
-          circulating_pct: total > 0 ? ((Number(circulating) / Number(total)) * 100).toFixed(2) : '0',
-          staked_pct: total > 0 ? ((Number(staked) / Number(total)) * 100).toFixed(2) : '0',
-          burned_pct: total > 0 ? ((Number(burned) / Number(total)) * 100).toFixed(4) : '0',
-        },
-      },
-      fetched_at: new Date().toISOString(),
-    };
-    console.log(JSON.stringify(out, null, 2));
+  if (opts.help) {
+    showHelp();
     return;
   }
 
-  renderSupplyTable({
-    total,
-    circulating,
-    staked,
-    burned,
-    nonCirculating,
-    rpc,
-    source,
-  });
-
-  if (verbose) {
-    console.log(`  ${C.dim}Notes:${C.reset}`);
-    console.log(`  ${C.dim}  - Circulating = total - non-circulating (locked/escrow)${C.reset}`);
-    console.log(`  ${C.dim}  - Staked supply reflects tokens in active stake accounts${C.reset}`);
-    console.log(`  ${C.dim}  - Burned supply reflects tokens sent to irrecoverable addresses${C.reset}`);
-    console.log(`  ${C.dim}  - Percentages calculated against total supply${C.reset}`);
-    console.log(`  ${C.dim}  - Source: ${source}${C.reset}\n`);
+  // Handle watch mode
+  if (opts.watch) {
+    console.log(`${info('Starting watch mode... Press Ctrl+C to exit')}`);
+    await watchMode(opts.rpc, opts.compare);
+    return;
   }
-}
 
-// ---------------------------------------------------------------------------
-// CLI arg parsing
-// ---------------------------------------------------------------------------
+  if (!opts.asJson) {
+    startSpinner('Fetching supply data via SDK');
+  }
 
-function parseArgs() {
-  return process.argv.slice(3); // [node, index.js, supply, ...]
-}
+  try {
+    const data = await fetchSupplyData(opts.rpc);
 
-async function main() {
-  const args = parseArgs();
-
-  let rpc = getDefaultRpc();
-  let asJson = false;
-  let verbose = false;
-
-  for (let i = 0; i < args.length; i++) {
-    if ((args[i] === '--rpc' || args[i] === '-r') && args[i + 1]) {
-      rpc = args[++i];
-    } else if (args[i] === '--json' || args[i] === '-j') {
-      asJson = true;
-    } else if (args[i] === '--verbose' || args[i] === '-v') {
-      verbose = true;
-    } else if (args[i] === '--help' || args[i] === '-h') {
-      console.log(`
-${C.cyan}Usage:${C.reset}
-  aether supply              Show Aether token supply overview
-  aether supply --json      JSON output for scripting/monitoring
-  aether supply --rpc <url> Query a specific RPC endpoint
-  aether supply --verbose  Show detailed breakdown and notes
-
-${C.dim}Examples:${C.reset}
-  aether supply
-  aether supply --json --rpc https://mainnet.aether.io
-  AETHER_RPC=https://backup-rpc.example.com aether supply --verbose
-`);
-      return;
+    if (!opts.asJson) {
+      stopSpinner(true, 'Supply data retrieved');
     }
-  }
 
-  await showSupply(rpc, { asJson, verbose });
+    if (opts.asJson) {
+      renderJson(data, opts.rpc);
+    } else {
+      renderSupplyBox(data, opts);
+    }
+  } catch (err) {
+    if (!opts.asJson) {
+      stopSpinner(false, 'Failed');
+    }
+
+    if (opts.asJson) {
+      console.log(JSON.stringify({
+        error: err.message,
+        rpc: opts.rpc,
+        timestamp: new Date().toISOString(),
+      }, null, 2));
+    } else {
+      console.log(`\n  ${error('Supply query failed:')} ${err.message}\n`);
+      console.log(`  ${dim('Troubleshooting:')}`);
+      console.log(`    • Is your validator running? ${C.cyan}aether ping${C.reset}`);
+      console.log(`    • Check RPC endpoint: ${C.dim}${opts.rpc}${C.reset}`);
+      console.log(`    • Set custom RPC: ${C.dim}AETHER_RPC=https://your-rpc-url${C.reset}`);
+      console.log();
+    }
+    process.exit(1);
+  }
 }
 
-main().catch(err => {
-  console.error(`${C.red}Error:${C.reset} ${err.message}\n`);
-  process.exit(1);
-});
+// ============================================================================
+// Exports
+// ============================================================================
 
-module.exports = { supplyCommand: main };
+module.exports = { supplyCommand };
+
+if (require.main === module) {
+  supplyCommand().catch(err => {
+    console.error(`\n${C.red}✗ Supply command failed:${C.reset} ${err.message}\n`);
+    process.exit(1);
+  });
+}

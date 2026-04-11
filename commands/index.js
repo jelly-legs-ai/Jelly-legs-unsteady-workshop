@@ -40,6 +40,7 @@ const nftCommand = require('./nft');
 const pingCommand = require('./ping');
 const slotCommand = require('./slot');
 const stakeInfoCommand = require('./stake-info');
+const deployCommand = require('./deploy');
 
 module.exports = {
   doctorCommand,
@@ -83,4 +84,5 @@ module.exports = {
   nftCommand,
   pingCommand,
   slotCommand,
+  deployCommand,
 };

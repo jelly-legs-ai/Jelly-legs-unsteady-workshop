@@ -8,6 +8,7 @@
     "aether": "index.js"
   },
   "scripts": {
+    "build": "echo 'CLI package requires no build step'",
     "test": "cd test && node doctor.test.js && cd ../sdk && node test.js",
     "lint": "echo 'No linting configured'",
     "doctor": "node index.js doctor",
@@ -48,6 +49,7 @@
     "emergency": "node index.js emergency",
     "snapshot": "node index.js snapshot",
     "nft": "node index.js nft",
+    "deploy": "node index.js deploy",
     "prepare-publish": "npm pack && echo 'Package ready for publishing'",
     "version-bump": "node -e \"const fs=require('fs');let p=JSON.parse(fs.readFileSync('package.json'));let v=p.version.split('.');v[2]=parseInt(v[2])+1;p.version=v.join('.');fs.writeFileSync('package.json',JSON.stringify(p,null,2));console.log('Version bumped to',p.version);\""
   },

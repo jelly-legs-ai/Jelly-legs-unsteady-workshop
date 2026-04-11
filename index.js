@@ -13,7 +13,7 @@ const readline = require('readline');
 const path = require('path');
 
 // Import UI framework for consistent branding
-const { BRANDING, C, indicators, success, error, warning, info, code, key, value, formatHelp } = require('./lib/ui');
+const { BRANDING, C, indicators, success, error, warning, info, code, key, value, formatHelp, drawBox } = require('./lib/ui');
 
 // CLI version
 const VERSION = '2.0.0';
@@ -23,6 +23,7 @@ const { doctorCommand } = require('./commands/doctor');
 const { validatorStartCommand } = require('./commands/validator-start');
 const { validatorStatus } = require('./commands/validator-status');
 const { validatorInfo } = require('./commands/validator-info');
+const { validatorCommand } = require('./commands/validator');
 const { init } = require('./commands/init');
 const { monitorLoop } = require('./commands/monitor');
 const { logsCommand } = require('./commands/logs');
@@ -61,6 +62,7 @@ const { claimCommand } = require('./commands/claim');
 const { unstakeCommand } = require('./commands/unstake');
 const { txCommand } = require('./commands/tx');
 const { multisigCommand } = require('./commands/multisig');
+const { deployCommand } = require('./commands/deploy');
 
 // Parse args early to support flags on commands
 function getCommandArgs() {
@@ -243,39 +245,9 @@ const COMMANDS = {
     handler: networkCommand,
   },
   validator: {
-    description: 'Validator node management',
+    description: 'Validator node management - status, info, start, stop, register, logs',
     handler: () => {
-      const subcmd = process.argv[3];
-      
-      if (!subcmd) {
-        console.log(`\n  ${C.bright}Usage: aether validator <command>${C.reset}\n`);
-        console.log(`  ${C.cyan}Commands:${C.reset}`);
-        console.log(`    ${code('start')}      Start the validator node`);
-        console.log(`    ${code('status')}     Check validator status`);
-        console.log(`    ${code('info')}       Get validator info`);
-        console.log(`    ${code('register')}   Register validator with the network`);
-        console.log();
-        return;
-      }
-      
-      switch (subcmd) {
-        case 'start':
-          validatorStartCommand();
-          break;
-        case 'status':
-          validatorStatus();
-          break;
-        case 'info':
-          validatorInfo();
-          break;
-        case 'register':
-          validatorRegisterCommand();
-          break;
-        default:
-          console.error(`\n  ${error(`Unknown validator command: ${subcmd}`)}`);
-          console.log(`  ${C.dim}Valid commands: start, status, info, register${C.reset}\n`);
-          process.exit(1);
-      }
+      validatorCommand();
     },
   },
   delegations: {
@@ -384,6 +356,10 @@ const COMMANDS = {
     description: 'NFT management - create|list|transfer|info|update',
     handler: nftCommand,
   },
+  deploy: {
+    description: 'Deploy smart contracts - deploy <file> [--name <name>] [--upgradeable]',
+    handler: deployCommand,
+  },
   install: {
     description: 'Install or upgrade aether-cli',
     handler: installCommand,
@@ -415,22 +391,22 @@ function showHelp() {
     'Staking': ['stake', 'unstake', 'stake-positions', 'stake-info', 'delegations', 'rewards', 'claim'],
     'Validator': ['init', 'validator', 'validator-info', 'register', 'validators', 'monitor', 'logs'],
     'Network': ['network', 'network-diagnostics', 'ping', 'epoch', 'slot', 'tps', 'fees', 'supply'],
-    'SDK & Tools': ['sdk', 'sdk-test', 'snapshot', 'info', 'status', 'blockhash', 'broadcast', 'price', 'apy'],
+    'SDK & Tools': ['sdk', 'sdk-test', 'snapshot', 'info', 'status', 'blockhash', 'broadcast', 'price', 'apy', 'deploy'],
     'Advanced': ['nft', 'multisig', 'emergency', 'config', 'doctor', 'install'],
   };
 
   for (const [category, cmds] of Object.entries(categories)) {
-    console.log(`  ${C.cyan}${category}${C.reset}`);
+    console.log(`  ${C.cyan}◆ ${category}${C.reset}`);
     for (const cmd of cmds) {
-      const info = COMMANDS[cmd];
-      if (info) {
-        console.log(`    ${code(cmd.padEnd(18))} ${C.dim}${info.description}${C.reset}`);
+      const cmdInfo = COMMANDS[cmd];
+      if (cmdInfo) {
+        console.log(`    ${code(cmd.padEnd(18))} ${C.dim}${cmdInfo.description}${C.reset}`);
       }
     }
     console.log();
   }
 
-  console.log(`  ${C.bright}Quick Start${C.reset}\n`);
+  console.log(`  ${C.cyan}◆ Quick Start${C.reset}\n`);
   console.log(`    ${C.dim}$${C.reset} ${code('aether doctor')}              ${C.dim}# Check system requirements${C.reset}`);
   console.log(`    ${C.dim}$${C.reset} ${code('aether init')}                ${C.dim}# Start validator onboarding${C.reset}`);
   console.log(`    ${C.dim}$${C.reset} ${code('aether wallet create')}       ${C.dim}# Create a new wallet${C.reset}`);

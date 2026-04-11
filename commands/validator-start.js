@@ -34,20 +34,11 @@ const crypto = require('crypto');
 const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
 const aether = require(sdkPath);
 
-// ANSI colours
-const C = {
-  reset: '\x1b[0m',
-  bright: '\x1b[1m',
-  dim: '\x1b[2m',
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  cyan: '\x1b[36m',
-  magenta: '\x1b[35m',
-  blue: '\x1b[34m',
-};
+// Import UI framework for consistent branding
+const { C, indicators, BRANDING, startSpinner, stopSpinner, 
+        success, error, warning, info, code, highlight, drawBox } = require('../lib/ui');
 
-const CLI_VERSION = '1.0.0';
+const CLI_VERSION = '2.0.0';
 const DEFAULT_RPC = 'http://127.0.0.1:8899';
 
 // Tier configurations
@@ -447,9 +438,8 @@ async function startValidator(opts) {
 
   // Run pre-start checks
   if (!opts.json) {
-    console.log(`\n${C.bright}${C.cyan}╔═══════════════════════════════════════════════════════════════╗${C.reset}`);
-    console.log(`${C.bright}${C.cyan}║              Starting Aether Validator                        ║${C.reset}`);
-    console.log(`${C.bright}${C.cyan}╚═══════════════════════════════════════════════════════════════╝${C.reset}\n`);
+    console.log(BRANDING.validatorLogo);
+    console.log();
     console.log(`  ${C.dim}Tier: ${opts.tier.toUpperCase()}${C.reset}`);
     console.log(`  ${C.dim}RPC: ${opts.rpc}${C.reset}\n`);
     console.log(`  ${C.dim}Running pre-start checks...${C.reset}\n`);

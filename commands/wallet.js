@@ -22,20 +22,13 @@ const bs58 = require('bs58').default;
 // Import SDK for blockchain RPC calls
 const aether = require('../sdk');
 
+// Import UI framework for consistent branding
+const { C, indicators, BRANDING, drawBox, drawTable, 
+        success, error, warning, info, code, highlight, key, value,
+        startSpinner, stopSpinner } = require('../lib/ui');
+
 // Destructure SDK functions for convenience
 const { createClient } = aether;
-
-// ANSI colours
-const C = {
-  reset: '\x1b[0m',
-  bright: '\x1b[1m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  cyan: '\x1b[36m',
-  red: '\x1b[31m',
-  dim: '\x1b[2m',
-  magenta: '\x1b[35m',
-};
 
 // CLI version for session files
 const CLI_VERSION = '1.0.3';
@@ -268,7 +261,7 @@ async function askMnemonic(rl, questionText) {
 // ---------------------------------------------------------------------------
 
 async function createWallet(rl) {
-  console.log(`\n${C.bright}${C.cyan}── Wallet Creation ─────────────────────────────────────${C.reset}`);
+  console.log(BRANDING.commandBanner('wallet create', 'Create a new BIP39 wallet'));
   console.log(`  ${C.green}1)${C.reset}  Create new wallet — generates a fresh 12-word mnemonic`);
   console.log(`  ${C.green}2)${C.reset}  Import existing — enter your own mnemonic to restore\n`);
 
@@ -301,11 +294,11 @@ async function createWallet(rl) {
   if (choice.trim() === '1') {
     const words = mnemonic.split(' ');
     console.log(`\n`);
-    console.log(`${C.red}${C.bright}╔═══════════════════════════════════════════════════════════════╗${C.reset}`);
-    console.log(`${C.red}${C.bright}║           YOUR WALLET PASSPHRASE                               ║${C.reset}`);
-    console.log(`${C.red}${C.bright}╚═══════════════════════════════════════════════════════════════╝${C.reset}`);
-    console.log(`\n${C.yellow}  Write these words down. They cannot be recovered.${C.reset}`);
-    console.log(`${C.yellow}  No copy is stored. If you lose them, your wallet is UNRECOVERABLE.${C.reset}\n`);
+    console.log(`${C.cyan}${C.bright}╔═══════════════════════════════════════════════════════════════╗${C.reset}`);
+    console.log(`${C.cyan}${C.bright}║${C.reset}           ${C.yellow}${C.bright}YOUR WALLET PASSPHRASE${C.reset}                               ${C.cyan}${C.bright}║${C.reset}`);
+    console.log(`${C.cyan}${C.bright}╚═══════════════════════════════════════════════════════════════╝${C.reset}`);
+    console.log(`\n${C.yellow}  ◆ Write these words down. They cannot be recovered.${C.reset}`);
+    console.log(`${C.yellow}  ◆ No copy is stored. If you lose them, your wallet is UNRECOVERABLE.${C.reset}\n`);
     console.log(`  ${C.bright}1.${C.reset} ${words[0].padEnd(15)}   ${C.bright}5.${C.reset} ${words[4].padEnd(15)}   ${C.bright}9.${C.reset} ${words[8]}`);
     console.log(`  ${C.bright}2.${C.reset} ${words[1].padEnd(15)}   ${C.bright}6.${C.reset} ${words[5].padEnd(15)}   ${C.bright}10.${C.reset} ${words[9]}`);
     console.log(`  ${C.bright}3.${C.reset} ${words[2].padEnd(15)}   ${C.bright}7.${C.reset} ${words[6].padEnd(15)}   ${C.bright}11.${C.reset} ${words[10]}`);
@@ -319,9 +312,9 @@ async function createWallet(rl) {
   cfg.defaultWallet = address;
   saveConfig(cfg);
 
-  console.log(`${C.green}✓ Wallet created:${C.reset} ${C.bright}${address}${C.reset}`);
+  console.log(BRANDING.successBanner(`Wallet created: ${address}`));
   console.log(`${C.dim}  Saved to:${C.reset} ${walletFilePath(address)}`);
-  console.log(`${C.green}✓ Set as default wallet.${C.reset}\n`);
+  console.log(`${C.dim}  Set as default wallet${C.reset}\n`);
 }
 
 // ---------------------------------------------------------------------------
@@ -346,7 +339,7 @@ async function listWallets(rl) {
     return;
   }
 
-  console.log(`\n${C.bright}${C.cyan}── Aether Wallets ─────────────────────────────────────────${C.reset}\n`);
+  console.log(`\n${C.cyan}  ◆ Aether Wallets${C.reset}\n`);
   console.log(`  ${C.dim}Location: ${getWalletsDir()}${C.reset}\n`);
 
   const wallets = files
@@ -413,9 +406,9 @@ async function importWallet(rl) {
   cfg.defaultWallet = address;
   saveConfig(cfg);
 
-  console.log(`\n${C.green}✓ Wallet imported:${C.reset} ${C.bright}${address}${C.reset}`);
+  console.log(BRANDING.successBanner(`Wallet imported: ${address}`));
   console.log(`${C.dim}  Saved to:${C.reset} ${walletFilePath(address)}`);
-  console.log(`${C.green}✓ Set as default wallet.${C.reset}\n`);
+  console.log(`${C.dim}  Set as default wallet${C.reset}\n`);
 }
 
 // ---------------------------------------------------------------------------
@@ -470,7 +463,7 @@ async function defaultWallet(rl) {
 // ---------------------------------------------------------------------------
 
 async function connectWallet(rl) {
-  console.log(`\n${C.bright}${C.cyan}── Wallet Connect ────────────────────────────────────────${C.reset}\n`);
+  console.log(BRANDING.commandBanner('wallet connect', 'Connect wallet via browser verification'));
 
   // Resolve wallet address: --address flag or default
   const args = process.argv.slice(4);

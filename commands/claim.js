@@ -30,20 +30,12 @@ const nacl = require('tweetnacl');
 const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
 const aether = require(sdkPath);
 
-// ANSI colours
-const C = {
-  reset: '\x1b[0m',
-  bright: '\x1b[1m',
-  dim: '\x1b[2m',
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  cyan: '\x1b[36m',
-  magenta: '\x1b[35m',
-};
+// Import UI framework for consistent branding
+const { BRANDING, C, indicators, startSpinner, stopSpinner, drawBox, drawTable,
+        success, error, warning, info, code, highlight } = require('../lib/ui');
 
 const DERIVATION_PATH = "m/44'/7777777'/0'/0'";
-const CLI_VERSION = '1.1.0';
+const CLI_VERSION = '2.0.0';
 
 // ---------------------------------------------------------------------------
 // SDK Client Setup
@@ -238,30 +230,30 @@ async function claimCommand() {
   const rl = createRl();
 
   if (opts.help) {
-    console.log(`
-${C.bright}${C.cyan}claim${C.reset} — Claim accumulated staking rewards for a wallet
-
-${C.bright}USAGE${C.reset}
-    aether claim --address <addr> [--json] [--rpc <url>] [--dry-run]
-
-${C.bright}OPTIONS${C.reset}
-    --address <addr>    Wallet address (ATH...)
-    --json               Output raw JSON
-    --rpc <url>          RPC endpoint (default: AETHER_RPC or localhost:8899)
-    --dry-run            Preview claim without submitting transaction
-    --help               Show this help
-
-${C.bright}SDK METHODS USED${C.reset}
-    client.getStakePositions(address)  → GET /v1/stake/<addr>
-    client.getRewards(address)         → GET /v1/rewards/<addr>
-    client.getSlot()                   → GET /v1/slot
-    client.sendTransaction(tx)         → POST /v1/transaction
-
-${C.bright}EXAMPLES${C.reset}
-    aether claim --address ATH3abc...
-    aether claim --address ATH3abc... --dry-run
-    aether claim --address ATH3abc... --json
-`);
+    console.log(BRANDING.commandBanner('claim', 'Claim accumulated staking rewards'));
+    
+    console.log(`\n  ${C.bright}USAGE${C.reset}`);
+    console.log(`      ${code('aether claim --address <addr> [--json] [--rpc <url>] [--dry-run]')}`);
+    
+    console.log(`\n  ${C.bright}OPTIONS${C.reset}`);
+    console.log(`      ${code('--address <addr>')}    Wallet address (ATH...)`);
+    console.log(`      ${code('--json')}              Output raw JSON`);
+    console.log(`      ${code('--rpc <url>')}         RPC endpoint (default: AETHER_RPC or localhost:8899)`);
+    console.log(`      ${code('--dry-run')}           Preview claim without submitting transaction`);
+    console.log(`      ${code('--help')}              Show this help`);
+    
+    console.log(`\n  ${C.bright}SDK METHODS USED${C.reset}`);
+    console.log(`      ${C.dim}client.getStakePositions(address)  → GET /v1/stake/<addr>${C.reset}`);
+    console.log(`      ${C.dim}client.getRewards(address)         → GET /v1/rewards/<addr>${C.reset}`);
+    console.log(`      ${C.dim}client.getSlot()                   → GET /v1/slot${C.reset}`);
+    console.log(`      ${C.dim}client.sendTransaction(tx)         → POST /v1/transaction${C.reset}`);
+    
+    console.log(`\n  ${C.bright}EXAMPLES${C.reset}`);
+    console.log(`      ${C.dim}$${C.reset} ${code('aether claim --address ATH3abc...')}`);
+    console.log(`      ${C.dim}$${C.reset} ${code('aether claim --address ATH3abc... --dry-run')}`);
+    console.log(`      ${C.dim}$${C.reset} ${code('aether claim --address ATH3abc... --json')}`);
+    console.log();
+    
     rl.close();
     return;
   }
@@ -272,8 +264,8 @@ ${C.bright}EXAMPLES${C.reset}
     if (config.defaultWallet) {
       opts.address = config.defaultWallet;
     } else {
-      console.log(`  ${C.red}✗ Missing --address${C.reset}\n`);
-      console.log(`  Usage: aether claim --address <addr> [--json] [--dry-run]\n`);
+      console.log(`\n  ${error('Missing --address')}\n`);
+      console.log(`  Usage: ${code('aether claim --address <addr> [--json] [--dry-run]')}\n`);
       rl.close();
       return;
     }
@@ -284,10 +276,10 @@ ${C.bright}EXAMPLES${C.reset}
   const rawAddr = address.startsWith('ATH') ? address.slice(3) : address;
 
   if (!opts.json) {
-    console.log(`\n${C.bright}${C.cyan}── Claim Staking Rewards ────────────────────────────────${C.reset}\n`);
-    console.log(`  ${C.dim}Wallet:${C.reset} ${address}`);
-    console.log(`  ${C.dim}RPC:   ${C.reset} ${rpcUrl}`);
-    if (opts.dryRun) console.log(`  ${C.yellow}(dry-run mode - no transaction will be submitted)${C.reset}`);
+    console.log(BRANDING.commandBanner('claim', 'Claim Staking Rewards'));
+    console.log(`\n  ${C.cyan}Wallet:${C.reset} ${address}`);
+    console.log(`  ${C.cyan}RPC:${C.reset}    ${rpcUrl}`);
+    if (opts.dryRun) console.log(`  ${warning('(dry-run mode - no transaction will be submitted)')}`);
     console.log();
   }
 
@@ -296,10 +288,14 @@ ${C.bright}EXAMPLES${C.reset}
     const client = createClient(rpcUrl);
     
     if (!opts.json) {
-      console.log(`  ${C.dim}Fetching stake positions via SDK...${C.reset}`);
+      startSpinner('Fetching stake positions via SDK');
     }
 
     const stakeAccounts = await fetchWalletStakeAccounts(rpcUrl, address);
+
+    if (!opts.json) {
+      stopSpinner(true, 'Stake positions retrieved');
+    }
 
     if (!stakeAccounts || stakeAccounts.length === 0) {
       if (opts.json) {
@@ -309,8 +305,8 @@ ${C.bright}EXAMPLES${C.reset}
           suggestion: 'Stake AETH first with: aether stake --validator <addr> --amount <aeth>',
         }, null, 2));
       } else {
-        console.log(`  ${C.yellow}⚠ No active stake positions found.${C.reset}`);
-        console.log(`  ${C.dim}  Stake AETH with: ${C.cyan}aether stake --validator <addr> --amount <aeth>${C.reset}\n`);
+        console.log(`\n  ${warning('No active stake positions found.')}`);
+        console.log(`  ${C.dim}Stake AETH with: ${code('aether stake --validator <addr> --amount <aeth>')}${C.reset}\n`);
       }
       rl.close();
       return;
@@ -319,6 +315,10 @@ ${C.bright}EXAMPLES${C.reset}
     // Calculate total pending rewards using SDK
     let totalPendingRewards = BigInt(0);
     const rewardBreakdown = [];
+
+    if (!opts.json) {
+      startSpinner('Fetching reward data');
+    }
 
     for (const acc of stakeAccounts) {
       // SDK call: getRewards for each stake account
@@ -339,17 +339,29 @@ ${C.bright}EXAMPLES${C.reset}
     }
 
     if (!opts.json) {
-      console.log(`  ${C.bright}Stake Positions (${stakeAccounts.length})${C.reset}\n`);
+      stopSpinner(true, 'Reward data retrieved');
+    }
 
-      for (const pos of rewardBreakdown) {
-        const shortVal = shortPubkey(pos.validator);
-        const shortAcct = shortPubkey(pos.stakeAcct);
-        console.log(`  ${C.dim}├─ ${C.reset}${shortAcct} → ${C.cyan}${shortVal}${C.reset}`);
-        console.log(`  │   ${C.dim}Staked:${C.reset} ${formatAether(pos.stakeLamports)}`);
-        console.log(`  │   ${C.green}Pending:${C.reset} ${pos.pendingFormatted}\n`);
-      }
+    if (!opts.json) {
+      console.log(`\n  ${C.bright}Stake Positions (${C.cyan}${stakeAccounts.length}${C.reset})\n`);
 
-      console.log(`  ${C.dim}────────────────────────────────────────${C.reset}`);
+      // Build table rows
+      const rows = rewardBreakdown.map(pos => {
+        return [
+          shortPubkey(pos.stakeAcct),
+          shortPubkey(pos.validator),
+          formatAether(pos.stakeLamports),
+          C.green + pos.pendingFormatted + C.reset
+        ];
+      });
+
+      console.log(drawTable(
+        ['Stake Account', 'Validator', 'Staked', 'Pending'],
+        rows,
+        { borderStyle: 'single', headerColor: C.cyan + C.bright }
+      ));
+
+      console.log(`\n  ${C.dim}${'─'.repeat(50)}${C.reset}`);
       console.log(`  ${C.bright}Total Pending Rewards:${C.reset} ${C.green}${formatFlux(totalPendingRewards.toString())}${C.reset}\n`);
     }
 
@@ -366,7 +378,7 @@ ${C.bright}EXAMPLES${C.reset}
           sdk_version: CLI_VERSION,
         }, null, 2));
       } else {
-        console.log(`  ${C.yellow}⚠ Dry run - not submitting claim transaction${C.reset}\n`);
+        console.log(`  ${warning('Dry run - not submitting claim transaction')}\n`);
       }
       rl.close();
       return;
@@ -375,15 +387,15 @@ ${C.bright}EXAMPLES${C.reset}
     // Load wallet for signing
     const wallet = loadWallet(address);
     if (!wallet) {
-      console.log(`  ${C.red}✗ Wallet not found locally: ${address}${C.reset}`);
-      console.log(`  ${C.dim}Import it: aether wallet import${C.reset}\n`);
+      console.log(`\n  ${error('Wallet not found locally:')} ${address}`);
+      console.log(`  ${C.dim}Import it: ${code('aether wallet import')}${C.reset}\n`);
       rl.close();
       return;
     }
 
     // Step: Submit claim transaction
     if (!opts.json) {
-      console.log(`  ${C.dim}Preparing claim transaction...${C.reset}`);
+      console.log(`  ${C.dim}Preparing claim transaction...${C.reset}\n`);
     }
 
     // Ask for mnemonic
@@ -394,7 +406,7 @@ ${C.bright}EXAMPLES${C.reset}
     try {
       keyPair = deriveKeypair(mnemonic);
     } catch (e) {
-      console.log(`  ${C.red}✗ Failed to derive keypair: ${e.message}${C.reset}\n`);
+      console.log(`\n  ${error('Failed to derive keypair:')} ${e.message}\n`);
       rl.close();
       return;
     }
@@ -402,16 +414,24 @@ ${C.bright}EXAMPLES${C.reset}
     // Verify derived address matches
     const derivedAddress = formatAddress(keyPair.publicKey);
     if (derivedAddress !== address) {
-      console.log(`  ${C.red}✗ Passphrase mismatch.${C.reset}`);
-      console.log(`  ${C.dim}  Derived:   ${derivedAddress}${C.reset}`);
-      console.log(`  ${C.dim}  Expected:  ${address}${C.reset}`);
+      console.log(`\n  ${error('Passphrase mismatch.')}`);
+      console.log(`  ${C.dim}Derived:   ${derivedAddress}${C.reset}`);
+      console.log(`  ${C.dim}Expected:  ${address}${C.reset}`);
       console.log(`  ${C.dim}Check your passphrase and try again.${C.reset}\n`);
       rl.close();
       return;
     }
 
     // SDK call: get current slot
+    if (!opts.json) {
+      startSpinner('Getting current slot');
+    }
+    
     const currentSlot = await client.getSlot().catch(() => 0);
+    
+    if (!opts.json) {
+      stopSpinner(true, 'Slot retrieved');
+    }
 
     // Build claim transaction for SDK
     const tx = {
@@ -433,11 +453,15 @@ ${C.bright}EXAMPLES${C.reset}
     tx.signature = signTransaction(tx, keyPair.secretKey);
 
     if (!opts.json) {
-      console.log(`  ${C.dim}Submitting claim via SDK to ${rpcUrl}...${C.reset}`);
+      startSpinner('Submitting claim via SDK');
     }
 
     // SDK call: sendTransaction (REAL RPC POST /v1/transaction)
     const result = await client.sendTransaction(tx);
+
+    if (!opts.json) {
+      stopSpinner(true, 'Transaction submitted');
+    }
 
     if (opts.json) {
       console.log(JSON.stringify({
@@ -453,18 +477,19 @@ ${C.bright}EXAMPLES${C.reset}
       }, null, 2));
     } else {
       if (result.error) {
-        console.log(`  ${C.red}✗ Claim failed:${C.reset} ${result.error}\n`);
+        console.log(`\n  ${error('Claim failed:')} ${result.error}\n`);
         rl.close();
         process.exit(1);
       }
 
-      console.log(`  ${C.green}✓ Rewards claimed!${C.reset}`);
-      console.log(`  ${C.dim}  Amount:${C.reset} ${C.green}${formatFlux(result.claimed || totalPendingRewards.toString())}${C.reset}`);
+      console.log();
+      console.log(BRANDING.successBanner('Rewards claimed!'));
+      console.log(`\n  ${C.cyan}Amount:${C.reset}    ${C.green}${formatFlux(result.claimed || totalPendingRewards.toString())}${C.reset}`);
       if (result.signature || result.txid) {
-        console.log(`  ${C.dim}  Tx:${C.reset} ${shortPubkey(result.signature || result.txid)}`);
+        console.log(`  ${C.cyan}Tx:${C.reset}        ${shortPubkey(result.signature || result.txid)}`);
       }
-      console.log(`  ${C.dim}  Slot:${C.reset} ${result.slot || currentSlot}`);
-      console.log(`  ${C.dim}  SDK: sendTransaction()${C.reset}\n`);
+      console.log(`  ${C.cyan}Slot:${C.reset}      ${result.slot || currentSlot}`);
+      console.log(`  ${C.dim}SDK:       sendTransaction()${C.reset}\n`);
     }
 
     rl.close();
@@ -473,8 +498,9 @@ ${C.bright}EXAMPLES${C.reset}
     if (opts.json) {
       console.log(JSON.stringify({ address, error: err.message, sdk_version: CLI_VERSION }, null, 2));
     } else {
-      console.log(`  ${C.red}✗ Failed to claim rewards:${C.reset} ${err.message}\n`);
-      console.log(`  ${C.dim}  Set custom RPC: AETHER_RPC=https://your-rpc-url${C.reset}\n`);
+      stopSpinner(false, 'Failed');
+      console.log(`\n  ${error('Failed to claim rewards:')} ${err.message}\n`);
+      console.log(`  ${C.dim}Set custom RPC: AETHER_RPC=https://your-rpc-url${C.reset}\n`);
     }
     rl.close();
     process.exit(1);
