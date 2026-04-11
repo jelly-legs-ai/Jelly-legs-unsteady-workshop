@@ -4,8 +4,9 @@
 
 use crate::genesis::{GenesisBlock, load_genesis_from_file, ValidatorTier, TierConfig};
 use crate::keypair::ValidatorIdentity;
-use crate::{BlockProduction, EpochInfo, ValidatorInfo, VoteAccountInfo};
+use crate::rpc_client::{BlockProduction, EpochInfo, ValidatorInfo, VoteAccountInfo};
 use aether_consensus::staking::StakingPool;
+use aether_governance::{AetherDAO, Treasury};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -91,6 +92,12 @@ struct ValidatorStateInner {
     // Staking pool
     staking_pool: RwLock<StakingPool>,
     
+    // Governance DAO
+    dao: RwLock<AetherDAO>,
+    
+    // Treasury
+    treasury: RwLock<Treasury>,
+    
     // Ledger
     #[allow(dead_code)]
     ledger_path: PathBuf,
@@ -121,6 +128,8 @@ impl ValidatorState {
                 relay_bytes: AtomicU64::new(0),
                 block_hash: RwLock::new("0000000000000000000000000000000000000000000000000000000000000000".to_string()),
                 staking_pool: RwLock::new(StakingPool::new(0)),
+                dao: RwLock::new(AetherDAO::with_default_config()),
+                treasury: RwLock::new(Treasury::with_default_config()),
                 ledger_path,
                 testnet,
             }),
@@ -162,6 +171,8 @@ impl ValidatorState {
                 relay_bytes: AtomicU64::new(0),
                 block_hash: RwLock::new(genesis_hash),
                 staking_pool: RwLock::new(StakingPool::new(0)),
+                dao: RwLock::new(AetherDAO::with_default_config()),
+                treasury: RwLock::new(Treasury::with_default_config()),
                 ledger_path,
                 testnet,
             }),
@@ -838,5 +849,186 @@ impl ValidatorState {
             Ok(pool) => pool.current_epoch,
             Err(_) => 0,
         }
+    }
+
+    // ========================================================================
+    // Governance Operations
+    // ========================================================================
+
+    /// Create a governance proposal
+    pub fn create_governance_proposal(
+        &self,
+        title: String,
+        description: String,
+        proposal_type: aether_governance::ProposalType,
+        proposer: [u8; 32],
+        deposit: u64,
+    ) -> Result<u64, String> {
+        let mut dao = self.inner.dao.write().map_err(|_| "Lock poisoned".to_string())?;
+        let snapshot_block = dao.current_block;
+        dao.create_proposal(title, description, proposal_type, proposer, deposit, snapshot_block)
+            .map_err(|e| e.to_string())
+    }
+
+    /// Cast a vote on a governance proposal
+    pub fn governance_vote(
+        &self,
+        proposal_id: u64,
+        voter: [u8; 32],
+        choice: aether_governance::VoteChoice,
+        signature: [u8; 64],
+    ) -> Result<(), String> {
+        let mut dao = self.inner.dao.write().map_err(|_| "Lock poisoned".to_string())?;
+        dao.vote(proposal_id, voter, choice, signature)
+            .map_err(|e| e.to_string())
+    }
+
+    /// Execute a passed governance proposal
+    pub fn execute_governance_proposal(&self, proposal_id: u64) -> Result<aether_governance::ProposalType, String> {
+        let mut dao = self.inner.dao.write().map_err(|_| "Lock poisoned".to_string())?;
+        dao.execute_proposal(proposal_id).map_err(|e| e.to_string())
+    }
+
+    /// Veto a governance proposal (security council only)
+    pub fn veto_governance_proposal(&self, proposal_id: u64, vetoer: [u8; 32]) -> Result<(), String> {
+        let mut dao = self.inner.dao.write().map_err(|_| "Lock poisoned".to_string())?;
+        dao.veto_proposal(proposal_id, &vetoer).map_err(|e| e.to_string())
+    }
+
+    /// Cancel a governance proposal (proposer only)
+    pub fn cancel_governance_proposal(&self, proposal_id: u64, canceller: [u8; 32]) -> Result<(), String> {
+        let mut dao = self.inner.dao.write().map_err(|_| "Lock poisoned".to_string())?;
+        dao.cancel_proposal(proposal_id, &canceller).map_err(|e| e.to_string())
+    }
+
+    /// Get a specific governance proposal
+    pub fn get_governance_proposal(&self, proposal_id: u64) -> Option<aether_governance::Proposal> {
+        let dao = self.inner.dao.read().ok()?;
+        dao.get_proposal(proposal_id).cloned()
+    }
+
+    /// Get all active governance proposals
+    pub fn get_active_governance_proposals(&self) -> Vec<aether_governance::Proposal> {
+        match self.inner.dao.read() {
+            Ok(dao) => dao.get_active_proposals().into_iter().cloned().collect(),
+            Err(_) => Vec::new(),
+        }
+    }
+
+    /// Get governance proposals by status
+    pub fn get_governance_proposals_by_status(&self, status: aether_governance::ProposalStatus) -> Vec<aether_governance::Proposal> {
+        match self.inner.dao.read() {
+            Ok(dao) => dao.get_proposals_by_status(status).into_iter().cloned().collect(),
+            Err(_) => Vec::new(),
+        }
+    }
+
+    /// Get governance stats
+    pub fn governance_stats(&self) -> aether_governance::GovernanceStats {
+        match self.inner.dao.read() {
+            Ok(dao) => dao.stats(),
+            Err(_) => aether_governance::GovernanceStats::default(),
+        }
+    }
+
+    /// Get governance config
+    pub fn governance_config(&self) -> aether_governance::GovernanceConfig {
+        match self.inner.dao.read() {
+            Ok(dao) => dao.config.clone(),
+            Err(_) => aether_governance::GovernanceConfig::default(),
+        }
+    }
+
+    /// Get security council members
+    pub fn governance_council(&self) -> Vec<String> {
+        match self.inner.dao.read() {
+            Ok(dao) => dao.security_council.iter()
+                .map(|m| bs58::encode(m).into_string())
+                .collect(),
+            Err(_) => Vec::new(),
+        }
+    }
+
+    /// Tick governance (advance time and process proposals)
+    pub fn governance_tick(&self, block: u64, time: u64) {
+        if let Ok(mut dao) = self.inner.dao.write() {
+            dao.tick(block, time);
+        }
+    }
+
+    // ========================================================================
+    // Treasury Operations
+    // ========================================================================
+
+    /// Get treasury summary
+    pub fn treasury_summary(&self) -> aether_governance::TreasurySummary {
+        match self.inner.treasury.read() {
+            Ok(treasury) => treasury.summary(),
+            Err(_) => aether_governance::TreasurySummary {
+                ath_balance: 0,
+                flux_balance: 0,
+                total_fees_collected: 0,
+                total_distributed: 0,
+                pending_withdrawals: 0,
+                signer_count: 0,
+                current_epoch: 0,
+            },
+        }
+    }
+
+    /// Create a treasury withdrawal
+    pub fn treasury_create_withdrawal(
+        &self,
+        recipient: [u8; 32],
+        amount: u64,
+        token_type: aether_governance::TokenType,
+        purpose: String,
+        timestamp: u64,
+    ) -> Result<u64, String> {
+        let mut treasury = self.inner.treasury.write().map_err(|_| "Lock poisoned".to_string())?;
+        treasury.create_withdrawal(recipient, amount, token_type, purpose, timestamp)
+            .map_err(|e| e.to_string())
+    }
+
+    /// Approve a treasury withdrawal
+    pub fn treasury_approve_withdrawal(&self, withdrawal_id: u64, signer: [u8; 32]) -> Result<(), String> {
+        let mut treasury = self.inner.treasury.write().map_err(|_| "Lock poisoned".to_string())?;
+        treasury.approve_withdrawal(withdrawal_id, signer)
+            .map_err(|e| e.to_string())
+    }
+
+    /// Execute a treasury withdrawal
+    pub fn treasury_execute_withdrawal(&self, withdrawal_id: u64, current_time: u64, tx_hash: [u8; 64]) -> Result<(), String> {
+        let mut treasury = self.inner.treasury.write().map_err(|_| "Lock poisoned".to_string())?;
+        treasury.execute_withdrawal(withdrawal_id, current_time, tx_hash)
+            .map_err(|e| e.to_string())
+    }
+
+    /// Get treasury withdrawal
+    pub fn treasury_get_withdrawal(&self, withdrawal_id: u64) -> Option<aether_governance::WithdrawalRequest> {
+        let treasury = self.inner.treasury.read().ok()?;
+        treasury.get_withdrawal(withdrawal_id).cloned()
+    }
+
+    /// Get pending treasury withdrawals
+    pub fn treasury_pending_withdrawals(&self) -> Vec<aether_governance::WithdrawalRequest> {
+        match self.inner.treasury.read() {
+            Ok(treasury) => treasury.get_pending_withdrawals().into_iter().cloned().collect(),
+            Err(_) => Vec::new(),
+        }
+    }
+
+    /// Get treasury budget status
+    pub fn treasury_budget_status(&self) -> Vec<(String, u64, u64, u64)> {
+        match self.inner.treasury.read() {
+            Ok(treasury) => treasury.get_budget_status(),
+            Err(_) => Vec::new(),
+        }
+    }
+
+    /// Add treasury signer
+    pub fn treasury_add_signer(&self, address: [u8; 32], timestamp: u64) -> Result<(), String> {
+        let mut treasury = self.inner.treasury.write().map_err(|_| "Lock poisoned".to_string())?;
+        treasury.add_signer(address, timestamp).map_err(|e| e.to_string())
     }
 }

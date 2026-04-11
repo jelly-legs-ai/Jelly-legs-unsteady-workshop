@@ -10,31 +10,9 @@ use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use tracing::{info, error, Level};
 
-mod keypair;
-mod config;
-mod rpc_client;
-mod genesis;
-mod state;
-mod block_producer;
-mod rpc_server;
-mod network;
-mod state_db;
-mod executor;
-mod persistence;
-mod sync;
-
-pub use block_producer::*;
-pub use config::*;
-pub use executor::*;
-pub use genesis::*;
-pub use keypair::*;
-pub use network::*;
-pub use persistence::*;
-pub use rpc_client::*;
-pub use rpc_server::*;
-pub use state::*;
-pub use state_db::*;
-pub use sync::*;
+// Modules are defined in lib.rs; re-export items here for convenience
+use aether_validator::*;
+use aether_validator::genesis::load_genesis_from_file;
 
 // =============================================================================
 // CLI Structure
@@ -281,7 +259,7 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
     // Load genesis if provided
     let genesis_config = if let Some(ref path) = genesis_path {
         info!("Loading genesis from: {}", path.display());
-        Some(crate::genesis::load_genesis_from_file(path)?)
+        Some(load_genesis_from_file(path)?)
     } else {
         info!("No genesis file provided, using internal genesis");
         None

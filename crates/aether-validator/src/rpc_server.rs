@@ -136,6 +136,28 @@ pub async fn start_rpc_server(
     info!("  POST /v1/staking/withdraw               - Complete withdrawal");
     info!("  POST /v1/staking/claim                  - Claim staking rewards");
     info!("  POST /v1/staking/delegate               - Delegate stake to validator");
+    info!("  === Governance Endpoints ===");
+    info!("  GET  /v1/governance/config              - Governance configuration");
+    info!("  GET  /v1/governance/stats               - Governance statistics");
+    info!("  GET  /v1/governance/council             - Security council members");
+    info!("  GET  /v1/governance/proposals            - Active proposals");
+    info!("  GET  /v1/governance/proposals/active     - Active proposals (alias)");
+    info!("  GET  /v1/governance/proposals/status/:s  - Proposals by status");
+    info!("  GET  /v1/governance/proposal/:id         - Get proposal details");
+    info!("  POST /v1/governance/proposal             - Create a new proposal");
+    info!("  POST /v1/governance/vote                 - Cast a vote on a proposal");
+    info!("  POST /v1/governance/execute              - Execute a passed proposal");
+    info!("  POST /v1/governance/veto                 - Veto a proposal (council)");
+    info!("  POST /v1/governance/cancel               - Cancel a proposal (proposer)");
+    info!("  === Treasury Endpoints ===");
+    info!("  GET  /v1/treasury/summary               - Treasury balances & stats");
+    info!("  GET  /v1/treasury/budget                 - Budget allocations");
+    info!("  GET  /v1/treasury/withdrawals/pending     - Pending withdrawals");
+    info!("  GET  /v1/treasury/withdrawal/:id         - Get withdrawal details");
+    info!("  POST /v1/treasury/withdraw               - Create withdrawal request");
+    info!("  POST /v1/treasury/approve                - Approve withdrawal (signer)");
+    info!("  POST /v1/treasury/execute                 - Execute withdrawal after timelock");
+    info!("  POST /v1/treasury/add_signer             - Add treasury signer");
 
     loop {
         match listener.accept().await {
@@ -926,6 +948,693 @@ async fn handle_http_request(
                                 "stake_id": stake_id,
                                 "validator": validator_str,
                                 "message": "Stake delegated successfully"
+                            });
+                            (200, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                        Err(e) => {
+                            let resp = serde_json::json!({"error": e});
+                            (400, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                    }
+                }
+                Err(e) => {
+                    let resp = serde_json::json!({"error": format!("Parse error: {}", e)});
+                    (400, serde_json::to_string(&resp).unwrap_or_default())
+                }
+            }
+        }
+        // =================================================================
+        // GOVERNANCE ENDPOINTS
+        // =================================================================
+        // Get governance config
+        ("GET", "/v1/governance/config") => {
+            let config = state.governance_config();
+            let resp = serde_json::json!({
+                "voting_delay": config.voting_delay,
+                "voting_duration": config.voting_duration,
+                "execution_delay": config.execution_delay,
+                "quorum_threshold": config.quorum_threshold,
+                "supermajority_bps": config.supermajority_bps,
+                "min_proposal_deposit": config.min_proposal_deposit,
+                "max_active_proposals": config.max_active_proposals,
+            });
+            (200, serde_json::to_string(&resp).unwrap_or_default())
+        }
+        // Get governance stats
+        ("GET", "/v1/governance/stats") => {
+            let stats = state.governance_stats();
+            let resp = serde_json::json!({
+                "total": stats.total,
+                "draft": stats.draft,
+                "pending": stats.pending,
+                "active": stats.active,
+                "passed": stats.passed,
+                "failed": stats.failed,
+                "executed": stats.executed,
+                "cancelled": stats.cancelled,
+                "expired": stats.expired,
+                "vetoed": stats.vetoed,
+            });
+            (200, serde_json::to_string(&resp).unwrap_or_default())
+        }
+        // Get security council members
+        ("GET", "/v1/governance/council") => {
+            let council = state.governance_council();
+            let resp = serde_json::json!({
+                "members": council,
+                "count": council.len(),
+            });
+            (200, serde_json::to_string(&resp).unwrap_or_default())
+        }
+        // Get all active proposals
+        ("GET", "/v1/governance/proposals" | "/v1/governance/proposals/active") => {
+            let proposals = state.get_active_governance_proposals();
+            let proposal_list: Vec<serde_json::Value> = proposals.iter().map(|p| {
+                serde_json::json!({
+                    "id": p.id,
+                    "title": p.title,
+                    "status": match p.status {
+                        aether_governance::ProposalStatus::Draft => "draft",
+                        aether_governance::ProposalStatus::Pending => "pending",
+                        aether_governance::ProposalStatus::Active => "active",
+                        aether_governance::ProposalStatus::Passed => "passed",
+                        aether_governance::ProposalStatus::Failed => "failed",
+                        aether_governance::ProposalStatus::Executed => "executed",
+                        aether_governance::ProposalStatus::Cancelled => "cancelled",
+                        aether_governance::ProposalStatus::Expired => "expired",
+                        aether_governance::ProposalStatus::Vetoed => "vetoed",
+                    },
+                    "proposer": bs58::encode(p.proposer).into_string(),
+                    "created_at": p.created_at,
+                    "voting_start": p.voting_start,
+                    "voting_end": p.voting_end,
+                    "execution_deadline": p.execution_deadline,
+                    "tally": {
+                        "for_votes": p.tally.for_votes,
+                        "against_votes": p.tally.against_votes,
+                        "abstain_votes": p.tally.abstain_votes,
+                        "voter_count": p.tally.voter_count,
+                    },
+                })
+            }).collect();
+            let resp = serde_json::json!({
+                "proposals": proposal_list,
+                "count": proposal_list.len(),
+            });
+            (200, serde_json::to_string(&resp).unwrap_or_default())
+        }
+        // Get proposals by status
+        ("GET", path) if path.starts_with("/v1/governance/proposals/status/") => {
+            let status_str = path.strip_prefix("/v1/governance/proposals/status/").unwrap_or("").split('?').next().unwrap_or("");
+            let status = match status_str {
+                "draft" => aether_governance::ProposalStatus::Draft,
+                "pending" => aether_governance::ProposalStatus::Pending,
+                "active" => aether_governance::ProposalStatus::Active,
+                "passed" => aether_governance::ProposalStatus::Passed,
+                "failed" => aether_governance::ProposalStatus::Failed,
+                "executed" => aether_governance::ProposalStatus::Executed,
+                "cancelled" => aether_governance::ProposalStatus::Cancelled,
+                "expired" => aether_governance::ProposalStatus::Expired,
+                "vetoed" => aether_governance::ProposalStatus::Vetoed,
+                _ => {
+                    let resp = serde_json::json!({"error": "Invalid status. Use: draft, pending, active, passed, failed, executed, cancelled, expired, vetoed"});
+                    return send_response(&mut socket, 400, "Bad Request", &serde_json::to_string(&resp).unwrap_or_default()).await;
+                }
+            };
+            let proposals = state.get_governance_proposals_by_status(status);
+            let proposal_list: Vec<serde_json::Value> = proposals.iter().map(|p| {
+                serde_json::json!({
+                    "id": p.id,
+                    "title": p.title,
+                    "status": status_str,
+                    "proposer": bs58::encode(p.proposer).into_string(),
+                    "created_at": p.created_at,
+                    "voting_start": p.voting_start,
+                    "voting_end": p.voting_end,
+                })
+            }).collect();
+            let resp = serde_json::json!({
+                "proposals": proposal_list,
+                "count": proposal_list.len(),
+                "status": status_str,
+            });
+            (200, serde_json::to_string(&resp).unwrap_or_default())
+        }
+        // Get a specific proposal
+        ("GET", path) if path.starts_with("/v1/governance/proposal/") => {
+            let id_str = path.strip_prefix("/v1/governance/proposal/").unwrap_or("").split('?').next().unwrap_or("");
+            match id_str.parse::<u64>() {
+                Ok(proposal_id) => {
+                    match state.get_governance_proposal(proposal_id) {
+                        Some(proposal) => {
+                            let status_str = match proposal.status {
+                                aether_governance::ProposalStatus::Draft => "draft",
+                                aether_governance::ProposalStatus::Pending => "pending",
+                                aether_governance::ProposalStatus::Active => "active",
+                                aether_governance::ProposalStatus::Passed => "passed",
+                                aether_governance::ProposalStatus::Failed => "failed",
+                                aether_governance::ProposalStatus::Executed => "executed",
+                                aether_governance::ProposalStatus::Cancelled => "cancelled",
+                                aether_governance::ProposalStatus::Expired => "expired",
+                                aether_governance::ProposalStatus::Vetoed => "vetoed",
+                            };
+                            let vote_list: Vec<serde_json::Value> = proposal.votes.iter().map(|(voter, vote)| {
+                                serde_json::json!({
+                                    "voter": bs58::encode(voter).into_string(),
+                                    "choice": match vote.choice {
+                                        aether_governance::VoteChoice::For => "for",
+                                        aether_governance::VoteChoice::Against => "against",
+                                        aether_governance::VoteChoice::Abstain => "abstain",
+                                    },
+                                    "weight": vote.weight,
+                                    "timestamp": vote.timestamp,
+                                })
+                            }).collect();
+                            let resp = serde_json::json!({
+                                "id": proposal.id,
+                                "title": proposal.title,
+                                "description": proposal.description,
+                                "status": status_str,
+                                "proposal_type": proposal.proposal_type,
+                                "proposer": bs58::encode(proposal.proposer).into_string(),
+                                "created_at": proposal.created_at,
+                                "voting_start": proposal.voting_start,
+                                "voting_end": proposal.voting_end,
+                                "execution_deadline": proposal.execution_deadline,
+                                "snapshot_block": proposal.snapshot_block,
+                                "tally": {
+                                    "for_votes": proposal.tally.for_votes,
+                                    "against_votes": proposal.tally.against_votes,
+                                    "abstain_votes": proposal.tally.abstain_votes,
+                                    "voter_count": proposal.tally.voter_count,
+                                },
+                                "votes": vote_list,
+                            });
+                            (200, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                        None => {
+                            let resp = serde_json::json!({"error": "Proposal not found", "proposal_id": proposal_id});
+                            (404, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                    }
+                }
+                Err(_) => {
+                    let resp = serde_json::json!({"error": "Invalid proposal ID"});
+                    (400, serde_json::to_string(&resp).unwrap_or_default())
+                }
+            }
+        }
+        // Create a new governance proposal
+        ("POST", "/v1/governance/proposal") => {
+            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
+            let body = &request_str[body_start..];
+            match serde_json::from_str::<serde_json::Value>(body) {
+                Ok(json) => {
+                    let title = json.get("title").and_then(|v| v.as_str()).unwrap_or("Untitled").to_string();
+                    let description = json.get("description").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    let proposer_str = json.get("proposer").and_then(|v| v.as_str()).unwrap_or("");
+                    let deposit = json.get("deposit").and_then(|v| v.as_u64()).unwrap_or(0);
+                    
+                    let proposer_bytes = bs58::decode(proposer_str).into_vec().unwrap_or_default();
+                    let mut proposer = [0u8; 32];
+                    proposer.copy_from_slice(&proposer_bytes[..32.min(proposer_bytes.len())]);
+                    
+                    // Parse proposal type from JSON
+                    let proposal_type_str = json.get("proposal_type").and_then(|v| v.as_str()).unwrap_or("text");
+                    let proposal_type_obj = json.get("proposal_type_details");
+                    
+                    let proposal_type = match proposal_type_str {
+                        "parameter_change" => {
+                            let details = proposal_type_obj.unwrap_or(&serde_json::Value::Null);
+                            aether_governance::ProposalType::ParameterChange {
+                                parameter: details.get("parameter").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                                current_value: details.get("current_value").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                                new_value: details.get("new_value").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                            }
+                        }
+                        "fund_allocation" => {
+                            let details = proposal_type_obj.unwrap_or(&serde_json::Value::Null);
+                            let recipient_str = details.get("recipient").and_then(|v| v.as_str()).unwrap_or("");
+                            let recipient_bytes = bs58::decode(recipient_str).into_vec().unwrap_or_default();
+                            let mut recipient = [0u8; 32];
+                            recipient.copy_from_slice(&recipient_bytes[..32.min(recipient_bytes.len())]);
+                            aether_governance::ProposalType::FundAllocation {
+                                recipient,
+                                amount: details.get("amount").and_then(|v| v.as_u64()).unwrap_or(0),
+                                token_type: details.get("token_type").and_then(|v| v.as_str()).unwrap_or("ATH").to_string(),
+                                purpose: details.get("purpose").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                            }
+                        }
+                        "protocol_upgrade" => {
+                            let details = proposal_type_obj.unwrap_or(&serde_json::Value::Null);
+                            let hash_str = details.get("upgrade_hash").and_then(|v| v.as_str()).unwrap_or("");
+                            let hash_bytes = bs58::decode(hash_str).into_vec().unwrap_or_default();
+                            let mut upgrade_hash = [0u8; 32];
+                            upgrade_hash.copy_from_slice(&hash_bytes[..32.min(hash_bytes.len())]);
+                            aether_governance::ProposalType::ProtocolUpgrade {
+                                version: details.get("version").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                                description: details.get("description").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                                upgrade_hash,
+                            }
+                        }
+                        "validator_change" => {
+                            let details = proposal_type_obj.unwrap_or(&serde_json::Value::Null);
+                            let validator_str = details.get("validator").and_then(|v| v.as_str()).unwrap_or("");
+                            let validator_bytes = bs58::decode(validator_str).into_vec().unwrap_or_default();
+                            let mut validator = [0u8; 32];
+                            validator.copy_from_slice(&validator_bytes[..32.min(validator_bytes.len())]);
+                            let action_str = details.get("action").and_then(|v| v.as_str()).unwrap_or("add");
+                            let action = match action_str {
+                                "remove" => aether_governance::ValidatorAction::Remove,
+                                "slash" => aether_governance::ValidatorAction::Slash {
+                                    percentage_bps: details.get("percentage_bps").and_then(|v| v.as_u64()).unwrap_or(0),
+                                },
+                                _ => aether_governance::ValidatorAction::Add,
+                            };
+                            aether_governance::ProposalType::ValidatorChange { validator, action }
+                        }
+                        _ => {
+                            // Default to text proposal
+                            aether_governance::ProposalType::TextProposal {
+                                title: title.clone(),
+                                description: description.clone(),
+                            }
+                        }
+                    };
+                    
+                    match state.create_governance_proposal(title, description, proposal_type, proposer, deposit) {
+                        Ok(proposal_id) => {
+                            let resp = serde_json::json!({
+                                "success": true,
+                                "proposal_id": proposal_id,
+                                "proposer": proposer_str,
+                                "deposit": deposit,
+                                "message": "Proposal created successfully"
+                            });
+                            (200, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                        Err(e) => {
+                            let resp = serde_json::json!({"error": e});
+                            (400, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                    }
+                }
+                Err(e) => {
+                    let resp = serde_json::json!({"error": format!("Parse error: {}", e)});
+                    (400, serde_json::to_string(&resp).unwrap_or_default())
+                }
+            }
+        }
+        // Cast a vote on a proposal
+        ("POST", "/v1/governance/vote") => {
+            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
+            let body = &request_str[body_start..];
+            match serde_json::from_str::<serde_json::Value>(body) {
+                Ok(json) => {
+                    let proposal_id = json.get("proposal_id").and_then(|v| v.as_u64()).unwrap_or(0);
+                    let voter_str = json.get("voter").and_then(|v| v.as_str()).unwrap_or("");
+                    let choice_str = json.get("choice").and_then(|v| v.as_str()).unwrap_or("abstain");
+                    let sig_str = json.get("signature").and_then(|v| v.as_str()).unwrap_or("");
+                    
+                    let voter_bytes = bs58::decode(voter_str).into_vec().unwrap_or_default();
+                    let mut voter = [0u8; 32];
+                    voter.copy_from_slice(&voter_bytes[..32.min(voter_bytes.len())]);
+                    
+                    let sig_bytes = bs58::decode(sig_str).into_vec().unwrap_or_default();
+                    let mut signature = [0u8; 64];
+                    signature.copy_from_slice(&sig_bytes[..64.min(sig_bytes.len())]);
+                    
+                    let choice = match choice_str {
+                        "for" | "yes" => aether_governance::VoteChoice::For,
+                        "against" | "no" => aether_governance::VoteChoice::Against,
+                        _ => aether_governance::VoteChoice::Abstain,
+                    };
+                    
+                    match state.governance_vote(proposal_id, voter, choice, signature) {
+                        Ok(()) => {
+                            let resp = serde_json::json!({
+                                "success": true,
+                                "proposal_id": proposal_id,
+                                "voter": voter_str,
+                                "choice": choice_str,
+                                "message": "Vote cast successfully"
+                            });
+                            (200, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                        Err(e) => {
+                            let resp = serde_json::json!({"error": e});
+                            (400, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                    }
+                }
+                Err(e) => {
+                    let resp = serde_json::json!({"error": format!("Parse error: {}", e)});
+                    (400, serde_json::to_string(&resp).unwrap_or_default())
+                }
+            }
+        }
+        // Execute a passed proposal
+        ("POST", "/v1/governance/execute") => {
+            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
+            let body = &request_str[body_start..];
+            match serde_json::from_str::<serde_json::Value>(body) {
+                Ok(json) => {
+                    let proposal_id = json.get("proposal_id").and_then(|v| v.as_u64()).unwrap_or(0);
+                    
+                    match state.execute_governance_proposal(proposal_id) {
+                        Ok(proposal_type) => {
+                            let resp = serde_json::json!({
+                                "success": true,
+                                "proposal_id": proposal_id,
+                                "executed_type": proposal_type,
+                                "message": "Proposal executed successfully"
+                            });
+                            (200, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                        Err(e) => {
+                            let resp = serde_json::json!({"error": e});
+                            (400, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                    }
+                }
+                Err(e) => {
+                    let resp = serde_json::json!({"error": format!("Parse error: {}", e)});
+                    (400, serde_json::to_string(&resp).unwrap_or_default())
+                }
+            }
+        }
+        // Veto a proposal (security council only)
+        ("POST", "/v1/governance/veto") => {
+            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
+            let body = &request_str[body_start..];
+            match serde_json::from_str::<serde_json::Value>(body) {
+                Ok(json) => {
+                    let proposal_id = json.get("proposal_id").and_then(|v| v.as_u64()).unwrap_or(0);
+                    let vetoer_str = json.get("vetoer").and_then(|v| v.as_str()).unwrap_or("");
+                    
+                    let vetoer_bytes = bs58::decode(vetoer_str).into_vec().unwrap_or_default();
+                    let mut vetoer = [0u8; 32];
+                    vetoer.copy_from_slice(&vetoer_bytes[..32.min(vetoer_bytes.len())]);
+                    
+                    match state.veto_governance_proposal(proposal_id, vetoer) {
+                        Ok(()) => {
+                            let resp = serde_json::json!({
+                                "success": true,
+                                "proposal_id": proposal_id,
+                                "message": "Proposal vetoed by security council"
+                            });
+                            (200, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                        Err(e) => {
+                            let resp = serde_json::json!({"error": e});
+                            (400, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                    }
+                }
+                Err(e) => {
+                    let resp = serde_json::json!({"error": format!("Parse error: {}", e)});
+                    (400, serde_json::to_string(&resp).unwrap_or_default())
+                }
+            }
+        }
+        // Cancel a proposal (proposer only)
+        ("POST", "/v1/governance/cancel") => {
+            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
+            let body = &request_str[body_start..];
+            match serde_json::from_str::<serde_json::Value>(body) {
+                Ok(json) => {
+                    let proposal_id = json.get("proposal_id").and_then(|v| v.as_u64()).unwrap_or(0);
+                    let canceller_str = json.get("canceller").and_then(|v| v.as_str()).unwrap_or("");
+                    
+                    let canceller_bytes = bs58::decode(canceller_str).into_vec().unwrap_or_default();
+                    let mut canceller = [0u8; 32];
+                    canceller.copy_from_slice(&canceller_bytes[..32.min(canceller_bytes.len())]);
+                    
+                    match state.cancel_governance_proposal(proposal_id, canceller) {
+                        Ok(()) => {
+                            let resp = serde_json::json!({
+                                "success": true,
+                                "proposal_id": proposal_id,
+                                "message": "Proposal cancelled"
+                            });
+                            (200, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                        Err(e) => {
+                            let resp = serde_json::json!({"error": e});
+                            (400, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                    }
+                }
+                Err(e) => {
+                    let resp = serde_json::json!({"error": format!("Parse error: {}", e)});
+                    (400, serde_json::to_string(&resp).unwrap_or_default())
+                }
+            }
+        }
+        // =================================================================
+        // TREASURY ENDPOINTS
+        // =================================================================
+        // Get treasury summary
+        ("GET", "/v1/treasury/summary") => {
+            let summary = state.treasury_summary();
+            let resp = serde_json::json!({
+                "ath_balance": summary.ath_balance,
+                "flux_balance": summary.flux_balance,
+                "total_fees_collected": summary.total_fees_collected,
+                "total_distributed": summary.total_distributed,
+                "pending_withdrawals": summary.pending_withdrawals,
+                "signer_count": summary.signer_count,
+                "current_epoch": summary.current_epoch,
+            });
+            (200, serde_json::to_string(&resp).unwrap_or_default())
+        }
+        // Get treasury budget status
+        ("GET", "/v1/treasury/budget") => {
+            let budgets = state.treasury_budget_status();
+            let budget_list: Vec<serde_json::Value> = budgets.iter().map(|(name, allocated, spent, remaining)| {
+                serde_json::json!({
+                    "category": name,
+                    "allocated": allocated,
+                    "spent": spent,
+                    "remaining": remaining,
+                })
+            }).collect();
+            let resp = serde_json::json!({
+                "budgets": budget_list,
+                "count": budget_list.len(),
+            });
+            (200, serde_json::to_string(&resp).unwrap_or_default())
+        }
+        // Get pending treasury withdrawals
+        ("GET", "/v1/treasury/withdrawals/pending") => {
+            let withdrawals = state.treasury_pending_withdrawals();
+            let withdrawal_list: Vec<serde_json::Value> = withdrawals.iter().map(|w| {
+                serde_json::json!({
+                    "id": w.id,
+                    "recipient": bs58::encode(w.recipient).into_string(),
+                    "amount": w.amount,
+                    "token_type": match w.token_type {
+                        aether_governance::TokenType::ATH => "ATH",
+                        aether_governance::TokenType::FLUX => "FLUX",
+                    },
+                    "purpose": w.purpose,
+                    "created_at": w.created_at,
+                    "execute_after": w.execute_after,
+                    "approvals": w.approvals.iter().map(|a| bs58::encode(a).into_string()).collect::<Vec<_>>(),
+                    "status": match w.status {
+                        aether_governance::WithdrawalStatus::Pending => "pending",
+                        aether_governance::WithdrawalStatus::Approved => "approved",
+                        aether_governance::WithdrawalStatus::Ready => "ready",
+                        aether_governance::WithdrawalStatus::Executed => "executed",
+                        aether_governance::WithdrawalStatus::Rejected => "rejected",
+                        aether_governance::WithdrawalStatus::Cancelled => "cancelled",
+                    },
+                })
+            }).collect();
+            let resp = serde_json::json!({
+                "withdrawals": withdrawal_list,
+                "count": withdrawal_list.len(),
+            });
+            (200, serde_json::to_string(&resp).unwrap_or_default())
+        }
+        // Get a specific treasury withdrawal
+        ("GET", path) if path.starts_with("/v1/treasury/withdrawal/") => {
+            let id_str = path.strip_prefix("/v1/treasury/withdrawal/").unwrap_or("").split('?').next().unwrap_or("");
+            match id_str.parse::<u64>() {
+                Ok(withdrawal_id) => {
+                    match state.treasury_get_withdrawal(withdrawal_id) {
+                        Some(w) => {
+                            let resp = serde_json::json!({
+                                "id": w.id,
+                                "recipient": bs58::encode(w.recipient).into_string(),
+                                "amount": w.amount,
+                                "token_type": match w.token_type {
+                                    aether_governance::TokenType::ATH => "ATH",
+                                    aether_governance::TokenType::FLUX => "FLUX",
+                                },
+                                "purpose": w.purpose,
+                                "created_at": w.created_at,
+                                "execute_after": w.execute_after,
+                                "approvals": w.approvals.iter().map(|a| bs58::encode(a).into_string()).collect::<Vec<_>>(),
+                                "status": match w.status {
+                                    aether_governance::WithdrawalStatus::Pending => "pending",
+                                    aether_governance::WithdrawalStatus::Approved => "approved",
+                                    aether_governance::WithdrawalStatus::Ready => "executed",
+                                    aether_governance::WithdrawalStatus::Rejected => "rejected",
+                                    aether_governance::WithdrawalStatus::Cancelled => "cancelled",
+                                    aether_governance::WithdrawalStatus::Executed => "executed",
+                                },
+                            });
+                            (200, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                        None => {
+                            let resp = serde_json::json!({"error": "Withdrawal not found", "withdrawal_id": withdrawal_id});
+                            (404, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                    }
+                }
+                Err(_) => {
+                    let resp = serde_json::json!({"error": "Invalid withdrawal ID"});
+                    (400, serde_json::to_string(&resp).unwrap_or_default())
+                }
+            }
+        }
+        // Create a treasury withdrawal request
+        ("POST", "/v1/treasury/withdraw") => {
+            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
+            let body = &request_str[body_start..];
+            match serde_json::from_str::<serde_json::Value>(body) {
+                Ok(json) => {
+                    let recipient_str = json.get("recipient").and_then(|v| v.as_str()).unwrap_or("");
+                    let amount = json.get("amount").and_then(|v| v.as_u64()).unwrap_or(0);
+                    let token_type_str = json.get("token_type").and_then(|v| v.as_str()).unwrap_or("ATH");
+                    let purpose = json.get("purpose").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    let timestamp = json.get("timestamp").and_then(|v| v.as_u64())
+                        .unwrap_or_else(|| std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs());
+                    
+                    let recipient_bytes = bs58::decode(recipient_str).into_vec().unwrap_or_default();
+                    let mut recipient = [0u8; 32];
+                    recipient.copy_from_slice(&recipient_bytes[..32.min(recipient_bytes.len())]);
+                    
+                    let token_type = match token_type_str {
+                        "FLUX" => aether_governance::TokenType::FLUX,
+                        _ => aether_governance::TokenType::ATH,
+                    };
+                    
+                    match state.treasury_create_withdrawal(recipient, amount, token_type, purpose, timestamp) {
+                        Ok(withdrawal_id) => {
+                            let resp = serde_json::json!({
+                                "success": true,
+                                "withdrawal_id": withdrawal_id,
+                                "recipient": recipient_str,
+                                "amount": amount,
+                                "token_type": token_type_str,
+                                "message": "Withdrawal request created. Requires multi-sig approval and timelock."
+                            });
+                            (200, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                        Err(e) => {
+                            let resp = serde_json::json!({"error": e});
+                            (400, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                    }
+                }
+                Err(e) => {
+                    let resp = serde_json::json!({"error": format!("Parse error: {}", e)});
+                    (400, serde_json::to_string(&resp).unwrap_or_default())
+                }
+            }
+        }
+        // Approve a treasury withdrawal
+        ("POST", "/v1/treasury/approve") => {
+            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
+            let body = &request_str[body_start..];
+            match serde_json::from_str::<serde_json::Value>(body) {
+                Ok(json) => {
+                    let withdrawal_id = json.get("withdrawal_id").and_then(|v| v.as_u64()).unwrap_or(0);
+                    let signer_str = json.get("signer").and_then(|v| v.as_str()).unwrap_or("");
+                    
+                    let signer_bytes = bs58::decode(signer_str).into_vec().unwrap_or_default();
+                    let mut signer = [0u8; 32];
+                    signer.copy_from_slice(&signer_bytes[..32.min(signer_bytes.len())]);
+                    
+                    match state.treasury_approve_withdrawal(withdrawal_id, signer) {
+                        Ok(()) => {
+                            let resp = serde_json::json!({
+                                "success": true,
+                                "withdrawal_id": withdrawal_id,
+                                "message": "Withdrawal approved"
+                            });
+                            (200, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                        Err(e) => {
+                            let resp = serde_json::json!({"error": e});
+                            (400, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                    }
+                }
+                Err(e) => {
+                    let resp = serde_json::json!({"error": format!("Parse error: {}", e)});
+                    (400, serde_json::to_string(&resp).unwrap_or_default())
+                }
+            }
+        }
+        // Execute a treasury withdrawal (after timelock)
+        ("POST", "/v1/treasury/execute") => {
+            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
+            let body = &request_str[body_start..];
+            match serde_json::from_str::<serde_json::Value>(body) {
+                Ok(json) => {
+                    let withdrawal_id = json.get("withdrawal_id").and_then(|v| v.as_u64()).unwrap_or(0);
+                    let tx_hash_str = json.get("tx_hash").and_then(|v| v.as_str()).unwrap_or("");
+                    
+                    let tx_hash_bytes = bs58::decode(tx_hash_str).into_vec().unwrap_or_default();
+                    let mut tx_hash = [0u8; 64];
+                    tx_hash.copy_from_slice(&tx_hash_bytes[..64.min(tx_hash_bytes.len())]);
+                    
+                    let current_time = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
+                    
+                    match state.treasury_execute_withdrawal(withdrawal_id, current_time, tx_hash) {
+                        Ok(()) => {
+                            let resp = serde_json::json!({
+                                "success": true,
+                                "withdrawal_id": withdrawal_id,
+                                "message": "Withdrawal executed successfully"
+                            });
+                            (200, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                        Err(e) => {
+                            let resp = serde_json::json!({"error": e});
+                            (400, serde_json::to_string(&resp).unwrap_or_default())
+                        }
+                    }
+                }
+                Err(e) => {
+                    let resp = serde_json::json!({"error": format!("Parse error: {}", e)});
+                    (400, serde_json::to_string(&resp).unwrap_or_default())
+                }
+            }
+        }
+        // Add treasury signer
+        ("POST", "/v1/treasury/add_signer") => {
+            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
+            let body = &request_str[body_start..];
+            match serde_json::from_str::<serde_json::Value>(body) {
+                Ok(json) => {
+                    let signer_str = json.get("signer").and_then(|v| v.as_str()).unwrap_or("");
+                    
+                    let signer_bytes = bs58::decode(signer_str).into_vec().unwrap_or_default();
+                    let mut signer = [0u8; 32];
+                    signer.copy_from_slice(&signer_bytes[..32.min(signer_bytes.len())]);
+                    
+                    let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
+                    
+                    match state.treasury_add_signer(signer, timestamp) {
+                        Ok(()) => {
+                            let resp = serde_json::json!({
+                                "success": true,
+                                "signer": signer_str,
+                                "message": "Treasury signer added"
                             });
                             (200, serde_json::to_string(&resp).unwrap_or_default())
                         }

@@ -48,6 +48,7 @@ aether-core = { path = "../aether-core" }
 aether-common = { path = "../aether-common" }
 aether-ai-priority = { path = "../aether-ai-priority" }
 aether-consensus = { path = "../aether-consensus" }
+aether-governance = { path = "../aether-governance" }
 
 [dev-dependencies]
 tempfile = "3.8"
