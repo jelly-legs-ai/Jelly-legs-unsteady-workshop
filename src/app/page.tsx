@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import NetworkStatus from '@/components/NetworkStatus'
+import WalletHeroSection from '@/components/WalletHeroSection'
 
 export const metadata: Metadata = {
   title: 'Aether Chain — Layer 1 for AI Workloads',
-  description: 'Stake, build, and operate on the Aether blockchain. 400ms slot time, 65,000+ TPS, AI Priority Lanes.',
+  description: 'Stake, build, and operate on the Aether blockchain. 400ms slot time. 65,000+ TPS. AI Priority Lanes.',
 }
 
 export default function HomePage() {
@@ -42,21 +43,8 @@ export default function HomePage() {
             65,000+ TPS. AI Priority Lanes for mission-critical workloads.
           </p>
 
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-20">
-            <Link
-              href="/staking"
-              className="px-8 py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 rounded-xl font-semibold text-lg transition-all shadow-lg shadow-red-500/30 hover:shadow-red-500/50 text-center"
-            >
-              Stake ATH
-            </Link>
-            <Link
-              href="/explorer"
-              className="px-8 py-4 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-gray-600 rounded-xl font-semibold text-lg transition-all text-center"
-            >
-              Chain Explorer
-            </Link>
-          </div>
+          {/* Wallet-connected CTA — real Phantom/Solflare/Backpack connect */}
+          <WalletHeroSection />
 
           {/* Live Network Stats */}
           <NetworkStatus />
@@ -92,7 +80,7 @@ export default function HomePage() {
               <Link
                 key={card.title}
                 href={card.href}
-                className={`bg-gradient-to-br ${card.color} rounded-xl p-6 hover:scale-[1.02] transition-transform block`}
+                className={`bg-gradient-to-br ${card.color} rounded-xl p-6 hover:scale-[1.02] transition-transform block border`}
               >
                 <div className="text-3xl mb-3">{card.icon}</div>
                 <h3 className="text-xl font-semibold text-white mb-2">{card.title}</h3>
@@ -111,12 +99,14 @@ export default function HomePage() {
               Aether is Solana-compatible. Connect with your favorite Solana wallet.
             </p>
             <div className="flex flex-wrap justify-center gap-4">
-              {['Phantom', 'Solflare', 'Backpack', 'Coinbase Wallet', 'WalletConnect'].map((wallet) => (
+              {['Phantom', 'Solflare', 'Backpack'].map((wallet) => (
                 <div
                   key={wallet}
-                  className="px-5 py-3 bg-gray-900/60 border border-gray-700 rounded-lg text-sm text-gray-300 hover:border-gray-500 hover:text-white transition-all cursor-default"
+                  className="px-5 py-3 bg-gray-900/60 border border-gray-700 rounded-lg text-sm text-gray-300 hover:border-gray-500 hover:text-white transition-all cursor-default flex items-center gap-2"
                 >
-                  {wallet}
+                  <span className="text-base">💳</span>
+                  <span>{wallet}</span>
+                  {wallet === 'Phantom' && <span className="text-xs text-green-400 ml-1">Active</span>}
                 </div>
               ))}
             </div>
