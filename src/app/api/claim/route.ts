@@ -16,13 +16,23 @@ const DEFAULT_RPC = DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
 /**
  * Validate Aether address format
  */
+/**
+ * Validate Aether/Solana-compatible address format
+ * Accepts raw Solana base58 addresses (32-44 chars) or ATH-prefixed addresses
+ * Aether is Solana-compatible so standard Solana addresses work directly
+ */
 function isValidAetherAddress(address: string): boolean {
   if (!address || typeof address !== 'string') return false;
-  return /^ATH[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
+  // ATH-prefixed address (legacy format)
+  if (address.startsWith('ATH')) {
+    return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address.slice(3));
+  }
+  // Raw Solana base58 address (standard format)
+  return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
 }
 
 /**
- * Strip ATH prefix for RPC calls
+ * Strip ATH prefix if present for RPC calls
  */
 function getRawAddress(address: string): string {
   return address.startsWith('ATH') ? address.slice(3) : address;

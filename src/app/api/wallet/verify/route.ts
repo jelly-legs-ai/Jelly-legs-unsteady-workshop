@@ -2,17 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AetherClient, DEFAULT_RPC_URL } from '@/lib/aether-sdk';
 
 /**
- * Validate Aether address format (ATH prefix + base58)
- * ATH addresses start with "ATH" followed by base58 encoded public key
+ * Validate Aether/Solana-compatible address format
+ * Accepts raw Solana base58 addresses (32-44 chars) or ATH-prefixed addresses
+ * Aether is Solana-compatible so standard Solana addresses work directly
  */
 function isValidAetherAddress(address: string): boolean {
   if (!address || typeof address !== 'string') return false;
-  // ATH prefix + base58 chars (32-44 chars typical)
-  return /^ATH[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
+  // ATH-prefixed address (legacy format)
+  if (address.startsWith('ATH')) {
+    return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address.slice(3));
+  }
+  // Raw Solana base58 address (standard format)
+  return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
 }
 
 /**
- * Strip ATH prefix for RPC calls
+ * Strip ATH prefix if present for RPC calls
  */
 function getRawAddress(address: string): string {
   return address.startsWith('ATH') ? address.slice(3) : address;
