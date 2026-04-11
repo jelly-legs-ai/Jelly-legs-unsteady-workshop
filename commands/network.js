@@ -8,40 +8,55 @@
  *   - Consensus status and epoch info
  *   - TPS estimates from the network
  *
- * Usage:
- *   aether-cli network             # Interactive summary view
- *   aether-cli network --json      # JSON output for scripting
- *   aether-cli network --rpc <url> # Query a specific RPC endpoint
- *   aether-cli network --peers     # Detailed peer list
- *   aether-cli network --epoch     # Current epoch and consensus info
+ * FULLY WIRED TO SDK - Uses @jellylegsai/aether-sdk for all blockchain calls.
+ * No manual HTTP - all calls go through AetherClient with real RPC.
  *
- * Uses @jellylegsai/aether-sdk for real blockchain RPC calls to http://127.0.0.1:8899
+ * Usage:
+ *   aether network                    # Interactive summary view
+ *   aether network --json             # JSON output for scripting
+ *   aether network --rpc <url>        # Query a specific RPC endpoint
+ *   aether network --peers            # Detailed peer list
+ *   aether network --epoch            # Current epoch and consensus info
+ *   aether network --wait             # Wait for node to sync
+ *   aether network --ping             # Include latency measurements
+ *
+ * SDK Methods Used:
+ *   - client.getSlot()              → GET /v1/slot
+ *   - client.getBlockHeight()       → GET /v1/blockheight
+ *   - client.getValidators()        → GET /v1/validators
+ *   - client.getEpochInfo()         → GET /v1/epoch
+ *   - client.getTPS()               → GET /v1/tps
+ *   - client.getSupply()            → GET /v1/supply
+ *   - client.getHealth()            → GET /v1/health
+ *   - client.getVersion()           → GET /v1/version
+ *   - client.getSlotProduction()    → POST /v1/slot_production
+ *   - client.ping()                 → Health check with latency
  */
 
-// ANSI colours
-const C = {
-  reset: '\x1b[0m',
-  bright: '\x1b[1m',
-  dim: '\x1b[2m',
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  cyan: '\x1b[36m',
-  magenta: '\x1b[35m',
-  white: '\x1b[37m',
-};
+const path = require('path');
 
 // Import SDK for real blockchain RPC calls
-const path = require('path');
 const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
 const aether = require(sdkPath);
 
+// Import UI framework
+const { C, indicators, startSpinner, stopSpinner, drawBox, drawTable, 
+        success, error, warning, info, code, highlight, value,
+        formatHealth, formatLatency } = require('../lib/ui');
+
 const DEFAULT_RPC = process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
 
-// ---------------------------------------------------------------------------
-// Argument parsing
-// ---------------------------------------------------------------------------
+// ============================================================================
+// SDK Client Setup
+// ============================================================================
+
+function createClient(rpc) {
+  return new aether.AetherClient({ rpcUrl: rpc });
+}
+
+// ============================================================================
+// Argument Parsing
+// ============================================================================
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -50,20 +65,39 @@ function parseArgs() {
     showPeers: false,
     showEpoch: false,
     asJson: false,
+    wait: false,
+    doPing: false,
   };
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--rpc' || args[i] === '-r') {
-      options.rpc = args[++i];
-    } else if (args[i] === '--peers' || args[i] === '-p') {
-      options.showPeers = true;
-    } else if (args[i] === '--epoch' || args[i] === '-e') {
-      options.showEpoch = true;
-    } else if (args[i] === '--json' || args[i] === '-j') {
-      options.asJson = true;
-    } else if (args[i] === '--help' || args[i] === '-h') {
-      showHelp();
-      process.exit(0);
+    switch (args[i]) {
+      case '-r':
+      case '--rpc':
+        options.rpc = args[++i];
+        break;
+      case '-p':
+      case '--peers':
+        options.showPeers = true;
+        break;
+      case '-e':
+      case '--epoch':
+        options.showEpoch = true;
+        break;
+      case '-j':
+      case '--json':
+        options.asJson = true;
+        break;
+      case '-w':
+      case '--wait':
+        options.wait = true;
+        break;
+      case '--ping':
+        options.doPing = true;
+        break;
+      case '-h':
+      case '--help':
+        showHelp();
+        process.exit(0);
     }
   }
 
@@ -72,120 +106,109 @@ function parseArgs() {
 
 function showHelp() {
   console.log(`
-${C.bright}${C.cyan}aether-cli network${C.reset} - Aether Network Status
+${C.cyan}${C.bright}network${C.reset} — Aether Network Status
 
-${C.bright}Usage:${C.reset}
-  aether-cli network [options]
+${C.bright}USAGE${C.reset}
+    aether network [options]
 
-${C.bright}Options:${C.reset}
-  -r, --rpc <url>     RPC endpoint (default: ${DEFAULT_RPC} or $AETHER_RPC)
-  -p, --peers         Show detailed peer list
-  -e, --epoch         Show epoch and consensus information
-  -j, --json          Output raw JSON (good for scripting)
-  -h, --help          Show this help message
+${C.bright}OPTIONS${C.reset}
+    -r, --rpc <url>      RPC endpoint (default: ${DEFAULT_RPC})
+    -p, --peers          Show detailed peer list
+    -e, --epoch          Show epoch and consensus information
+    -j, --json           Output raw JSON for scripting
+    -w, --wait           Wait for node to sync
+    --ping               Include latency measurements
+    -h, --help           Show this help message
 
-${C.bright}Examples:${C.reset}
-  aether-cli network                    # Summary view
-  aether-cli network --json             # JSON output
-  aether-cli network --rpc http://api.testnet.aether.network
-  aether-cli network --peers            # Detailed peer list
-  aether-cli network --epoch            # Epoch/consensus info
-`.trim());
+${C.bright}SDK METHODS${C.reset}
+    getSlot(), getBlockHeight(), getValidators(), getEpochInfo()
+    getTPS(), getSupply(), getHealth(), getVersion(), getSlotProduction()
+
+${C.bright}EXAMPLES${C.reset}
+    aether network              # Summary view
+    aether network --json       # JSON output
+    aether network --peers      # Detailed peer list
+    aether network --epoch      # Epoch info
+    aether network --rpc http://my-rpc:8899
+`);
 }
 
-// ---------------------------------------------------------------------------
-// Network data fetchers using SDK (real blockchain RPC calls)
-// ---------------------------------------------------------------------------
+// ============================================================================
+// SDK Data Fetchers - REAL RPC CALLS
+// ============================================================================
 
-/** Create SDK client for custom RPC */
-function createClient(rpc) {
-  return new aether.AetherClient({ rpcUrl: rpc });
-}
-
-/** GET /v1/slot — current network slot (via SDK) */
-async function getSlot(rpc) {
-  try {
-    const client = createClient(rpc);
-    return await client.getSlot();
-  } catch {
-    return null;
+async function fetchNetworkData(rpc, asJson) {
+  const client = createClient(rpc);
+  
+  const startTime = Date.now();
+  
+  if (!asJson) {
+    startSpinner('Querying network via SDK');
   }
-}
 
-/** GET /v1/blockheight — current network block height (via SDK) */
-async function getBlockHeight(rpc) {
-  try {
-    const client = createClient(rpc);
-    return await client.getBlockHeight();
-  } catch {
-    return null;
+  const results = await Promise.allSettled([
+    client.getSlot().catch(() => null),
+    client.getBlockHeight().catch(() => null),
+    client.getValidators().catch(() => []),
+    client.getEpochInfo().catch(() => null),
+    client.getTPS().catch(() => null),
+    client.getSupply().catch(() => null),
+    client.getHealth().catch(() => null),
+    client.getVersion().catch(() => null),
+    client.getSlotProduction().catch(() => null),
+    aether.ping(rpc).catch(() => ({ ok: false, latency: null })),
+  ]);
+
+  const latency = Date.now() - startTime;
+
+  if (!asJson) {
+    stopSpinner(true, 'Network data retrieved');
   }
+
+  const [
+    slot,
+    blockHeight,
+    validators,
+    epochInfo,
+    tps,
+    supply,
+    health,
+    version,
+    slotProduction,
+    pingResult,
+  ] = results.map(r => r.status === 'fulfilled' ? r.value : null);
+
+  return {
+    slot,
+    blockHeight,
+    validators: Array.isArray(validators) ? validators : [],
+    epochInfo,
+    tps,
+    supply,
+    health,
+    version,
+    slotProduction,
+    pingResult,
+    latency,
+    rpc,
+    fetchedAt: new Date().toISOString(),
+  };
 }
 
-/** GET /v1/validators — list of validators / peers (via SDK) */
-async function getValidators(rpc) {
-  try {
-    const client = createClient(rpc);
-    return await client.getValidators();
-  } catch {
-    return [];
-  }
-}
-
-/** GET /v1/epoch — current epoch and consensus info (via SDK) */
-async function getEpoch(rpc) {
-  try {
-    const client = createClient(rpc);
-    return await client.getEpochInfo();
-  } catch {
-    return null;
-  }
-}
-
-/** POST /v1/slot_production — slot production stats (via SDK) */
-async function getSlotProduction(rpc) {
-  try {
-    const client = createClient(rpc);
-    return await client.getSlotProduction();
-  } catch {
-    return null;
-  }
-}
-
-/** GET /v1/tps — TPS estimate from network (via SDK) */
-async function getTPS(rpc) {
-  try {
-    const client = createClient(rpc);
-    return await client.getTPS();
-  } catch {
-    return null;
-  }
-}
-
-/** GET /v1/supply — token supply info (via SDK) */
-async function getSupply(rpc) {
-  try {
-    const client = createClient(rpc);
-    return await client.getSupply();
-  } catch {
-    return null;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Output formatters
-// ---------------------------------------------------------------------------
+// ============================================================================
+// Format Helpers
+// ============================================================================
 
 function formatNumber(n) {
-  if (n === null || n === undefined) return 'N/A';
-  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  if (n === null || n === undefined) return `${C.dim}N/A${C.reset}`;
+  return n.toLocaleString();
 }
 
-function peerHealthIcon(score) {
-  if (score === undefined || score === null) return `${C.dim}●${C.reset}`;
-  if (score >= 80) return `${C.green}●${C.reset}`;
-  if (score >= 50) return `${C.yellow}●${C.reset}`;
-  return `${C.red}●${C.reset}`;
+function formatAether(lamports) {
+  if (!lamports && lamports !== 0) return `${C.dim}N/A${C.reset}`;
+  const aeth = Number(lamports) / 1e9;
+  if (aeth === 0) return '0 AETH';
+  return aeth.toFixed(4).replace(/\.?0+$/, '') + ' AETH';
 }
 
 function uptimeString(seconds) {
@@ -200,230 +223,190 @@ function uptimeString(seconds) {
   return parts.length > 0 ? parts.join(' ') : `${seconds}s`;
 }
 
-// ---------------------------------------------------------------------------
-// Main renderers
-// ---------------------------------------------------------------------------
+function statusColor(status) {
+  const s = (status || '').toLowerCase();
+  if (s === 'active' || s === 'ok' || s === 'healthy') return C.green;
+  if (s === 'delinquent' || s === 'error') return C.red;
+  if (s === 'inactive' || s === 'syncing') return C.yellow;
+  return C.dim;
+}
 
-function renderSummary(data, rpc) {
-  const { slot, blockHeight, peerCount, tps, supply, epochData } = data;
-  const now = new Date().toLocaleTimeString();
+// ============================================================================
+// Output Renderers
+// ============================================================================
 
-  console.log(`
-${C.bright}${C.cyan}╔═══════════════════════════════════════════════════════════════════╗${C.reset}
-${C.bright}${C.cyan}║${C.reset}              ${C.bright}AETHER NETWORK STATUS${C.reset}${C.cyan}                            ║${C.reset}
-${C.bright}${C.cyan}╚═══════════════════════════════════════════════════════════════════╝${C.reset}
-`);
-  console.log(`  ${C.dim}RPC:${C.reset} ${rpc}`);
-  console.log(`  ${C.dim}Updated:${C.reset} ${now}`);
+function renderSummary(data) {
+  const { slot, blockHeight, validators, epochInfo, tps, supply, health, version, pingResult, latency } = data;
+  const peerCount = validators.length;
+  
+  // Health status
+  const isHealthy = health === 'ok' || health === 'healthy';
+  const healthStatus = isHealthy ? 
+    `${C.green}${indicators.success} Healthy${C.reset}` : 
+    health ? `${C.yellow}${indicators.warning} ${health}${C.reset}` : 
+    `${C.red}${indicators.error} Unknown${C.reset}`;
+
+  // Version string
+  const versionStr = version ? 
+    (version.aetherCore || version.featureSet || JSON.stringify(version)) : 
+    `${C.dim}unknown${C.reset}`;
+
   console.log();
+  console.log(drawBox(
+    `
+${C.bright}AETHER NETWORK STATUS${C.reset}    ${C.dim}${data.fetchedAt}${C.reset}
 
-  // Network health
-  const isHealthy = slot !== null && blockHeight !== null;
-  const healthIcon = isHealthy ? `${C.green}● HEALTHY${C.reset}` : `${C.red}● UNHEALTHY${C.reset}`;
-  console.log(`  Network ${healthIcon}`);
-  console.log();
+${C.cyan}Health:${C.reset}      ${healthStatus}
+${C.cyan}RPC:${C.reset}         ${data.rpc}
+${C.cyan}Version:${C.reset}     ${versionStr}
+${C.cyan}Latency:${C.reset}     ${formatLatency(pingResult?.latency || latency)}
 
-  // Key metrics
-  console.log(`  ${C.bright}┌─────────────────────────────────────────────────────────────────┐${C.reset}`);
-  console.log(`  ${C.bright}│${C.reset}  ${C.cyan}Current Slot${C.reset}          ${C.bright}│${C.reset}  ${C.green}${formatNumber(slot).padEnd(20)}${C.reset}${C.bright}│${C.reset}`);
-  console.log(`  ${C.bright}│${C.reset}  ${C.cyan}Block Height${C.reset}         ${C.bright}│${C.reset}  ${C.blue}${formatNumber(blockHeight).padEnd(20)}${C.reset}${C.bright}│${C.reset}`);
-  console.log(`  ${C.bright}│${C.reset}  ${C.cyan}Active Peers${C.reset}         ${C.bright}│${C.reset}  ${C.magenta}${formatNumber(peerCount).padEnd(20)}${C.reset}${C.bright}│${C.reset}`);
-  console.log(`  ${C.bright}│${C.reset}  ${C.cyan}Network TPS${C.reset}          ${C.bright}│${C.reset}  ${tps !== null ? (tps > 0 ? `${C.green}` : `${C.yellow}`) + tps.toFixed(2).padEnd(20) : `${C.dim}N/A`.padEnd(20)}${C.reset}${C.bright}│${C.reset}`);
-  console.log(`  ${C.bright}└─────────────────────────────────────────────────────────────────┘${C.reset}`);
-  console.log();
+${C.cyan}Current Slot:${C.reset}     ${highlight(formatNumber(slot))}
+${C.cyan}Block Height:${C.reset}    ${C.green}${formatNumber(blockHeight)}${C.reset}
+${C.cyan}Active Peers:${C.reset}     ${C.magenta}${formatNumber(peerCount)}${C.reset}
+${C.cyan}TPS:${C.reset}              ${tps !== null ? `${C.cyan}${tps.toFixed(2)}${C.reset}` : `${C.dim}N/A${C.reset}`}
 
-  // Epoch info if available
-  if (epochData && (epochData.epoch !== undefined || epochData.absolute_slot !== undefined)) {
-    console.log(`  ${C.bright}── Epoch / Consensus ──────────────────────────────────────────${C.reset}`);
-    const ep = epochData.epoch !== undefined ? epochData.epoch : '?';
-    const slotIndex = epochData.slot_index !== undefined ? epochData.slot_index : '?';
-    const slotsInEpoch = epochData.slots_in_epoch !== undefined ? epochData.slots_in_epoch : '?';
-    const progress = slotsInEpoch !== '?' && slotsInEpoch > 0
-      ? ((slotIndex / slotsInEpoch) * 100).toFixed(1) + '%'
-      : '?';
+${epochInfo ? `${C.cyan}Epoch:${C.reset}            ${C.bright}${epochInfo.epoch}${C.reset} (${formatNumber(epochInfo.slotIndex)}/${formatNumber(epochInfo.slotsInEpoch)} slots)` : ''}
+${supply ? `${C.cyan}Total Supply:${C.reset}     ${C.green}${formatAether(supply.total)}${C.reset}` : ''}
 
-    console.log(`  ${C.dim}Epoch:${C.reset} ${C.bright}${ep}${C.reset}  ${C.dim}Slot in epoch:${C.reset} ${slotIndex}/${slotsInEpoch} ${C.dim}(${progress})${C.reset}`);
-    if (epochData.absolute_slot !== undefined) {
-      console.log(`  ${C.dim}Absolute slot:${C.reset} ${formatNumber(epochData.absolute_slot)}`);
-    }
-    if (epochData.block_height !== undefined) {
-      console.log(`  ${C.dim}Block height:${C.reset} ${formatNumber(epochData.block_height)}`);
-    }
-    console.log();
-  }
+${C.dim}SDK: @jellylegsai/aether-sdk${C.reset}
+`.trim(),
+    { style: 'double', title: 'AETHER NETWORK', titleColor: C.cyan + C.bright }
+  ));
 
-  // Supply if available
-  if (supply && !supply.error) {
-    console.log(`  ${C.bright}── Token Supply ───────────────────────────────────────────────${C.reset}`);
-    if (supply.total !== undefined) {
-      const totalAETH = (supply.total / 1e9).toFixed(2);
-      console.log(`  ${C.dim}Total supply:${C.reset}  ${C.green}${formatNumber(supply.total)} lamports${C.reset} ${C.dim}(${totalAETH} AETH)${C.reset}`);
-    }
-    if (supply.circulating !== undefined) {
-      const circAETH = (supply.circulating / 1e9).toFixed(2);
-      console.log(`  ${C.dim}Circulating:${C.reset} ${formatNumber(supply.circulating)} lamports ${C.dim}(${circAETH} AETH)${C.reset}`);
-    }
-    console.log();
-  }
-
-  console.log(`  ${C.dim}Tip: --peers for peer list  |  --epoch for consensus  |  --json for raw data${C.reset}`);
   console.log();
 }
 
-function renderPeers(peers, rpc) {
-  console.log();
-  console.log(`${C.bright}${C.cyan}── Peer List ─────────────────────────────────────────────────${C.reset}`);
-  console.log(`  ${C.dim}RPC: ${rpc}${C.reset}`);
-  console.log();
-
-  if (!peers || peers.length === 0) {
-    console.log(`  ${C.yellow}⚠ No peer information available from this RPC.${C.reset}`);
-    console.log(`  ${C.dim}  Peers may not be exposed by your validator's RPC configuration.${C.reset}`);
-    console.log();
+function renderPeers(validators, rpc) {
+  if (!validators || validators.length === 0) {
+    console.log(`\n  ${warning('No peer information available')}`);
+    console.log(`  ${C.dim}Peers may not be exposed by your validator's RPC configuration.${C.reset}\n`);
     return;
   }
 
-  console.log(`  ${C.bright}┌────────────────────────────────────────────────────────────────────────┐${C.reset}`);
-  console.log(`  ${C.bright}│${C.reset} ${C.cyan}#${C.reset}  ${C.cyan}Validator Address${C.reset}                        ${C.cyan}Tier${C.reset}   ${C.cyan}Score${C.reset}  ${C.cyan}Uptime${C.reset} ${C.bright}│${C.reset}`);
-  console.log(`  ${C.bright}├${C.reset}${'-'.repeat(78)}${C.bright}│${C.reset}`);
-
-  peers.slice(0, 50).forEach((peer, i) => {
-    const num = (i + 1).toString().padStart(2);
-    const addr = (peer.address || peer.pubkey || peer.id || 'unknown').slice(0, 32).padEnd(34);
-    const tier = (peer.tier || peer.node_type || '?').toUpperCase().padEnd(6).slice(0, 6);
-    const score = peer.score !== undefined ? peer.score : (peer.uptime !== undefined ? Math.round(peer.uptime * 100) : null);
-    const scoreStr = score !== null ? `${score}%` : '?';
-    const uptime = uptimeString(peer.uptime_seconds || peer.uptime);
-    const scoreColor = score === null ? C.dim : score >= 80 ? C.green : score >= 50 ? C.yellow : C.red;
-
-    console.log(
-      `  ${C.bright}│${C.reset} ${C.dim}${num}${C.reset}  ${addr} ${tier.padEnd(6)} ${scoreColor}${(scoreStr + '%').padEnd(7)}${C.reset} ${C.dim}${uptime}${C.reset} ${C.bright}│${C.reset}`
-    );
+  const rows = validators.slice(0, 50).map((v, i) => {
+    const addr = (v.address || v.pubkey || v.id || v.vote_account || 'unknown').slice(0, 32);
+    const tier = (v.tier || v.node_type || 'unknown').toUpperCase();
+    const stake = formatAether(v.stake_lamports || v.stake || v.activated_stake || 0);
+    const status = v.status || 'active';
+    const statusCol = statusColor(status);
+    
+    return [
+      `${statusCol}●${C.reset}`,
+      `${i + 1}`,
+      addr,
+      tier,
+      stake,
+    ];
   });
 
-  if (peers.length > 50) {
-    console.log(`  ${C.bright}│${C.reset}  ${C.dim}... and ${peers.length - 50} more peers (use --json for full list)${C.reset}`.padEnd(80) + `${C.bright}│${C.reset}`);
+  console.log();
+  console.log(drawTable(
+    ['', '#', 'Validator', 'Tier', 'Stake'],
+    rows,
+    { borderStyle: 'single', headerColor: C.cyan + C.bright }
+  ));
+
+  if (validators.length > 50) {
+    console.log(`\n  ${C.dim}... and ${validators.length - 50} more validators (use --json for full list)${C.reset}`);
   }
 
-  console.log(`  ${C.bright}└────────────────────────────────────────────────────────────────────────┘${C.reset}`);
   console.log();
-  console.log(`  ${C.dim}Total peers: ${peers.length}${C.reset}`);
+  console.log(`  ${C.bright}Total validators:${C.reset} ${C.magenta}${validators.length}${C.reset}`);
   console.log();
 }
 
-function renderEpoch(epochData, rpc) {
+function renderEpoch(epochInfo) {
   console.log();
-  console.log(`${C.bright}${C.cyan}── Epoch / Consensus ────────────────────────────────────────${C.reset}`);
-  console.log(`  ${C.dim}RPC: ${rpc}${C.reset}`);
-  console.log();
-
-  if (!epochData) {
-    console.log(`  ${C.yellow}⚠ Epoch information not available.${C.reset}`);
-    console.log(`  ${C.dim}  Is your validator fully synced?${C.reset}`);
-    console.log();
+  
+  if (!epochInfo) {
+    console.log(`\n  ${warning('Epoch information not available')}`);
+    console.log(`  ${C.dim}Is your validator fully synced?${C.reset}\n`);
     return;
   }
 
-  const t = (label, val) => console.log(`  ${C.dim}${label}:${C.reset}  ${val !== undefined && val !== null ? C.bright + val : C.dim + 'N/A'}${C.reset}`);
+  const progress = epochInfo.slotsInEpoch > 0 ?
+    ((epochInfo.slotIndex / epochInfo.slotsInEpoch) * 100).toFixed(2) : '0.00';
 
-  console.log(`  ${C.bright}┌─────────────────────────────────────────────────────┐${C.reset}`);
-  console.log(`  ${C.bright}│${C.reset}  ${C.cyan}Epoch${C.reset}${' '.repeat(45)}${C.bright}│${C.reset}`);
-  const ep = epochData.epoch !== undefined ? epochData.epoch : '?';
-  console.log(`  ${C.bright}│${C.reset}  ${C.green}${(ep + '').padEnd(53)}${C.reset}${C.bright}│${C.reset}`);
-  console.log(`  ${C.bright}├${C.reset}${'─'.repeat(58)}${C.bright}│${C.reset}`);
+  console.log(drawBox(
+    `
+${C.bright}Epoch ${epochInfo.epoch}${C.reset}
 
-  if (epochData.slots_in_epoch !== undefined) {
-    console.log(`  ${C.bright}│${C.reset}  ${C.dim}Slots in epoch${C.reset}`.padEnd(53) + `${C.bright}│${C.reset}`);
-    console.log(`  ${C.bright}│${C.reset}  ${C.bright}${formatNumber(epochData.slots_in_epoch).padEnd(53)}${C.reset}${C.bright}│${C.reset}`);
-  }
+${C.cyan}Slots in Epoch:${C.reset}     ${formatNumber(epochInfo.slotsInEpoch)}
+${C.cyan}Current Slot:${C.reset}       ${formatNumber(epochInfo.slotIndex)}
+${C.cyan}Progress:${C.reset}          ${highlight(progress + '%')}
+${C.cyan}Blocks Remaining:${C.reset}  ${formatNumber(epochInfo.slotsInEpoch - epochInfo.slotIndex)}
 
-  if (epochData.slot_index !== undefined) {
-    console.log(`  ${C.bright}│${C.reset}  ${C.dim}Current slot in epoch${C.reset}`.padEnd(53) + `${C.bright}│${C.reset}`);
-    const progress = epochData.slots_in_epoch > 0
-      ? `${epochData.slot_index} / ${epochData.slots_in_epoch} (${((epochData.slot_index / epochData.slots_in_epoch) * 100).toFixed(1)}%)`
-      : `${epochData.slot_index}`;
-    console.log(`  ${C.bright}│${C.reset}  ${C.bright}${progress.padEnd(53)}${C.reset}${C.bright}│${C.reset}`);
-  }
+${epochInfo.absoluteSlot ? `${C.cyan}Absolute Slot:${C.reset}     ${formatNumber(epochInfo.absoluteSlot)}` : ''}
+${epochInfo.blockHeight ? `${C.cyan}Block Height:${C.reset}      ${formatNumber(epochInfo.blockHeight)}` : ''}
+    `.trim(),
+    { style: 'single', title: 'EPOCH INFO', titleColor: C.cyan }
+  ));
 
-  if (epochData.absolute_slot !== undefined) {
-    console.log(`  ${C.bright}│${C.reset}  ${C.dim}Absolute slot${C.reset}`.padEnd(53) + `${C.bright}│${C.reset}`);
-    console.log(`  ${C.bright}│${C.reset}  ${C.bright}${formatNumber(epochData.absolute_slot).padEnd(53)}${C.reset}${C.bright}│${C.reset}`);
-  }
-
-  if (epochData.block_height !== undefined) {
-    console.log(`  ${C.bright}│${C.reset}  ${C.dim}Block height${C.reset}`.padEnd(53) + `${C.bright}│${C.reset}`);
-    console.log(`  ${C.bright}│${C.reset}  ${C.bright}${formatNumber(epochData.block_height).padEnd(53)}${C.reset}${C.bright}│${C.reset}`);
-  }
-
-  if (epochData.epoch_schedule) {
-    const es = epochData.epoch_schedule;
-    if (es.first_normal_epoch !== undefined) {
-      console.log(`  ${C.bright}│${C.reset}  ${C.dim}First normal epoch${C.reset}`.padEnd(53) + `${C.bright}│${C.reset}`);
-      console.log(`  ${C.bright}│${C.reset}  ${C.bright}${es.first_normal_epoch.padEnd(53)}${C.reset}${C.bright}│${C.reset}`);
-    }
-  }
-
-  console.log(`  ${C.bright}└─────────────────────────────────────────────────────┘${C.reset}`);
-  console.log();
+  // Progress bar
+  const barWidth = 40;
+  const filled = Math.floor((progress / 100) * barWidth);
+  const empty = barWidth - filled;
+  const progressBar = C.green + '█'.repeat(filled) + C.dim + '░'.repeat(empty) + C.reset;
+  
+  console.log(`\n  ${progressBar} ${C.bright}${progress}%${C.reset}\n`);
 }
 
-// ---------------------------------------------------------------------------
-// Main
-// ---------------------------------------------------------------------------
+function renderJson(data) {
+  console.log(JSON.stringify(data, (key, value) => {
+    if (typeof value === 'bigint') return value.toString();
+    return value;
+  }, 2));
+}
 
-async function main() {
+// ============================================================================
+// Main Command
+// ============================================================================
+
+async function networkCommand() {
   const opts = parseArgs();
-  const rpc = opts.rpc;
+  
+  try {
+    const data = await fetchNetworkData(opts.rpc, opts.asJson);
 
-  if (!opts.asJson) {
-    console.log(`\n${C.cyan}Querying Aether network...${C.reset} ${C.dim}(${rpc})${C.reset}\n`);
-  }
+    if (opts.asJson) {
+      renderJson(data);
+      return;
+    }
 
-  // Fetch all data in parallel
-  const [slot, blockHeight, validators, epochData, tps, supply] = await Promise.all([
-    getSlot(rpc),
-    getBlockHeight(rpc),
-    getValidators(rpc),
-    getEpoch(rpc),
-    getTPS(rpc),
-    getSupply(rpc),
-  ]);
+    if (opts.showPeers) {
+      renderPeers(data.validators, opts.rpc);
+    } else if (opts.showEpoch) {
+      renderEpoch(data.epochInfo);
+    } else {
+      renderSummary(data);
+    }
 
-  const peerCount = Array.isArray(validators) ? validators.length : 0;
-
-  const data = {
-    slot,
-    blockHeight,
-    peerCount,
-    tps,
-    supply,
-    epochData,
-    validators,
-    rpc,
-    fetchedAt: new Date().toISOString(),
-  };
-
-  if (opts.asJson) {
-    console.log(JSON.stringify(data, null, 2));
-    return;
-  }
-
-  if (opts.showPeers) {
-    renderPeers(validators, rpc);
-  } else if (opts.showEpoch) {
-    renderEpoch(epochData, rpc);
-  } else {
-    renderSummary(data, rpc);
+  } catch (err) {
+    if (opts.asJson) {
+      console.log(JSON.stringify({
+        error: err.message,
+        rpc: opts.rpc,
+        timestamp: new Date().toISOString(),
+      }, null, 2));
+    } else {
+      console.log(`\n  ${error('Network query failed')}`);
+      console.log(`  ${C.dim}${err.message}${C.reset}\n`);
+      console.log(`  ${C.bright}Troubleshooting:${C.reset}`);
+      console.log(`    • Is your validator running? ${code('aether ping')}`);
+      console.log(`    • Check RPC endpoint: ${C.dim}${opts.rpc}${C.reset}`);
+      console.log(`    • Set custom RPC: ${C.dim}AETHER_RPC=https://your-rpc-url${C.reset}`);
+      console.log();
+    }
+    process.exit(1);
   }
 }
 
-module.exports = { main, networkCommand: main };
+module.exports = { networkCommand, main: networkCommand };
 
 if (require.main === module) {
-  main().catch((err) => {
-    console.error(`\n${C.red}✗ Network command failed:${C.reset} ${err.message}`);
-    console.error(`  ${C.dim}Check that your validator is running and RPC is accessible.${C.reset}`);
-    console.error(`  ${C.dim}Set custom RPC: AETHER_RPC=http://your-rpc-url${C.reset}\n`);
+  networkCommand().catch(err => {
+    console.error(`\n  ${error('Network command failed')}: ${err.message}\n`);
     process.exit(1);
   });
 }

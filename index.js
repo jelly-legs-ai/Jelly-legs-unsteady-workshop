@@ -1,11 +1,24 @@
 #!/usr/bin/env node
 /**
- * aether-cli - AeTHer Validator Command Line Interface
+ * aether-cli - Aether Blockchain Command Line Interface
  * 
  * Main entry point for the validator CLI tool.
- * Provides onboarding, system checks, validator management, and KYC integration.
+ * Provides onboarding, system checks, validator management, and blockchain operations.
+ * 
+ * @version 2.0.0
+ * @author Jelly-legs AI Team
  */
 
+const readline = require('readline');
+const path = require('path');
+
+// Import UI framework for consistent branding
+const { BRANDING, C, indicators, success, error, warning, info, code, key, value, formatHelp } = require('./lib/ui');
+
+// CLI version
+const VERSION = '2.0.0';
+
+// Command imports
 const { doctorCommand } = require('./commands/doctor');
 const { validatorStartCommand } = require('./commands/validator-start');
 const { validatorStatus } = require('./commands/validator-status');
@@ -44,23 +57,15 @@ const { stakeCommand } = require('./commands/stake');
 const { nftCommand } = require('./commands/nft');
 const { installCommand } = require('./commands/install');
 const { pingCommand } = require('./commands/ping');
-const readline = require('readline');
-
-// CLI version
-const VERSION = '1.8.0';
+const { claimCommand } = require('./commands/claim');
+const { unstakeCommand } = require('./commands/unstake');
+const { txCommand } = require('./commands/tx');
+const { multisigCommand } = require('./commands/multisig');
 
 // Parse args early to support flags on commands
 function getCommandArgs() {
   return process.argv.slice(2);
 }
-
-// Tier colours
-const TIER_COLORS = {
-  FULL: '\x1b[36m',    // cyan
-  LITE: '\x1b[33m',    // yellow
-  OBSERVER: '\x1b[32m', // green
-  reset: '\x1b[0m',
-};
 
 /**
  * Display the interactive main menu
@@ -73,37 +78,39 @@ async function showMenu() {
 
   const prompt = (q) => new Promise((res) => rl.question(q, res));
 
-  console.log(
-    TIER_COLORS.FULL + '\n  ╔═══════════════════════════════════════════════╗\n' +
-    '  ║     AETHER CHAIN — Validator Setup Wizard     ║\n' +
-    '  ╚═══════════════════════════════════════════════╝' + TIER_COLORS.reset + '\n'
-  );
+  console.log(BRANDING.header(VERSION));
 
-  console.log('  Welcome to AeTHer Chain. What would you like to do?\n');
-  console.log('  ' + TIER_COLORS.FULL + '1)' + TIER_COLORS.reset + '  🩺  Doctor  — Check if your system meets requirements');
-  console.log('  ' + TIER_COLORS.FULL + '2)' + TIER_COLORS.reset + '  🚀  Start  — Begin validator onboarding (recommended)');
-  console.log('  ' + TIER_COLORS.FULL + '3)' + TIER_COLORS.reset + '  📊  Monitor — Watch live validator stats');
-  console.log('  ' + TIER_COLORS.FULL + '4)' + TIER_COLORS.reset + '  📋  Logs   — Tail and colourise validator logs');
-  console.log('  ' + TIER_COLORS.FULL + '5)' + TIER_COLORS.reset + '  📦  SDK    — Get SDK links and install tools');
-  console.log('  ' + TIER_COLORS.FULL + '6)' + TIER_COLORS.reset + '  🌐  Network — Aether network status (slot, peers, TPS)');
-  console.log('  ' + TIER_COLORS.FULL + '7)' + TIER_COLORS.reset + '  ❓  Help   — Show all commands\n');
-  console.log('  ' + TIER_COLORS.reset + '  Type a number or command name. Press Ctrl+C to exit.\n');
+  console.log(`  ${C.dim}Welcome to Aether CLI. What would you like to do?${C.reset}\n`);
+  
+  const menuItems = [
+    { num: '1', icon: indicators.bullet, label: 'Doctor', desc: 'Check system requirements', cmd: 'doctor' },
+    { num: '2', icon: indicators.bullet, label: 'Start', desc: 'Begin validator onboarding', cmd: 'init' },
+    { num: '3', icon: indicators.bullet, label: 'Monitor', desc: 'Watch live validator stats', cmd: 'monitor' },
+    { num: '4', icon: indicators.bullet, label: 'Logs', desc: 'Tail validator logs', cmd: 'logs' },
+    { num: '5', icon: indicators.bullet, label: 'SDK', desc: 'SDK tools and info', cmd: 'sdk' },
+    { num: '6', icon: indicators.bullet, label: 'Network', desc: 'Network status', cmd: 'network' },
+    { num: '7', icon: indicators.bullet, label: 'Help', desc: 'Show all commands', cmd: 'help' },
+  ];
+
+  for (const item of menuItems) {
+    console.log(`  ${C.cyan}${item.num})${C.reset}  ${C.bright}${item.label}${C.reset}  ${C.dim}${item.desc}${C.reset}`);
+  }
+
+  console.log(`\n  ${C.dim}Type a number or command name. Press Ctrl+C to exit.${C.reset}\n`);
 
   const VALID_CHOICES = ['1', '2', '3', '4', '5', '6', '7', 'doctor', 'init', 'monitor', 'logs', 'sdk', 'network', 'help'];
 
   while (true) {
-    const answer = (await prompt(`  > `)).trim().toLowerCase();
+    const answer = (await prompt(`${C.cyan}>${C.reset} `)).trim().toLowerCase();
 
     if (answer === '' || answer === '1' || answer === 'doctor') {
       rl.close();
-      const { doctorCommand } = require('./commands/doctor');
       doctorCommand({ autoFix: false, tier: 'full' });
       return;
     }
 
     if (answer === '2' || answer === 'init' || answer === 'start') {
       rl.close();
-      const { init } = require('./commands/init');
       init();
       return;
     }
@@ -117,191 +124,137 @@ async function showMenu() {
 
     if (answer === '4' || answer === 'logs') {
       rl.close();
-      const { logsCommand } = require('./commands/logs');
       logsCommand();
       return;
     }
 
     if (answer === '5' || answer === 'sdk') {
       rl.close();
-      const { sdkCommand } = require('./commands/sdk');
-const { snapshotCommand } = require('./commands/snapshot');
       sdkCommand();
       return;
     }
 
     if (answer === '6' || answer === 'network') {
       rl.close();
-      const { networkCommand } = require('./commands/network');
       networkCommand();
       return;
     }
 
     if (answer === '7' || answer === 'help') {
       showHelp();
-      console.log("  Press Ctrl+C to exit or select an option above.\n");
+      console.log(`  ${C.dim}Press Ctrl+C to exit or select an option above.${C.reset}\n`);
       continue;
     }
 
-    console.log(`\n  ⚠️  Unknown option: "${answer}". Type 1-6 or a command name.\n`);
+    console.log(`\n  ${warning(`Unknown option: "${answer}". Type 1-7 or a command name.`)}\n`);
   }
 }
 
 // Available commands
 const COMMANDS = {
   start: {
-    description: 'Launch interactive menu (default if no args) — same as running aether-cli with no arguments',
+    description: 'Launch interactive menu (default)',
     handler: () => showMenu(),
   },
   doctor: {
-    description: 'Run system requirements checks (CPU/RAM/Disk/Network/Firewall)',
+    description: 'Run system requirements checks (CPU/RAM/Disk/Network)',
     handler: () => {
       const args = getCommandArgs();
       const autoFix = args.includes('--fix') || args.includes('-f');
-      
-      // Parse --tier flag
       let tier = 'full';
       const tierIndex = args.findIndex(arg => arg === '--tier');
       if (tierIndex !== -1 && args[tierIndex + 1]) {
         tier = args[tierIndex + 1].toLowerCase();
       }
-      
       doctorCommand({ autoFix, tier });
     },
   },
   init: {
-    description: 'Start onboarding wizard (generate identity, create stake account, connect to testnet)',
+    description: 'Start onboarding wizard (generate identity, wallet, connect)',
     handler: init,
   },
-  'kyc generate': {
-    description: 'Generate pre-filled KYC link with pubkey, node ID, signature',
-    handler: () => {
-      const { kycGenerate } = require('./commands/kyc');
-      kycGenerate();
-    },
-  },
   monitor: {
-    description: 'Real-time validator dashboard (slot, block height, peers, TPS)',
+    description: 'Real-time validator dashboard (slot, height, peers, TPS)',
     handler: () => {
-      // monitor command runs its own loop
       const { main } = require('./commands/monitor');
       main();
     },
   },
   logs: {
-    description: 'Tail validator logs with colour-coded output (ERROR=red, WARN=yellow, INFO=green)',
+    description: 'Tail validator logs with colour-coded output',
     handler: logsCommand,
   },
   sdk: {
-    description: 'Aether SDK download links and install instructions (JS, Rust, FLUX/ATH tokens)',
+    description: 'Aether SDK tools - direct blockchain RPC access',
     handler: sdkCommand,
   },
   wallet: {
-    description: 'Wallet management — create, import, list, default, connect, balance, stake, transfer',
-    handler: () => {
-      const { walletCommand } = require('./commands/wallet');
-      walletCommand();
-    },
+    description: 'Wallet management - create, import, list, balance, transfer',
+    handler: walletCommand,
   },
   stake: {
-    description: 'Stake AETH to a validator — aether stake --validator <addr> --amount <aeth> [--list-validators]',
-    handler: () => {
-      const { stakeCommand } = require('./commands/stake');
-      stakeCommand();
-    },
+    description: 'Stake AETH to a validator - stake --validator <addr> --amount <aeth>',
+    handler: stakeCommand,
   },
   'stake-positions': {
-    description: 'Show current stake positions/delegations — aether stake-positions --address <addr> [--json]',
+    description: 'Show current stake positions/delegations',
     handler: () => {
       const { stakePositionsCommand } = require('./commands/stake-positions');
       stakePositionsCommand();
     },
   },
   'stake-info': {
-    description: 'Get staking info for an address via real chain RPC — aether stake-info <address>',
+    description: 'Get staking info for an address via chain RPC',
     handler: () => {
       const { stakeInfoCommand } = require('./commands/stake-info');
       stakeInfoCommand();
     },
   },
   unstake: {
-    description: 'Unstake AETH — deactivate a stake account — aether unstake --account <stakeAcct> [--amount <aeth>]',
-    handler: () => {
-      const { unstakeCommand } = require('./commands/unstake');
-      unstakeCommand();
-    },
+    description: 'Unstake AETH - deactivate a stake account',
+    handler: unstakeCommand,
   },
-  export: {
-    description: 'Export wallet data — aether export --address <addr> [--mnemonic] [--json]',
-    handler: () => {
-      const { walletCommand } = require('./commands/wallet');
-      const originalArgv = process.argv;
-      process.argv = [...originalArgv.slice(0, 2), 'wallet', 'export', ...originalArgv.slice(3)];
-      walletCommand();
-      process.argv = originalArgv;
-    },
+  claim: {
+    description: 'Claim accumulated staking rewards - claim --address <addr>',
+    handler: claimCommand,
   },
   transfer: {
-    description: 'Transfer AETH to another address — aether transfer --to <addr> --amount <aeth>',
-    handler: () => {
-      transferCommand();
-    },
+    description: 'Transfer AETH to another address - transfer --to <addr> --amount <aeth>',
+    handler: transferCommand,
   },
   'tx-history': {
-    description: 'Transaction history for an address — aether tx-history --address <addr> [--limit 20] [--json]',
-    handler: () => {
-      txHistoryCommand();
-    },
+    description: 'Transaction history for an address',
+    handler: txHistoryCommand,
   },
   tx: {
-    description: 'Look up a transaction by signature — aether tx <signature> [--json] [--wait] [--logs]',
-    handler: () => {
-      const { txCommand } = require('./commands/tx');
-      txCommand();
-    },
+    description: 'Look up a transaction by signature - tx <sig> [--json] [--wait]',
+    handler: txCommand,
   },
   blockhash: {
-    description: 'Get the latest blockhash from the chain (required for signing TXs) — aether blockhash [--json] [--watch]',
-    handler: () => {
-      const { blockhashCommand } = require('./commands/blockhash');
-      blockhashCommand();
-    },
+    description: 'Get the latest blockhash for transaction signing',
+    handler: blockhashCommand,
   },
   balance: {
-    description: 'Query account balance — aether balance [address] [--json] [--lamports] [--rpc <url>]',
-    handler: () => {
-      const { balanceCommand } = require('./commands/balance');
-      balanceCommand();
-    },
+    description: 'Query account balance - balance [address] [--json]',
+    handler: balanceCommand,
   },
   network: {
-    description: 'Aether network status — slot, block height, peers, TPS, epoch info',
-    handler: () => {
-      const { networkCommand } = require('./commands/network');
-      networkCommand();
-    },
-  },
-  history: {
-    description: 'Transaction history for an address — alias for tx history',
-    handler: () => {
-      txHistoryCommand();
-    },
+    description: 'Aether network status - slot, height, peers, TPS',
+    handler: networkCommand,
   },
   validator: {
     description: 'Validator node management',
     handler: () => {
-      // Handle validator subcommands
       const subcmd = process.argv[3];
       
       if (!subcmd) {
-        console.log('Usage: aether-cli validator <command>');
-        console.log('');
-        console.log('Commands:');
-        console.log('  start      Start the validator node');
-        console.log('  status     Check validator status');
-        console.log('  info       Get validator info');
-        console.log('  register   Register validator with the network');
-        console.log('');
+        console.log(`\n  ${C.bright}Usage: aether validator <command>${C.reset}\n`);
+        console.log(`  ${C.cyan}Commands:${C.reset}`);
+        console.log(`    ${code('start')}      Start the validator node`);
+        console.log(`    ${code('status')}     Check validator status`);
+        console.log(`    ${code('info')}       Get validator info`);
+        console.log(`    ${code('register')}   Register validator with the network`);
+        console.log();
         return;
       }
       
@@ -319,196 +272,121 @@ const COMMANDS = {
           validatorRegisterCommand();
           break;
         default:
-          console.error(`Unknown validator command: ${subcmd}`);
-          console.error('Valid commands: start, status, info, register');
+          console.error(`\n  ${error(`Unknown validator command: ${subcmd}`)}`);
+          console.log(`  ${C.dim}Valid commands: start, status, info, register${C.reset}\n`);
           process.exit(1);
       }
     },
   },
   delegations: {
-    description: 'List/claim stake delegations — aether delegations list --address <addr>',
-    handler: () => {
-      delegationsCommand();
-    },
+    description: 'List/claim stake delegations',
+    handler: delegationsCommand,
   },
   rewards: {
-    description: 'View staking rewards — aether rewards list | summary | pending | claim | compound',
-    handler: () => {
-      rewardsCommand();
-    },
+    description: 'View staking rewards - list | summary | pending | claim | compound',
+    handler: rewardsCommand,
   },
   snapshot: {
-    description: 'Node sync status, snapshot slot info, and network slot comparison',
-    handler: () => {
-      const { snapshotCommand } = require('./commands/snapshot');
-      snapshotCommand();
-    },
+    description: 'Node sync status, snapshot slot info',
+    handler: snapshotCommand,
   },
   info: {
-    description: 'Validator info snapshot — identity, sync state, peers, stake positions',
+    description: 'Validator info snapshot - identity, sync, peers, stake',
     handler: () => {
       const { infoCommand } = require('./commands/info');
       infoCommand();
     },
   },
   account: {
-    description: 'Query on-chain account data — aether account --address <addr> [--json] [--data] [--rpc <url>]',
-    handler: () => {
-      const { accountCommand } = require('./commands/account');
-      accountCommand();
-    },
+    description: 'Query on-chain account data - account --address <addr> [--json]',
+    handler: accountCommand,
   },
   epoch: {
-    description: 'Aether epoch info — current epoch, slot, time remaining, APY estimate — aether epoch [--json] [--schedule]',
-    handler: () => {
-      const { epochCommand } = require('./commands/epoch');
-      epochCommand();
-    },
+    description: 'Aether epoch info - current epoch, slot, time remaining, APY',
+    handler: epochCommand,
   },
   supply: {
-    description: 'Aether token supply — total, circulating, staked, burned — aether supply [--json] [--verbose]',
-    handler: () => {
-      const { supplyCommand } = require('./commands/supply');
-      // Pass full argv so supply.js can parse its own --help etc.
-      supplyCommand();
-    },
+    description: 'Aether token supply - total, circulating, staked, burned',
+    handler: supplyCommand,
   },
   status: {
-    description: 'Full dashboard — epoch, network, supply, validator info — aether status [--json] [--compact] [--validator]',
-    handler: () => {
-      const { statusCommand } = require('./commands/status');
-      statusCommand();
-    },
+    description: 'Full dashboard - epoch, network, supply, validator info',
+    handler: statusCommand,
   },
   validators: {
-    description: 'List active validators — aether validators list [--tier full|lite|observer] [--json]',
-    handler: () => {
-      validatorsListCommand();
-    },
+    description: 'List active validators - validators list [--tier full|lite|observer] [--json]',
+    handler: validatorsListCommand,
   },
   'validator-info': {
-    description: 'Get detailed info for a specific validator — aether validator-info <address> [--json]',
+    description: 'Get detailed info for a specific validator',
     handler: () => {
       const { validatorInfoCommand } = require('./commands/validator-info');
       validatorInfoCommand();
     },
   },
   stats: {
-    description: 'Wallet stats dashboard — balance, stake positions, recent txs — aether stats --address <addr> [--compact] [--json]',
-    handler: () => {
-      statsCommand();
-    },
+    description: 'Wallet stats dashboard - balance, stake, recent txs',
+    handler: statsCommand,
   },
   price: {
-    description: 'AETH/USD price — aether price [--pair AETH/USD] [--json] [--source coingecko]',
-    handler: () => {
-      const { priceCommand } = require('./commands/price');
-      priceCommand();
-    },
+    description: 'AETH/USD price - price [--pair AETH/USD] [--json]',
+    handler: priceCommand,
   },
   broadcast: {
-    description: 'Broadcast a signed transaction — aether broadcast --tx <sig> [--json] [--file <path>]',
-    handler: () => {
-      const { broadcastCommand } = require('./commands/broadcast');
-      broadcastCommand();
-    },
+    description: 'Broadcast a signed transaction - broadcast --tx <sig> [--json]',
+    handler: broadcastCommand,
   },
   apy: {
-    description: 'Validator APY estimator — aether apy [--validator <addr>] [--address <addr>] [--json] [--epochs <n>]',
-    handler: () => {
-      const { apyCommand } = require('./commands/apy');
-      apyCommand();
-    },
+    description: 'Validator APY estimator',
+    handler: apyCommand,
   },
   ping: {
-    description: 'Ping RPC endpoint — measure latency, check node health — aether ping [--rpc <url>] [--count <n>] [--json]',
-    handler: () => {
-      const { pingCommand } = require('./commands/ping');
-      pingCommand();
-    },
+    description: 'Ping RPC endpoint - measure latency, check node health',
+    handler: pingCommand,
   },
   'network-diagnostics': {
-    description: 'Network diagnostics with RPC failover — aether network-diagnostics [--auto] [--benchmark] [--all] [--json]',
-    handler: () => {
-      networkDiagnosticsCommand();
-    },
+    description: 'Network diagnostics with RPC failover',
+    handler: networkDiagnosticsCommand,
   },
   emergency: {
-    description: 'Emergency response & network alerts — status, monitor, check, alert, failover, history',
-    handler: () => {
-      const { emergencyCommand } = require('./commands/emergency');
-      emergencyCommand();
-    },
+    description: 'Emergency response & network alerts',
+    handler: emergencyCommand,
   },
   fees: {
-    description: 'Network fee estimates — aether fees [--json] [--verbose] [--rpc <url>]',
-    handler: () => {
-      feesCommand();
-    },
+    description: 'Network fee estimates - fees [--json] [--verbose] [--rpc <url>]',
+    handler: feesCommand,
   },
   tps: {
-    description: 'Transactions per second monitor — aether tps [--monitor] [--interval 2] [--json]',
-    handler: () => {
-      tpsCommand();
-    },
+    description: 'Transactions per second monitor - tps [--monitor] [--interval 2] [--json]',
+    handler: tpsCommand,
   },
   slot: {
-    description: 'Get current slot number — aether slot [--json] [--rpc <url>]',
-    handler: () => {
-      slotCommand();
-    },
+    description: 'Get current slot number - slot [--json] [--rpc <url>]',
+    handler: slotCommand,
   },
   multisig: {
-    description: 'Multi-signature wallet management — create, list, info, send, add-signer — aether multisig <subcommand>',
-    handler: () => {
-      const { multisigCommand } = require('./commands/multisig');
-      multisigCommand();
-    },
-  },
-  claim: {
-    description: 'Claim accumulated staking rewards — aether claim --address <addr> [--json] [--dry-run]',
-    handler: () => {
-      const { claimCommand } = require('./commands/claim');
-      claimCommand();
-    },
+    description: 'Multi-signature wallet management',
+    handler: multisigCommand,
   },
   register: {
-    description: 'Register validator with network — aether register --wallet <addr> --amount <aeth> [--tier full]',
-    handler: () => {
-      validatorRegisterCommand();
-    },
+    description: 'Register validator with network',
+    handler: validatorRegisterCommand,
   },
   'sdk-test': {
-    description: 'Test SDK with real RPC calls — aether sdk-test [--rpc <url>] [--quick] [--json]',
-    handler: () => {
-      sdkTestCommand();
-    },
+    description: 'Test SDK with real RPC calls - sdk-test [--rpc <url>] [--quick] [--json]',
+    handler: sdkTestCommand,
   },
   config: {
-    description: 'Configuration management — aether config set/get/list/validate/init',
-    handler: () => {
-      configCommand();
-    },
+    description: 'Configuration management - config set/get/list/validate/init',
+    handler: configCommand,
   },
   nft: {
-    description: 'NFT management — aether nft create|list|transfer|info|update — full SDK-wired suite',
-    handler: () => {
-      nftCommand();
-    },
+    description: 'NFT management - create|list|transfer|info|update',
+    handler: nftCommand,
   },
   install: {
-    description: 'Install or upgrade aether-cli — npm install, config init, PATH setup — aether install [--force] [--rpc <url>] [--skip-rpc-check]',
-    handler: () => {
-      installCommand();
-    },
-  },
-  'install-help': {
-    description: 'Show install command help',
-    hidden: true,
-    handler: () => {
-      process.argv = [process.argv[0], process.argv[1], 'install', '--help'];
-      installCommand();
-    },
+    description: 'Install or upgrade aether-cli',
+    handler: installCommand,
   },
   help: {
     description: 'Show this help message',
@@ -516,50 +394,51 @@ const COMMANDS = {
   },
   version: {
     description: 'Show version number',
-    handler: () => console.log(`aether-cli v${VERSION}`),
+    handler: () => {
+      console.log(BRANDING.header(VERSION));
+      console.log(`  ${C.dim}SDK-powered blockchain CLI for Aether validators${C.reset}\n`);
+    },
   },
 };
 
 /**
- * Display help message with ASCII art
+ * Display help message with consistent branding
  */
 function showHelp() {
-  const header = `
-███╗   ███╗██╗███████╗███████╗██╗ ██████╗ ███╗   ██╗
-████╗ ████║██║██╔════╝██╔════╝██║██╔═══██╗████╗  ██║
-██╔████╔██║██║███████╗███████╗██║██║   ██║██╔██╗ ██║
-██║╚██╔╝██║██║╚════██║╚════██║██║██║   ██║██║╚██╗██║
-██║ ╚═╝ ██║██║███████║███████║██║╚██████╔╝██║ ╚████║
-╚═╝     ╚═╝╚═╝╚══════╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝
+  console.log(BRANDING.header(VERSION));
+  
+  console.log(`\n  ${C.bright}AETHER CLI${C.reset} — ${C.dim}Decentralized Infrastructure for the Future${C.reset}\n`);
+  
+  // Group commands by category
+  const categories = {
+    'Wallet & Accounts': ['wallet', 'balance', 'transfer', 'tx', 'tx-history', 'account', 'stats'],
+    'Staking': ['stake', 'unstake', 'stake-positions', 'stake-info', 'delegations', 'rewards', 'claim'],
+    'Validator': ['init', 'validator', 'validator-info', 'register', 'validators', 'monitor', 'logs'],
+    'Network': ['network', 'network-diagnostics', 'ping', 'epoch', 'slot', 'tps', 'fees', 'supply'],
+    'SDK & Tools': ['sdk', 'sdk-test', 'snapshot', 'info', 'status', 'blockhash', 'broadcast', 'price', 'apy'],
+    'Advanced': ['nft', 'multisig', 'emergency', 'config', 'doctor', 'install'],
+  };
 
-Validator CLI v${VERSION}
-`.trim();
+  for (const [category, cmds] of Object.entries(categories)) {
+    console.log(`  ${C.cyan}${category}${C.reset}`);
+    for (const cmd of cmds) {
+      const info = COMMANDS[cmd];
+      if (info) {
+        console.log(`    ${code(cmd.padEnd(18))} ${C.dim}${info.description}${C.reset}`);
+      }
+    }
+    console.log();
+  }
 
-  console.log(header);
-  console.log('\nUsage: aether-cli <command> [options]\n');
-  console.log('Commands:');
-  Object.entries(COMMANDS).forEach(([cmd, info]) => {
-    if (info.hidden) return;
-    console.log(`  ${cmd.padEnd(18)} ${info.description}`);
-  });
-  console.log('\nExamples:');
-  console.log('  aether-cli doctor              # Check system requirements');
-  console.log('  aether-cli init                # Start onboarding wizard');
-  console.log('  aether-cli monitor             # Real-time validator dashboard');
-  console.log('  aether-cli validator start     # Start validator node');
-  console.log('  aether-cli validator status    # Check validator status');
-  console.log('  aether-cli wallet balance      # Query AETH balance');
-  console.log('  aether-cli network             # Network status, peers, slot info');
-  console.log('  aether-cli network --peers     # Detailed peer list');
-  console.log('  aether-cli network-diagnostics      # RPC diagnostics with failover');
-  console.log('  aether-cli network-diagnostics --auto  # Auto-select best RPC');
-  console.log('  aether-cli tx history          # Show transaction history');
-  console.log('  aether-cli price               # AETH/USD price check');
-  console.log('  aether-cli nft create          # Create NFT with metadata');
-  console.log('  aether-cli nft list            # List NFTs owned by wallet');
-  console.log('  aether-cli --version           # Show version');
-  console.log('\nDocumentation: https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop');
-  console.log('Spec: docs/MINING_VALIDATOR_TOOLS.md\n');
+  console.log(`  ${C.bright}Quick Start${C.reset}\n`);
+  console.log(`    ${C.dim}$${C.reset} ${code('aether doctor')}              ${C.dim}# Check system requirements${C.reset}`);
+  console.log(`    ${C.dim}$${C.reset} ${code('aether init')}                ${C.dim}# Start validator onboarding${C.reset}`);
+  console.log(`    ${C.dim}$${C.reset} ${code('aether wallet create')}       ${C.dim}# Create a new wallet${C.reset}`);
+  console.log(`    ${C.dim}$${C.reset} ${code('aether network')}             ${C.dim}# Check network status${C.reset}`);
+  console.log(`    ${C.dim}$${C.reset} ${code('aether sdk getSlot')}         ${C.dim}# Query current slot via SDK${C.reset}`);
+  console.log();
+  
+  console.log(`  ${C.dim}Documentation: ${C.cyan}https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop${C.reset}\n`);
 }
 
 /**
@@ -568,7 +447,7 @@ Validator CLI v${VERSION}
 function parseArgs() {
   const args = process.argv.slice(2);
 
-  // Handle version flag
+  // Handle version flags
   if (args.includes('--version') || args.includes('-v') || args.includes('-V')) {
     return 'version';
   }
@@ -578,7 +457,7 @@ function parseArgs() {
     return 'start';
   }
 
-  // Handle multi-word commands (e.g., "validator start", "kyc generate")
+  // Handle multi-word commands (e.g., "validator start")
   if (args.length >= 2) {
     const multiCmd = `${args[0]} ${args[1]}`;
     if (COMMANDS[multiCmd]) {
@@ -597,10 +476,15 @@ function main() {
   const command = parseArgs();
   
   if (COMMANDS[command]) {
-    COMMANDS[command].handler();
+    try {
+      COMMANDS[command].handler();
+    } catch (err) {
+      console.error(`\n  ${error(`Command failed: ${err.message}`)}\n`);
+      process.exit(1);
+    }
   } else {
-    console.error(`❌ Unknown command: ${command}`);
-    console.error('Run "aether-cli help" for usage.\n');
+    console.error(`\n  ${error(`Unknown command: ${command}`)}`);
+    console.log(`  ${C.dim}Run "aether help" to see available commands.${C.reset}\n`);
     process.exit(1);
   }
 }
@@ -609,3 +493,6 @@ function main() {
 if (require.main === module) {
   main();
 }
+
+// Export for module use
+module.exports = { main, showHelp, COMMANDS, VERSION };
