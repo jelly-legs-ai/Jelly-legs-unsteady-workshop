@@ -8,7 +8,7 @@
     "aether": "index.js"
   },
   "scripts": {
-    "test": "node test.js && cd sdk && node test.js",
+    "test": "cd test && node doctor.test.js && cd ../sdk && node test.js",
     "lint": "echo 'No linting configured'",
     "doctor": "node index.js doctor",
     "init": "node index.js init",
