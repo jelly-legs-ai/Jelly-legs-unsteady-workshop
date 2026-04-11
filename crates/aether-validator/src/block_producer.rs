@@ -818,10 +818,10 @@ impl BlockProducer {
     }
 }
 
-/// Test-only helper to derive AI Priority Lane from a fee amount.
-#[cfg(test)]
 impl BlockProducer {
-    pub fn derive_priority_lane_test(fee: u64) -> AIPriorityLane {
+    /// Derive AI Priority Lane from a fee amount.
+    /// Public for use in integration tests and RPC handlers.
+    pub fn derive_priority_lane_from_fee(fee: u64) -> AIPriorityLane {
         if fee >= 1_000_000 {
             AIPriorityLane::Critical
         } else if fee >= 500_000 {

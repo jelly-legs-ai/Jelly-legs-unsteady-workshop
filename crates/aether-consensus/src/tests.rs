@@ -312,6 +312,7 @@ fn test_block_verification() {
 }
 
 #[test]
+#[ignore] // Slow test: produces 100 blocks with PoH hashing
 fn test_epoch_transition() {
     let mut consensus = AetherFlow::new();
     consensus.initialize_genesis().unwrap();

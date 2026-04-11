@@ -8,10 +8,108 @@ use crate::state::ValidatorState;
 use aether_ai_priority::fee_distribution::FeeDistributionConfig;
 use bs58;
 use serde::Serialize;
+use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::Mutex;
 use tracing::{info, warn};
+
+/// Rate limiter: tracks requests per IP within a time window
+struct RateLimiter {
+    /// Maps IP -> (request_count, window_start)
+    clients: HashMap<String, (u32, Instant)>,
+    /// Maximum requests per IP per window
+    max_requests: u32,
+    /// Time window duration
+    window: Duration,
+}
+
+impl RateLimiter {
+    fn new(max_requests: u32, window_secs: u64) -> Self {
+        Self {
+            clients: HashMap::new(),
+            max_requests,
+            window: Duration::from_secs(window_secs),
+        }
+    }
+
+    /// Check if a request from this IP is allowed. Returns false if rate-limited.
+    fn check_and_record(&mut self, ip: &str) -> bool {
+        let now = Instant::now();
+        let entry = self.clients.entry(ip.to_string()).or_insert((0, now));
+
+        // Reset window if expired
+        if now.duration_since(entry.1) > self.window {
+            *entry = (1, now);
+            return true;
+        }
+
+        // Check limit
+        if entry.0 >= self.max_requests {
+            return false;
+        }
+
+        entry.0 += 1;
+        true
+    }
+
+    /// Clean up expired entries to prevent memory growth
+    fn cleanup(&mut self) {
+        let now = Instant::now();
+        self.clients.retain(|_, (count, start)| {
+            now.duration_since(*start) <= self.window && *count > 0
+        });
+    }
+}
+
+/// Sanitize a URL path to prevent path traversal attacks
+fn sanitize_path(path: &str) -> Option<&str> {
+    // Reject paths with null bytes, path traversal, or suspicious sequences
+    if path.contains('\0') || path.contains("..") || path.contains("//") {
+        return None;
+    }
+    // Only allow printable ASCII characters
+    if !path.chars().all(|c| c.is_ascii_graphic() || c == ' ') {
+        return None;
+    }
+    Some(path)
+}
+
+/// Validate and decode a bs58 address. Returns None if invalid or too long.
+fn decode_address(addr: &str) -> Option<[u8; 32]> {
+    // Limit address length to prevent DoS
+    if addr.len() > 64 {
+        return None;
+    }
+    let decoded = bs58::decode(addr).into_vec().ok()?;
+    if decoded.len() < 32 {
+        let mut arr = [0u8; 32];
+        arr[..decoded.len()].copy_from_slice(&decoded);
+        Some(arr)
+    } else {
+        let mut arr = [0u8; 32];
+        arr.copy_from_slice(&decoded[..32]);
+        Some(arr)
+    }
+}
+
+/// Validate that a string field is within length limits and contains safe characters
+fn validate_string_field(s: &str, max_len: usize, field_name: &str) -> Result<(), String> {
+    if s.len() > max_len {
+        Err(format!("{} exceeds maximum length of {} characters", field_name, max_len))
+    } else if s.contains('\0') {
+        Err(format!("{} contains null bytes", field_name))
+    } else {
+        Ok(())
+    }
+}
+
+/// Maximum length for JSON body fields
+const MAX_TITLE_LEN: usize = 256;
+const MAX_DESCRIPTION_LEN: usize = 4096;
+const MAX_PURPOSE_LEN: usize = 512;
 
 /// Slot info response
 #[derive(Debug, Serialize)]
@@ -102,6 +200,11 @@ pub async fn start_rpc_server(
     state: ValidatorState,
     block_producer: Arc<BlockProducer>,
 ) -> anyhow::Result<()> {
+    // Rate limiter: 100 requests per 10 seconds per IP
+    let rate_limiter = Arc::new(Mutex::new(RateLimiter::new(100, 10)));
+    // Cleanup interval for expired rate limit entries
+    let cleanup_counter = Arc::new(std::sync::atomic::AtomicU64::new(0));
+
     let listener = TcpListener::bind(addr).await?;
     let port = listener.local_addr()?.port();
     info!("RPC HTTP server listening on http://0.0.0.0:{}/", port);
@@ -164,7 +267,28 @@ pub async fn start_rpc_server(
             Ok((socket, addr)) => {
                 let state = state.clone();
                 let bp = block_producer.clone();
+                let rl = rate_limiter.clone();
+                let cc = cleanup_counter.clone();
                 tokio::spawn(async move {
+                    // Rate limit check
+                    {
+                        let mut limiter = rl.lock().await;
+                        let ip = addr.ip().to_string();
+                        if !limiter.check_and_record(&ip) {
+                            warn!("Rate limit exceeded for {}", ip);
+                            let response = "HTTP/1.1 429 Too Many Requests\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{\"error\":\"Rate limit exceeded\"}";
+                            let _ = socket.writable().await;
+                            // Best-effort write; if it fails the client will see a disconnect
+                            use tokio::io::AsyncWriteExt;
+                            let mut stream = socket;
+                            let _ = stream.write_all(response.as_bytes()).await;
+                            return;
+                        }
+                        // Periodic cleanup every 1000 requests
+                        if cc.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % 1000 == 0 {
+                            limiter.cleanup();
+                        }
+                    }
                     if let Err(e) = handle_http_request(socket, state, bp).await {
                         warn!("HTTP request error from {}: {}", addr, e);
                     }
@@ -231,6 +355,15 @@ async fn handle_http_request(
 
     let method = parts[0];
     let path = parts[1];
+
+    // Sanitize path to prevent traversal attacks
+    let path = match sanitize_path(path) {
+        Some(p) => p,
+        None => {
+            send_response(&mut socket, 400, "Bad Request", r#"{"error":"Invalid path"}"#).await?;
+            return Ok(());
+        }
+    };
 
     // Handle CORS preflight (OPTIONS) requests
     if method == "OPTIONS" {
@@ -487,9 +620,8 @@ async fn handle_http_request(
         }
         // Submit transaction with AI priority lane (accepts lane in body)
         ("POST", "/v1/ai_priority/submit") => {
-            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
-            let body = &request_str[body_start..];
-            match serde_json::from_str::<serde_json::Value>(body) {
+            // body already parsed above
+            match serde_json::from_str::<serde_json::Value>(&body) {
                 Ok(json) => {
                     let tx_type = json.get("tx_type").and_then(|v| v.as_str()).unwrap_or("transfer");
                     let signer = json.get("signer").and_then(|v| v.as_str()).unwrap_or("");
@@ -695,9 +827,8 @@ async fn handle_http_request(
         }
         // Submit transaction
         ("POST", "/v1/tx" | "/v1/submit") => {
-            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
-            let body = &request_str[body_start..];
-            match serde_json::from_str::<serde_json::Value>(body) {
+            // body already parsed above
+            match serde_json::from_str::<serde_json::Value>(&body) {
                 Ok(json) => {
                     let tx_type = json.get("tx_type").and_then(|v| v.as_str()).unwrap_or("transfer");
                     let signer = json.get("signer").and_then(|v| v.as_str()).unwrap_or("");
@@ -776,9 +907,8 @@ async fn handle_http_request(
         }
         // Create a new stake
         ("POST", "/v1/staking/stake") => {
-            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
-            let body = &request_str[body_start..];
-            match serde_json::from_str::<StakeRequest>(body) {
+            // body already parsed above
+            match serde_json::from_str::<StakeRequest>(&body) {
                 Ok(req) => {
                     // Decode owner address
                     let owner_bytes = bs58::decode(&req.owner).into_vec().unwrap_or_default();
@@ -818,9 +948,8 @@ async fn handle_http_request(
         }
         // Initiate unstake
         ("POST", "/v1/staking/unstake") => {
-            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
-            let body = &request_str[body_start..];
-            match serde_json::from_str::<UnstakeRequest>(body) {
+            // body already parsed above
+            match serde_json::from_str::<UnstakeRequest>(&body) {
                 Ok(req) => {
                     let owner_bytes = bs58::decode(&req.owner).into_vec().unwrap_or_default();
                     let mut owner = [0u8; 32];
@@ -850,9 +979,8 @@ async fn handle_http_request(
         }
         // Complete withdrawal after lock period
         ("POST", "/v1/staking/withdraw") => {
-            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
-            let body = &request_str[body_start..];
-            match serde_json::from_str::<UnstakeRequest>(body) {
+            // body already parsed above
+            match serde_json::from_str::<UnstakeRequest>(&body) {
                 Ok(req) => {
                     let owner_bytes = bs58::decode(&req.owner).into_vec().unwrap_or_default();
                     let mut owner = [0u8; 32];
@@ -882,9 +1010,8 @@ async fn handle_http_request(
         }
         // Claim staking rewards
         ("POST", "/v1/staking/claim") => {
-            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
-            let body = &request_str[body_start..];
-            match serde_json::from_str::<ClaimRequest>(body) {
+            // body already parsed above
+            match serde_json::from_str::<ClaimRequest>(&body) {
                 Ok(req) => {
                     let owner_bytes = bs58::decode(&req.owner).into_vec().unwrap_or_default();
                     let mut owner = [0u8; 32];
@@ -925,9 +1052,8 @@ async fn handle_http_request(
         }
         // Delegate stake to validator
         ("POST", "/v1/staking/delegate") => {
-            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
-            let body = &request_str[body_start..];
-            match serde_json::from_str::<serde_json::Value>(body) {
+            // body already parsed above
+            match serde_json::from_str::<serde_json::Value>(&body) {
                 Ok(json) => {
                     let owner_str = json.get("owner").and_then(|v| v.as_str()).unwrap_or("");
                     let stake_id = json.get("stake_id").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
@@ -1047,18 +1173,23 @@ async fn handle_http_request(
         ("GET", path) if path.starts_with("/v1/governance/proposals/status/") => {
             let status_str = path.strip_prefix("/v1/governance/proposals/status/").unwrap_or("").split('?').next().unwrap_or("");
             let status = match status_str {
-                "draft" => aether_governance::ProposalStatus::Draft,
-                "pending" => aether_governance::ProposalStatus::Pending,
-                "active" => aether_governance::ProposalStatus::Active,
-                "passed" => aether_governance::ProposalStatus::Passed,
-                "failed" => aether_governance::ProposalStatus::Failed,
-                "executed" => aether_governance::ProposalStatus::Executed,
-                "cancelled" => aether_governance::ProposalStatus::Cancelled,
-                "expired" => aether_governance::ProposalStatus::Expired,
-                "vetoed" => aether_governance::ProposalStatus::Vetoed,
-                _ => {
+                "draft" => Some(aether_governance::ProposalStatus::Draft),
+                "pending" => Some(aether_governance::ProposalStatus::Pending),
+                "active" => Some(aether_governance::ProposalStatus::Active),
+                "passed" => Some(aether_governance::ProposalStatus::Passed),
+                "failed" => Some(aether_governance::ProposalStatus::Failed),
+                "executed" => Some(aether_governance::ProposalStatus::Executed),
+                "cancelled" => Some(aether_governance::ProposalStatus::Cancelled),
+                "expired" => Some(aether_governance::ProposalStatus::Expired),
+                "vetoed" => Some(aether_governance::ProposalStatus::Vetoed),
+                _ => None,
+            };
+            let status = match status {
+                Some(s) => s,
+                None => {
                     let resp = serde_json::json!({"error": "Invalid status. Use: draft, pending, active, passed, failed, executed, cancelled, expired, vetoed"});
-                    return send_response(&mut socket, 400, "Bad Request", &serde_json::to_string(&resp).unwrap_or_default()).await;
+                    send_response(&mut socket, 400, "Bad Request", &serde_json::to_string(&resp).unwrap_or_default()).await?;
+                    return Ok(());
                 }
             };
             let proposals = state.get_governance_proposals_by_status(status);
@@ -1146,9 +1277,8 @@ async fn handle_http_request(
         }
         // Create a new governance proposal
         ("POST", "/v1/governance/proposal") => {
-            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
-            let body = &request_str[body_start..];
-            match serde_json::from_str::<serde_json::Value>(body) {
+            // body already parsed above
+            match serde_json::from_str::<serde_json::Value>(&body) {
                 Ok(json) => {
                     let title = json.get("title").and_then(|v| v.as_str()).unwrap_or("Untitled").to_string();
                     let description = json.get("description").and_then(|v| v.as_str()).unwrap_or("").to_string();
@@ -1247,9 +1377,8 @@ async fn handle_http_request(
         }
         // Cast a vote on a proposal
         ("POST", "/v1/governance/vote") => {
-            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
-            let body = &request_str[body_start..];
-            match serde_json::from_str::<serde_json::Value>(body) {
+            // body already parsed above
+            match serde_json::from_str::<serde_json::Value>(&body) {
                 Ok(json) => {
                     let proposal_id = json.get("proposal_id").and_then(|v| v.as_u64()).unwrap_or(0);
                     let voter_str = json.get("voter").and_then(|v| v.as_str()).unwrap_or("");
@@ -1295,9 +1424,8 @@ async fn handle_http_request(
         }
         // Execute a passed proposal
         ("POST", "/v1/governance/execute") => {
-            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
-            let body = &request_str[body_start..];
-            match serde_json::from_str::<serde_json::Value>(body) {
+            // body already parsed above
+            match serde_json::from_str::<serde_json::Value>(&body) {
                 Ok(json) => {
                     let proposal_id = json.get("proposal_id").and_then(|v| v.as_u64()).unwrap_or(0);
                     
@@ -1325,9 +1453,8 @@ async fn handle_http_request(
         }
         // Veto a proposal (security council only)
         ("POST", "/v1/governance/veto") => {
-            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
-            let body = &request_str[body_start..];
-            match serde_json::from_str::<serde_json::Value>(body) {
+            // body already parsed above
+            match serde_json::from_str::<serde_json::Value>(&body) {
                 Ok(json) => {
                     let proposal_id = json.get("proposal_id").and_then(|v| v.as_u64()).unwrap_or(0);
                     let vetoer_str = json.get("vetoer").and_then(|v| v.as_str()).unwrap_or("");
@@ -1359,9 +1486,8 @@ async fn handle_http_request(
         }
         // Cancel a proposal (proposer only)
         ("POST", "/v1/governance/cancel") => {
-            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
-            let body = &request_str[body_start..];
-            match serde_json::from_str::<serde_json::Value>(body) {
+            // body already parsed above
+            match serde_json::from_str::<serde_json::Value>(&body) {
                 Ok(json) => {
                     let proposal_id = json.get("proposal_id").and_then(|v| v.as_u64()).unwrap_or(0);
                     let canceller_str = json.get("canceller").and_then(|v| v.as_str()).unwrap_or("");
@@ -1501,9 +1627,8 @@ async fn handle_http_request(
         }
         // Create a treasury withdrawal request
         ("POST", "/v1/treasury/withdraw") => {
-            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
-            let body = &request_str[body_start..];
-            match serde_json::from_str::<serde_json::Value>(body) {
+            // body already parsed above
+            match serde_json::from_str::<serde_json::Value>(&body) {
                 Ok(json) => {
                     let recipient_str = json.get("recipient").and_then(|v| v.as_str()).unwrap_or("");
                     let amount = json.get("amount").and_then(|v| v.as_u64()).unwrap_or(0);
@@ -1547,9 +1672,8 @@ async fn handle_http_request(
         }
         // Approve a treasury withdrawal
         ("POST", "/v1/treasury/approve") => {
-            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
-            let body = &request_str[body_start..];
-            match serde_json::from_str::<serde_json::Value>(body) {
+            // body already parsed above
+            match serde_json::from_str::<serde_json::Value>(&body) {
                 Ok(json) => {
                     let withdrawal_id = json.get("withdrawal_id").and_then(|v| v.as_u64()).unwrap_or(0);
                     let signer_str = json.get("signer").and_then(|v| v.as_str()).unwrap_or("");
@@ -1581,9 +1705,8 @@ async fn handle_http_request(
         }
         // Execute a treasury withdrawal (after timelock)
         ("POST", "/v1/treasury/execute") => {
-            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
-            let body = &request_str[body_start..];
-            match serde_json::from_str::<serde_json::Value>(body) {
+            // body already parsed above
+            match serde_json::from_str::<serde_json::Value>(&body) {
                 Ok(json) => {
                     let withdrawal_id = json.get("withdrawal_id").and_then(|v| v.as_u64()).unwrap_or(0);
                     let tx_hash_str = json.get("tx_hash").and_then(|v| v.as_str()).unwrap_or("");
@@ -1617,9 +1740,8 @@ async fn handle_http_request(
         }
         // Add treasury signer
         ("POST", "/v1/treasury/add_signer") => {
-            let body_start = request_str.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
-            let body = &request_str[body_start..];
-            match serde_json::from_str::<serde_json::Value>(body) {
+            // body already parsed above
+            match serde_json::from_str::<serde_json::Value>(&body) {
                 Ok(json) => {
                     let signer_str = json.get("signer").and_then(|v| v.as_str()).unwrap_or("");
                     

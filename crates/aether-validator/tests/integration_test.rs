@@ -377,7 +377,7 @@ fn test_validator_state_staking() {
     
     let positions = state.get_staking_positions(&bs58::encode(owner).into_string());
     assert_eq!(positions.len(), 1);
-    assert_eq!(positions[0]["amount"], 100_000_000_000);
+    assert_eq!(positions[0]["amount"], 100_000_000_000i64);
 }
 
 #[test]
@@ -504,16 +504,16 @@ fn test_persistence_no_snapshot() {
 #[test]
 fn test_ai_priority_lane_derivation() {
     // Critical: >= 1_000_000 lamports
-    assert_eq!(BlockProducer::derive_priority_lane_test(1_000_000), AIPriorityLane::Critical);
-    assert_eq!(BlockProducer::derive_priority_lane_test(5_000_000), AIPriorityLane::Critical);
+    assert_eq!(BlockProducer::derive_priority_lane_from_fee(1_000_000), AIPriorityLane::Critical);
+    assert_eq!(BlockProducer::derive_priority_lane_from_fee(5_000_000), AIPriorityLane::Critical);
     
     // High: >= 500_000 but < 1_000_000
-    assert_eq!(BlockProducer::derive_priority_lane_test(500_000), AIPriorityLane::High);
-    assert_eq!(BlockProducer::derive_priority_lane_test(999_999), AIPriorityLane::High);
+    assert_eq!(BlockProducer::derive_priority_lane_from_fee(500_000), AIPriorityLane::High);
+    assert_eq!(BlockProducer::derive_priority_lane_from_fee(999_999), AIPriorityLane::High);
     
     // Standard: < 500_000
-    assert_eq!(BlockProducer::derive_priority_lane_test(100), AIPriorityLane::Standard);
-    assert_eq!(BlockProducer::derive_priority_lane_test(499_999), AIPriorityLane::Standard);
+    assert_eq!(BlockProducer::derive_priority_lane_from_fee(100), AIPriorityLane::Standard);
+    assert_eq!(BlockProducer::derive_priority_lane_from_fee(499_999), AIPriorityLane::Standard);
 }
 
 // ============================================================================
