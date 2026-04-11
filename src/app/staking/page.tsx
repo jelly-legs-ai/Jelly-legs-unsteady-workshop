@@ -37,11 +37,29 @@ interface WalletInfo {
   balanceAeth: string;
 }
 
-const POOLS = [
-  { id: "aeth_staking", name: "AETH Staking", apy: 8.5, lockDays: 7, minStake: 10 },
-  { id: "flux_staking", name: "FLUX Staking", apy: 12.0, lockDays: 14, minStake: 100 },
-  { id: "ath_staking", name: "ATH Governance", apy: 15.5, lockDays: 30, minStake: 1000 },
-];
+interface PoolStat {
+  poolId: string;
+  name: string;
+  apy: number;
+  tvl: number;
+  tvlLamports: number;
+  activeAccounts: number;
+  avgStakeSize: number;
+  lastUpdatedSlot: number;
+  chainConnected: boolean;
+  trend: 'up' | 'down' | 'stable';
+  color: string;
+  colorAccent: string;
+  icon: string;
+  minStake: number;
+  lockDays: number;
+}
+
+const POOL_CONFIGS: Record<string, PoolStat> = {
+  aeth_staking:  { poolId: 'aeth_staking', name: 'AETH Staking',    apy: 8.5,  tvl: 0, tvlLamports: 0, activeAccounts: 0, avgStakeSize: 0, lastUpdatedSlot: 0, chainConnected: false, trend: 'stable', color: 'from-green-500/20 to-green-600/10 border-green-500/30',   colorAccent: 'text-green-400',   icon: '💰', minStake: 10,   lockDays: 7  },
+  flux_staking:  { poolId: 'flux_staking',  name: 'FLUX Staking',     apy: 12.0, tvl: 0, tvlLamports: 0, activeAccounts: 0, avgStakeSize: 0, lastUpdatedSlot: 0, chainConnected: false, trend: 'stable', color: 'from-orange-500/20 to-orange-600/10 border-orange-500/30', colorAccent: 'text-orange-400',  icon: '⚡', minStake: 100,  lockDays: 14 },
+  ath_staking:   { poolId: 'ath_staking',   name: 'ATH Governance',   apy: 15.5, tvl: 0, tvlLamports: 0, activeAccounts: 0, avgStakeSize: 0, lastUpdatedSlot: 0, chainConnected: false, trend: 'stable', color: 'from-red-500/20 to-red-600/10 border-red-500/30',          colorAccent: 'text-red-400',     icon: '🏛️', minStake: 1000, lockDays: 30 },
+};
 
 export default function StakingPage() {
   // REAL WALLET: use the adapter connected to Phantom/Solflare/Backpack
@@ -56,6 +74,8 @@ export default function StakingPage() {
   // Staking State
   const [positions, setPositions] = useState<StakePosition[]>([]);
   const [isLoadingPositions, setIsLoadingPositions] = useState(false);
+  const [poolStats, setPoolStats] = useState<PoolStat[]>([]);
+  const [isLoadingPoolStats, setIsLoadingPoolStats] = useState(true);
 
   // Action States
   const [stakeAmount, setStakeAmount] = useState<string>("");
@@ -106,6 +126,29 @@ export default function StakingPage() {
       setIsVerifying(false);
     }
   }, [walletAddress]);
+
+  /**
+   * Fetch live pool statistics from /api/pool-stats
+   */
+  const fetchPoolStats = useCallback(async () => {
+    setIsLoadingPoolStats(true);
+    try {
+      const res = await fetch("/api/pool-stats");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.pools && Array.isArray(data.pools)) {
+          setPoolStats(data.pools.map((p: any) => ({
+            ...POOL_CONFIGS[p.poolId] || POOL_CONFIGS.aeth_staking,
+            ...p,
+          })));
+        }
+      }
+    } catch {
+      // Keep empty on failure
+    } finally {
+      setIsLoadingPoolStats(false);
+    }
+  }, []);
 
   /**
    * Auto-verify when a real wallet connects
@@ -159,7 +202,7 @@ export default function StakingPage() {
       return;
     }
 
-    const pool = POOLS.find((p) => p.id === selectedPool);
+    const pool = Object.values(POOL_CONFIGS).find((p) => p.poolId === selectedPool);
     if (pool && amount < pool.minStake) {
       setError(`Minimum stake for ${pool.name} is ${pool.minStake} ATH`);
       return;
@@ -285,6 +328,13 @@ export default function StakingPage() {
     }
   }, [walletInfo?.verified, fetchPositions]);
 
+  // Fetch live pool stats on mount and every 30s
+  useEffect(() => {
+    fetchPoolStats();
+    const interval = setInterval(fetchPoolStats, 30000);
+    return () => clearInterval(interval);
+  }, [fetchPoolStats]);
+
   // Auto-clear messages
   useEffect(() => {
     if (error || success) {
@@ -315,6 +365,73 @@ export default function StakingPage() {
           <p className="text-center text-gray-400 mb-8">
             Stake ATH tokens to earn rewards and secure the network
           </p>
+
+          {/* Live Pool Stats Dashboard */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <span>📊</span> Live Pool Stats
+              </h2>
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                {poolStats[0]?.chainConnected ? (
+                  <>
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                    <span>Live from chain · Slot {poolStats[0]?.lastUpdatedSlot?.toLocaleString() || '—'}</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+                    <span>Demo mode · pool stats unavailable</span>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {(poolStats.length > 0 ? poolStats : Object.values(POOL_CONFIGS)).map((pool) => {
+                const trendArrow = pool.trend === 'up' ? '↑' : pool.trend === 'down' ? '↓' : '→';
+                const trendColor = pool.trend === 'up' ? 'text-green-400' : pool.trend === 'down' ? 'text-red-400' : 'text-gray-400';
+                return (
+                  <div
+                    key={pool.poolId}
+                    className={`bg-gradient-to-br ${pool.color} rounded-xl p-5 border`}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl">{pool.icon}</span>
+                        <div>
+                          <div className="font-semibold text-white">{pool.name}</div>
+                          <div className="text-xs text-gray-400">Min: {pool.minStake} ATH · Lock: {pool.lockDays}d</div>
+                        </div>
+                      </div>
+                      <span className={`text-xs font-medium ${trendColor}`}>{trendArrow}</span>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-400">APY</span>
+                        <span className={`text-xl font-bold ${pool.colorAccent}`}>
+                          {isLoadingPoolStats && poolStats.length === 0 ? '—' : `${pool.apy.toFixed(1)}%`}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-400">TVL</span>
+                        <span className="text-white font-medium font-mono text-sm">
+                          {isLoadingPoolStats && poolStats.length === 0 ? '—' :
+                            pool.tvl > 0 ? `${pool.tvl.toLocaleString(undefined, { maximumFractionDigits: 0 })} ATH` : '—'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-400">Active Stakers</span>
+                        <span className="text-white font-medium text-sm">
+                          {isLoadingPoolStats && poolStats.length === 0 ? '—' :
+                            pool.activeAccounts > 0 ? pool.activeAccounts.toLocaleString() : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
           {/* Error/Success Messages */}
           {error && (
@@ -408,8 +525,8 @@ export default function StakingPage() {
                         onChange={(e) => setSelectedPool(e.target.value)}
                         className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:border-red-500 transition-colors"
                       >
-                        {POOLS.map((pool) => (
-                          <option key={pool.id} value={pool.id}>
+                        {Object.values(POOL_CONFIGS).map((pool) => (
+                          <option key={pool.poolId} value={pool.poolId}>
                             {pool.name} - {pool.apy}% APY (min: {pool.minStake} ATH, {pool.lockDays} days)
                           </option>
                         ))}
@@ -463,7 +580,7 @@ export default function StakingPage() {
                         <div className="flex justify-between items-start mb-3">
                           <div>
                             <h3 className="font-semibold text-white">
-                              {POOLS.find((p) => p.id === position.poolId)?.name ||
+                              {Object.values(POOL_CONFIGS).find((p) => p.poolId === position.poolId)?.name ||
                                 position.poolId}
                             </h3>
                             <p className="text-sm text-gray-400">
