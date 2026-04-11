@@ -17,6 +17,7 @@ const { sdkCommand } = require('./commands/sdk');
 const { snapshotCommand } = require('./commands/snapshot');
 const { walletCommand } = require('./commands/wallet');
 const { networkCommand } = require('./commands/network');
+const { networkDiagnosticsCommand } = require('./commands/network-diagnostics');
 const { validatorsListCommand } = require('./commands/validators');
 const { delegationsCommand } = require('./commands/delegations');
 const { rewardsCommand } = require('./commands/rewards');
@@ -426,6 +427,12 @@ const COMMANDS = {
       pingCommand();
     },
   },
+  'network-diagnostics': {
+    description: 'Network diagnostics with RPC failover — aether network-diagnostics [--auto] [--benchmark] [--all] [--json]',
+    handler: () => {
+      networkDiagnosticsCommand();
+    },
+  },
   emergency: {
     description: 'Emergency response & network alerts — status, monitor, check, alert, failover, history',
     handler: () => {
@@ -544,6 +551,8 @@ Validator CLI v${VERSION}
   console.log('  aether-cli wallet balance      # Query AETH balance');
   console.log('  aether-cli network             # Network status, peers, slot info');
   console.log('  aether-cli network --peers     # Detailed peer list');
+  console.log('  aether-cli network-diagnostics      # RPC diagnostics with failover');
+  console.log('  aether-cli network-diagnostics --auto  # Auto-select best RPC');
   console.log('  aether-cli tx history          # Show transaction history');
   console.log('  aether-cli price               # AETH/USD price check');
   console.log('  aether-cli nft create          # Create NFT with metadata');

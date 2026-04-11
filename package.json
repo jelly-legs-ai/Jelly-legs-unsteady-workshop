@@ -1,6 +1,6 @@
 {
   "name": "@jellylegsai/aether-cli",
-  "version": "1.9.2",
+  "version": "1.10.0",
   "description": "Aether CLI - Validator Onboarding, Staking, and Blockchain Operations",
   "main": "index.js",
   "bin": {
@@ -35,6 +35,7 @@
     "tx-history": "node index.js tx-history",
     "tx": "node index.js tx-history",
     "network": "node index.js network",
+    "network-diagnostics": "node index.js network-diagnostics",
     "epoch": "node index.js epoch",
     "supply": "node index.js supply",
     "status": "node index.js status",
