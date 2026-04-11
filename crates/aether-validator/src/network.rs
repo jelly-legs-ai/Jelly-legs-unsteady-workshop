@@ -41,7 +41,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use tokio::time::{interval, Duration};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 /// Topic for block gossip
 pub const BLOCKS_TOPIC: &str = "aether-blocks";
@@ -270,8 +270,8 @@ impl P2PNode {
     /// Create a new P2P node
     pub fn new(
         listen_addr: &str,
-        genesis_hash: &str,
-        chain_id: &str,
+        _genesis_hash: &str,
+        _chain_id: &str,
         validator_state: ValidatorState,
         network_state: Arc<NetworkState>,
     ) -> Result<Self, String> {
@@ -555,7 +555,7 @@ impl P2PNode {
     }
     
     /// Handle incoming gossip message
-    async fn handle_gossip_message(&mut self, msg: GossipMessage, peer_id: &str) {
+    async fn handle_gossip_message(&mut self, msg: GossipMessage, _peer_id: &str) {
         match msg {
             GossipMessage::SlotUpdate { slot, peer_id: from_peer, block_hash } => {
                 debug!("Slot update from {}: slot {} (hash: {})", from_peer, slot, &block_hash[..8.min(block_hash.len())]);

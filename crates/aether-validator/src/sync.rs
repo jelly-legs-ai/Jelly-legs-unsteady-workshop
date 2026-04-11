@@ -754,16 +754,16 @@ mod tests {
     async fn test_slots_behind() {
         let sm = create_test_sync_manager();
         
-        // When caught up
-        assert_eq!(sm.slots_behind(10).await, 0);
+        // Validator starts at slot 0 — same slot as peer means caught up
+        assert_eq!(sm.slots_behind(0).await, 0);
         
-        // When behind
+        // When behind (we're at 0, peer is at 100)
         assert_eq!(sm.slots_behind(100).await, 100);
         
-        // When syncing
+        // When syncing to a target
         sm.start_sync("peer-1", 200).await;
         assert_eq!(sm.slots_behind(200).await, 0); // Already syncing to target
-        assert_eq!(sm.slots_behind(300).await, 100); // Beyond target
+        assert_eq!(sm.slots_behind(300).await, 100); // Beyond target by 100
     }
 
     #[tokio::test]
