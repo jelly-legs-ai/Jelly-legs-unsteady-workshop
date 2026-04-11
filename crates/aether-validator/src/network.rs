@@ -1049,6 +1049,7 @@ mod tests {
         
         assert_eq!(*state.genesis_hash.blocking_read(), "genesis-hash-123");
         assert_eq!(*state.chain_id.blocking_read(), "testnet-1");
-        assert_eq!(state.get_peer_count().blocking_recv(), None);
+        // Peer count starts at 0
+        assert_eq!(*state.peer_count.blocking_read(), 0);
     }
 }

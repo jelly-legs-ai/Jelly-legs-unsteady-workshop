@@ -155,19 +155,46 @@ pub async fn start_rpc_server(
     }
 }
 
+/// Maximum request body size (1 MB)
+const MAX_REQUEST_BODY_SIZE: usize = 1024 * 1024;
+
 /// Handle an HTTP request
 async fn handle_http_request(
     mut socket: TcpStream,
     state: ValidatorState,
     block_producer: Arc<BlockProducer>,
 ) -> anyhow::Result<()> {
-    let mut buf = vec![0u8; 8192];
-    let n = socket.read(&mut buf).await?;
-    if n == 0 {
-        return Ok(());
-    }
+    // Read headers first (up to 16KB for headers)
+    let mut headers_buf = vec![0u8; 16384];
+    let mut total_read = 0usize;
+    
+    // Read until we find \r\n\r\n (end of headers)
+    let header_end = loop {
+        if total_read >= headers_buf.len() {
+            // Headers too large
+            send_response(&mut socket, 431, "Request Header Fields Too Large", r#"{"error":"Headers too large"}"#).await?;
+            return Ok(());
+        }
+        
+        let n = socket.read(&mut headers_buf[total_read..]).await?;
+        if n == 0 {
+            return Ok(()); // Client disconnected
+        }
+        total_read += n;
+        
+        let header_str = String::from_utf8_lossy(&headers_buf[..total_read]);
+        if let Some(pos) = header_str.find("\r\n\r\n") {
+            break pos;
+        }
+        
+        // Safety: don't read more than reasonable
+        if total_read > 16384 {
+            send_response(&mut socket, 431, "Request Header Fields Too Large", r#"{"error":"Headers too large"}"#).await?;
+            return Ok(());
+        }
+    };
 
-    let request_str = String::from_utf8_lossy(&buf[..n]);
+    let request_str = String::from_utf8_lossy(&headers_buf[..total_read]);
     let lines: Vec<&str> = request_str.lines().collect();
     
     if lines.is_empty() {
@@ -182,6 +209,50 @@ async fn handle_http_request(
 
     let method = parts[0];
     let path = parts[1];
+
+    // Handle CORS preflight (OPTIONS) requests
+    if method == "OPTIONS" {
+        send_cors_preflight(&mut socket).await?;
+        return Ok(());
+    }
+
+    // Extract Content-Length and read body if present
+    let body_start = header_end + 4; // Skip \r\n\r\n
+    let content_length: usize = extract_header(&lines, "content-length")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(0);
+    
+    // Security: reject oversized bodies
+    if content_length > MAX_REQUEST_BODY_SIZE {
+        send_response(&mut socket, 413, "Payload Too Large", r#"{"error":"Request body too large"}"#).await?;
+        return Ok(());
+    }
+
+    // Collect the body (may already be in headers_buf or need more reading)
+    let body = if content_length > 0 {
+        let already_read = total_read.saturating_sub(body_start);
+        let remaining = content_length.saturating_sub(already_read);
+        
+        let mut body_data = headers_buf[body_start..total_read].to_vec();
+        if remaining > 0 {
+            let mut extra = vec![0u8; remaining];
+            let mut extra_read = 0usize;
+            while extra_read < remaining {
+                let n = socket.read(&mut extra[extra_read..]).await?;
+                if n == 0 { break; }
+                extra_read += n;
+            }
+            body_data.extend_from_slice(&extra[..extra_read]);
+        }
+        String::from_utf8_lossy(&body_data).to_string()
+    } else {
+        // For POST without Content-Length or GET, try to use whatever's after headers
+        if body_start < total_read {
+            String::from_utf8_lossy(&headers_buf[body_start..total_read]).to_string()
+        } else {
+            String::new()
+        }
+    };
 
     // Route the request
     let response: (u16, String) = match (method, path) {
@@ -904,4 +975,40 @@ async fn send_response(
     socket.write_all(response.as_bytes()).await?;
     socket.flush().await?;
     Ok(())
+}
+
+/// Send a CORS preflight response for OPTIONS requests
+async fn send_cors_preflight(socket: &mut TcpStream) -> anyhow::Result<()> {
+    let response = format!(
+        "HTTP/1.1 204 No Content\r\n\
+        Access-Control-Allow-Origin: *\r\n\
+        Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\
+        Access-Control-Allow-Headers: Content-Type, Authorization, X-Request-ID\r\n\
+        Access-Control-Max-Age: 86400\r\n\
+        Content-Length: 0\r\n\
+        Connection: close\r\n\
+        \r\n"
+    );
+    socket.write_all(response.as_bytes()).await?;
+    socket.flush().await?;
+    Ok(())
+}
+
+/// Extract a header value from parsed HTTP request lines (case-insensitive)
+fn extract_header<'a>(lines: &'a [&str], header_name: &str) -> Option<&'a str> {
+    let name_lower = header_name.to_lowercase();
+    for line in lines.iter().skip(1) {
+        // Lines after the request line are headers in "Name: Value" format
+        if let Some(colon_pos) = line.find(':') {
+            let key = line[..colon_pos].trim().to_lowercase();
+            if key == name_lower {
+                return Some(line[colon_pos + 1..].trim());
+            }
+        }
+        // Empty line signals end of headers
+        if line.is_empty() {
+            break;
+        }
+    }
+    None
 }

@@ -135,20 +135,31 @@ impl StakingContract {
         // Find active stake to remove
         let mut remaining = amount;
         for stake in stakes.iter_mut() {
-            if stake.status == StakeStatus::Active && stake.amount <= remaining {
-                remaining -= stake.amount;
-                stake.status = StakeStatus::Unlocked;
-                stake.cooldown_end = self.current_epoch + self.config.cooldown_epochs;
+            if remaining == 0 {
+                break;
+            }
+            if stake.status == StakeStatus::Active && stake.amount > 0 {
+                let unstake_amount = stake.amount.min(remaining);
+                remaining -= unstake_amount;
                 
-                // Move to pending unstakes
+                // Create a pending unstake entry
                 self.pending_unstakes
                     .entry(*owner)
                     .or_insert_with(Vec::new)
-                    .push((stake.amount, stake.cooldown_end));
+                    .push((unstake_amount, self.current_epoch + self.config.cooldown_epochs));
+                
+                // Update stake amount
+                stake.amount -= unstake_amount;
+                
+                // If fully unstaked, mark as unlocked
+                if stake.amount == 0 {
+                    stake.status = StakeStatus::Unlocked;
+                    stake.cooldown_end = self.current_epoch + self.config.cooldown_epochs;
+                }
                 
                 // Update totals
-                self.total_staked -= stake.amount;
-                *self.validator_stakes.entry(stake.validator).or_insert(0) -= stake.amount;
+                self.total_staked -= unstake_amount;
+                *self.validator_stakes.entry(stake.validator).or_insert(0) -= unstake_amount;
             }
         }
 
@@ -300,16 +311,22 @@ mod tests {
         let owner = [1u8; 32];
         let validator = [2u8; 32];
         
-        staking.stake(&owner, &validator, 1000_000_000_000).unwrap();
-        assert_eq!(staking.total_staked, 1000_000_000_000);
+        // Minimum stake is 10,000_000_000_000, stake twice the minimum
+        staking.stake(&owner, &validator, 20_000_000_000_000).unwrap();
+        assert_eq!(staking.total_staked, 20_000_000_000_000);
         
-        // Advance past warmup
+        // Advance past warmup (stakes become active after 2 epochs)
         staking.advance_epoch();
         staking.advance_epoch();
         
-        // Begin unstake
-        staking.begin_unstake(&owner, 500_000_000_000).unwrap();
-        assert_eq!(staking.total_staked, 500_000_000_000);
+        // Verify stake is now active
+        let stakes = staking.stakes.get(&owner).unwrap();
+        assert_eq!(stakes.len(), 1);
+        assert_eq!(stakes[0].status, StakeStatus::Active);
+        
+        // Begin unstake half
+        staking.begin_unstake(&owner, 10_000_000_000_000).unwrap();
+        assert_eq!(staking.total_staked, 10_000_000_000_000);
     }
 
     #[test]
@@ -318,8 +335,8 @@ mod tests {
         let owner = [1u8; 32];
         let validator = [2u8; 32];
         
-        // Stake 1000 ATH
-        staking.stake(&owner, &validator, 1000_000_000_000).unwrap();
+        // Stake 20,000 ATH (above minimum)
+        staking.stake(&owner, &validator, 20_000_000_000_000).unwrap();
         
         // Advance through warmup
         staking.advance_epoch();
@@ -327,7 +344,7 @@ mod tests {
         
         // Check stake is active
         let total = staking.total_staked_for(&owner);
-        assert_eq!(total, 1000_000_000_000);
+        assert_eq!(total, 20_000_000_000_000);
         
         // Distribute some rewards
         let distributed = staking.distribute_rewards(&validator).unwrap();
@@ -341,9 +358,9 @@ mod tests {
         let owner1 = [1u8; 32];
         let owner2 = [3u8; 32];
         
-        // Two stakers
-        staking.stake(&owner1, &validator, 1000_000_000_000).unwrap();
-        staking.stake(&owner2, &validator, 1000_000_000_000).unwrap();
+        // Two stakers (above minimum stake)
+        staking.stake(&owner1, &validator, 10_000_000_000_000).unwrap();
+        staking.stake(&owner2, &validator, 10_000_000_000_000).unwrap();
         
         // Advance through warmup
         staking.advance_epoch();
@@ -365,12 +382,12 @@ mod tests {
         let validator1 = [2u8; 32];
         let validator2 = [3u8; 32];
         
-        // Stake to two validators
-        staking.stake(&owner, &validator1, 500_000_000_000).unwrap();
-        staking.stake(&owner, &validator2, 500_000_000_000).unwrap();
+        // Stake to two validators (above minimum)
+        staking.stake(&owner, &validator1, 10_000_000_000_000).unwrap();
+        staking.stake(&owner, &validator2, 10_000_000_000_000).unwrap();
         
         let total = staking.total_staked_for(&owner);
-        assert_eq!(total, 1_000_000_000_000);
+        assert_eq!(total, 20_000_000_000_000);
     }
 
     #[test]
@@ -379,14 +396,15 @@ mod tests {
         let owner = [1u8; 32];
         let validator = [2u8; 32];
         
-        staking.stake(&owner, &validator, 1000_000_000_000).unwrap();
+        // Stake minimum
+        staking.stake(&owner, &validator, 10_000_000_000_000).unwrap();
         
         // Advance through warmup
         staking.advance_epoch();
         staking.advance_epoch();
         
         // Begin unstake
-        staking.begin_unstake(&owner, 1000_000_000_000).unwrap();
+        staking.begin_unstake(&owner, 10_000_000_000_000).unwrap();
         
         // Can't claim yet (cooldown)
         let claimable = staking.claim_unstake(&owner).unwrap();
@@ -399,7 +417,7 @@ mod tests {
         
         // Now can claim
         let claimable = staking.claim_unstake(&owner).unwrap();
-        assert_eq!(claimable, 1000_000_000_000);
+        assert_eq!(claimable, 10_000_000_000_000);
     }
 
     #[test]
