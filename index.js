@@ -32,7 +32,7 @@ const { snapshotCommand } = require('./commands/snapshot');
 const { walletCommand } = require('./commands/wallet');
 const { networkCommand } = require('./commands/network');
 const { networkDiagnosticsCommand } = require('./commands/network-diagnostics');
-const { validatorsListCommand } = require('./commands/validators');
+const { validatorsCommand } = require('./commands/validators');
 const { delegationsCommand } = require('./commands/delegations');
 const { rewardsCommand } = require('./commands/rewards');
 const { validatorRegisterCommand } = require('./commands/validator-register');
@@ -286,8 +286,8 @@ const COMMANDS = {
     handler: statusCommand,
   },
   validators: {
-    description: 'List active validators - validators list [--tier full|lite|observer] [--json]',
-    handler: validatorsListCommand,
+    description: 'Validator network management - validators list|info|top [--tier] [--json]',
+    handler: validatorsCommand,
   },
   'validator-info': {
     description: 'Get detailed info for a specific validator',
