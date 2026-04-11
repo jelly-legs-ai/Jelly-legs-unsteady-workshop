@@ -1,13 +1,13 @@
 {
   "/_not-found/page": "app/_not-found/page.js",
   "/api/ai_priority/submit/route": "app/api/ai_priority/submit/route.js",
+  "/api/network-stats/route": "app/api/network-stats/route.js",
+  "/api/stake/route": "app/api/stake/route.js",
+  "/api/wallet/verify/route": "app/api/wallet/verify/route.js",
   "/ai-portal/page": "app/ai-portal/page.js",
   "/api/explorer/route": "app/api/explorer/route.js",
-  "/api/network-stats/route": "app/api/network-stats/route.js",
   "/api/pool-stats/route": "app/api/pool-stats/route.js",
-  "/api/stake/route": "app/api/stake/route.js",
   "/api/claim/route": "app/api/claim/route.js",
-  "/api/wallet/verify/route": "app/api/wallet/verify/route.js",
   "/page": "app/page.js",
   "/explorer/page": "app/explorer/page.js",
   "/staking/page": "app/staking/page.js"
