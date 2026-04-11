@@ -267,6 +267,21 @@ impl ValidatorState {
         }
     }
 
+    pub fn remove_peer(&self, pubkey: &str) {
+        // Safely acquire write lock, return early if poisoned
+        let mut peers = match self.inner.peer_pubkeys.write() {
+            Ok(lock) => lock,
+            Err(_) => return, // Lock poisoned - skip peer removal
+        };
+        
+        peers.retain(|p| p != pubkey);
+        drop(peers);
+        // Safely read peer count, skip update if lock is poisoned
+        if let Ok(peer_list) = self.inner.peer_pubkeys.read() {
+            self.inner.peer_count.store(peer_list.len() as u64, Ordering::Relaxed);
+        }
+    }
+
     pub fn epoch_info(&self) -> EpochInfo {
         let slot = self.current_slot();
         // Read epoch duration from genesis config, default to 432_000 if not available

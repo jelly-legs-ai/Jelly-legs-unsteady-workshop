@@ -211,12 +211,13 @@ impl TransactionPool {
 
 /// Pool statistics for monitoring
 #[derive(Debug, Clone, Copy)]
-struct PoolStats {
-    critical_pending: usize,
-    high_pending: usize,
-    standard_pending: usize,
-    total_pending: usize,
-    total_fees_pending: u64,
+pub struct PoolStats {
+    pub critical_pending: usize,
+    pub high_pending: usize,
+    pub standard_pending: usize,
+    #[allow(dead_code)]
+    pub total_pending: usize,
+    pub total_fees_pending: u64,
 }
 
 /// Slot duration in milliseconds
@@ -545,72 +546,50 @@ impl BlockProducer {
         }
     }
 
-    /// Execute all pending transactions and return receipts
-    /// Enforces compute unit limit (MAX_COMPUTE_UNITS_PER_BLOCK) and transaction count limit.
-    /// Integrates AI Priority Fee Distributor for fee processing and lane-aware ordering.
+    /// Execute all pending transactions and return receipts.
+    /// 
+    /// Transactions are ordered by priority:
+    /// 1. Lane priority: Critical > High > Standard
+    /// 2. Within lane: Higher fee first (AI operators compete on fees)
+    /// 3. Same fee: FIFO (earlier arrival wins)
+    /// 
+    /// Capacity allocation: 40% Critical, 30% High, 30% Standard
     async fn execute_pending_transactions(&self, slot: u64) -> Vec<TransactionReceipt> {
-        let mut receipts = Vec::new();
-        let mut total_compute_units: u64 = 0;
-        let mut tx_count: usize = 0;
-        
-        // First, drain all transactions from the pool
-        let all_txs = {
+        // Drain transactions in priority order from the pool
+        let txs_to_process = {
             let mut pool = self.transaction_pool.write().await;
-            pool.drain(..).collect::<Vec<_>>()
+            pool.drain_block_transactions()
         };
-        
-        // Select transactions respecting compute and count limits
-        let mut txs_to_process = Vec::new();
-        let mut remaining_txs = Vec::new();
-        
-        for tx in all_txs {
-            let tx_compute = self.estimate_compute_units(&tx);
-            
-            // Check if adding this tx would exceed limits (with overflow protection)
-            if total_compute_units.checked_add(tx_compute).is_none() 
-                || total_compute_units + tx_compute > MAX_COMPUTE_UNITS_PER_BLOCK 
-            {
-                remaining_txs.push(tx);
-                continue;
-            }
-            
-            if tx_count >= MAX_TRANSACTIONS_PER_BLOCK {
-                remaining_txs.push(tx);
-                continue;
-            }
-            
-            total_compute_units += tx_compute;
-            tx_count += 1;
-            txs_to_process.push(tx);
-        }
-        
-        // Put remaining transactions back in the pool in original order (FIFO)
-        // This preserves transaction ordering and prevents starvation
-        {
-            let mut pool = self.transaction_pool.write().await;
-            for tx in remaining_txs {
-                pool.push_back(tx);
-            }
-        }
         
         // Get timestamp for fee receipts
         let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
+            .duration_since(std::time::SystemTime::UNIX_EPOCH)
             .map(|d| d.as_secs())
             .unwrap_or(0);
         
-        // Execute transactions with error handling, processing fees via AI Priority Fee Distributor
+        let mut receipts = Vec::new();
+        let mut total_compute_units: u64 = 0;
+        
+        // Execute transactions in priority order
         for tx in txs_to_process {
+            let compute_units = self.estimate_compute_units(&tx);
+            
+            // Check compute unit limit
+            if total_compute_units.saturating_add(compute_units) > MAX_COMPUTE_UNITS_PER_BLOCK {
+                // Skip this transaction - would exceed compute limit
+                debug!("Skipping transaction due to compute limit: {} units used", total_compute_units);
+                continue;
+            }
+            
+            total_compute_units += compute_units;
+            
             let exec_result = self.executor.execute(&tx);
             
             if exec_result.success {
                 // Derive AI Priority Lane from the transaction's fee amount
-                // This determines fee distribution: Critical(10x,100% treasury), High(5x,50/50), Standard(base,100% validators)
                 let lane = self.derive_priority_lane(tx.fee);
-                let compute_units = self.estimate_compute_units(&tx);
                 
                 // Process fee through the AI Priority Fee Distributor
-                // This calculates how the fee is split between treasury and validators based on lane
                 let _fee_receipt = self.fee_distributor.process_fee(
                     tx.signature,
                     lane,
@@ -620,10 +599,10 @@ impl BlockProducer {
                 );
                 
                 let receipt = TransactionReceipt {
-                    signature: tx.signature.clone(),
+                    signature: tx.signature,
                     slot,
                     block_hash: String::new(),
-                    tx_type: tx.tx_type.clone(),
+                    tx_type: tx.tx_type,
                     signer: tx.signer,
                     result: exec_result,
                     timestamp: tx.timestamp,
@@ -634,18 +613,13 @@ impl BlockProducer {
                 debug!("Transaction {} failed: {:?}", 
                     bs58::encode(&tx.signature).into_string(), 
                     exec_result.error);
-                // Re-queue failed transaction for retry in next block
-                let mut pool = self.transaction_pool.write().await;
-                pool.push_back(tx);
             }
         }
         
         // Finalize block: distribute validator fees to the block producer
-        // The block producer's identity is used as the validator key for fee rewards
         if let Some(identity_bytes) = self.state.identity_pubkey_bytes() {
             let _validator_fees = self.fee_distributor.finalize_block(&identity_bytes);
         }
-        // If no identity (shouldn't happen in normal operation), fees are still tracked but not credited
         
         debug!(
             "Executed {} transactions using {} compute units (limit: {})",
@@ -694,13 +668,24 @@ impl BlockProducer {
         BASE_COST + type_cost
     }
 
-    /// Submit a transaction to the mempool
+    /// Submit a transaction to the mempool.
     /// Returns the base58-encoded signature as the transaction ID for later lookup.
+    /// 
+    /// Transactions are prioritized by:
+    /// 1. Lane (Critical > High > Standard) - derived from fee amount
+    /// 2. Fee (higher fee = earlier inclusion)
+    /// 3. Arrival time (FIFO fairness for same-fee transactions)
     pub async fn submit_transaction(&self, tx: AetherTransaction) -> Result<String, String> {
         let sig = bs58::encode(&tx.signature).into_string();
+        let compute_units = self.estimate_compute_units(&tx);
         
         let mut pool = self.transaction_pool.write().await;
-        pool.push_back(tx);
+        pool.push(tx, compute_units);
+        
+        debug!("Submitted transaction {} with fee {} (lane: {:?})", 
+            sig, pool.transactions.last().map(|t| t.tx.fee).unwrap_or(0),
+            pool.transactions.last().map(|t| t.lane).unwrap_or(AIPriorityLane::Standard));
+        
         Ok(sig)
     }
 
@@ -816,5 +801,19 @@ impl BlockProducer {
     /// Used by the RPC server to expose fee economics and lane stats.
     pub fn fee_distributor(&self) -> Arc<FeeDistributor> {
         self.fee_distributor.clone()
+    }
+    
+    /// Get transaction pool statistics.
+    /// Returns counts of pending transactions per lane and total fees.
+    pub async fn pool_stats(&self) -> (usize, usize, usize, u64) {
+        let pool = self.transaction_pool.read().await;
+        let stats = pool.stats();
+        (stats.critical_pending, stats.high_pending, stats.standard_pending, stats.total_fees_pending)
+    }
+    
+    /// Get detailed pool statistics
+    pub async fn get_pool_stats(&self) -> PoolStats {
+        let pool = self.transaction_pool.read().await;
+        pool.stats()
     }
 }
