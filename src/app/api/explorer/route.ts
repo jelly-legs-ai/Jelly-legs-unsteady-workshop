@@ -13,135 +13,6 @@ import { AetherClient, DEFAULT_RPC_URL } from '@/lib/aether-sdk';
 
 const DEFAULT_RPC = DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
 
-/**
- * Make RPC call to Aether RPC
- */
-async function rpcCall(rpcUrl: string, method: string, params: any[] = []) {
-  const response = await fetch(rpcUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method,
-      params,
-    }),
-  });
-  return response.json();
-}
-
-/**
- * Handle address lookup via getAccountInfo + getSlot
- */
-async function handleAddressLookup(address: string, rpcUrl: string) {
-  const rawAddress = address.startsWith('ATH') ? address.slice(3) : address;
-  
-  const [accountData, slotData] = await Promise.all([
-    rpcCall(rpcUrl, 'getAccountInfo', [rawAddress, { encoding: 'json' }]),
-    rpcCall(rpcUrl, 'getSlot', []),
-  ]);
-
-  if (accountData.error) {
-    throw new Error(accountData.error.message || 'Account lookup failed');
-  }
-
-  const accountInfo = accountData.result?.value;
-  const balanceLamports = accountInfo?.lamports || 0;
-  const balanceAeth = balanceLamports / 1e9;
-
-  return {
-    type: 'address',
-    address,
-    balance: balanceAeth,
-    balanceFormatted: `${balanceAeth.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })} ATH`,
-    owner: accountInfo?.owner || null,
-    executable: accountInfo?.executable || false,
-    rentEpoch: accountInfo?.rentEpoch || null,
-    slot: slotData.result || null,
-    exists: accountInfo !== null,
-    chainSource: slotData.result !== null,
-  };
-}
-
-/**
- * Handle transaction lookup via getTransaction
- */
-async function handleTransactionLookup(signature: string, rpcUrl: string) {
-  const data = await rpcCall(rpcUrl, 'getTransaction', [
-    signature,
-    { encoding: 'json', maxSupportedTransactionVersion: 0 },
-  ]);
-
-  if (data.error) {
-    throw new Error(data.error.message || 'Transaction lookup failed');
-  }
-
-  const result = data.result;
-
-  if (result) {
-    const meta = result.meta;
-    const transaction = result.transaction;
-    const accounts = transaction?.message?.accountKeys || [];
-    const fromAccount = accounts[0] || null;
-    const toAccount = accounts[1] || null;
-
-    return {
-      type: 'transaction',
-      signature,
-      slot: result.slot,
-      blockTime: result.blockTime,
-      fee: meta?.fee || null,
-      status: meta?.err ? 'failed' : 'confirmed',
-      txType: 'transfer',
-      from: fromAccount ? `ATH${fromAccount}` : null,
-      to: toAccount ? `ATH${toAccount}` : null,
-      lamports: meta?.postBalances?.[1] 
-        ? (meta.postBalances[1] - meta.preBalances?.[1] || 0) 
-        : null,
-      blockHash: result.transaction?.message?.recentBlockhash || null,
-      chainSource: true,
-    };
-  }
-
-  return {
-    type: 'transaction',
-    signature,
-    slot: null,
-    blockTime: null,
-    fee: null,
-    status: 'not_found',
-    txType: 'unknown',
-    chainSource: true,
-  };
-}
-
-/**
- * Handle block lookup via getBlock
- */
-async function handleBlockLookup(blockHeight: number, rpcUrl: string) {
-  const data = await rpcCall(rpcUrl, 'getBlock', [
-    blockHeight,
-    { encoding: 'json', maxSupportedTransactionVersion: 0 },
-  ]);
-
-  if (data.error) {
-    throw new Error(data.error.message || 'Block lookup failed');
-  }
-
-  const result = data.result;
-
-  return {
-    type: 'block',
-    blockHeight,
-    slot: result?.slot || blockHeight,
-    epoch: result?.epoch || null,
-    blockTime: result?.blockTime || null,
-    transactions: result?.transactions?.length || 0,
-    blockHash: result?.blockhash || null,
-    chainSource: true,
-  };
-}
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -155,45 +26,115 @@ export async function POST(request: NextRequest) {
     }
 
     const rpcUrl = process.env.AETHER_RPC || DEFAULT_RPC;
+    const client = new AetherClient({ rpcUrl });
     let result: any;
 
     try {
       switch (type) {
         case 'address':
           if (!address) {
-            return NextResponse.json(
-              { error: 'Address is required' },
-              { status: 400 }
-            );
+            return NextResponse.json({ error: 'Address is required' }, { status: 400 });
           }
-          result = await handleAddressLookup(address, rpcUrl);
+          const rawAddress = address.startsWith('ATH') ? address.slice(3) : address;
+          const [accountData, slot] = await Promise.all([
+            client.getAccountInfo(rawAddress),
+            client.getSlot(),
+          ]);
+
+          if (!accountData) {
+            return NextResponse.json({ error: 'Account not found' }, { status: 404 });
+          }
+
+          const balanceLamports = (accountData as any).lamports || 0;
+          const balanceAeth = balanceLamports / 1e9;
+
+          result = {
+            type: 'address',
+            address,
+            balance: balanceAeth,
+            balanceFormatted: `${balanceAeth.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })} ATH`,
+            owner: (accountData as any).owner || null,
+            executable: (accountData as any).executable || false,
+            rentEpoch: (accountData as any).rentEpoch || null,
+            slot,
+            exists: true,
+            chainSource: true,
+          };
           break;
 
         case 'transaction':
           if (!signature) {
-            return NextResponse.json(
-              { error: 'Transaction signature is required' },
-              { status: 400 }
-            );
+            return NextResponse.json({ error: 'Transaction signature is required' }, { status: 400 });
           }
-          result = await handleTransactionLookup(signature, rpcUrl);
+          const tx = await client.getTransaction(signature);
+          if (!tx) {
+            result = {
+              type: 'transaction',
+              signature,
+              slot: null,
+              blockTime: null,
+              fee: null,
+              status: 'not_found',
+              txType: 'unknown',
+              chainSource: true,
+            };
+          } else {
+            const meta = tx.meta as any;
+            const accounts = (tx.transaction as any)?.message?.accountKeys || [];
+            result = {
+              type: 'transaction',
+              signature,
+              slot: (tx as any).slot,
+              blockTime: (tx as any).blockTime,
+              fee: meta?.fee || null,
+              status: meta?.err ? 'failed' : 'confirmed',
+              txType: 'transfer',
+              from: accounts[0] ? `ATH${accounts[0]}` : null,
+              to: accounts[1] ? `ATH${accounts[1]}` : null,
+              lamports: meta?.postBalances?.[1] 
+                ? (meta.postBalances[1] - meta.preBalances?.[1] || 0) 
+                : null,
+              blockHash: (tx.transaction as any)?.message?.recentBlockhash || null,
+              chainSource: true,
+            };
+          }
           break;
 
         case 'block':
           if (blockHeight === undefined || blockHeight === null) {
-            return NextResponse.json(
-              { error: 'Block height is required' },
-              { status: 400 }
-            );
+            return NextResponse.json({ error: 'Block height is required' }, { status: 400 });
           }
           const blockNum = parseInt(String(blockHeight));
           if (isNaN(blockNum) || blockNum < 0) {
-            return NextResponse.json(
-              { error: 'Block height must be a non-negative number' },
-              { status: 400 }
-            );
+            return NextResponse.json({ error: 'Block height must be a non-negative number' }, { status: 400 });
           }
-          result = await handleBlockLookup(blockNum, rpcUrl);
+          // The SDK doesn't have a dedicated getBlock, we use the rpcCall internally via a custom request if needed
+          // but for now we can use a raw rpcCall if we want exact getBlock.
+          // Let's use the client's internal mechanism by adding it or using a raw fetch for this specific case.
+          const blockResponse = await fetch(rpcUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              id: 1,
+              method: 'getBlock',
+              params: [blockNum, { encoding: 'json', maxSupportedTransactionVersion: 0 }],
+            }),
+          });
+          const blockData = await blockResponse.json();
+          if (blockData.error) throw new Error(blockData.error.message);
+          
+          const resultBlock = blockData.result;
+          result = {
+            type: 'block',
+            blockHeight: blockNum,
+            slot: resultBlock?.slot || blockNum,
+            epoch: resultBlock?.epoch || null,
+            blockTime: resultBlock?.blockTime || null,
+            transactions: resultBlock?.transactions?.length || 0,
+            blockHash: resultBlock?.blockhash || null,
+            chainSource: true,
+          };
           break;
 
         default:
