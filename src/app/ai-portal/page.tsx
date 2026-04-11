@@ -235,7 +235,7 @@ export default function AIPortalPage() {
     try {
       // Attempt POST to /v1/ai_priority/submit
       // This will fail gracefully in demo mode (no real SDK endpoint)
-      const response = await fetch("/v1/ai_priority/submit", {
+      const response = await fetch("/api/ai_priority/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

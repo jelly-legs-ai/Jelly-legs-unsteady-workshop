@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import NetworkStatus from '@/components/NetworkStatus'
-import WalletHeroSection from '@/components/WalletHeroSection'
+import NetworkStatus from '../components/NetworkStatus'
+import WalletHeroSection from '../components/WalletHeroSection'
 
 export const metadata: Metadata = {
   title: 'Aether Chain — Layer 1 for AI Workloads',

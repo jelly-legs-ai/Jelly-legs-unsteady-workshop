@@ -1,7 +1,7 @@
 'use client';
 
-import WalletProvider from '@/lib/wallet';
-import Nav from '@/components/Nav';
+import WalletProvider from '../lib/wallet';
+import Nav from '../components/Nav';
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
