@@ -9,7 +9,7 @@ use aether_consensus::fork_choice::ForkChoice;
 use aether_consensus::poh::{PoHGenerator, PoHEntry, verify_poh_chain, HASHES_PER_TICK};
 use aether_governance::{
     AetherDAO, Treasury, GovernanceConfig, ProposalType, ProposalStatus,
-    VoteChoice, TokenType,
+    VoteChoice, TokenType, WithdrawalStatus,
 };
 use aether_validator::keypair::generate_keypair;
 use aether_validator::state::ValidatorState;
@@ -532,7 +532,7 @@ fn test_governance_proposal_types() {
         ProposalType::FundAllocation {
             recipient,
             amount: 500_000_000_000,
-            token_type: TokenType::ATH,
+            token_type: "ATH".to_string(),
             purpose: "Community grant".to_string(),
         },
         proposer,
@@ -812,14 +812,15 @@ fn test_validator_treasury_via_state() {
 // ============================================================================
 
 #[test]
-fn test_block_producer_creates_and_submits() {
+#[tokio::test]
+async fn test_block_producer_creates_and_submits() {
     use aether_validator::block_producer::BlockProducer;
     use aether_validator::state_db::StateDB;
     use aether_core::{AetherTransaction, TransactionType, TransactionPayload};
 
     let state = create_test_state();
     let tmp = tempfile::tempdir().expect("temp dir");
-    let state_db = StateDB::new(tmp.path().to_path_buf());
+    let state_db = StateDB::new();
     let bp = BlockProducer::new(state.clone(), state_db);
 
     // Submit a transaction
@@ -837,7 +838,7 @@ fn test_block_producer_creates_and_submits() {
         timestamp: 0,
     };
 
-    let result = bp.try_spawn_block_task(tx);
+    let result = bp.submit_transaction(tx).await;
     // This might succeed or fail depending on implementation state
     // The key thing is it doesn't panic
     assert!(result.is_ok() || result.is_err(), "Should handle transaction submission");
@@ -885,7 +886,7 @@ fn test_ai_priority_lane_derivation() {
 fn test_fee_distributor() {
     use aether_ai_priority::fee_distribution::FeeDistributor;
 
-    let distributor = FeeDistributor::new([0u8; 32]);
+    let distributor = FeeDistributor::new(0);
 
     // Initial state should be zero
     let stats = distributor.current_epoch_stats();

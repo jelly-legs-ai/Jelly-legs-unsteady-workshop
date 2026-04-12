@@ -816,6 +816,59 @@ impl BlockProducer {
         let pool = self.transaction_pool.read().await;
         pool.stats()
     }
+
+    /// Immediately persist state to disk (for graceful shutdown).
+    /// This ensures all state is flushed before the process exits.
+    pub async fn persist_state_immediate(&self) -> anyhow::Result<()> {
+        if let Some(ref pm) = self.persistence {
+            let snapshot = crate::persistence::ValidatorSnapshot {
+                current_slot: self.state.current_slot(),
+                block_hash: self.state.get_last_block_hash(),
+                blocks_produced: self.state.blocks_produced(),
+                transaction_count: self.state.transaction_count(),
+                genesis_hash: self.state.get_genesis_hash(),
+                chain_id: self.state.get_chain_id(),
+                peers: Vec::new(),
+                timestamp: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs(),
+            };
+
+            pm.save_snapshot(&snapshot)?;
+
+            // Save accounts
+            let accounts = self.state_db.get_all_accounts_sync();
+            let persisted: Vec<PersistedAccount> = accounts.into_iter()
+                .map(|(addr, acc)| PersistedAccount {
+                    address: addr,
+                    lamports: acc.lamports,
+                    owner: acc.owner,
+                    data: acc.data,
+                    rent_epoch: acc.rent_epoch,
+                })
+                .collect();
+            pm.save_accounts(&persisted)?;
+
+            // Save latest block
+            let history = self.block_history.read().await;
+            if let Some(latest_block) = history.back() {
+                let persisted_block = PersistedBlock {
+                    slot: latest_block.slot,
+                    timestamp: latest_block.timestamp,
+                    previous_block_hash: latest_block.previous_block_hash.clone(),
+                    block_hash: latest_block.block_hash.clone(),
+                    transactions: latest_block.transactions.clone(),
+                    poh_seed: latest_block.poh_seed.clone(),
+                    state_root: latest_block.state_root.clone(),
+                };
+                pm.save_block(&persisted_block)?;
+            }
+
+            info!("State persisted at slot {} (graceful shutdown)", snapshot.current_slot);
+        }
+        Ok(())
+    }
 }
 
 impl BlockProducer {

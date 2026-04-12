@@ -204,6 +204,7 @@ pub async fn start_rpc_server(
     addr: &str,
     state: ValidatorState,
     block_producer: Arc<BlockProducer>,
+    shutdown: crate::shutdown::ShutdownSignal,
 ) -> anyhow::Result<()> {
     // Rate limiter: 100 requests per 10 seconds per IP
     let rate_limiter = Arc::new(Mutex::new(RateLimiter::new(100, 10)));
@@ -268,13 +269,15 @@ pub async fn start_rpc_server(
     info!("  POST /v1/treasury/add_signer             - Add treasury signer");
 
     loop {
-        match listener.accept().await {
-            Ok((socket, addr)) => {
-                let state = state.clone();
-                let bp = block_producer.clone();
-                let rl = rate_limiter.clone();
-                let cc = cleanup_counter.clone();
-                tokio::spawn(async move {
+        tokio::select! {
+            result = listener.accept() => {
+                match result {
+                    Ok((socket, addr)) => {
+                        let state = state.clone();
+                        let bp = block_producer.clone();
+                        let rl = rate_limiter.clone();
+                        let cc = cleanup_counter.clone();
+                        tokio::spawn(async move {
                     // Rate limit check
                     {
                         let mut limiter = rl.lock().await;
@@ -299,11 +302,20 @@ pub async fn start_rpc_server(
                     }
                 });
             }
-            Err(e) => {
-                warn!("Failed to accept RPC connection: {}", e);
+                    Err(e) => {
+                        warn!("Failed to accept RPC connection: {}", e);
+                    }
+                }
+            }
+            _ = shutdown.recv() => {
+                info!("RPC server shutting down gracefully");
+                break;
             }
         }
     }
+
+    info!("RPC server stopped");
+    Ok(())
 }
 
 /// Maximum request body size (1 MB)

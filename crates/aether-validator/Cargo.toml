@@ -12,6 +12,7 @@ description = "AETHER Validator - Node binary for participating in AETHER consen
 # Async runtime
 tokio = { workspace = true, features = ["full"] }
 futures = { workspace = true }
+async-trait = { workspace = true }
 
 # Serialization
 serde = { workspace = true }

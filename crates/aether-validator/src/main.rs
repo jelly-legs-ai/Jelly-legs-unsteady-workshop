@@ -7,12 +7,13 @@ use anyhow::Context;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::time::{sleep, Duration};
-use tracing::{info, error, Level};
+use tokio::time::Duration;
+use tracing::{info, error, warn, Level};
 
 // Modules are defined in lib.rs; re-export items here for convenience
 use aether_validator::*;
 use aether_validator::genesis::load_genesis_from_file;
+use aether_validator::shutdown::ShutdownCoordinator;
 
 // =============================================================================
 // CLI Structure
@@ -367,6 +368,10 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
     info!("Genesis Hash: {}", validator_state.get_genesis_hash());
 
     // Create state database and initialize from genesis
+
+    // Initialize graceful shutdown signal
+    let (shutdown_signal, shutdown_trigger) = ShutdownCoordinator::new(30).decompose();
+    info!("Graceful shutdown handler initialized (30s grace period)");
     let state_db = StateDB::new();
     let genesis_accounts = validator_state.get_initial_balances();
     if !genesis_accounts.is_empty() {
@@ -405,11 +410,12 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
 
     // Start RPC HTTP server
     let rpc_addr_for_spawn = rpc_addr.clone();
+    let rpc_shutdown = shutdown_signal.clone();
     let rpc_handle = {
         let state = validator_state.clone();
         let bp = bp_for_rpc;
         tokio::spawn(async move {
-            if let Err(e) = start_rpc_server(&rpc_addr_for_spawn, state, bp).await {
+            if let Err(e) = start_rpc_server(&rpc_addr_for_spawn, state, bp, rpc_shutdown).await {
                 error!("RPC server error: {}", e);
             }
         })
@@ -466,31 +472,64 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
 
     // Status logging every 100 slots
     let state_for_logging = validator_state.clone();
+    let shutdown_for_logging = shutdown_signal.clone();
     let logging_handle = tokio::spawn(async move {
         let mut last_slot = 0u64;
         loop {
-            sleep(Duration::from_secs(10)).await;
-            let slot = state_for_logging.current_slot();
-            if slot != last_slot {
-                last_slot = slot;
-                info!(
-                    "Slot {} | Blocks produced: {} | TXs: {} | Peers: {}",
-                    slot,
-                    state_for_logging.blocks_produced(),
-                    state_for_logging.transaction_count(),
-                    state_for_logging.peer_count(),
-                );
+            tokio::select! {
+                _ = tokio::time::sleep(Duration::from_secs(10)) => {
+                    let slot = state_for_logging.current_slot();
+                    if slot != last_slot {
+                        last_slot = slot;
+                        info!(
+                            "Slot {} | Blocks produced: {} | TXs: {} | Peers: {}",
+                            slot,
+                            state_for_logging.blocks_produced(),
+                            state_for_logging.transaction_count(),
+                            state_for_logging.peer_count(),
+                        );
+                    }
+                }
+                _ = shutdown_for_logging.recv() => {
+                    info!("Status logger shutting down gracefully");
+                    break;
+                }
             }
         }
     });
 
-    // Wait for any main handle to complete (gossip runs as fire-and-forget background task)
+    // Wait for shutdown signal (Ctrl+C) or for a subsystem to fail
+    info!("Validator is running. Press Ctrl+C to shut down gracefully.");
     tokio::select! {
-        _ = rpc_handle => {}
-        _ = bp_handle => {}
-        _ = logging_handle => {}
+        _ = tokio::signal::ctrl_c() => {
+            info!("Received shutdown signal (Ctrl+C), initiating graceful shutdown...");
+        }
+        _ = rpc_handle => {
+            warn!("RPC server exited unexpectedly");
+        }
+        _ = bp_handle => {
+            warn!("Block producer exited unexpectedly");
+        }
     }
 
+    // Fire shutdown signal to all subsystems
+    shutdown_trigger.fire();
+
+    // Give subsystems time to clean up (flush data, send goodbye messages, etc.)
+    info!("Waiting for subsystems to shut down...");
+    tokio::time::sleep(Duration::from_secs(5)).await;
+
+    // Final state persistence
+    if let Err(e) = block_producer.persist_state_immediate().await {
+        warn!("Failed to persist final state during shutdown: {}", e);
+    } else {
+        info!("Final state persisted successfully");
+    }
+
+    // Cancel logging handle
+    logging_handle.abort();
+
+    info!("Validator shutdown complete.");
     Ok(())
 }
 

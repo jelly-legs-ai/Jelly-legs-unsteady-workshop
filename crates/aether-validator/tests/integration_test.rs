@@ -79,32 +79,28 @@ fn payload_bytes(payload: &TransactionPayload) -> Vec<u8> {
         TransactionPayload::ClaimRewards { stake_account } => {
             stake_account.as_bytes().to_vec()
         }
-        TransactionPayload::CreateNFT { name, symbol, uri, .. } => {
+        TransactionPayload::CreateNFT { metadata_url, royalties } => {
             let mut v = Vec::new();
-            v.extend_from_slice(name.as_bytes());
-            v.extend_from_slice(symbol.as_bytes());
-            v.extend_from_slice(uri.as_bytes());
+            v.extend_from_slice(metadata_url.as_bytes());
+            v.extend_from_slice(&royalties.to_le_bytes());
             v
         }
-        TransactionPayload::MintNFT { mint_address, recipient } => {
+        TransactionPayload::MintNFT { nft_id, amount } => {
             let mut v = Vec::new();
-            v.extend_from_slice(mint_address.as_bytes());
+            v.extend_from_slice(nft_id.as_bytes());
+            v.extend_from_slice(&amount.to_le_bytes());
+            v
+        }
+        TransactionPayload::TransferNFT { nft_id, recipient } => {
+            let mut v = Vec::new();
+            v.extend_from_slice(nft_id.as_bytes());
             v.extend_from_slice(recipient.as_bytes());
             v
         }
-        TransactionPayload::TransferNFT { mint_address, from, to } => {
+        TransactionPayload::UpdateMetadata { nft_id, metadata_url } => {
             let mut v = Vec::new();
-            v.extend_from_slice(mint_address.as_bytes());
-            v.extend_from_slice(from.as_bytes());
-            v.extend_from_slice(to.as_bytes());
-            v
-        }
-        TransactionPayload::UpdateMetadata { mint_address, name, symbol, uri, .. } => {
-            let mut v = Vec::new();
-            v.extend_from_slice(mint_address.as_bytes());
-            v.extend_from_slice(name.as_bytes());
-            v.extend_from_slice(symbol.as_bytes());
-            v.extend_from_slice(uri.as_bytes());
+            v.extend_from_slice(nft_id.as_bytes());
+            v.extend_from_slice(metadata_url.as_bytes());
             v
         }
     }
