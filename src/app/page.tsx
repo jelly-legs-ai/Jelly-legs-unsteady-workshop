@@ -130,9 +130,8 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Footer */}
-          <footer className="text-center text-gray-600 text-sm">
-            <p>Aether Chain — Powered by AetherFlow Consensus</p>
+          <footer className="text-center text-gray-600 text-sm mt-20 pb-10">
+            <p>© 2026 Aether Chain — Powered by AetherFlow Consensus</p>
             <p className="mt-1">AI Priority Lanes · Hybrid PoH + PoS · Tower BFT</p>
           </footer>
         </div>
