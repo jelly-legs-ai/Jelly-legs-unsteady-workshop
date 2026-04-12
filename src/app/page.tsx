@@ -102,7 +102,7 @@ export default function HomePage() {
               {['Phantom', 'Solflare', 'Backpack'].map((wallet) => (
                 <div
                   key={wallet}
-                  className="px-5 py-3 bg-gray-900/60 border border-gray-700 rounded-lg text-sm text-gray-300 hover:border-gray-500 hover:text-white transition-all cursor-default flex items-center gap-2"
+                  className="px-5 py-3 bg-gray-900/60 border border-gray-700 rounded-lg text-sm text-gray-300 hover:border-gray-500 hover:text-white transition-all cursor-pointer flex items-center gap-2"
                 >
                   <span className="text-base">💳</span>
                   <span>{wallet}</span>
