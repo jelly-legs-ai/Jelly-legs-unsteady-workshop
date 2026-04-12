@@ -14,11 +14,13 @@ use std::collections::HashMap;
 mod serde_bytes_64 {
     use super::*;
     
+    #[allow(dead_code)]
     pub fn serialize<S>(bytes: &[u8; 64], serializer: S) -> Result<S::Ok, S::Error>
     where S: Serializer {
         serializer.serialize_str(&bs58::encode(bytes).into_string())
     }
     
+    #[allow(dead_code)]
     pub fn deserialize<'de, D>(deserializer: D) -> Result<[u8; 64], D::Error>
     where D: Deserializer<'de> {
         let s = String::deserialize(deserializer)?;

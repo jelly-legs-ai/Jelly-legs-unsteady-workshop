@@ -1,5 +1,5 @@
 [package]
-name = "aether-consensus"
+name = "aether-consensus-v1"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true

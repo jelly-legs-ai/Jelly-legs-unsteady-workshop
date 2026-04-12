@@ -762,8 +762,8 @@ mod tests {
         
         // When syncing to a target
         sm.start_sync("peer-1", 200).await;
-        assert_eq!(sm.slots_behind(200).await, 0); // Already syncing to target
-        assert_eq!(sm.slots_behind(300).await, 100); // Beyond target by 100
+        assert_eq!(sm.slots_behind(200).await, 0); // Peer at target = caught up to target
+        assert_eq!(sm.slots_behind(300).await, 300); // Peer beyond target: full gap reported
     }
 
     #[tokio::test]

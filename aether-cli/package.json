@@ -1,7 +1,7 @@
 {
   "name": "@jellylegsai/aether-validator-cli",
-  "version": "1.8.0",
-  "description": "Aether Validator CLI - tiered validators (Full/Lite/Observer), system checks, onboarding, staking, and node management",
+  "version": "2.0.0",
+  "description": "Aether Validator CLI - Real RPC blockchain interaction for tiered validators (Full/Lite/Observer)",
   "main": "index.js",
   "bin": {
     "aether": "index.js",
@@ -22,7 +22,7 @@
     "test": "node test/doctor.test.js",
     "start": "node index.js",
     "doctor": "node index.js doctor",
-    "postinstall": "node -e \"console.log('\\n\\n  [Aether] aether-validator-cli installed!\\n\\n  Run: aether start\\n  Docs: https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop\\n')\""
+    "postinstall": "node -e \"console.log('\\n\\n    AETHER CLI v2.0.0 - Installed!\\n    Real RPC • Real Blockchain • No Mocks\\n\\n    Quick start:    aether start\\n    System check:   aether doctor\\n    Get help:       aether help\\n    Docs:           https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop\\n')\""
   },
   "keywords": [
     "aether",
@@ -30,7 +30,9 @@
     "blockchain",
     "cli",
     "crypto",
-    "mining"
+    "mining",
+    "rpc",
+    "sdk"
   ],
   "author": "Jelly-legs AI Team",
   "license": "MIT",
@@ -38,6 +40,10 @@
     "type": "git",
     "url": "git+https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop.git"
   },
+  "bugs": {
+    "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues"
+  },
+  "homepage": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop#readme",
   "engines": {
     "node": ">=14.0.0"
   },

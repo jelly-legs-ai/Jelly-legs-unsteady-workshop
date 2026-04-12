@@ -14,13 +14,10 @@ description = "Proof of History + Proof of Stake consensus for AETHER"
 [dependencies]
 aether-core = { path = "../aether-core" }
 aether-poh = { path = "../aether-poh" }
-solana-runtime = { workspace = true }
-solana-ledger = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
-libp2p = { workspace = true }
 
 [dev-dependencies]
 tokio-test = "0.4"

@@ -9,7 +9,7 @@ rust-version.workspace = true
 
 [dependencies]
 aether-common = { path = "../aether-common" }
-aether-consensus = { path = "../aether-consensus" }
+aether-consensus = { package = "aether-consensus-v1", path = "../aether-consensus" }
 
 # Async
 tokio = { workspace = true }

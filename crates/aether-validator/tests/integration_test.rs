@@ -13,9 +13,102 @@ use aether_validator::persistence::{PersistenceManager, PersistedAccount, Persis
 use aether_validator::keypair;
 use aether_validator::genesis;
 use aether_validator::sync::SyncConfig;
-use sha2::Digest;
+use ed25519_dalek::{Signer, SigningKey, Signature};
+use sha2::{Sha256, Digest};
 use std::path::PathBuf;
 use std::sync::Arc;
+
+/// Helper: sign a transaction with a valid Ed25519 signature.
+/// Mirrors the Executor's `transaction_message` logic so the signature verifies.
+fn sign_transaction(tx: &mut AetherTransaction, signing_key: &SigningKey) {
+    let message = transaction_message(tx);
+    let signature = signing_key.sign(&message);
+    tx.signature = signature.to_bytes();
+}
+
+/// Build the canonical 32-byte message digest that the executor verifies against.
+/// Must match `Executor::transaction_message` exactly.
+fn transaction_message(tx: &AetherTransaction) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    hasher.update(&tx.signer);
+    hasher.update(tx_type_name(&tx.tx_type).as_bytes());
+    hasher.update(payload_bytes(&tx.payload));
+    hasher.update(tx.fee.to_le_bytes());
+    hasher.update(tx.slot.to_le_bytes());
+    hasher.update(tx.timestamp.to_le_bytes());
+    let result = hasher.finalize();
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&result[..32]);
+    out
+}
+
+fn tx_type_name(tx_type: &TransactionType) -> &'static str {
+    match tx_type {
+        TransactionType::Transfer => "transfer",
+        TransactionType::Stake => "stake",
+        TransactionType::Unstake => "unstake",
+        TransactionType::ClaimRewards => "claim_rewards",
+        TransactionType::CreateNFT => "create_nft",
+        TransactionType::MintNFT => "mint_nft",
+        TransactionType::TransferNFT => "transfer_nft",
+        TransactionType::UpdateMetadata => "update_metadata",
+    }
+}
+
+fn payload_bytes(payload: &TransactionPayload) -> Vec<u8> {
+    match payload {
+        TransactionPayload::Transfer { recipient, amount, nonce } => {
+            let mut v = Vec::new();
+            v.extend_from_slice(recipient.as_bytes());
+            v.extend_from_slice(&amount.to_le_bytes());
+            v.extend_from_slice(&nonce.to_le_bytes());
+            v
+        }
+        TransactionPayload::Stake { validator, amount } => {
+            let mut v = Vec::new();
+            v.extend_from_slice(validator.as_bytes());
+            v.extend_from_slice(&amount.to_le_bytes());
+            v
+        }
+        TransactionPayload::Unstake { stake_account, amount } => {
+            let mut v = Vec::new();
+            v.extend_from_slice(stake_account.as_bytes());
+            v.extend_from_slice(&amount.to_le_bytes());
+            v
+        }
+        TransactionPayload::ClaimRewards { stake_account } => {
+            stake_account.as_bytes().to_vec()
+        }
+        TransactionPayload::CreateNFT { name, symbol, uri, .. } => {
+            let mut v = Vec::new();
+            v.extend_from_slice(name.as_bytes());
+            v.extend_from_slice(symbol.as_bytes());
+            v.extend_from_slice(uri.as_bytes());
+            v
+        }
+        TransactionPayload::MintNFT { mint_address, recipient } => {
+            let mut v = Vec::new();
+            v.extend_from_slice(mint_address.as_bytes());
+            v.extend_from_slice(recipient.as_bytes());
+            v
+        }
+        TransactionPayload::TransferNFT { mint_address, from, to } => {
+            let mut v = Vec::new();
+            v.extend_from_slice(mint_address.as_bytes());
+            v.extend_from_slice(from.as_bytes());
+            v.extend_from_slice(to.as_bytes());
+            v
+        }
+        TransactionPayload::UpdateMetadata { mint_address, name, symbol, uri, .. } => {
+            let mut v = Vec::new();
+            v.extend_from_slice(mint_address.as_bytes());
+            v.extend_from_slice(name.as_bytes());
+            v.extend_from_slice(symbol.as_bytes());
+            v.extend_from_slice(uri.as_bytes());
+            v
+        }
+    }
+}
 
 // Helper: create a ValidatorState for testing
 fn create_test_state() -> ValidatorState {
@@ -206,15 +299,18 @@ fn test_executor_transfer() {
     let db = create_funded_state_db();
     let executor = Executor::new(db.clone());
     
-    let from = [1u8; 32];
-    let to = [2u8; 32];
+    let signing_key = SigningKey::from_bytes(&[1u8; 32]);
+    let from = signing_key.verifying_key().as_bytes().clone();
     
-    // Create recipient account
+    // Fund the signing key's account
+    db.set_account_sync(&from, Account { lamports: 1_000_000_000_000, owner: [0u8; 32], data: vec![], rent_epoch: 0 });
+    let to = [2u8; 32];
     db.set_account_sync(&to, Account { lamports: 0, owner: [0u8; 32], data: vec![], rent_epoch: 0 });
     
-    let tx = create_transfer_tx(from, &bs58::encode(to).into_string(), 500, 100, 1);
-    let result = executor.execute(&tx);
+    let mut tx = create_transfer_tx(from, &bs58::encode(to).into_string(), 500, 100, 1);
+    sign_transaction(&mut tx, &signing_key);
     
+    let result = executor.execute(&tx);
     assert!(result.success, "Transfer should succeed: {:?}", result.error);
 }
 
@@ -233,23 +329,29 @@ fn test_executor_transfer_insufficient_funds() {
 #[test]
 fn test_executor_stake() {
     let db = create_funded_state_db();
-    let from = [1u8; 32];
+    
+    let signing_key = SigningKey::from_bytes(&[1u8; 32]);
+    let from = signing_key.verifying_key().as_bytes().clone();
+    
+    // Fund the signing key's account (minimum stake is 10T lamports + fee)
+    db.set_account_sync(&from, Account { lamports: 1_000_000_000_000, owner: [0u8; 32], data: vec![], rent_epoch: 0 });
     let validator = [2u8; 32];
     
     let executor = Executor::new(db);
     
-    let tx = AetherTransaction {
+    let mut tx = AetherTransaction {
         signer: from,
         signature: [0u8; 64],
         tx_type: TransactionType::Stake,
         payload: TransactionPayload::Stake {
             validator: bs58::encode(validator).into_string(),
-            amount: 1000,
+            amount: 10_000_000_000_000, // minimum stake
         },
         fee: 100,
         slot: 1,
         timestamp: 0,
     };
+    sign_transaction(&mut tx, &signing_key);
     
     let result = executor.execute(&tx);
     assert!(result.success, "Stake should succeed: {:?}", result.error);
@@ -258,22 +360,24 @@ fn test_executor_stake() {
 #[test]
 fn test_executor_stake_insufficient_funds() {
     let db = StateDB::new();
-    let from = [1u8; 32];
+    let signing_key = SigningKey::from_bytes(&[1u8; 32]);
+    let from = signing_key.verifying_key().as_bytes().clone();
     db.set_account_sync(&from, Account { lamports: 0, owner: [0u8; 32], data: vec![], rent_epoch: 0 });
     
     let executor = Executor::new(db);
-    let tx = AetherTransaction {
+    let mut tx = AetherTransaction {
         signer: from,
         signature: [0u8; 64],
         tx_type: TransactionType::Stake,
         payload: TransactionPayload::Stake {
             validator: bs58::encode([2u8; 32]).into_string(),
-            amount: 1000,
+            amount: 10_000_000_000_000,
         },
         fee: 100,
         slot: 1,
         timestamp: 0,
     };
+    sign_transaction(&mut tx, &signing_key);
     
     let result = executor.execute(&tx);
     assert!(!result.success);
@@ -372,12 +476,12 @@ fn test_validator_state_staking() {
     let state = create_test_state();
     let owner = [1u8; 32];
     
-    let stake_id = state.create_stake(owner, 100_000_000_000, None).unwrap();
+    let stake_id = state.create_stake(owner, 10_000_000_000_000, None).unwrap();
     assert_eq!(stake_id, 0);
     
     let positions = state.get_staking_positions(&bs58::encode(owner).into_string());
     assert_eq!(positions.len(), 1);
-    assert_eq!(positions[0]["amount"], 100_000_000_000i64);
+    assert_eq!(positions[0]["amount"], 10_000_000_000_000i64);
 }
 
 #[test]

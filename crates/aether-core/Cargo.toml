@@ -1,5 +1,5 @@
 [package]
-name = "aether-core"
+name = "aether-core-v1"
 version = "0.1.0"
 edition = "2021"
 authors = ["Jelly-legs AI Team"]

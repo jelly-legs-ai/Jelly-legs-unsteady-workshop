@@ -78,6 +78,7 @@ fn sanitize_path(path: &str) -> Option<&str> {
 }
 
 /// Validate and decode a bs58 address. Returns None if invalid or too long.
+#[allow(dead_code)]
 fn decode_address(addr: &str) -> Option<[u8; 32]> {
     // Limit address length to prevent DoS
     if addr.len() > 64 {
@@ -96,6 +97,7 @@ fn decode_address(addr: &str) -> Option<[u8; 32]> {
 }
 
 /// Validate that a string field is within length limits and contains safe characters
+#[allow(dead_code)]
 fn validate_string_field(s: &str, max_len: usize, field_name: &str) -> Result<(), String> {
     if s.len() > max_len {
         Err(format!("{} exceeds maximum length of {} characters", field_name, max_len))
@@ -107,8 +109,11 @@ fn validate_string_field(s: &str, max_len: usize, field_name: &str) -> Result<()
 }
 
 /// Maximum length for JSON body fields
+#[allow(dead_code)]
 const MAX_TITLE_LEN: usize = 256;
+#[allow(dead_code)]
 const MAX_DESCRIPTION_LEN: usize = 4096;
+#[allow(dead_code)]
 const MAX_PURPOSE_LEN: usize = 512;
 
 /// Slot info response

@@ -253,16 +253,22 @@ pub struct P2PNode {
     /// Block producer for processing received blocks
     block_producer: Option<Arc<BlockProducer>>,
     /// Channel for inbound messages (to application)
+    #[allow(dead_code)]
     inbound_tx: mpsc::UnboundedSender<GossipMessage>,
     /// Channel for outbound messages (from application)
+    #[allow(dead_code)]
     outbound_rx: mpsc::UnboundedReceiver<GossipMessage>,
     /// Block topic hash
+    #[allow(dead_code)]
     blocks_topic: TopicHash,
     /// Transaction topic hash
+    #[allow(dead_code)]
     tx_topic: TopicHash,
     /// Vote topic hash
+    #[allow(dead_code)]
     votes_topic: TopicHash,
     /// Slot topic hash
+    #[allow(dead_code)]
     slot_topic: TopicHash,
 }
 
@@ -573,7 +579,7 @@ impl P2PNode {
                 block_hash,
                 prev_hash,
                 poh_seed,
-                state_root,
+                state_root: _,
                 tx_count,
                 peer_id: from_peer,
                 block_data,
@@ -612,7 +618,7 @@ impl P2PNode {
                 }
             }
             
-            GossipMessage::Vote { slot, block_hash, validator, signature } => {
+            GossipMessage::Vote { slot, block_hash: _, validator, signature } => {
                 debug!("Vote for slot {} from validator {} (sig: {})", 
                     slot, validator, &signature[..8.min(signature.len())]);
                 
@@ -859,7 +865,7 @@ pub async fn broadcast_vote(
     block_hash: &str,
     validator_pubkey: &str,
     signature: &[u8],
-    peer_id: &str,
+    _peer_id: &str,
     network_state: &NetworkState,
 ) {
     let msg = GossipMessage::Vote {
@@ -934,7 +940,7 @@ pub async fn handle_gossip_message(
 
         GossipMessage::Vote {
             slot,
-            block_hash,
+            block_hash: _,
             validator,
             signature,
         } => {

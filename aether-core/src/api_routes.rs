@@ -1,266 +1,228 @@
-// API Routes - AeTHer Chain Backend
-// User and Agent Management API endpoints
+//! API Routes - AeTHer Chain Backend
+//!
+//! User and agent management API endpoints.
+//! This module provides data structures and routing for the
+//! validator RPC API and user dashboard.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use crate::contracts::staking_contract::StakingContract;
-use crate::contracts::mining_contract::MiningContract;
 
 /// User profile information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserProfile {
+    /// Account address
     pub address: String,
+    /// Username
     pub username: String,
+    /// Email (optional)
     pub email: Option<String>,
+    /// Account creation timestamp
     pub created_at: u64,
+    /// Last active timestamp
     pub last_active: u64,
+    /// Reputation score (0-100)
     pub reputation_score: f64,
+    /// KYC verification status
     pub kyc_verified: bool,
+    /// Total agents registered
     pub total_agents: u64,
+    /// Total tokens staked
     pub total_staked: u64,
+    /// Total tokens mined
     pub total_mined: u64,
 }
 
 /// Agent registration request
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentRegistrationRequest {
+    /// Agent name
     pub name: String,
+    /// Agent description
     pub description: String,
+    /// Agent capabilities
     pub capabilities: Vec<String>,
+    /// Avatar URL or emoji
     pub avatar: Option<String>,
+    /// Owner address
     pub owner_address: String,
+    /// Stake amount
     pub stake_amount: u64,
 }
 
 /// Agent registration response
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentRegistrationResponse {
+    /// Whether registration was successful
     pub success: bool,
+    /// Agent ID
     pub agent_id: String,
+    /// Transaction hash
     pub transaction_hash: Option<String>,
+    /// Status message
+    pub message: String,
+}
+
+/// Validator status response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidatorStatus {
+    /// Validator pubkey
+    pub pubkey: String,
+    /// Whether validator is active
+    pub active: bool,
+    /// Current slot
+    pub slot: u64,
+    /// Last confirmed slot
+    pub last_confirmed_slot: u64,
+    /// Stake amount
+    pub stake: u64,
+    /// Commission rate (0-10000)
+    pub commission: u16,
+    /// Number of peer connections
+    pub peer_count: usize,
+    /// Whether validator is healthy
+    pub healthy: bool,
+    /// Error message if unhealthy
+    pub error: Option<String>,
+}
+
+/// Network status response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NetworkStatus {
+    /// Current slot
+    pub slot: u64,
+    /// Slot height
+    pub block_height: u64,
+    /// Total validators
+    pub validator_count: usize,
+    /// Active validators
+    pub active_validator_count: usize,
+    /// Total staked amount
+    pub total_stake: u64,
+    /// Network congestion level (0.0-1.0)
+    pub congestion: f64,
+    /// Average latency in ms
+    pub avg_latency_ms: f64,
+}
+
+/// RPC API method enumeration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum RpcMethod {
+    /// Get validator status
+    GetValidatorStatus,
+    /// Get network status
+    GetNetworkStatus,
+    /// Get block by slot
+    GetBlock { slot: u64 },
+    /// Get block by hash
+    GetBlockByHash { hash: String },
+    /// Get account info
+    GetAccountInfo { address: String },
+    /// Get transaction by signature
+    GetTransaction { signature: String },
+    /// Submit transaction
+    SubmitTransaction { data: String },
+    /// Get slot info
+    GetSlotInfo,
+    /// Get epoch info
+    GetEpochInfo,
+    /// Get supply info
+    GetSupply,
+}
+
+/// RPC request
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RpcRequest {
+    /// JSON-RPC version
+    pub jsonrpc: String,
+    /// Request ID
+    pub id: u64,
+    /// Method
+    pub method: RpcMethod,
+}
+
+/// RPC response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RpcResponse<T: Serialize> {
+    /// JSON-RPC version
+    pub jsonrpc: String,
+    /// Request ID
+    pub id: u64,
+    /// Result (if successful)
+    pub result: Option<T>,
+    /// Error (if failed)
+    pub error: Option<RpcError>,
+}
+
+/// RPC error
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RpcError {
+    /// Error code
+    pub code: i32,
+    /// Error message
     pub message: String,
 }
 
 /// User dashboard data
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserDashboard {
+    /// User profile
     pub profile: UserProfile,
+    /// Registered agents
     pub agents: Vec<AgentSummary>,
-    pub staking_positions: Vec<StakingPosition>,
+    /// Staking positions
+    pub staking_positions: Vec<StakingPositionInfo>,
+    /// Mining rewards
     pub mining_rewards: u64,
+    /// Total earnings
     pub total_earnings: u64,
+    /// Pending actions
     pub pending_actions: Vec<PendingAction>,
 }
 
 /// Agent summary for dashboard
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentSummary {
+    /// Agent ID
     pub id: String,
+    /// Agent name
     pub name: String,
+    /// Agent status
     pub status: String,
+    /// 24h earnings
     pub earnings_24h: u64,
+    /// Uptime percentage
     pub uptime_percent: f64,
+    /// Last active timestamp
     pub last_active: u64,
 }
 
-/// Staking position summary
+/// Staking position information
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StakingPosition {
+pub struct StakingPositionInfo {
+    /// Pool name
     pub pool_name: String,
+    /// Amount staked
     pub amount_staked: u64,
+    /// Rewards earned
     pub rewards_earned: u64,
+    /// APY
     pub apy: f64,
+    /// Lock end epoch
     pub lock_end_epoch: Option<u64>,
 }
 
 /// Pending action for user
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PendingAction {
+    /// Action type
     pub action_type: String,
+    /// Description
     pub description: String,
+    /// Priority
     pub priority: String,
+    /// Created timestamp
     pub created_at: u64,
+    /// Deadline timestamp
     pub deadline: Option<u64>,
-}
-
-/// API Router for user and agent management
-pub struct ApiRouter {
-    pub users: HashMap<String, UserProfile>,
-    pub pending_agents: Vec<AgentRegistrationRequest>,
-    pub staking_contract: StakingContract,
-    pub mining_contract: MiningContract,
-}
-
-impl ApiRouter {
-    /// Create new API router
-    pub fn new() -> Self {
-        ApiRouter {
-            users: HashMap::new(),
-            pending_agents: Vec::new(),
-            staking_contract: StakingContract::new(),
-            mining_contract: MiningContract::new(),
-        }
-    }
-
-    /// Register a new user
-    pub fn register_user(&mut self, address: String, username: String, email: Option<String>) -> Result<UserProfile, String> {
-        if self.users.contains_key(&address) {
-            return Err("User already registered".to_string());
-        }
-
-        let profile = UserProfile {
-            address: address.clone(),
-            username,
-            email,
-            created_at: self.mining_contract.current_epoch,
-            last_active: self.mining_contract.current_epoch,
-            reputation_score: 50.0,
-            kyc_verified: false,
-            total_agents: 0,
-            total_staked: 0,
-            total_mined: 0,
-        };
-
-        self.users.insert(address, profile.clone());
-        Ok(profile)
-    }
-
-    /// Get user dashboard
-    pub fn get_user_dashboard(&self, address: &str) -> Result<UserDashboard, String> {
-        let profile = self.users.get(address).ok_or("User not found")?;
-        
-        let agents = self.get_user_agents(address);
-        let staking_positions = self.get_user_staking_positions(address);
-        let mining_rewards = self.get_user_mining_rewards(address);
-        
-        Ok(UserDashboard {
-            profile: profile.clone(),
-            agents,
-            staking_positions,
-            mining_rewards,
-            total_earnings: mining_rewards + staking_positions.iter().map(|s| s.rewards_earned).sum::<u64>(),
-            pending_actions: self.get_pending_actions(address),
-        })
-    }
-
-    /// Get user's registered agents
-    fn get_user_agents(&self, address: &str) -> Vec<AgentSummary> {
-        // In production, this would query the agent registry
-        vec![
-            AgentSummary {
-                id: "agent_001".to_string(),
-                name: "Code Auditor".to_string(),
-                status: "verified".to_string(),
-                earnings_24h: 150,
-                uptime_percent: 98.5,
-                last_active: self.mining_contract.current_epoch,
-            },
-            AgentSummary {
-                id: "agent_002".to_string(),
-                name: "Data Analyst".to_string(),
-                status: "pending".to_string(),
-                earnings_24h: 75,
-                uptime_percent: 95.2,
-                last_active: self.mining_contract.current_epoch - 2,
-            },
-        ]
-    }
-
-    /// Get user's staking positions
-    fn get_user_staking_positions(&self, address: &str) -> Vec<StakingPosition> {
-        let mut positions = Vec::new();
-        
-        if let Some(stakes) = self.staking_contract.stakes.get(address) {
-            for stake in stakes {
-                if let Some(pool) = self.staking_contract.pools.get(&format!("{}_staking", stake.token_type.to_string().to_lowercase())) {
-                    positions.push(StakingPosition {
-                        pool_name: pool.name.clone(),
-                        amount_staked: stake.amount,
-                        rewards_earned: stake.rewards_claimed,
-                        apy: pool.reward_rate,
-                        lock_end_epoch: if stake.is_locked { Some(stake.lock_end_epoch) } else { None },
-                    });
-                }
-            }
-        }
-        
-        positions
-    }
-
-    /// Get user's mining rewards
-    fn get_user_mining_rewards(&self, address: &str) -> u64 {
-        if let Some(miner) = self.mining_contract.miners.get(address) {
-            miner.total_mined
-        } else {
-            0
-        }
-    }
-
-    /// Get pending actions for user
-    fn get_pending_actions(&self, address: &str) -> Vec<PendingAction> {
-        let mut actions = Vec::new();
-        
-        // Check for pending agent approvals
-        for agent in &self.pending_agents {
-            if &agent.owner_address == address {
-                actions.push(PendingAction {
-                    action_type: "agent_approval".to_string(),
-                    description: format!("Agent '{}' awaiting verification", agent.name),
-                    priority: "medium".to_string(),
-                    created_at: self.mining_contract.current_epoch,
-                    deadline: Some(self.mining_contract.current_epoch + 10),
-                });
-            }
-        }
-        
-        // Check for staking rewards to claim
-        if let Some(stakes) = self.staking_contract.stakes.get(address) {
-            for stake in stakes {
-                if stake.rewards_claimed > 0 && stake.last_claim_epoch < self.staking_contract.current_epoch - 1 {
-                    actions.push(PendingAction {
-                        action_type: "claim_rewards".to_string(),
-                        description: format!("Claim {} rewards from staking", stake.token_type.to_string()),
-                        priority: "high".to_string(),
-                        created_at: self.staking_contract.current_epoch,
-                        deadline: Some(self.staking_contract.current_epoch + 5),
-                    });
-                }
-            }
-        }
-        
-        actions
-    }
-
-    /// Submit agent registration
-    pub fn submit_agent_registration(&mut self, request: AgentRegistrationRequest) -> AgentRegistrationResponse {
-        let agent_id = format!("agent_{}", self.pending_agents.len() + 1);
-        
-        self.pending_agents.push(request.clone());
-        
-        AgentRegistrationResponse {
-            success: true,
-            agent_id,
-            transaction_hash: Some(format!("0x{}", (0..64).map(|_| (b'0'..=b'9').choose(&mut rand::thread_rng()).unwrap()).collect::<String>())),
-            message: "Agent registration submitted for review".to_string(),
-        }
-    }
-
-    /// Approve agent registration (admin function)
-    pub fn approve_agent(&mut self, agent_id: &str) -> Result<(), String> {
-        let idx = self.pending_agents.iter().position(|a| format!("agent_{}", self.pending_agents.iter().position(|x| x == a).unwrap() + 1) == agent_id);
-        
-        if let Some(index) = idx {
-            self.pending_agents.remove(index);
-            Ok(())
-        } else {
-            Err("Agent not found".to_string())
-        }
-    }
-
-    /// Get all pending agent registrations
-    pub fn get_pending_agents(&self) -> &Vec<AgentRegistrationRequest> {
-        &self.pending_agents
-    }
 }
 
 #[cfg(test)]
@@ -268,27 +230,48 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_user_registration() {
-        let mut router = ApiRouter::new();
-        let profile = router.register_user("0x1234".to_string(), "testuser".to_string(), Some("test@example.com".to_string()));
-        assert!(profile.is_ok());
-        assert_eq!(profile.unwrap().username, "testuser");
+    fn test_rpc_request_serialization() {
+        let request = RpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: 1,
+            method: RpcMethod::GetSlotInfo,
+        };
+
+        let json = serde_json::to_string(&request).unwrap();
+        assert!(json.contains("GetSlotInfo"));
     }
 
     #[test]
-    fn test_agent_registration() {
-        let mut router = ApiRouter::new();
-        let request = AgentRegistrationRequest {
-            name: "Test Agent".to_string(),
-            description: "A test agent".to_string(),
-            capabilities: vec!["coding".to_string(), "testing".to_string()],
-            avatar: Some("🤖".to_string()),
-            owner_address: "0x1234".to_string(),
-            stake_amount: 1000,
+    fn test_validator_status() {
+        let status = ValidatorStatus {
+            pubkey: "0x1234".to_string(),
+            active: true,
+            slot: 100,
+            last_confirmed_slot: 95,
+            stake: 500_000,
+            commission: 500,
+            peer_count: 10,
+            healthy: true,
+            error: None,
         };
-        
-        let response = router.submit_agent_registration(request);
-        assert!(response.success);
-        assert_eq!(response.agent_id, "agent_1");
+
+        assert!(status.healthy);
+        assert_eq!(status.slot, 100);
+    }
+
+    #[test]
+    fn test_network_status() {
+        let status = NetworkStatus {
+            slot: 1000,
+            block_height: 1000,
+            validator_count: 5,
+            active_validator_count: 4,
+            total_stake: 10_000_000,
+            congestion: 0.3,
+            avg_latency_ms: 45.0,
+        };
+
+        assert_eq!(status.slot, 1000);
+        assert!(status.congestion < 1.0);
     }
 }

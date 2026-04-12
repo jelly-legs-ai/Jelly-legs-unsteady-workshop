@@ -4,6 +4,14 @@
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// Get current timestamp in seconds since epoch
+fn current_timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
+}
+
 /// Minimum stake required to become a validator
 pub const MIN_STAKE_AMOUNT: u64 = 100_000_000; // 100 AETH (with 6 decimals)
 
@@ -84,10 +92,7 @@ pub struct StakePosition {
 impl StakePosition {
     /// Create a new stake position
     pub fn new(owner: String, amount: u64, lock_period: u64) -> Self {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system time before epoch")
-            .as_secs();
+        let now = current_timestamp();
         Self {
             owner,
             amount,
@@ -117,9 +122,7 @@ impl StakePosition {
     
     /// Check if stake is still locked
     pub fn is_locked(&self) -> bool {
-        let now = SystemTime::now()
-            .expect("system time before epoch")
-            .as_secs();
+        let now = current_timestamp();
         now < self.start_time + self.lock_period
     }
     
@@ -129,9 +132,7 @@ impl StakePosition {
             return 0;
         }
         
-        let now = SystemTime::now()
-            .expect("system time before epoch")
-            .as_secs();
+        let now = current_timestamp();
         
         // Time elapsed since last claim (in years)
         let seconds_since_claim = now.saturating_sub(self.last_claim);
@@ -148,9 +149,7 @@ impl StakePosition {
     pub fn accrue_rewards(&mut self) {
         let rewards = self.calculate_rewards();
         self.accumulated_rewards += rewards;
-        self.last_claim = SystemTime::now()
-            .expect("system time before epoch")
-            .as_secs();
+        self.last_claim = current_timestamp();
     }
     
     /// Get total value (stake + unclaimed rewards)
@@ -244,9 +243,7 @@ impl StakePool {
             return Err("Amount exceeds staked balance");
         }
         
-        let now = SystemTime::now()
-            .expect("system time before epoch")
-            .as_secs();
+        let now = current_timestamp();
         
         // Create unstake request with no additional lock (already served original lock)
         let request = UnstakeRequest {
@@ -266,9 +263,7 @@ impl StakePool {
         let key = format!("{}_{}", owner, position_idx);
         let request = self.unstake_requests.remove(&key).ok_or("No unstake request found")?;
         
-        let now = SystemTime::now()
-            .expect("system time before epoch")
-            .as_secs();
+        let now = current_timestamp();
         
         if now < request.unlock_time {
             return Err("Unstake not yet unlocked");
@@ -311,9 +306,7 @@ impl StakePool {
                 amount: pos.amount,
                 tier: format!("{:?}", pos.tier()),
                 lock_remaining: if pos.is_locked() {
-                    Some(pos.start_time + pos.lock_period - SystemTime::now()
-                        .expect("system time before epoch")
-                        .as_secs())
+                    Some(pos.start_time + pos.lock_period - current_timestamp())
                 } else {
                     None
                 },

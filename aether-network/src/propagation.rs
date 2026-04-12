@@ -10,7 +10,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
-use tracing::{info, debug, warn, error};
+use tracing::{info, debug, warn};
 
 use crate::gossip::{GossipService, GossipMessage};
 
@@ -114,7 +114,7 @@ impl BlockPropagator {
         }
 
         info!("Block {} propagated in {:.2}ms (avg: {:.2}ms)", 
-              height, latency_ms, stats.read().await.avg_latency_ms);
+              height, latency_ms, self.stats.read().await.avg_latency_ms);
 
         Ok(())
     }

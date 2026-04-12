@@ -13,10 +13,11 @@ description = "Storage layer for AETHER blockchain"
 
 [dependencies]
 aether-core = { path = "../aether-core" }
-solana-ledger = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }
 tracing = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
 
 [dev-dependencies]
 tokio-test = "0.4"

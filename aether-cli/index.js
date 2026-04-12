@@ -43,20 +43,15 @@ const { stakeCommand } = require('./commands/stake');
 const readline = require('readline');
 
 // CLI version
-const VERSION = '1.6.2';
+const VERSION = '2.0.0';
 
 // Parse args early to support flags on commands
 function getCommandArgs() {
   return process.argv.slice(2);
 }
 
-// Tier colours
-const TIER_COLORS = {
-  FULL: '\x1b[36m',    // cyan
-  LITE: '\x1b[33m',    // yellow
-  OBSERVER: '\x1b[32m', // green
-  reset: '\x1b[0m',
-};
+// Import branding and theme
+const { THEME, TIER_COLORS, getLogo, getMenuHeader, getHeader, getSuccessBanner, getErrorBanner } = require('./lib/branding');
 
 /**
  * Display the interactive main menu
@@ -69,10 +64,11 @@ async function showMenu() {
 
   const prompt = (q) => new Promise((res) => rl.question(q, res));
 
+  console.log(getMenuHeader());
   console.log(
-    TIER_COLORS.FULL + '\n  ╔═══════════════════════════════════════════════╗\n' +
+    THEME.cyan + '\n  ╔═══════════════════════════════════════════════╗\n' +
     '  ║     AETHER CHAIN — Validator Setup Wizard     ║\n' +
-    '  ╚═══════════════════════════════════════════════╝' + TIER_COLORS.reset + '\n'
+    '  ╚═══════════════════════════════════════════════╝' + THEME.reset + '\n'
   );
 
   console.log('  Welcome to AeTHer Chain. What would you like to do?\n');
@@ -486,16 +482,7 @@ const COMMANDS = {
  * Display help message with ASCII art
  */
 function showHelp() {
-  const header = `
-███╗   ███╗██╗███████╗███████╗██╗ ██████╗ ███╗   ██╗
-████╗ ████║██║██╔════╝██╔════╝██║██╔═══██╗████╗  ██║
-██╔████╔██║██║███████╗███████╗██║██║   ██║██╔██╗ ██║
-██║╚██╔╝██║██║╚════██║╚════██║██║██║   ██║██║╚██╗██║
-██║ ╚═╝ ██║██║███████║███████║██║╚██████╔╝██║ ╚████║
-╚═╝     ╚═╝╚═╝╚══════╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝
-
-Validator CLI v${VERSION}
-`.trim();
+  const header = getHeader(VERSION);
 
   console.log(header);
   console.log('\nUsage: aether-cli <command> [options]\n');

@@ -7,8 +7,7 @@
 //! - Data availability guarantees
 
 use aether_core::{Block, Hash};
-use crate::blockstore::BlockStore;
-use crate::state::{StateManager, StateSnapshot, AccountState};
+use crate::state::{StateManager, AccountState};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -99,7 +98,7 @@ impl Archive {
 
         let archived = ArchivedBlock {
             slot,
-            hash: block.header.poh_hash,
+            hash: block.header.poh_hash.clone(),
             archived_at: current_timestamp(),
             transaction_count: block.transactions.len() as u64,
         };
@@ -176,7 +175,7 @@ impl Archive {
         let mut archives = self.state_archives.write().await;
         let before_count = archives.len();
         archives.retain(|slot, _| *slot >= before_slot);
-        archives.len() - before_count
+        before_count - archives.len()
     }
 
     /// Get archive statistics
@@ -217,16 +216,16 @@ fn current_timestamp() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use aether_core::{Block, BlockHeader};
+    use aether_core::{Block, BlockHeader, Hash};
 
     fn make_block(height: u64) -> Block {
         Block {
             header: BlockHeader {
                 height,
-                prev_hash: [0u8; 32],
+                prev_hash: Hash::ZERO,
                 timestamp: height * 400,
-                poh_hash: [height as u8; 32],
-                state_root: [0u8; 32],
+                poh_hash: Hash::new([height as u8; 32]),
+                state_root: Hash::ZERO,
             },
             transactions: vec![],
         }

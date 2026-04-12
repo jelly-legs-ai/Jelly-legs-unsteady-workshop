@@ -13,12 +13,13 @@ description = "P2P networking layer for AETHER"
 
 [dependencies]
 aether-core = { path = "../aether-core" }
-solana-gossip = { workspace = true }
-solana-streamer = { workspace = true }
 libp2p = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }
 tracing = { workspace = true }
+sha2 = { workspace = true }
+rand = { workspace = true }
+thiserror = { workspace = true }
 
 [dev-dependencies]
 tokio-test = "0.4"

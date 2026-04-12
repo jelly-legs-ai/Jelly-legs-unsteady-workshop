@@ -13,7 +13,6 @@ description = "Proof of History implementation for AETHER"
 
 [dependencies]
 aether-core = { path = "../aether-core" }
-solana-poh = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }
 sha2 = { workspace = true }

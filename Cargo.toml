@@ -9,6 +9,12 @@ members = [
     "crates/aether-privacy",
     "crates/aether-validator",
     "crates/aether-tokens",
+    "aether-core",
+    "aether-poh",
+    "aether-consensus",
+    "aether-network",
+    "aether-storage",
+    "aether-ai-lanes",
 ]
 resolver = "2"
 

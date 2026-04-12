@@ -23,7 +23,7 @@ pub fn verify_signature(
     message: &[u8],
     signature: &[u8; 64],
 ) -> Result<(), CryptoError> {
-    use ed25519_dalek::{VerifyingKey, Signature as EdSignature};
+    use ed25519_dalek::{VerifyingKey, Signature as EdSignature, Verifier};
     
     let verifying_key = VerifyingKey::from_bytes(public_key)
         .map_err(|_| CryptoError::InvalidPublicKey)?;

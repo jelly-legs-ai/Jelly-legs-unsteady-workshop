@@ -54,7 +54,7 @@ pub struct GossipService {
     /// Connected peers
     peers: Arc<RwLock<HashMap<SocketAddr, PeerInfo>>>,
     /// Seen message hashes (for deduplication)
-    seen_messages: Arc<RwLock<HashSet<[u8; 32]>>,
+    seen_messages: Arc<RwLock<HashSet<[u8; 32]>>>,
     /// Message buffer for pull requests
     message_buffer: Arc<RwLock<Vec<GossipMessage>>>,
     /// Local socket address

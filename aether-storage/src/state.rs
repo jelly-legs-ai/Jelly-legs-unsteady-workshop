@@ -62,7 +62,7 @@ impl AccountState {
     /// Hash the account state for Merkle tree
     pub fn hash(&self) -> Hash {
         let mut hasher = Sha256::new();
-        hasher.update(&self.address);
+        hasher.update(self.address.as_bytes());
         hasher.update(self.balance.to_le_bytes());
         hasher.update(self.nonce.to_le_bytes());
         hasher.update((self.is_validator as u8).to_le_bytes());
@@ -122,7 +122,7 @@ impl StateManager {
     pub fn new() -> Self {
         Self {
             accounts: Arc::new(RwLock::new(HashMap::new())),
-            state_root: Arc::new(RwLock::new([0u8; 32])),
+            state_root: Arc::new(RwLock::new(Hash::ZERO)),
             root_slot: Arc::new(RwLock::new(0)),
             total_supply: Arc::new(RwLock::new(0)),
             snapshots: Arc::new(RwLock::new(Vec::new())),
@@ -199,8 +199,8 @@ impl StateManager {
 
         // Compute transaction hash
         let mut hasher = Sha256::new();
-        hasher.update(from);
-        hasher.update(to);
+        hasher.update(from.as_bytes());
+        hasher.update(to.as_bytes());
         hasher.update(amount.to_le_bytes());
         hasher.update(nonce.to_le_bytes());
         Ok(hasher.finalize().into())
@@ -237,23 +237,23 @@ impl StateManager {
         let accounts = self.accounts.read().await;
 
         if accounts.is_empty() {
-            return [0u8; 32];
+            return Hash::ZERO;
         }
 
         // Collect and sort account hashes
         let mut hashes: Vec<Hash> = accounts.values().map(|a| a.hash()).collect();
-        hashes.sort_by(|a, b| a.cmp(b));
+        hashes.sort();
 
         // Build Merkle tree
         while hashes.len() > 1 {
             let mut next_level = Vec::new();
             for chunk in hashes.chunks(2) {
                 let mut hasher = Sha256::new();
-                hasher.update(chunk[0]);
+                hasher.update(chunk[0].as_bytes());
                 if chunk.len() > 1 {
-                    hasher.update(chunk[1]);
+                    hasher.update(chunk[1].as_bytes());
                 } else {
-                    hasher.update(chunk[0]); // Duplicate odd node
+                    hasher.update(chunk[0].as_bytes()); // Duplicate odd node
                 }
                 next_level.push(hasher.finalize().into());
             }
@@ -271,7 +271,7 @@ impl StateManager {
             *self.state_root.write().await = root;
             root
         } else {
-            *self.state_root.read().await
+            self.state_root.read().await.clone()
         }
     }
 
@@ -313,7 +313,7 @@ impl StateManager {
         let snapshots = self.snapshots.read().await;
         let snapshot = snapshots.iter()
             .find(|s| s.slot == slot)
-            .ok_or_else(|| StateError::AccountNotFound([0u8; 32]))? // Reuse error type
+            .ok_or_else(|| StateError::AccountNotFound(Address::ZERO))?
             .clone();
         drop(snapshots);
 
@@ -388,7 +388,7 @@ mod tests {
     #[tokio::test]
     async fn test_create_account() {
         let state = StateManager::new();
-        let addr = [1u8; 32];
+        let addr = Address::new([1u8; 32]);
         state.create_account(addr, 1000).await.unwrap();
 
         let account = state.get_account(&addr).await.unwrap();
@@ -398,7 +398,7 @@ mod tests {
     #[tokio::test]
     async fn test_duplicate_account() {
         let state = StateManager::new();
-        let addr = [1u8; 32];
+        let addr = Address::new([1u8; 32]);
         state.create_account(addr, 1000).await.unwrap();
 
         let result = state.create_account(addr, 500).await;
@@ -408,8 +408,8 @@ mod tests {
     #[tokio::test]
     async fn test_transfer() {
         let state = StateManager::new();
-        let from = [1u8; 32];
-        let to = [2u8; 32];
+        let from = Address::new([1u8; 32]);
+        let to = Address::new([2u8; 32]);
 
         state.create_account(from, 1000).await.unwrap();
         state.create_account(to, 0).await.unwrap();
@@ -423,8 +423,8 @@ mod tests {
     #[tokio::test]
     async fn test_transfer_insufficient_balance() {
         let state = StateManager::new();
-        let from = [1u8; 32];
-        let to = [2u8; 32];
+        let from = Address::new([1u8; 32]);
+        let to = Address::new([2u8; 32]);
 
         state.create_account(from, 100).await.unwrap();
         state.create_account(to, 0).await.unwrap();
@@ -436,8 +436,8 @@ mod tests {
     #[tokio::test]
     async fn test_transfer_invalid_nonce() {
         let state = StateManager::new();
-        let from = [1u8; 32];
-        let to = [2u8; 32];
+        let from = Address::new([1u8; 32]);
+        let to = Address::new([2u8; 32]);
 
         state.create_account(from, 1000).await.unwrap();
         state.create_account(to, 0).await.unwrap();
@@ -449,7 +449,7 @@ mod tests {
     #[tokio::test]
     async fn test_state_root() {
         let state = StateManager::new();
-        let addr = [1u8; 32];
+        let addr = Address::new([1u8; 32]);
 
         // Empty state root
         let root1 = state.state_root().await;
@@ -464,14 +464,14 @@ mod tests {
     #[tokio::test]
     async fn test_snapshot_and_rollback() {
         let state = StateManager::new();
-        let addr = [1u8; 32];
+        let addr = Address::new([1u8; 32]);
 
         state.create_account(addr, 1000).await.unwrap();
         state.commit_slot(1).await;
         state.save_snapshot(1).await;
 
         // Transfer changes state
-        let to = [2u8; 32];
+        let to = Address::new([2u8; 32]);
         state.create_account(to, 0).await.unwrap();
         state.transfer(&addr, &to, 500, 0).await.unwrap();
         state.commit_slot(2).await;
@@ -486,7 +486,7 @@ mod tests {
     #[tokio::test]
     async fn test_validator() {
         let state = StateManager::new();
-        let addr = [1u8; 32];
+        let addr = Address::new([1u8; 32]);
 
         state.create_account(addr, 1_000_000).await.unwrap();
         state.set_validator(&addr, 500_000).await.unwrap();

@@ -10,7 +10,7 @@ use aether_core::{Block, BlockHeader, Hash};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, debug, warn};
+use tracing::{info, debug};
 
 /// Maximum number of blocks to keep in memory before pruning
 const DEFAULT_MAX_SLOTS: u64 = 500_000;
@@ -90,11 +90,6 @@ impl BlockStore {
     }
 
     /// Insert a block into the store
-    ///
-    /// Validates that:
-    /// - Slot is not already occupied
-    /// - Parent hash matches expected chain (if not genesis)
-    /// - Block height is sequential
     pub async fn insert(&self, block: Block) -> Result<(), BlockStoreError> {
         let slot = block.header.height;
         let hash = block.header.poh_hash;
@@ -186,11 +181,12 @@ impl BlockStore {
 
     /// Get a block by its hash
     pub async fn get_by_hash(&self, hash: &Hash) -> Result<Block, BlockStoreError> {
-        let h2s = self.hash_to_slot.read().await;
-        let slot = h2s.get(hash).ok_or(BlockStoreError::HashNotFound(*hash))?;
-        drop(h2s);
+        let slot = {
+            let h2s = self.hash_to_slot.read().await;
+            *h2s.get(hash).ok_or(BlockStoreError::HashNotFound(hash.clone()))?
+        };
 
-        self.get_by_slot(*slot).await
+        self.get_by_slot(slot).await
     }
 
     /// Get block metadata by slot
@@ -334,22 +330,22 @@ mod tests {
                 prev_hash,
                 timestamp: height * 400,
                 poh_hash,
-                state_root: [0u8; 32],
+                state_root: Hash::ZERO,
             },
             transactions: vec![],
         }
     }
 
-    fn hash_seq(start: u8) -> [u8; 32] {
+    fn hash_seq(start: u8) -> Hash {
         let mut h = [0u8; 32];
         h[0] = start;
-        h
+        Hash::new(h)
     }
 
     #[tokio::test]
     async fn test_insert_and_get() {
         let store = BlockStore::new();
-        let block = make_block(0, [0u8; 32], hash_seq(1));
+        let block = make_block(0, Hash::ZERO, hash_seq(1));
         store.insert(block).await.unwrap();
 
         let retrieved = store.get_by_slot(0).await.unwrap();
@@ -359,10 +355,10 @@ mod tests {
     #[tokio::test]
     async fn test_slot_occupied() {
         let store = BlockStore::new();
-        let block = make_block(0, [0u8; 32], hash_seq(1));
+        let block = make_block(0, Hash::ZERO, hash_seq(1));
         store.insert(block).await.unwrap();
 
-        let dup = make_block(0, [0u8; 32], hash_seq(2));
+        let dup = make_block(0, Hash::ZERO, hash_seq(2));
         assert!(matches!(
             store.insert(dup).await,
             Err(BlockStoreError::SlotOccupied(0))
@@ -373,7 +369,7 @@ mod tests {
     async fn test_get_by_hash() {
         let store = BlockStore::new();
         let hash = hash_seq(42);
-        let block = make_block(0, [0u8; 32], hash);
+        let block = make_block(0, Hash::ZERO, hash);
         store.insert(block).await.unwrap();
 
         let retrieved = store.get_by_hash(&hash).await.unwrap();
@@ -383,8 +379,8 @@ mod tests {
     #[tokio::test]
     async fn test_range_query() {
         let store = BlockStore::new();
-        for i in 0..5 {
-            let prev = if i == 0 { [0u8; 32] } else { hash_seq(i as u8) };
+        for i in 0..5u64 {
+            let prev = if i == 0 { Hash::ZERO } else { hash_seq(i as u8) };
             let block = make_block(i, prev, hash_seq((i + 1) as u8));
             store.insert(block).await.unwrap();
         }
@@ -398,8 +394,8 @@ mod tests {
     #[tokio::test]
     async fn test_pruning() {
         let store = BlockStore::with_max_slots(3);
-        for i in 0..10 {
-            let prev = if i == 0 { [0u8; 32] } else { hash_seq(i as u8) };
+        for i in 0..10u64 {
+            let prev = if i == 0 { Hash::ZERO } else { hash_seq(i as u8) };
             let block = make_block(i, prev, hash_seq((i + 1) as u8));
             store.insert(block).await.unwrap();
         }
@@ -413,7 +409,7 @@ mod tests {
     #[tokio::test]
     async fn test_stats() {
         let store = BlockStore::new();
-        let block = make_block(0, [0u8; 32], hash_seq(1));
+        let block = make_block(0, Hash::ZERO, hash_seq(1));
         store.insert(block).await.unwrap();
 
         let stats = store.stats().await;
