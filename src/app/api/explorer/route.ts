@@ -79,13 +79,14 @@ export async function POST(request: NextRequest) {
               chainSource: true,
             };
           } else {
-            const meta = tx.meta as any;
-            const accounts = (tx.transaction as any)?.message?.accountKeys || [];
+            const txAny = tx as any;
+            const meta = txAny.meta as any;
+            const accounts = txAny.transaction?.message?.accountKeys || [];
             result = {
               type: 'transaction',
               signature,
-              slot: (tx as any).slot,
-              blockTime: (tx as any).blockTime,
+              slot: txAny.slot,
+              blockTime: txAny.blockTime,
               fee: meta?.fee || null,
               status: meta?.err ? 'failed' : 'confirmed',
               txType: 'transfer',
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
               lamports: meta?.postBalances?.[1] 
                 ? (meta.postBalances[1] - meta.preBalances?.[1] || 0) 
                 : null,
-              blockHash: (tx.transaction as any)?.message?.recentBlockhash || null,
+              blockHash: txAny.transaction?.message?.recentBlockhash || null,
               chainSource: true,
             };
           }
