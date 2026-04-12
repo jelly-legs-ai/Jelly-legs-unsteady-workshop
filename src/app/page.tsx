@@ -121,7 +121,7 @@ export default function HomePage() {
                 { tier: 'Lite', stake: '1,000 ATH', color: 'from-orange-500/20 to-orange-600/10 border-orange-500/40', badge: 'Lite Validator' },
                 { tier: 'Observer', stake: '0 ATH', color: 'from-gray-500/20 to-gray-600/10 border-gray-500/40', badge: 'Observer' },
               ].map((v) => (
-                <div key={v.tier} className={`bg-gradient-to-br ${v.color} rounded-xl p-6 border`}>
+                <div key={v.tier} className={`bg-gradient-to-br ${v.color} rounded-xl p-6 border hover:scale-[1.02] transition-transform cursor-default`}>
                   <div className="text-xs uppercase tracking-wider text-gray-400 mb-2">{v.badge}</div>
                   <div className="text-3xl font-bold text-white mb-1">{v.tier}</div>
                   <div className="text-gray-400 text-sm">Min stake: <span className="text-white font-medium">{v.stake}</span></div>
