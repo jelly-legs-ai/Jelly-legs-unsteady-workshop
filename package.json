@@ -50,6 +50,10 @@
     "snapshot": "node index.js snapshot",
     "nft": "node index.js nft",
     "deploy": "node index.js deploy",
+    "call": "node index.js call",
+    "blockheight": "node index.js blockheight",
+    "token-accounts": "node index.js token-accounts",
+    "version": "node index.js version",
     "prepare-publish": "npm pack && echo 'Package ready for publishing'",
     "version-bump": "node -e \"const fs=require('fs');let p=JSON.parse(fs.readFileSync('package.json'));let v=p.version.split('.');v[2]=parseInt(v[2])+1;p.version=v.join('.');fs.writeFileSync('package.json',JSON.stringify(p,null,2));console.log('Version bumped to',p.version);\""
   },

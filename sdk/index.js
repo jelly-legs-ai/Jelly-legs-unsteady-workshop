@@ -1279,6 +1279,102 @@ class AetherClient {
   }
 
   // ============================================================
+  // Contract Call Methods - Real blockchain calls for smart contracts
+  // ============================================================
+
+  /**
+   * Call a smart contract function (read-only query)
+   * RPC: POST /v1/call
+   * 
+   * @param {string} programId - Program/contract ID (base58)
+   * @param {string} functionName - Function to call
+   * @param {Array} args - Function arguments
+   * @returns {Promise<Object>} Function result
+   */
+  async call(programId, functionName, args = []) {
+    if (!programId) throw new AetherSDKError('Program ID is required', 'VALIDATION_ERROR');
+    if (!functionName) throw new AetherSDKError('Function name is required', 'VALIDATION_ERROR');
+    
+    return this._executeWithRetry(
+      async () => {
+        const result = await this._httpPost('/v1/call', {
+          program_id: programId,
+          function: functionName,
+          args: args,
+        });
+        return result;
+      },
+      'call'
+    );
+  }
+
+  /**
+   * Simulate a contract call (dry run)
+   * RPC: POST /v1/call/simulate
+   * 
+   * @param {string} programId - Program/contract ID (base58)
+   * @param {string} functionName - Function to simulate
+   * @param {Array} args - Function arguments
+   * @param {string} signer - Address of the caller (for auth simulation)
+   * @returns {Promise<Object>} Simulation result with gas estimate
+   */
+  async simulateCall(programId, functionName, args = [], signer = null) {
+    if (!programId) throw new AetherSDKError('Program ID is required', 'VALIDATION_ERROR');
+    if (!functionName) throw new AetherSDKError('Function name is required', 'VALIDATION_ERROR');
+    
+    return this._executeWithRetry(
+      async () => {
+        const result = await this._httpPost('/v1/call/simulate', {
+          program_id: programId,
+          function: functionName,
+          args: args,
+          signer: signer,
+        });
+        return result;
+      },
+      'simulateCall'
+    );
+  }
+
+  /**
+   * Get contract interface/IDL
+   * RPC: GET /v1/program/<program_id>/interface
+   * 
+   * @param {string} programId - Program/contract ID (base58)
+   * @returns {Promise<Object>} Contract interface with available functions
+   */
+  async getContractInterface(programId) {
+    if (!programId) throw new AetherSDKError('Program ID is required', 'VALIDATION_ERROR');
+    
+    return this._executeWithRetry(
+      async () => {
+        const result = await this._httpGet(`/v1/program/${programId}/interface`);
+        return result.interface ?? result.idl ?? result ?? null;
+      },
+      'getContractInterface'
+    );
+  }
+
+  /**
+   * Get program account info
+   * RPC: GET /v1/program/<program_id>
+   * 
+   * @param {string} programId - Program/contract ID (base58)
+   * @returns {Promise<Object>} Program account info
+   */
+  async getProgram(programId) {
+    if (!programId) throw new AetherSDKError('Program ID is required', 'VALIDATION_ERROR');
+    
+    return this._executeWithRetry(
+      async () => {
+        const result = await this._httpGet(`/v1/program/${programId}`);
+        return result;
+      },
+      'getProgram'
+    );
+  }
+
+  // ============================================================
   // Utilities
   // ============================================================
 
@@ -1723,6 +1819,40 @@ module.exports = {
   getNFT,
   getNFTHoldings,
   getNFTsByCreator,
+  
+  // Contract calls
+  call: async (programId, functionName, args) => {
+    const client = new AetherClient();
+    try {
+      return await client.call(programId, functionName, args);
+    } finally {
+      client.destroy();
+    }
+  },
+  simulateCall: async (programId, functionName, args, signer) => {
+    const client = new AetherClient();
+    try {
+      return await client.simulateCall(programId, functionName, args, signer);
+    } finally {
+      client.destroy();
+    }
+  },
+  getContractInterface: async (programId) => {
+    const client = new AetherClient();
+    try {
+      return await client.getContractInterface(programId);
+    } finally {
+      client.destroy();
+    }
+  },
+  getProgram: async (programId) => {
+    const client = new AetherClient();
+    try {
+      return await client.getProgram(programId);
+    } finally {
+      client.destroy();
+    }
+  },
   
   // Transactions
   sendTransaction,

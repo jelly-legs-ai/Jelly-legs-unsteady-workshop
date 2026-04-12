@@ -63,6 +63,10 @@ const { unstakeCommand } = require('./commands/unstake');
 const { txCommand } = require('./commands/tx');
 const { multisigCommand } = require('./commands/multisig');
 const { deployCommand } = require('./commands/deploy');
+const { callCommand } = require('./commands/call');
+const { blockheightCommand } = require('./commands/blockheight');
+const { versionCommand } = require('./commands/version');
+const { tokenAccountsCommand } = require('./commands/token-accounts');
 
 // Parse args early to support flags on commands
 function getCommandArgs() {
@@ -336,6 +340,18 @@ const COMMANDS = {
     description: 'Get current slot number - slot [--json] [--rpc <url>]',
     handler: slotCommand,
   },
+  blockheight: {
+    description: 'Get current block height - blockheight [--json] [--rpc <url>] [--compare]',
+    handler: blockheightCommand,
+  },
+  'token-accounts': {
+    description: 'Get SPL token accounts for wallet - token-accounts [address] [--json]',
+    handler: tokenAccountsCommand,
+  },
+  version: {
+    description: 'Get node version info - version [--json] [--cli]',
+    handler: versionCommand,
+  },
   multisig: {
     description: 'Multi-signature wallet management',
     handler: multisigCommand,
@@ -360,6 +376,17 @@ const COMMANDS = {
     description: 'Deploy smart contracts - deploy <file> [--name <name>] [--upgradeable]',
     handler: deployCommand,
   },
+  call: {
+    description: 'Call smart contract functions - call <program-id> <function> [args...] [--query|--wallet]',
+    handler: callCommand,
+  },
+  'validator-setup': {
+    description: 'Setup validator prerequisites (alias for validator start)',
+    handler: () => {
+      const { validatorStartCommand } = require('./commands/validator-start');
+      validatorStartCommand();
+    },
+  },
   install: {
     description: 'Install or upgrade aether-cli',
     handler: installCommand,
@@ -368,8 +395,8 @@ const COMMANDS = {
     description: 'Show this help message',
     handler: showHelp,
   },
-  version: {
-    description: 'Show version number',
+  'cli-version': {
+    description: 'Show CLI version number',
     handler: () => {
       console.log(BRANDING.header(VERSION));
       console.log(`  ${C.dim}SDK-powered blockchain CLI for Aether validators${C.reset}\n`);
@@ -387,12 +414,12 @@ function showHelp() {
   
   // Group commands by category
   const categories = {
-    'Wallet & Accounts': ['wallet', 'balance', 'transfer', 'tx', 'tx-history', 'account', 'stats'],
+    'Wallet & Accounts': ['wallet', 'balance', 'transfer', 'tx', 'tx-history', 'account', 'stats', 'token-accounts'],
     'Staking': ['stake', 'unstake', 'stake-positions', 'stake-info', 'delegations', 'rewards', 'claim'],
     'Validator': ['init', 'validator', 'validator-info', 'register', 'validators', 'monitor', 'logs'],
-    'Network': ['network', 'network-diagnostics', 'ping', 'epoch', 'slot', 'tps', 'fees', 'supply'],
+    'Network': ['network', 'network-diagnostics', 'ping', 'epoch', 'slot', 'blockheight', 'tps', 'fees', 'supply', 'version'],
     'SDK & Tools': ['sdk', 'sdk-test', 'snapshot', 'info', 'status', 'blockhash', 'broadcast', 'price', 'apy', 'deploy'],
-    'Advanced': ['nft', 'multisig', 'emergency', 'config', 'doctor', 'install'],
+    'Advanced': ['nft', 'multisig', 'emergency', 'config', 'doctor', 'install', 'call'],
   };
 
   for (const [category, cmds] of Object.entries(categories)) {
@@ -425,7 +452,7 @@ function parseArgs() {
 
   // Handle version flags
   if (args.includes('--version') || args.includes('-v') || args.includes('-V')) {
-    return 'version';
+    return 'cli-version';
   }
 
   // No args → interactive menu
