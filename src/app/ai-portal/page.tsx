@@ -95,10 +95,10 @@ function LaneCard({
 
   return (
     <div
-      className={`bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-6 hover:border-red-500/40 transition-all`}
+      className={`bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-6 hover:border-red-500/40 transition-all group`}
     >
       <div className="flex items-center justify-between mb-4">
-        <div className={`text-xl font-bold ${lane.color}`}>{lane.label}</div>
+        <div className={`text-xl font-bold ${lane.color} group-hover:scale-105 transition-transform`}>{lane.label}</div>
         <div className="text-xs text-gray-500 uppercase tracking-wider">
           Priority Lane
         </div>
@@ -138,7 +138,7 @@ function LaneCard({
           </div>
           <div className="h-2 bg-gray-900 rounded-full overflow-hidden">
             <div
-              className={`h-full ${lane.lane === "critical" ? "bg-red-500" : lane.lane === "high" ? "bg-orange-500" : "bg-blue-500"} rounded-full transition-all`}
+              className={`h-full ${lane.lane === "critical" ? "bg-red-500" : lane.lane === "high" ? "bg-orange-500" : "bg-blue-500"} rounded-full transition-all duration-500`}
               style={{ width: `${Math.min(100, utilization)}%` }}
             />
           </div>
@@ -318,18 +318,18 @@ export default function AIPortalPage() {
 
           {/* Error/Success */}
           {error && (
-            <div className="mb-6 p-4 bg-red-900/50 border border-red-500 rounded-lg text-red-200 text-sm">
+            <div className="mb-6 p-4 bg-red-900/50 border border-red-500 rounded-lg text-red-200 text-sm animate-in fade-in slide-in-from-top-2">
               {error}
             </div>
           )}
           {success && (
-            <div className="mb-6 p-4 bg-green-900/50 border border-green-500 rounded-lg text-green-200 text-sm">
+            <div className="mb-6 p-4 bg-green-900/50 border border-green-500 rounded-lg text-green-200 text-sm animate-in fade-in slide-in-from-top-2">
               {success}
             </div>
           )}
 
           {/* Wallet Status */}
-          <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-5 mb-8">
+          <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-5 mb-8 transition-all duration-300 hover:border-gray-600">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 {connected ? (
@@ -337,7 +337,7 @@ export default function AIPortalPage() {
                     <div className="w-10 h-10 bg-green-500/20 border border-green-500/40 rounded-full flex items-center justify-center">
                       <span className="text-green-400 text-lg">✓</span>
                     </div>
-                    <div>
+                    <div className="flex flex-col">
                       <div className="text-green-400 font-semibold">
                         Wallet Connected
                       </div>
@@ -351,7 +351,7 @@ export default function AIPortalPage() {
                     <div className="w-10 h-10 bg-gray-700/50 border border-gray-600 rounded-full flex items-center justify-center">
                       <span className="text-gray-400 text-lg">◯</span>
                     </div>
-                    <div>
+                    <div className="flex flex-col">
                       <div className="text-gray-400 font-semibold">
                         Wallet Not Connected
                       </div>
@@ -365,13 +365,13 @@ export default function AIPortalPage() {
 
               {/* Session stats */}
               <div className="flex gap-6 text-sm">
-                <div>
-                  <span className="text-gray-500">Submitted: </span>
-                  <span className="text-white font-medium">{totalTxSubmitted}</span>
+                <div className="flex flex-col items-center md:items-start">
+                  <span className="text-gray-500">Submitted</span>
+                  <span className="text-white font-medium text-lg">{totalTxSubmitted}</span>
                 </div>
-                <div>
-                  <span className="text-gray-500">Pending: </span>
-                  <span className="text-yellow-400 font-medium">{pendingTx}</span>
+                <div className="flex flex-col items-center md:items-start">
+                  <span className="text-gray-500">Pending</span>
+                  <span className="text-yellow-400 font-medium text-lg">{pendingTx}</span>
                 </div>
               </div>
 
@@ -379,7 +379,7 @@ export default function AIPortalPage() {
                 <button
                   onClick={() => setVisible(true)}
                   disabled={connecting}
-                  className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 rounded-lg font-semibold text-sm transition-all disabled:opacity-50"
+                  className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 rounded-lg font-semibold text-sm transition-all disabled:opacity-50 shadow-lg shadow-red-900/20"
                 >
                   {connecting ? "Connecting..." : "Connect Wallet"}
                 </button>
@@ -406,7 +406,7 @@ export default function AIPortalPage() {
           </div>
 
           {/* Submit AI Transaction */}
-          <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-6 mb-8">
+          <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-6 mb-8 transition-all duration-300 hover:border-gray-600">
             <h2 className="text-xl font-bold text-white mb-2">
               Submit AI Transaction
             </h2>
@@ -417,8 +417,8 @@ export default function AIPortalPage() {
 
             <form onSubmit={handleSubmitTx} className="space-y-5">
               {/* Lane selection */}
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">
+              <div className="group">
+                <label className="block text-sm text-gray-400 mb-2 group-focus-within:text-gray-200 transition-colors">
                   Priority Lane
                 </label>
                 <div className="grid grid-cols-3 gap-3">
@@ -427,17 +427,17 @@ export default function AIPortalPage() {
                       key={lane.lane}
                       type="button"
                       onClick={() => setSelectedLane(lane.lane)}
-                      className={`py-3 px-4 rounded-lg border font-medium text-sm transition-all ${
+                      className={`py-3 px-4 rounded-lg border font-medium text-sm transition-all duration-200 ${
                         selectedLane === lane.lane
                           ? lane.lane === "critical"
-                            ? "bg-red-600/20 border-red-500 text-red-400"
+                            ? "bg-red-600/20 border-red-500 text-red-400 shadow-inner"
                             : lane.lane === "high"
-                            ? "bg-orange-600/20 border-orange-500 text-orange-400"
-                            : "bg-blue-600/20 border-blue-500 text-blue-400"
-                          : "bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-600"
+                            ? "bg-orange-600/20 border-orange-500 text-orange-400 shadow-inner"
+                            : "bg-blue-600/20 border-blue-500 text-blue-400 shadow-inner"
+                          : "bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-600 hover:bg-gray-800"
                       }`}
                     >
-                      <div>{lane.label}</div>
+                      <div className="transition-transform group-hover:scale-105">{lane.label}</div>
                       <div className="text-xs mt-0.5 opacity-70">
                         {lane.premium > 0 ? `+${lane.premium}% fee` : "Base fee"}
                       </div>
@@ -447,8 +447,8 @@ export default function AIPortalPage() {
               </div>
 
               {/* Amount */}
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">
+              <div className="group">
+                <label className="block text-sm text-gray-400 mb-2 group-focus-within:text-gray-200 transition-colors">
                   Amount (ATH)
                 </label>
                 <input
@@ -458,13 +458,13 @@ export default function AIPortalPage() {
                   placeholder="0.00"
                   min="0"
                   step="0.01"
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:border-red-500 transition-colors text-white placeholder-gray-600"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:border-red-500 transition-all text-white placeholder-gray-600"
                 />
               </div>
 
               {/* Memo */}
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">
+              <div className="group">
+                <label className="block text-sm text-gray-400 mb-2 group-focus-within:text-gray-200 transition-colors">
                   Memo / Task Description
                 </label>
                 <textarea
@@ -472,19 +472,19 @@ export default function AIPortalPage() {
                   onChange={(e) => setTxMemo(e.target.value)}
                   placeholder="Describe the AI task or transaction purpose..."
                   rows={3}
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:border-red-500 transition-colors text-white placeholder-gray-600 resize-none"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:border-red-500 transition-all text-white placeholder-gray-600 resize-none"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={isSubmitting || !connected || !txAmount}
-                className={`w-full py-3 rounded-lg font-semibold transition-all disabled:opacity-50 text-sm ${
+                className={`w-full py-3 rounded-lg font-semibold transition-all disabled:opacity-50 text-sm shadow-lg ${
                   selectedLane === "critical"
-                    ? "bg-gradient-to-r from-red-700 to-red-800 hover:from-red-600 hover:to-red-700"
+                    ? "bg-gradient-to-r from-red-700 to-red-800 hover:from-red-600 hover:to-red-700 shadow-red-900/40"
                     : selectedLane === "high"
-                    ? "bg-gradient-to-r from-orange-700 to-orange-800 hover:from-orange-600 hover:to-orange-700"
-                    : "bg-gradient-to-r from-blue-700 to-blue-800 hover:from-blue-600 hover:to-blue-700"
+                    ? "bg-gradient-to-r from-orange-700 to-orange-800 hover:from-orange-600 hover:to-orange-700 shadow-orange-900/40"
+                    : "bg-gradient-to-r from-blue-700 to-blue-800 hover:from-blue-600 hover:to-blue-700 shadow-blue-900/40"
                 }`}
               >
                 {isSubmitting
@@ -496,7 +496,7 @@ export default function AIPortalPage() {
 
           {/* Transaction History */}
           {txHistory.length > 0 && (
-            <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-6">
+            <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-6 animate-in fade-in slide-in-from-bottom-4">
               <h2 className="text-xl font-bold text-white mb-4">
                 Transaction History
               </h2>
@@ -504,7 +504,7 @@ export default function AIPortalPage() {
                 {txHistory.map((tx) => (
                   <div
                     key={tx.id}
-                    className="flex items-center justify-between bg-gray-900/50 border border-gray-700/50 rounded-lg px-4 py-3"
+                    className="flex items-center justify-between bg-gray-900/50 border border-gray-700/50 rounded-lg px-4 py-3 hover:border-gray-600 transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       <div
@@ -516,7 +516,7 @@ export default function AIPortalPage() {
                             : "bg-yellow-400 animate-pulse"
                         }`}
                       />
-                      <div>
+                      <div className="flex flex-col">
                         <div className="text-white text-sm font-medium">
                           {tx.lane.toUpperCase()} Lane
                         </div>
@@ -538,7 +538,7 @@ export default function AIPortalPage() {
                         {tx.status}
                       </span>
                       {tx.signature && (
-                        <span className="text-gray-500 text-xs font-mono">
+                        <span className="text-gray-500 text-xs font-mono hidden md:block">
                           {tx.signature.slice(0, 12)}...
                         </span>
                       )}
