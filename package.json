@@ -1,10 +1,10 @@
 {
-  "name": "aether-cli",
-  "version": "1.7.0",
+  "name": "aether-validator-cli",
+  "version": "2.0.0",
   "description": "Aether CLI - Validator Onboarding, Staking, and Blockchain Operations",
   "main": "index.js",
   "bin": {
-    "aether-cli": "./index.js"
+    "aether-cli": "index.js"
   },
   "scripts": {
     "test": "node test.js",
