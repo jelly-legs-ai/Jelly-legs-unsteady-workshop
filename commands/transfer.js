@@ -18,9 +18,17 @@ const os = require('os');
 const path = require('path');
 const readline = require('readline');
 
-// Import UI framework for consistent branding
-const { BRANDING, C, indicators, startSpinner, stopSpinner, drawBox,
-        success, error, warning, info, code, highlight } = require('../lib/ui');
+// ANSI colours
+const C = {
+  reset: '\x1b[0m',
+  bright: '\x1b[1m',
+  dim: '\x1b[2m',
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  cyan: '\x1b[36m',
+  magenta: '\x1b[35m',
+};
 
 // Import SDK — REAL blockchain RPC calls to http://127.0.0.1:8899
 const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');

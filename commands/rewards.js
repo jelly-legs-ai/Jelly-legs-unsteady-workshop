@@ -36,39 +36,24 @@ const nacl = require('tweetnacl');
 const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
 const aether = require(sdkPath);
 
-// Import UI Framework for consistent branding
-const ui = require('../lib/ui');
-const {
-  C, BRANDING, indicators,
-  success, error, warning, info,
-  code, key, value, bright, dim,
-  startSpinner, stopSpinner,
-  drawBox, drawTable,
-  progressBar, progressBarColored,
-  formatHealth
-} = ui;
+// ANSI colours
+const C = {
+  reset: '\x1b[0m',
+  bright: '\x1b[1m',
+  dim: '\x1b[2m',
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  cyan: '\x1b[36m',
+  magenta: '\x1b[35m',
+};
 
 const DERIVATION_PATH = "m/44'/7777777'/0'/0'";
-const CLI_VERSION = '2.0.0';
+const CLI_VERSION = '1.1.0';
 
-// ============================================================================
-// ASCII Art & Branding
-// ============================================================================
-
-// Helper to create section header
-function section(title) {
-  return `\n${C.yellow}${C.bright}── ${title} ${C.reset}${C.yellow}${'─'.repeat(60 - title.length)}${C.reset}`;
-}
-
-const REWARDS_LOGO = `
-${C.yellow}  ╭────────────────────────────────────────────────────────────╮${C.reset}
-${C.yellow}  │${C.reset}  ${C.bright}${C.yellow}★${C.reset} ${C.bright}STAKING REWARDS${C.reset}${' '.repeat(33)}${C.dim}v${CLI_VERSION}${C.reset}  ${C.yellow}│${C.reset}
-${C.yellow}  │${C.reset}     ${C.dim}Track and claim your staking rewards${C.reset}${' '.repeat(18)}${C.yellow}│${C.reset}
-${C.yellow}  ╰────────────────────────────────────────────────────────────╯${C.reset}`;
-
-// ============================================================================
+// ---------------------------------------------------------------------------
 // SDK Client Setup
-// ============================================================================
+// ---------------------------------------------------------------------------
 
 function getDefaultRpc() {
   return process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
@@ -78,35 +63,33 @@ function createClient(rpcUrl) {
   return new aether.AetherClient({ rpcUrl });
 }
 
-// ============================================================================
-// Paths & Config
-// ============================================================================
+// ---------------------------------------------------------------------------
+// Paths & config
+// ---------------------------------------------------------------------------
 
 function getAetherDir() {
   return path.join(require('os').homedir(), '.aether');
 }
 
 function loadConfig() {
-  const fs = require('fs');
   const p = path.join(getAetherDir(), 'config.json');
-  if (!fs.existsSync(p)) return { defaultWallet: null };
+  if (!require('fs').existsSync(p)) return { defaultWallet: null };
   try {
-    return JSON.parse(fs.readFileSync(p, 'utf8'));
+    return JSON.parse(require('fs').readFileSync(p, 'utf8'));
   } catch {
     return { defaultWallet: null };
   }
 }
 
 function loadWallet(address) {
-  const fs = require('fs');
   const fp = path.join(getAetherDir(), 'wallets', `${address}.json`);
-  if (!fs.existsSync(fp)) return null;
-  return JSON.parse(fs.readFileSync(fp, 'utf8'));
+  if (!require('fs').existsSync(fp)) return null;
+  return JSON.parse(require('fs').readFileSync(fp, 'utf8'));
 }
 
-// ============================================================================
-// Crypto Helpers
-// ============================================================================
+// ---------------------------------------------------------------------------
+// Crypto helpers
+// ---------------------------------------------------------------------------
 
 function deriveKeypair(mnemonic) {
   if (!bip39.validateMnemonic(mnemonic)) throw new Error('Invalid mnemonic');
@@ -126,9 +109,9 @@ function signTransaction(tx, secretKey) {
   return bs58.encode(sig);
 }
 
-// ============================================================================
-// Format Helpers
-// ============================================================================
+// ---------------------------------------------------------------------------
+// Format helpers
+// ---------------------------------------------------------------------------
 
 function formatAether(lamports) {
   if (!lamports || lamports === '0') return '0 AETH';
@@ -146,17 +129,9 @@ function shortAddress(addr) {
   return addr.slice(0, 8) + '...' + addr.slice(-8);
 }
 
-function formatAPY(apyBps) {
-  if (!apyBps) return dim('—');
-  const pct = (apyBps / 100).toFixed(2);
-  if (apyBps > 500) return `${C.green}${pct}%${C.reset}`;
-  if (apyBps > 200) return `${C.yellow}${pct}%${C.reset}`;
-  return `${C.dim}${pct}%${C.reset}`;
-}
-
-// ============================================================================
-// Rewards Calculation via SDK (REAL RPC CALLS)
-// ============================================================================
+// ---------------------------------------------------------------------------
+// Rewards calculation via SDK (REAL RPC CALLS)
+// ---------------------------------------------------------------------------
 
 /**
  * Fetch stake positions and calculate rewards using SDK
@@ -227,7 +202,7 @@ async function fetchStakeRewards(rpcUrl, stakeAddress) {
 
 /**
  * Fetch all stake accounts for a wallet using SDK
- * REAL RPC: GET /v1/stake/<address>
+ * REAL RPC CALL: GET /v1/stake/<address>
  */
 async function fetchWalletStakeAccounts(rpcUrl, walletAddress) {
   const client = createClient(rpcUrl);
@@ -251,9 +226,9 @@ async function fetchWalletStakeAccounts(rpcUrl, walletAddress) {
   }
 }
 
-// ============================================================================
-// Rewards List Command - FULLY WIRED TO SDK with UI Framework
-// ============================================================================
+// ---------------------------------------------------------------------------
+// Rewards list command - FULLY WIRED TO SDK
+// ---------------------------------------------------------------------------
 
 async function rewardsList(args) {
   const rpc = args.rpc || getDefaultRpc();
@@ -264,13 +239,13 @@ async function rewardsList(args) {
   if (!address) {
     const config = loadConfig();
     const rl = createRl();
-    const answer = await question(rl, `\n${C.cyan}${indicators.arrow}${C.reset} ${bright('Enter wallet address')} ${dim('(or press Enter for default)')}: `);
+    const answer = await question(rl, `\n${C.cyan}Enter wallet address (or press Enter for default): ${C.reset}`);
     rl.close();
 
     if (!answer.trim()) {
       if (!config.defaultWallet) {
-        console.log(`\n  ${error('No default wallet and no address provided.')}`);
-        console.log(`  ${dim('Set a default wallet:')} ${code('aether wallet default')}\n`);
+        console.log(`\n${C.red}✗ No default wallet and no address provided.${C.reset}`);
+        console.log(`  ${C.dim}Set a default wallet first: aether wallet default${C.reset}\n`);
         return;
       }
       address = config.defaultWallet;
@@ -285,30 +260,24 @@ async function rewardsList(args) {
     if (config.defaultWallet) address = config.defaultWallet;
   }
 
-  if (!isJson) {
-    console.log(REWARDS_LOGO);
-    console.log();
-    console.log(`  ${indicators.info} Wallet: ${bright(shortAddress(address))}`);
-    console.log(`  ${indicators.info} RPC: ${dim(rpc)}\n`);
-  }
+  console.log(`\n${C.bright}${C.cyan}╔═══════════════════════════════════════════════════════╗${C.reset}`);
+  console.log(`${C.bright}${C.cyan}║           Staking Rewards — ${shortAddress(address)}        ║${C.reset}`);
+  console.log(`${C.bright}${C.cyan}╚═══════════════════════════════════════════════════════╝${C.reset}\n`);
+  console.log(`  ${C.dim}RPC: ${rpc}${C.reset}\n`);
 
-  // Fetch stake accounts via SDK with spinner
-  startSpinner('Fetching stake accounts');
+  // Fetch stake accounts via SDK (REAL RPC)
   const stakeAccounts = await fetchWalletStakeAccounts(rpc, address);
-  stopSpinner(true, `${stakeAccounts.length} stake account(s) found`);
 
   if (stakeAccounts.length === 0) {
-    console.log(`\n  ${warning('No stake accounts found for this wallet.')}`);
-    console.log(`  ${dim('Stake AETH first:')} ${code(`aether stake --address ${address} --validator <val> --amount <aeth>`)}\n`);
+    console.log(`  ${C.yellow}⚠ No stake accounts found for this wallet.${C.reset}`);
+    console.log(`  ${C.dim}Stake AETH first: aether stake --address ${address} --validator <val> --amount <aeth>${C.reset}\n`);
     return;
   }
 
-  // Fetch rewards for each stake account via SDK with spinner
-  startSpinner('Fetching rewards data');
+  // Fetch rewards for each stake account via SDK (REAL RPC CALLS)
   const rewardsResults = await Promise.all(
     stakeAccounts.map(sa => fetchStakeRewards(rpc, sa.address))
   );
-  stopSpinner(true, 'Rewards data retrieved');
 
   let totalEstimatedRewards = BigInt(0);
   let totalPendingRewards = BigInt(0);
@@ -362,54 +331,39 @@ async function rewardsList(args) {
     return;
   }
 
-  // Build table data for UI framework
-  const tableRows = rows.map(r => {
-    const statusIcon = r.isActive ? indicators.success : r.deactivationEpoch ? indicators.warning : indicators.error;
-    return [
-      shortAddress(r.stakeAddress),
-      shortAddress(r.validator),
-      r.delegatedStakeFormatted,
-      r.totalRewardsFormatted,
-      formatAPY(r.apyBps),
-      statusIcon
-    ];
-  });
+  // ASCII table header
+  console.log(`  ${C.dim}┌─────────────────────────────────────────────────────────────────────────┐${C.reset}`);
+  console.log(`  ${C.dim}│${C.reset}  ${C.bright}Stake Account${C.reset}          ${C.bright}Validator${C.reset}      ${C.bright}Delegated${C.reset}    ${C.bright}Total Rewards${C.reset}  ${C.bright}APY${C.reset}    ${C.dim}│${C.reset}`);
+  console.log(`  ${C.dim}├─────────────────────────────────────────────────────────────────────────┤${C.reset}`);
 
-  console.log();
-  console.log(ui.section('Stake Accounts'));
-  console.log();
+  for (const r of rows) {
+    const shortAddr = shortAddress(r.stakeAddress);
+    const shortVal = shortAddress(r.validator);
+    const delegated = r.delegatedStakeFormatted || '—';
+    const totalRew = r.totalRewardsFormatted || '—';
+    const apy = r.apyBps ? `${(r.apyBps / 100).toFixed(2)}%` : '—';
+    const statusColor = r.isActive ? C.green : r.deactivationEpoch ? C.yellow : C.red;
+    const status = r.isActive ? '●' : r.deactivationEpoch ? '○' : '✗';
 
-  if (tableRows.length > 0) {
-    const headers = ['Stake Account', 'Validator', 'Delegated', 'Total Rewards', 'APY', 'Status'];
-    console.log(drawTable(headers, tableRows, {
-      headerColor: C.yellow + C.bright,
-      borderColor: C.dim
-    }));
+    console.log(
+      `  ${C.dim}│${C.reset}  ${shortAddr.padEnd(18)} ${shortVal.padEnd(14)} ${delegated.padEnd(11)} ${totalRew.padEnd(13)} ${apy.padEnd(6)} ${statusColor}${status}${C.reset} ${C.dim}│${C.reset}`
+    );
   }
 
+  console.log(`  ${C.dim}└─────────────────────────────────────────────────────────────────────────┘${C.reset}`);
   console.log();
-  console.log(ui.section('Summary'));
+  console.log(`  ${C.bright}Total Delegated:${C.reset}  ${C.cyan}${formatAether(totalDelegatedStake)}${C.reset}`);
+  console.log(`  ${C.bright}Total Rewards:${C.reset}    ${C.green}${formatAether(totalEstimatedRewards)}${C.reset}`);
+  console.log(`  ${C.bright}Pending Rewards:${C.reset}  ${C.magenta}${formatAether(totalPendingRewards)}${C.reset}`);
+  console.log(`  ${C.bright}Active Accounts:${C.reset}   ${activeCount} of ${rows.length}`);
   console.log();
-  console.log(`  ${key('Total Delegated:')}   ${value(formatAether(totalDelegatedStake))}`);
-  console.log(`  ${key('Total Rewards:')}     ${C.green}${formatAether(totalEstimatedRewards)}${C.reset}`);
-  console.log(`  ${key('Pending Rewards:')}   ${C.magenta}${formatAether(totalPendingRewards)}${C.reset}`);
-  console.log(`  ${key('Active Accounts:')}   ${activeCount} of ${rows.length}`);
-  console.log();
-  
-  // Show claim prompt if there are pending rewards
-  if (totalPendingRewards > BigInt(0)) {
-    const pendingPct = Number(totalPendingRewards) / Number(totalEstimatedRewards) * 100;
-    console.log(`  ${C.yellow}${indicators.star}${C.reset}  ${bright('You have unclaimed rewards!')}`);
-    console.log(`     ${progressBarColored(Number(totalPendingRewards), Number(totalEstimatedRewards), 30)}`);
-    console.log(`     ${dim('Run:')} ${code(`aether rewards claim --address ${address}`)}`);
-  }
-
-  console.log();
+  console.log(`  ${C.dim}SDK Methods: getStakePositions(), getRewards(), getEpochInfo()${C.reset}`);
+  console.log(`  ${C.dim}Run "aether rewards claim --address ${address}" to claim pending rewards.${C.reset}\n`);
 }
 
-// ============================================================================
-// Rewards Summary Command - SDK WIRED with UI
-// ============================================================================
+// ---------------------------------------------------------------------------
+// Rewards summary command - SDK WIRED
+// ---------------------------------------------------------------------------
 
 async function rewardsSummary(args) {
   const rpc = args.rpc || getDefaultRpc();
@@ -418,24 +372,20 @@ async function rewardsSummary(args) {
   if (!address) {
     const config = loadConfig();
     if (!config.defaultWallet) {
-      console.log(error('No default wallet and no address provided.'));
+      console.log(`${C.red}✗ No default wallet and no address provided.${C.reset}`);
       return;
     }
     address = config.defaultWallet;
   }
 
   // SDK calls
-  startSpinner('Fetching stake data');
   const stakeAccounts = await fetchWalletStakeAccounts(rpc, address);
   if (stakeAccounts.length === 0) {
-    stopSpinner(false, 'No stake accounts');
-    console.log(warning(`No stake accounts for ${shortAddress(address)}`));
+    console.log(`${C.yellow}⚠ No stake accounts for ${shortAddress(address)}${C.reset}`);
     return;
   }
 
   const results = await Promise.all(stakeAccounts.map(sa => fetchStakeRewards(rpc, sa.address)));
-  stopSpinner(true, 'Data retrieved');
-
   let totalRewards = BigInt(0);
   let totalPending = BigInt(0);
   let totalStake = BigInt(0);
@@ -450,28 +400,103 @@ async function rewardsSummary(args) {
     }
   }
 
-  // Summary box
-  const summaryContent = [
-    `${C.cyan}${shortAddress(address)}${C.reset}`,
-    `${key('Stake:')} ${value(formatAether(totalStake))}`,
-    `${key('Total Rewards:')} ${C.green}${formatAether(totalRewards)}${C.reset}`,
-    `${key('Pending:')} ${C.magenta}${formatAether(totalPending)}${C.reset}`,
-    `${key('Active:')} ${activeCount}/${results.length}`,
-  ].join('\n');
-
-  console.log();
-  console.log(drawBox(summaryContent, {
-    title: 'Rewards Summary',
-    titleColor: C.yellow,
-    borderColor: C.dim,
-    style: 'single'
-  }));
-  console.log();
+  console.log(`${C.cyan}${shortAddress(address)}${C.reset} │ Stake: ${C.cyan}${formatAether(totalStake)}${C.reset} │ Total Rewards: ${C.green}${formatAether(totalRewards)}${C.reset} │ Pending: ${C.magenta}${formatAether(totalPending)}${C.reset} │ Active: ${activeCount}/${results.length}`);
 }
 
-// ============================================================================
-// Rewards Claim Command - SDK WIRED with Enhanced UI
-// ============================================================================
+// ---------------------------------------------------------------------------
+// Rewards pending command - SDK WIRED
+// ---------------------------------------------------------------------------
+
+async function rewardsPending(args) {
+  const rpc = args.rpc || getDefaultRpc();
+  const isJson = args.json || false;
+  let address = args.address || null;
+
+  const config = loadConfig();
+  const rl = createRl();
+
+  if (!address) {
+    const ans = await question(rl, `\n${C.cyan}Enter wallet address: ${C.reset}`);
+    address = ans.trim();
+  }
+
+  if (!address) {
+    console.log(`\n${C.red}✗ No address provided.${C.reset}\n`);
+    rl.close();
+    return;
+  }
+
+  rl.close();
+
+  // SDK calls
+  const stakeAccounts = await fetchWalletStakeAccounts(rpc, address);
+  if (stakeAccounts.length === 0) {
+    if (isJson) {
+      console.log(JSON.stringify({ address, pending: [], total_pending: '0', sdk_version: CLI_VERSION }, null, 2));
+    } else {
+      console.log(`\n${C.red}✗ No stake accounts found for ${address}${C.reset}\n`);
+    }
+    return;
+  }
+
+  const results = [];
+  let totalPending = BigInt(0);
+
+  // SDK calls for each stake account
+  for (const sa of stakeAccounts) {
+    const rd = await fetchStakeRewards(rpc, sa.address);
+    if (!rd.error) {
+      const pending = BigInt(rd.pendingRewards || 0);
+      totalPending += pending;
+      results.push({
+        stake_account: sa.address,
+        validator: sa.validator || rd.validator || 'unknown',
+        delegated_stake: rd.delegatedStakeFormatted || '0',
+        pending_rewards: rd.pendingRewardsFormatted || '0',
+        pending_lamports: pending.toString(),
+        apy_bps: rd.apyBps || 0,
+        is_active: rd.isActive,
+      });
+    }
+  }
+
+  if (isJson) {
+    console.log(JSON.stringify({
+      address,
+      rpc,
+      total_pending: totalPending.toString(),
+      total_pending_formatted: formatAether(totalPending.toString()),
+      accounts: results,
+      cli_version: CLI_VERSION,
+      fetched_at: new Date().toISOString(),
+    }, null, 2));
+    return;
+  }
+
+  console.log(`\n${C.bright}${C.cyan}╔══════════════════════════════════════════════════════════════╗${C.reset}`);
+  console.log(`${C.bright}${C.cyan}║              Pending Staking Rewards (SDK-Wired)             ║${C.reset}`);
+  console.log(`${C.bright}${C.cyan}╚══════════════════════════════════════════════════════════════╝${C.reset}\n`);
+  console.log(`  ${C.dim}Wallet:${C.reset} ${C.bright}${address}${C.reset}`);
+  console.log(`  ${C.dim}RPC:${C.reset} ${rpc}`);
+  console.log();
+  console.log(`  ${C.yellow}Stake Account${C.reset.padEnd(48)} ${C.yellow}Pending${C.reset}      ${C.yellow}APY${C.reset}`);
+  console.log(`  ${C.dim}${'─'.repeat(72)}${C.reset}`);
+
+  for (const r of results) {
+    const shortSa = shortAddress(r.stake_account);
+    console.log(`  ${C.cyan}${shortSa}${C.reset.padEnd(52)} ${C.green}${r.pending_rewards.padStart(12)}${C.reset}  ${(r.apy_bps / 100).toFixed(2)}%`);
+  }
+
+  console.log(`  ${C.dim}${'─'.repeat(72)}${C.reset}`);
+  console.log(`  ${C.bright}TOTAL PENDING${C.reset.padEnd(52)} ${C.magenta}${formatAethFull(totalPending.toString()).padStart(12)}${C.reset}`);
+  console.log();
+  console.log(`  ${C.dim}SDK: getStakePositions(), getRewards()${C.reset}`);
+  console.log(`  ${C.dim}Run ${C.cyan}aether rewards claim --address ${address}${C.dim} to claim.${C.reset}\n`);
+}
+
+// ---------------------------------------------------------------------------
+// Rewards claim command - SDK WIRED with sendTransaction
+// ---------------------------------------------------------------------------
 
 async function rewardsClaim(args) {
   const rpc = args.rpc || getDefaultRpc();
@@ -482,40 +507,30 @@ async function rewardsClaim(args) {
   const config = loadConfig();
   const rl = createRl();
 
-  // Print header
-  if (!isJson) {
-    console.log(REWARDS_LOGO);
-    console.log();
-  }
-
   if (!address) {
-    const ans = await question(rl, `${C.cyan}${indicators.arrow}${C.reset} ${bright('Enter wallet address')}: `);
+    const ans = await question(rl, `\n${C.cyan}Enter wallet address: ${C.reset}`);
     address = ans.trim();
   }
 
   if (!stakeAccount) {
     // SDK call to fetch stake accounts
-    startSpinner('Fetching stake accounts');
     const stakeAccounts = await fetchWalletStakeAccounts(rpc, address);
-    stopSpinner(true, `${stakeAccounts.length} account(s) found`);
-
     if (stakeAccounts.length === 0) {
-      console.log(`\n  ${error('No stake accounts found for this wallet.')}\n`);
+      console.log(`\n${C.red}✗ No stake accounts found for this wallet.${C.reset}\n`);
       rl.close();
       return;
     }
     if (stakeAccounts.length === 1) {
       stakeAccount = stakeAccounts[0].address;
     } else {
-      console.log(`\n  ${bright('Select stake account:')}`);
+      console.log(`\n${C.cyan}Select stake account:${C.reset}`);
       stakeAccounts.forEach((sa, i) => {
-        const statusIcon = sa.deactivationEpoch ? indicators.warning : indicators.success;
-        console.log(`    ${C.cyan}${i + 1})${C.reset} ${statusIcon} ${shortAddress(sa.address)} ${dim('→')} ${shortAddress(sa.validator || 'unknown')}`);
+        console.log(`  ${i + 1}) ${shortAddress(sa.address)} → ${shortAddress(sa.validator || 'unknown')}`);
       });
-      const ans = await question(rl, `\n${C.cyan}${indicators.arrow}${C.reset} ${bright('Enter number')}: `);
+      const ans = await question(rl, `${C.cyan}Enter number: ${C.reset}`);
       const idx = parseInt(ans.trim()) - 1;
       if (idx < 0 || idx >= stakeAccounts.length) {
-        console.log(`\n  ${error('Invalid selection.')}\n`);
+        console.log(`\n${C.red}Invalid selection.${C.reset}\n`);
         rl.close();
         return;
       }
@@ -526,42 +541,42 @@ async function rewardsClaim(args) {
   // Load wallet for signing
   const wallet = loadWallet(address);
   if (!wallet) {
-    console.log(`\n  ${error(`Wallet not found locally: ${address}`)}`);
-    console.log(`  ${dim('Import it:')} ${code('aether wallet import')}\n`);
+    console.log(`\n${C.red}✗ Wallet not found locally: ${address}${C.reset}`);
+    console.log(`  ${C.dim}Import it: aether wallet import${C.reset}\n`);
     rl.close();
     return;
   }
 
-  console.log(`\n  ${key('Wallet:')} ${address}`);
-  console.log(`  ${key('Stake Account:')} ${stakeAccount}`);
+  console.log(`\n${C.bright}${C.cyan}╔════════════════════════════════════════╗${C.reset}`);
+  console.log(`${C.bright}${C.cyan}║        Claim Staking Rewards             ║${C.reset}`);
+  console.log(`${C.bright}${C.cyan}╚════════════════════════════════════════╝${C.reset}\n`);
+  console.log(`  ${C.dim}Wallet:${C.reset} ${address}`);
+  console.log(`  ${C.dim}Stake Account:${C.reset} ${stakeAccount}`);
 
   // SDK call to fetch current rewards
-  startSpinner('Fetching rewards data');
   const client = createClient(rpc);
   const rewardData = await fetchStakeRewards(rpc, stakeAccount);
-  stopSpinner(true, 'Rewards data retrieved');
-
   if (rewardData.error) {
-    console.log(`\n  ${error(`Failed to fetch stake account: ${rewardData.error}`)}\n`);
+    console.log(`\n${C.red}✗ Failed to fetch stake account: ${rewardData.error}${C.reset}\n`);
     rl.close();
     return;
   }
 
-  console.log(`  ${key('Delegated Stake:')} ${rewardData.delegatedStakeFormatted}`);
-  console.log(`  ${key('Est. Pending Rewards:')} ${C.green}${rewardData.pendingRewardsFormatted}${C.reset}`);
-  console.log(`  ${key('Validator:')} ${shortAddress(rewardData.validator)}`);
-  console.log(`  ${key('APY:')} ${formatAPY(rewardData.apyBps)}`);
+  console.log(`  ${C.dim}Delegated Stake:${C.reset} ${rewardData.delegatedStakeFormatted}`);
+  console.log(`  ${C.dim}Est. Pending Rewards:${C.reset} ${C.green}${rewardData.pendingRewardsFormatted}${C.reset}`);
+  console.log(`  ${C.dim}Validator:${C.reset} ${rewardData.validator}`);
+  console.log(`  ${C.dim}APY:${C.reset} ${(rewardData.apyBps / 100).toFixed(2)}%`);
 
   const pendingRewards = BigInt(rewardData.pendingRewards || 0);
   if (pendingRewards === BigInt(0)) {
-    console.log(`\n  ${warning('No rewards accumulated yet.')}\n`);
+    console.log(`\n${C.yellow}⚠ No rewards accumulated yet.${C.reset}\n`);
     rl.close();
     return;
   }
 
-  const confirm = await question(rl, `\n  ${C.yellow}${indicators.warning}${C.reset} ${bright('Claim')} ${C.green}${rewardData.pendingRewardsFormatted}${C.reset}${bright('?')} ${dim('[y/N]')}: `);
+  const confirm = await question(rl, `\n  ${C.yellow}Claim ${rewardData.pendingRewardsFormatted}? [y/N]${C.reset} > `);
   if (confirm.trim().toLowerCase() !== 'y') {
-    console.log(`  ${dim('Cancelled.')}\n`);
+    console.log(`${C.dim}Cancelled.${C.reset}\n`);
     rl.close();
     return;
   }
@@ -569,25 +584,20 @@ async function rewardsClaim(args) {
   // Ask for mnemonic to derive signing keypair
   let keypair;
   try {
-    console.log();
-    const mnemonic = await askMnemonic(rl, `${bright('Enter your 12/24-word passphrase')} ${dim('to sign the claim')}`);
-    startSpinner('Deriving keypair');
+    const mnemonic = await askMnemonic(rl, 'Enter your 12/24-word passphrase to sign the claim');
     keypair = deriveKeypair(mnemonic);
     
     // Verify derived address matches
     const derivedAddress = formatAddress(keypair.publicKey);
     if (derivedAddress !== address) {
-      stopSpinner(false, 'Passphrase mismatch');
-      console.log(`\n  ${error('Passphrase mismatch!')}`);
-      console.log(`  ${key('Derived:')} ${derivedAddress}`);
-      console.log(`  ${key('Expected:')} ${address}\n`);
+      console.log(`\n${C.red}✗ Passphrase mismatch!${C.reset}`);
+      console.log(`  ${C.dim}Derived: ${derivedAddress}${C.reset}`);
+      console.log(`  ${C.dim}Expected: ${address}${C.reset}\n`);
       rl.close();
       return;
     }
-    stopSpinner(true, 'Keypair verified');
   } catch (err) {
-    stopSpinner(false, 'Failed');
-    console.log(`\n  ${error(`Failed to derive keypair: ${err.message}`)}\n`);
+    console.log(`\n${C.red}✗ Failed to derive keypair: ${err.message}${C.reset}\n`);
     rl.close();
     return;
   }
@@ -611,13 +621,11 @@ async function rewardsClaim(args) {
   // Sign transaction
   tx.signature = signTransaction(tx, keypair.secretKey);
 
-  console.log(`\n  ${dim('Submitting transaction via SDK...')}`);
-  startSpinner('Sending to blockchain');
+  console.log(`\n  ${C.dim}Submitting via SDK to ${rpc}...${C.reset}`);
 
   // SDK call: sendTransaction (REAL RPC POST /v1/transaction)
   try {
     const result = await client.sendTransaction(tx);
-    stopSpinner(true, 'Transaction submitted');
 
     if (result.error) {
       throw new Error(result.error.message || JSON.stringify(result.error));
@@ -637,38 +645,28 @@ async function rewardsClaim(args) {
         timestamp: new Date().toISOString(),
       }, null, 2));
     } else {
-      console.log();
-      console.log(drawBox([
-        `${success('Rewards claimed successfully!')}`,
-        ``,
-        `${key('TX Signature:')} ${C.cyan}${result.signature || result.txid}${C.reset}`,
-        `${key('Amount Claimed:')} ${C.green}${rewardData.pendingRewardsFormatted}${C.reset}`,
-        `${key('Slot:')} ${result.slot}`,
-        `${key('SDK:')} ${dim('sendTransaction()')}`,
-      ].join('\n'), {
-        title: 'Transaction Success',
-        titleColor: C.green,
-        borderColor: C.dim,
-        style: 'single'
-      }));
-      console.log(`  ${dim('Check balance:')} ${code(`aether wallet balance --address ${address}`)}\n`);
+      console.log(`\n${C.green}✓ Rewards claimed successfully!${C.reset}`);
+      console.log(`  ${C.dim}TX Signature: ${C.cyan}${result.signature || result.txid}${C.reset}`);
+      console.log(`  ${C.dim}Amount Claimed: ${C.green}${rewardData.pendingRewardsFormatted}${C.reset}`);
+      console.log(`  ${C.dim}Slot: ${result.slot}${C.reset}`);
+      console.log(`  ${C.dim}SDK Method: sendTransaction()${C.reset}`);
+      console.log(`  ${C.dim}Check balance: aether wallet balance --address ${address}${C.reset}\n`);
     }
   } catch (err) {
-    stopSpinner(false, 'Transaction failed');
     if (isJson) {
       console.log(JSON.stringify({ success: false, error: err.message, address, stake_account: stakeAccount }, null, 2));
     } else {
-      console.log(`\n  ${error(`Failed to submit claim: ${err.message}`)}`);
-      console.log(`  ${dim('The rewards are accumulated on-chain and can be claimed later.')}\n`);
+      console.log(`\n${C.red}✗ Failed to submit claim transaction: ${err.message}${C.reset}`);
+      console.log(`  ${C.dim}The rewards are accumulated on-chain and can be claimed later.${C.reset}\n`);
     }
   }
   
   rl.close();
 }
 
-// ============================================================================
-// Rewards Compound Command - SDK WIRED with UI
-// ============================================================================
+// ---------------------------------------------------------------------------
+// Rewards compound command - SDK WIRED
+// ---------------------------------------------------------------------------
 
 async function rewardsCompound(args) {
   const rpc = args.rpc || getDefaultRpc();
@@ -679,19 +677,13 @@ async function rewardsCompound(args) {
   const config = loadConfig();
   const rl = createRl();
 
-  if (!isJson) {
-    console.log(REWARDS_LOGO);
-    console.log();
-    console.log(`  ${C.yellow}${indicators.star}${C.reset} ${bright('Compound Mode')}: Claim and auto-restake rewards\n`);
-  }
-
   if (!address) {
-    const ans = await question(rl, `${C.cyan}${indicators.arrow}${C.reset} ${bright('Enter wallet address')}: `);
+    const ans = await question(rl, `\n${C.cyan}Enter wallet address: ${C.reset}`);
     address = ans.trim();
   }
 
   if (!address) {
-    console.log(`\n  ${error('No address provided.')}\n`);
+    console.log(`\n${C.red}✗ No address provided.${C.reset}\n`);
     rl.close();
     return;
   }
@@ -699,19 +691,16 @@ async function rewardsCompound(args) {
   // Load wallet for signing
   const wallet = loadWallet(address);
   if (!wallet) {
-    console.log(`\n  ${error(`Wallet not found locally: ${address}`)}`);
-    console.log(`  ${dim('Import it:')} ${code('aether wallet import')}\n`);
+    console.log(`\n${C.red}✗ Wallet not found locally: ${address}${C.reset}`);
+    console.log(`  ${C.dim}Import it: aether wallet import${C.reset}\n`);
     rl.close();
     return;
   }
 
   // SDK call to fetch stake accounts
-  startSpinner('Fetching stake accounts');
   let stakeAccounts = await fetchWalletStakeAccounts(rpc, address);
-  stopSpinner(true, `${stakeAccounts.length} account(s) found`);
-
   if (stakeAccounts.length === 0) {
-    console.log(`\n  ${error('No stake accounts found for this wallet.')}\n`);
+    console.log(`\n${C.red}✗ No stake accounts found for this wallet.${C.reset}\n`);
     rl.close();
     return;
   }
@@ -720,39 +709,37 @@ async function rewardsCompound(args) {
   if (stakeAccount) {
     stakeAccounts = stakeAccounts.filter(sa => sa.address === stakeAccount);
     if (stakeAccounts.length === 0) {
-      console.log(`\n  ${error(`Stake account not found: ${stakeAccount}`)}\n`);
+      console.log(`\n${C.red}✗ Stake account not found: ${stakeAccount}${C.reset}\n`);
       rl.close();
       return;
     }
   }
 
-  console.log(`\n  ${key('Wallet:')} ${bright(address)}`);
-  console.log(`  ${key('RPC:')} ${dim(rpc)}`);
-  console.log(`  ${key('Accounts to process:')} ${stakeAccounts.length}\n`);
+  console.log(`\n${C.bright}${C.cyan}╔══════════════════════════════════════════════════════════════╗${C.reset}`);
+  console.log(`${C.bright}${C.cyan}║              Compound Staking Rewards (SDK-Wired)            ║${C.reset}`);
+  console.log(`${C.bright}${C.cyan}╚══════════════════════════════════════════════════════════════╝${C.reset}\n`);
+  console.log(`  ${C.dim}Wallet:${C.reset} ${C.bright}${address}${C.reset}`);
+  console.log(`  ${C.dim}RPC:${C.reset} ${rpc}`);
+  console.log(`  ${C.dim}Stake accounts to process:${C.reset} ${stakeAccounts.length}\n`);
 
   // Ask for mnemonic upfront
-  console.log(`  ${C.yellow}${indicators.warning}${C.reset} ${bright('Compound requires your wallet passphrase to sign transactions')}`);
+  console.log(`${C.yellow}  ⚠ Compound requires your wallet passphrase to sign transactions.${C.reset}`);
   let keypair;
   try {
-    console.log();
-    const mnemonic = await askMnemonic(rl, `${bright('Enter your 12/24-word passphrase')}`);
-    startSpinner('Deriving keypair');
+    const mnemonic = await askMnemonic(rl, 'Enter your 12/24-word passphrase:');
     keypair = deriveKeypair(mnemonic);
     
     // Verify address matches
     const derivedAddress = formatAddress(keypair.publicKey);
     if (derivedAddress !== address) {
-      stopSpinner(false, 'Passphrase mismatch');
-      console.log(`\n  ${error('Passphrase mismatch.')}`);
-      console.log(`  ${key('Derived:')} ${derivedAddress}`);
-      console.log(`  ${key('Expected:')} ${address}\n`);
+      console.log(`\n${C.red}✗ Passphrase mismatch.${C.reset}`);
+      console.log(`  ${C.dim}Derived: ${derivedAddress}${C.reset}`);
+      console.log(`  ${C.dim}Expected: ${address}${C.reset}\n`);
       rl.close();
       return;
     }
-    stopSpinner(true, 'Keypair verified');
   } catch (err) {
-    stopSpinner(false, 'Failed');
-    console.log(`\n  ${error(`Failed to derive keypair: ${err.message}`)}\n`);
+    console.log(`\n${C.red}✗ Failed to derive keypair: ${err.message}${C.reset}\n`);
     rl.close();
     return;
   }
@@ -762,29 +749,26 @@ async function rewardsCompound(args) {
   let totalCompounded = BigInt(0);
   let successCount = 0;
 
-  console.log(`\n  ${bright('Processing stake accounts...')}\n`);
-
-  for (let i = 0; i < stakeAccounts.length; i++) {
-    const sa = stakeAccounts[i];
-    console.log(`  ${dim(`[${i + 1}/${stakeAccounts.length}]`)} ${shortAddress(sa.address)}`);
+  for (const sa of stakeAccounts) {
+    console.log(`  ${C.dim}Processing:${C.reset} ${shortAddress(sa.address)}`);
 
     try {
       // SDK call to fetch rewards
       const rewardData = await fetchStakeRewards(rpc, sa.address);
       if (rewardData.error) {
-        console.log(`      ${error(`Failed to fetch: ${rewardData.error}`)}`);
+        console.log(`    ${C.red}✗ Failed to fetch: ${rewardData.error}${C.reset}`);
         compoundResults.push({ stake_account: sa.address, status: 'error', error: rewardData.error });
         continue;
       }
 
       const estimatedRewards = BigInt(rewardData.pendingRewards || 0);
       if (estimatedRewards === BigInt(0)) {
-        console.log(`      ${warning('No rewards to compound')}`);
+        console.log(`    ${C.yellow}⚠ No rewards to compound${C.reset}`);
         compoundResults.push({ stake_account: sa.address, status: 'no_rewards', rewards: '0' });
         continue;
       }
 
-      console.log(`      ${dim('Rewards:')} ${C.green}${rewardData.pendingRewardsFormatted}${C.reset} ${dim('→')} ${shortAddress(sa.validator || rewardData.validator || 'unknown')}`);
+      console.log(`    ${C.dim}Rewards:${C.reset} ${rewardData.pendingRewardsFormatted} → ${shortAddress(sa.validator || rewardData.validator || 'unknown')}`);
 
       // Build compound transaction (ClaimRewards + Stake in one)
       const tx = {
@@ -806,13 +790,11 @@ async function rewardsCompound(args) {
       // Sign transaction
       tx.signature = signTransaction(tx, keypair.secretKey);
 
-      process.stdout.write(`      ${dim('Submitting...')}`);
-
       // SDK call: sendTransaction
       const result = await client.sendTransaction(tx);
 
       if (result.signature || result.txid || result.success) {
-        process.stdout.write(`\r      ${success('Compounded')}\n`);
+        console.log(`    ${C.green}✓ Compounded${C.reset}`);
         totalCompounded += estimatedRewards;
         successCount++;
         compoundResults.push({
@@ -823,26 +805,26 @@ async function rewardsCompound(args) {
           tx: result.signature || result.txid,
         });
       } else {
-        process.stdout.write(`\r      ${error(`Failed: ${result.error || 'Unknown error'}`)}\n`);
+        console.log(`    ${C.red}✗ Failed: ${result.error || 'Unknown error'}${C.reset}`);
         compoundResults.push({ stake_account: sa.address, status: 'failed', error: result.error });
       }
     } catch (err) {
-      process.stdout.write(`\r      ${error(`Error: ${err.message}`)}\n`);
+      console.log(`    ${C.red}✗ Error: ${err.message}${C.reset}`);
       compoundResults.push({ stake_account: sa.address, status: 'error', error: err.message });
     }
+    console.log();
   }
 
   rl.close();
 
   // Summary
-  console.log();
-  console.log(ui.section('Compound Summary'));
-  console.log();
-  console.log(`  ${key('Accounts processed:')} ${stakeAccounts.length}`);
-  console.log(`  ${success('Successful:')} ${successCount}`);
-  console.log(`  ${key('Total compounded:')} ${C.green}${formatAether(totalCompounded.toString())}${C.reset}`);
-  console.log(`  ${key('SDK:')} ${dim('getStakePositions(), getRewards(), sendTransaction()')}`);
-  console.log();
+  console.log(`${C.bright}${C.cyan}╔══════════════════════════════════════════════════════════════╗${C.reset}`);
+  console.log(`${C.bright}${C.cyan}║                    Compound Summary                          ║${C.reset}`);
+  console.log(`${C.bright}${C.cyan}╚══════════════════════════════════════════════════════════════╝${C.reset}\n`);
+  console.log(`  ${C.dim}Accounts processed:${C.reset} ${stakeAccounts.length}`);
+  console.log(`  ${C.green}✓ Successful:${C.reset} ${successCount}`);
+  console.log(`  ${C.dim}Total compounded:${C.reset} ${C.green}${formatAether(totalCompounded.toString())}${C.reset}`);
+  console.log(`  ${C.dim}SDK: getStakePositions(), getRewards(), sendTransaction()${C.reset}\n`);
 
   if (isJson) {
     console.log(JSON.stringify({
@@ -859,9 +841,9 @@ async function rewardsCompound(args) {
   }
 }
 
-// ============================================================================
-// Parse CLI Args
-// ============================================================================
+// ---------------------------------------------------------------------------
+// Parse CLI args
+// ---------------------------------------------------------------------------
 
 function parseArgs() {
   const rawArgs = process.argv.slice(3);
@@ -897,50 +879,18 @@ function question(rl, q) {
 }
 
 async function askMnemonic(rl, prompt) {
-  console.log(`\n  ${C.cyan}${indicators.info}${C.reset} ${prompt}`);
-  console.log(`  ${dim('Enter your 12 or 24-word passphrase:')}`);
-  const raw = await question(rl, `  > `);
+  console.log(`\n${C.cyan}${prompt}${C.reset}`);
+  console.log(`${C.dim}Enter your 12 or 24-word passphrase, one space-separated line:${C.reset}`);
+  const raw = await question(rl, `  > ${C.reset}`);
   return raw.trim().toLowerCase();
 }
 
-// ============================================================================
-// Help Display
-// ============================================================================
+// ---------------------------------------------------------------------------
+// Main entry point
+// ---------------------------------------------------------------------------
 
-function showHelp() {
-  console.log();
-  console.log(BRANDING.logoCompact);
-  console.log();
-  console.log(formatHelp(
-    'aether rewards',
-    'View and claim staking rewards earned from delegated stake accounts.',
-    'aether rewards <command> [options]',
-    [
-      { flag: 'list', desc: 'List all rewards per stake account (default)' },
-      { flag: 'summary', desc: 'One-line summary of total rewards' },
-      { flag: 'claim', desc: 'Claim accumulated rewards' },
-      { flag: 'compound', desc: 'Claim and auto-restake rewards' },
-      { flag: '--address, -a <addr>', desc: 'Wallet address' },
-      { flag: '--account, -s <acct>', desc: 'Specific stake account' },
-      { flag: '--rpc <url>', desc: 'Custom RPC endpoint' },
-      { flag: '--json, -j', desc: 'Output as JSON' },
-    ],
-    [
-      { cmd: 'aether rewards list --address ATH...', desc: 'List all rewards' },
-      { cmd: 'aether rewards claim --address ATH...', desc: 'Claim all pending rewards' },
-      { cmd: 'aether rewards compound --address ATH...', desc: 'Compound rewards' },
-    ]
-  ));
-  console.log(`  ${success('Fully wired to @jellylegsai/aether-sdk')}`);
-  console.log(`  ${dim('SDK: getStakePositions(), getRewards(), getEpochInfo(), sendTransaction()')}\n`);
-}
-
-// ============================================================================
-// Main Entry Point
-// ============================================================================
-
-async function main(customArgs) {
-  const args = customArgs || parseArgs();
+async function main() {
+  const args = parseArgs();
 
   switch (args.subcmd) {
     case 'list':
@@ -949,28 +899,33 @@ async function main(customArgs) {
     case 'summary':
       await rewardsSummary(args);
       break;
+    case 'pending':
+      await rewardsPending(args);
+      break;
     case 'claim':
       await rewardsClaim(args);
       break;
     case 'compound':
       await rewardsCompound(args);
       break;
-    case 'help':
-    case '--help':
-    case '-h':
-      showHelp();
-      break;
     default:
-      console.log(`\n  ${error(`Unknown command: ${args.subcmd}`)}`);
-      console.log(`  ${dim('Run')} ${code('aether rewards help')} ${dim('for usage information.')}\n`);
+      console.log(`\n${C.cyan}Usage:${C.reset}`);
+      console.log(`  aether rewards list    --address <addr>  List all staking rewards (SDK-wired)`);
+      console.log(`  aether rewards summary --address <addr>  One-line rewards summary`);
+      console.log(`  aether rewards pending --address <addr>  Show pending rewards`);
+      console.log(`  aether rewards claim   --address <addr> [--account <stakeAcct>]  Claim rewards`);
+      console.log(`  aether rewards compound --address <addr> [--account <stakeAcct>]  Claim and re-stake`);
+      console.log();
+      console.log(`  ${C.dim}--json   Output as JSON`);
+      console.log(`  --rpc <url>  Use specific RPC endpoint${C.reset}`);
+      console.log();
+      console.log(`  ${C.green}✓ Fully wired to @jellylegsai/aether-sdk${C.reset}`);
+      console.log(`  ${C.dim}SDK: getStakePositions(), getRewards(), getEpochInfo(), sendTransaction()${C.reset}\n`);
   }
 }
 
-// Run main only if executed directly
-if (require.main === module) {
-  main().catch(err => {
-    console.error(`\n  ${error('Error running rewards command:')} ${err.message}\n`);
-  });
-}
+main().catch(err => {
+  console.error(`\n${C.red}Error running rewards command:${C.reset}`, err.message, '\n');
+});
 
-module.exports = { rewardsCommand: main, rewardsList, rewardsSummary, rewardsClaim, rewardsCompound };
+module.exports = { rewardsCommand: main };

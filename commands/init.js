@@ -32,9 +32,17 @@ const https = require('https');
 const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
 const aether = require(sdkPath);
 
-// Import UI framework
-const { C, indicators, BRANDING, startSpinner, stopSpinner, 
-        success, error, warning, info, code, highlight } = require('../lib/ui');
+// ANSI colors
+const C = {
+  reset: '\x1b[0m',
+  bright: '\x1b[1m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  cyan: '\x1b[36m',
+  red: '\x1b[31m',
+  dim: '\x1b[2m',
+  magenta: '\x1b[35m',
+};
 
 const CLI_VERSION = '2.0.0';
 const DERIVATION_PATH = "m/44'/7777777'/0'/0'";
@@ -146,37 +154,40 @@ async function askMnemonic(rl, promptText) {
 }
 
 // ============================================================================
-// Print Helpers - Enhanced with new branding
+// Print Helpers
 // ============================================================================
 
 function printBanner() {
-  console.log();
-  console.log(BRANDING.welcomeBanner);
-  console.log();
-  console.log(BRANDING.logo);
-  console.log();
+  console.log(`
+${C.cyan}╔═══════════════════════════════════════════════════════════════╗
+║                                                               ║
+║   ${C.bright}AETHER VALIDATOR ONBOARDING WIZARD${C.reset}${C.cyan}                          ║
+║   ${C.dim}v${CLI_VERSION} - Fully wired to SDK${C.reset}${C.cyan}                              ║
+║                                                               ║
+╚═══════════════════════════════════════════════════════════════╝${C.reset}
+  `);
 }
 
 function printStep(step, total, title) {
   console.log();
-  console.log(`${C.cyan}  ◆ Step ${step}/${total}:${C.reset} ${C.bright}${title}${C.reset}`);
-  console.log(`${C.dim}  ────────────────────────────────────────────────────────────────${C.reset}`);
+  console.log(`${C.yellow}Step ${step}/${total}:${C.reset} ${C.bright}${title}${C.reset}`);
+  console.log(`${C.dim}${'─'.repeat(60)}${C.reset}`);
 }
 
 function printSuccess(msg) {
-  console.log(`  ${success(msg)}`);
+  console.log(`  ${C.green}✓${C.reset} ${msg}`);
 }
 
 function printWarning(msg) {
-  console.log(`  ${warning(msg)}`);
+  console.log(`  ${C.yellow}⚠${C.reset} ${msg}`);
 }
 
 function printError(msg) {
-  console.log(`  ${error(msg)}`);
+  console.log(`  ${C.red}✗${C.reset} ${msg}`);
 }
 
 function printInfo(msg) {
-  console.log(`  ${info(msg)}`);
+  console.log(`  ${C.dim}ℹ${C.reset} ${msg}`);
 }
 
 // ============================================================================
@@ -419,10 +430,10 @@ async function setupWallet(rl) {
     const address = formatAddress(keyPair.publicKey);
 
     const words = mnemonic.split(' ');
-    console.log(`\n${C.cyan}${C.bright}╔═══════════════════════════════════════════════════════════════╗${C.reset}`);
-    console.log(`${C.cyan}${C.bright}║${C.reset}           ${C.yellow}${C.bright}YOUR WALLET PASSPHRASE${C.reset}                               ${C.cyan}${C.bright}║${C.reset}`);
-    console.log(`${C.cyan}${C.bright}╚═══════════════════════════════════════════════════════════════╝${C.reset}`);
-    console.log(`\n${C.yellow}  ◆ Write these words down. They cannot be recovered.${C.reset}\n`);
+    console.log(`\n${C.red}${C.bright}╔═══════════════════════════════════════════════════════════════╗${C.reset}`);
+    console.log(`${C.red}${C.bright}║           YOUR WALLET PASSPHRASE                               ║${C.reset}`);
+    console.log(`${C.red}${C.bright}╚═══════════════════════════════════════════════════════════════╝${C.reset}`);
+    console.log(`\n${C.yellow}  Write these words down. They cannot be recovered.${C.reset}\n`);
 
     for (let i = 0; i < words.length; i += 3) {
       const line = [];
@@ -702,30 +713,35 @@ async function registerValidator(rl, wallet, identity, tier, rpcUrl, keyPair) {
 }
 
 // ============================================================================
-// Completion Summary - Enhanced with new branding
+// Completion Summary
 // ============================================================================
 
 async function printSummary(identity, wallet, tier, badge) {
   console.log();
-  console.log(BRANDING.successBanner(`VALIDATOR SETUP COMPLETE — ${badge}`));
+  console.log(`${C.green}╔═══════════════════════════════════════════════════════════════╗${C.reset}`);
+  console.log(`${C.green}║                                                               ║${C.reset}`);
+  console.log(`${C.green}║   ${C.bright}✅ VALIDATOR SETUP COMPLETE${C.reset}${C.green}                                 ║${C.reset}`);
+  console.log(`${C.green}║   ${C.dim}Tier: ${badge}${C.reset}${C.green}                                              ║${C.reset}`);
+  console.log(`${C.green}║                                                               ║${C.reset}`);
+  console.log(`${C.green}╚═══════════════════════════════════════════════════════════════╝${C.reset}`);
   console.log();
 
-  console.log(`${C.cyan}  ◆ Identity${C.reset}`);
-  console.log(`    ${C.dim}File:${C.reset}   validator-identity.json`);
-  console.log(`    ${C.dim}Pubkey:${C.reset} ${code(identity.pubkey)}`);
+  console.log(`${C.bright}Identity:${C.reset}`);
+  console.log(`  File: validator-identity.json`);
+  console.log(`  Pubkey: ${identity.pubkey}`);
   console.log();
 
-  console.log(`${C.cyan}  ◆ Wallet${C.reset}`);
-  console.log(`    ${C.dim}Address:${C.reset} ${code(wallet.address)}`);
-  console.log(`    ${C.dim}File:${C.reset}    ~/.aether/wallets/${wallet.address}.json`);
+  console.log(`${C.bright}Wallet:${C.reset}`);
+  console.log(`  Address: ${wallet.address}`);
+  console.log(`  File: ~/.aether/wallets/${wallet.address}.json`);
   console.log();
 
-  console.log(`${C.cyan}  ◆ Next Steps${C.reset}`);
-  console.log(`    ${C.cyan}aether validator status${C.reset}      ${C.dim}Check validator status${C.reset}`);
-  console.log(`    ${C.cyan}aether validator start${C.reset}       ${C.dim}Start the validator node${C.reset}`);
-  console.log(`    ${C.cyan}aether network${C.reset}               ${C.dim}View network status${C.reset}`);
-  console.log(`    ${C.cyan}aether wallet balance${C.reset}        ${C.dim}Check wallet balance${C.reset}`);
-  console.log(`    ${C.cyan}aether stake-info <addr>${C.reset}    ${C.dim}Check stake positions${C.reset}`);
+  console.log(`${C.bright}Next steps:${C.reset}`);
+  console.log(`  ${C.cyan}aether validator status${C.reset}      Check validator status`);
+  console.log(`  ${C.cyan}aether validator start${C.reset}       Start the validator node`);
+  console.log(`  ${C.cyan}aether network${C.reset}               View network status`);
+  console.log(`  ${C.cyan}aether wallet balance${C.reset}        Check wallet balance`);
+  console.log(`  ${C.cyan}aether stake-info <addr>${C.reset}    Check stake positions`);
   console.log();
 }
 

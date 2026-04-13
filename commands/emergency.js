@@ -5,9 +5,6 @@
  * Detects network emergencies (halts, consensus failures, high tps drops),
  * monitors validator liveness, issues governance alerts, and triggers backups.
  *
- * FULLY WIRED TO SDK — Uses @jellylegsai/aether-sdk for all blockchain calls.
- * No manual HTTP — all calls go through AetherClient with real RPC.
- *
  * Usage:
  *   aether emergency status              # Check current emergency level
  *   aether emergency monitor [--interval 30]  # Continuous monitoring loop
@@ -15,41 +12,31 @@
  *   aether emergency failover             # Trigger backup node failover
  *   aether emergency history             # Show recent emergency events
  *   aether emergency check               # Run all diagnostics
- *
- * SDK wired to:
- *   - client.getSlot()                → GET /v1/slot
- *   - client.getBlockHeight()         → GET /v1/blockheight
- *   - client.getEpochInfo()           → GET /v1/epoch
- *   - client.getTPS()                  → GET /v1/tps
- *   - client.getValidators()           → GET /v1/validators
- *   - client.getHealth()              → GET /v1/health
- *   - client.getVersion()             → GET /v1/version
  */
 
+const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const readline = require('readline');
 
-// Import SDK — REAL blockchain RPC calls
-const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
-const aether = require(sdkPath);
+// ANSI colours
+const C = {
+  reset: '\x1b[0m',
+  bright: '\x1b[1m',
+  dim: '\x1b[2m',
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  cyan: '\x1b[36m',
+  magenta: '\x1b[35m',
+  white: '\x1b[37m',
+};
 
-// Import UI framework for consistent branding
-const { BRANDING, C, indicators, startSpinner, stopSpinner, drawBox, drawTable,
-        success, error, warning, info, code, key, value,
-        formatHelp, formatLatency, formatHealth } = require('../lib/ui');
-
-const DEFAULT_RPC = process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
+const DEFAULT_RPC = process.env.AETHER_RPC || 'http://127.0.0.1:8899';
 const EMERGENCY_LOG = path.join(os.homedir(), '.aether', 'emergency.log');
-
-// ---------------------------------------------------------------------------
-// SDK Client Setup
-// ---------------------------------------------------------------------------
-
-function createClient(rpcUrl) {
-  return new aether.AetherClient({ rpcUrl });
-}
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -67,6 +54,71 @@ function getValidatorConfig() {
   } catch {
     return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// HTTP helpers
+// ---------------------------------------------------------------------------
+
+function httpRequest(rpcUrl, pathStr, method = 'GET') {
+  return new Promise((resolve, reject) => {
+    const url = new URL(pathStr, rpcUrl);
+    const isHttps = url.protocol === 'https:';
+    const lib = isHttps ? https : http;
+
+    const req = lib.request({
+      hostname: url.hostname,
+      port: url.port || (isHttps ? 443 : 80),
+      path: url.pathname + url.search,
+      method,
+      timeout: 5000,
+      headers: { 'Content-Type': 'application/json' },
+    }, (res) => {
+      let data = '';
+      res.on('data', (chunk) => (data += chunk));
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch { resolve({ raw: data }); }
+      });
+    });
+
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
+    req.end();
+  });
+}
+
+function httpPost(rpcUrl, pathStr, body) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(pathStr, rpcUrl);
+    const isHttps = url.protocol === 'https:';
+    const lib = isHttps ? https : http;
+    const bodyStr = JSON.stringify(body);
+
+    const req = lib.request({
+      hostname: url.hostname,
+      port: url.port || (isHttps ? 443 : 80),
+      path: url.pathname + url.search,
+      method: 'POST',
+      timeout: 5000,
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(bodyStr),
+      },
+    }, (res) => {
+      let data = '';
+      res.on('data', (chunk) => (data += chunk));
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch { resolve(data); }
+      });
+    });
+
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
+    req.write(bodyStr);
+    req.end();
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -98,15 +150,14 @@ function readEmergencyLog(lines = 50) {
 }
 
 // ---------------------------------------------------------------------------
-// Diagnostic checks — all via SDK (real RPC calls)
+// Diagnostic checks
 // ---------------------------------------------------------------------------
 
 /** Check if node is responding */
 async function checkNodeHealth(rpc) {
   try {
-    const client = createClient(rpc);
-    const slot = await client.getSlot();
-    return { ok: true, slot };
+    const res = await httpRequest(rpc, '/v1/slot');
+    return { ok: true, slot: res.slot ?? res.root_slot ?? null };
   } catch (err) {
     return { ok: false, error: err.message };
   }
@@ -114,12 +165,11 @@ async function checkNodeHealth(rpc) {
 
 /** Check slot progression (is network advancing?) */
 async function checkSlotProgression(rpc, count = 3) {
-  const client = createClient(rpc);
   const slots = [];
   for (let i = 0; i < count; i++) {
     try {
-      const slot = await client.getSlot();
-      slots.push(slot);
+      const res = await httpRequest(rpc, '/v1/slot');
+      slots.push(res.slot ?? res.root_slot ?? null);
       if (i < count - 1) await new Promise(r => setTimeout(r, 2000));
     } catch {
       slots.push(null);
@@ -134,9 +184,8 @@ async function checkSlotProgression(rpc, count = 3) {
 /** Check block height consistency */
 async function checkBlockHeight(rpc) {
   try {
-    const client = createClient(rpc);
-    const blockHeight = await client.getBlockHeight();
-    return { ok: true, blockHeight };
+    const res = await httpRequest(rpc, '/v1/block_height');
+    return { ok: true, blockHeight: res.block_height ?? null };
   } catch (err) {
     return { ok: false, error: err.message };
   }
@@ -145,9 +194,8 @@ async function checkBlockHeight(rpc) {
 /** Check epoch info */
 async function checkEpoch(rpc) {
   try {
-    const client = createClient(rpc);
-    const epochInfo = await client.getEpochInfo();
-    return epochInfo;
+    const res = await httpRequest(rpc, '/v1/epoch');
+    return res;
   } catch {
     return null;
   }
@@ -156,9 +204,8 @@ async function checkEpoch(rpc) {
 /** Check TPS for dramatic drops */
 async function checkTPS(rpc) {
   try {
-    const client = createClient(rpc);
-    const tps = await client.getTPS();
-    return tps;
+    const res = await httpRequest(rpc, '/v1/tps');
+    return res.tps ?? res.tps_avg ?? res.transactions_per_second ?? null;
   } catch {
     return null;
   }
@@ -167,9 +214,9 @@ async function checkTPS(rpc) {
 /** Check connected peers count */
 async function checkPeers(rpc) {
   try {
-    const client = createClient(rpc);
-    const validators = await client.getValidators();
-    if (Array.isArray(validators)) return validators.length;
+    const res = await httpRequest(rpc, '/v1/validators');
+    if (Array.isArray(res.validators)) return res.validators.length;
+    if (Array.isArray(res)) return res.length;
     return null;
   } catch {
     return null;
@@ -196,8 +243,8 @@ function assessEmergencyLevel(results) {
 
   if (!results.nodeHealth.ok) level = Math.max(level, 3);
   if (results.slotHalt.halted) level = Math.max(level, 3);
-  if (results.tps !== null && results.tps < 10) level = Math.max(level, 2);
-  if (results.peers !== null && results.peers < 3) level = Math.max(level, 1);
+  if (results.lowTps !== null && results.lowTps < 10) level = Math.max(level, 2);
+  if (results.lowPeers !== null && results.lowPeers < 3) level = Math.max(level, 1);
   if (!results.epoch || !results.epoch.epoch) level = Math.max(level, 1);
 
   return level;
@@ -212,11 +259,9 @@ const LEVEL_COLORS = [C.green, C.yellow, C.magenta, C.red];
 
 async function emergencyStatus(opts) {
   const { rpc, json } = opts;
-  console.log(BRANDING.header('2.0.2'));
-  console.log(`  ${C.dim}Aether Emergency Status — SDK-wired diagnostic checks${C.reset}\n`);
-  console.log(`  ${key('RPC:')} ${value(rpc)}\n`);
+  console.log(`\n${C.bright}${C.cyan}🔔 Aether Emergency Status${C.reset}\n`);
+  console.log(`  ${C.dim}RPC:${C.reset} ${rpc}\n`);
 
-  startSpinner('Checking node health');
   const [nodeHealth, slotHalt, blockHeight, epoch, tps, peers, validator] = await Promise.all([
     checkNodeHealth(rpc),
     checkSlotProgression(rpc, 3),
@@ -226,7 +271,6 @@ async function emergencyStatus(opts) {
     checkPeers(rpc),
     checkValidatorStatus(),
   ]);
-  stopSpinner(nodeHealth.ok, 'Node health check complete');
 
   const results = { nodeHealth, slotHalt, blockHeight, epoch, tps, peers, validator };
   const level = assessEmergencyLevel(results);
@@ -236,47 +280,69 @@ async function emergencyStatus(opts) {
     return;
   }
 
-  console.log(drawBox([
-    `${formatHealth(nodeHealth.ok ? 'ok' : 'down')}  Node Health   ${nodeHealth.ok ? value(`Slot ${nodeHealth.slot}`) : error(nodeHealth.error)}`,
-    `${slotHalt.halted ? warning('⚠ HALTED') : success('✓ Advancing')}  Slot Progress  ${C.dim}${slotHalt.halted ? `No new slots in ${slotHalt.slots.length} checks` : `+${slotHalt.delta} slots over ${slotHalt.slots.length} checks`}${C.reset}`,
-    blockHeight.ok ? `${success('✓')}  Block Height  ${value(blockHeight.blockHeight)}` : `${warning('?')}  Block Height  ${C.dim}unavailable${C.reset}`,
-    epoch && epoch.epoch
-      ? `${success('✓')}  Epoch         ${value(epoch.epoch)} ${C.dim}(progress: ${epoch.slot_index ?? '?'}/${epoch.slots_in_epoch ?? '?'})${C.reset}`
-      : `${warning('?')}  Epoch         ${C.dim}unavailable${C.reset}`,
-    `${tps !== null ? (tps < 10 ? warning('⚠') : success('✓')) : warning('?')}  TPS             ${tps !== null ? value(`${tps.toFixed(1)} txn/s`) : `${C.dim}unavailable${C.reset}`}`,
-    `${peers !== null ? (peers < 3 ? warning('⚠') : success('✓')) : warning('?')}  Peers          ${peers !== null ? value(peers) : `${C.dim}unavailable${C.reset}`}`,
-    validator.configured
-      ? `${C.cyan}▸${C.reset}  Validator     ${C.dim}${validator.identity.substring(0, 16)}... stake: ${validator.stake ?? '?'}${C.reset}`
-      : `${C.dim}▸ Validator     not configured${C.reset}`,
-  ].join('\n'), { padding: 1, borderColor: C.cyan }));
+  // Node health
+  const healthIcon = nodeHealth.ok ? `${C.green}✓` : `${C.red}✗`;
+  const healthLabel = nodeHealth.ok ? `Slot ${nodeHealth.slot}` : nodeHealth.error;
+  console.log(`  ${healthIcon} ${C.bright}Node Health${C.reset}   ${healthLabel}`);
 
-  const LEVEL_LABELS = ['OK', 'WARNING', 'ELEVATED', 'CRITICAL'];
-  const LEVEL_COLORS = [C.green, C.yellow, C.magenta, C.red];
-  console.log(`\n  ${C.bright}Emergency Level:${C.reset} ${LEVEL_COLORS[level]}${C.bright}${LEVEL_LABELS[level]}${C.reset}\n`);
+  // Slot progression
+  const haltIcon = slotHalt.halted ? `${C.red}⚠ HALTED` : `${C.green}✓ Advancing`;
+  const haltLabel = slotHalt.halted
+    ? `No new slots in ${slotHalt.slots.length} checks`
+    : `+${slotHalt.delta} slots over ${slotHalt.slots.length} checks`;
+  console.log(`  ${haltIcon} ${C.bright}Slot Progress${C.reset}  ${C.dim}${haltLabel}${C.reset}`);
+
+  // Block height
+  if (blockHeight.ok) {
+    console.log(`  ${C.green}✓${C.reset} ${C.bright}Block Height${C.reset}  ${blockHeight.blockHeight}`);
+  }
+
+  // Epoch
+  if (epoch && epoch.epoch) {
+    console.log(`  ${C.green}✓${C.reset} ${C.bright}Epoch${C.reset}           ${epoch.epoch} ${C.dim}(progress: ${epoch.slot_index ?? '?'}/${epoch.slots_in_epoch ?? '?'})${C.reset}`);
+  } else {
+    console.log(`  ${C.yellow}?${C.reset} ${C.bright}Epoch${C.reset}           ${C.dim}unavailable${C.reset}`);
+  }
+
+  // TPS
+  const tpsColor = tps === null ? C.yellow : (tps < 10 ? C.red : C.green);
+  const tpsIcon = tps === null ? '?' : (tps < 10 ? '⚠' : '✓');
+  console.log(`  ${tpsColor}${tpsIcon}${C.reset} ${C.bright}TPS${C.reset}             ${tps !== null ? tps.toFixed(1) : C.dim + 'unavailable' + C.reset}`);
+
+  // Peers
+  const peerColor = peers === null ? C.yellow : (peers < 3 ? C.red : C.green);
+  const peerIcon = peers === null ? '?' : (peers < 3 ? '⚠' : '✓');
+  console.log(`  ${peerColor}${peerIcon}${C.reset} ${C.bright}Connected Peers${C.reset} ${peers !== null ? peers : C.dim + 'unavailable' + C.reset}`);
+
+  // Validator
+  if (validator.configured) {
+    console.log(`  ${C.cyan}▸${C.reset} ${C.bright}Validator${C.reset}     ${validator.identity.substring(0, 16)}... ${C.dim}stake: ${validator.stake ?? '?'}${C.reset}`);
+  } else {
+    console.log(`  ${C.dim}▸ Validator${C.reset}     ${C.dim}not configured${C.reset}`);
+  }
+
+  // Emergency level banner
+  console.log(`\n  ${C.bright}Emergency Level:${C.reset} ${LEVEL_COLORS[level]}${LEVEL_LABELS[level]}${C.reset}\n`);
 
   if (level >= 2) {
-    console.log(`  ${warning('Run:')} ${code('aether emergency monitor')} to watch continuously`);
-    console.log(`  ${warning('Run:')} ${code('aether emergency check')} for full diagnostics\n`);
+    console.log(`  ${C.yellow}⚠ Run:${C.reset} ${C.cyan}aether emergency monitor${C.reset} to watch continuously`);
+    console.log(`  ${C.yellow}⚠ Run:${C.reset} ${C.cyan}aether emergency check${C.reset} for full diagnostics\n`);
   }
 
   logEmergency(LEVEL_LABELS[level], 'Status check', { level, results: { slot: nodeHealth.slot, halted: slotHalt.halted, tps, peers } });
 
-  if (level >= 2) console.log(`  ${C.dim}Logged to:${C.reset} ${EMERGENCY_LOG}\n`);
+  if (level >= 2 && !json) console.log(`  ${C.dim}Logged to:${C.reset} ${EMERGENCY_LOG}\n`);
 }
 
 async function emergencyMonitor(opts) {
   const { rpc, json, interval = 30 } = opts;
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
-  console.log(BRANDING.header('2.0.2'));
-  console.log(`  ${C.bright}${C.red}🔴 Aether Emergency Monitor${C.reset}`);
-  console.log(`  ${C.dim}Monitoring every ${interval}s. Press Ctrl+C to stop.${C.reset}\n`);
+  console.log(`\n${C.bright}${C.red}🔴 Aether Emergency Monitor${C.reset}`);
+  console.log(`  Monitoring every ${interval}s. ${C.dim}Press Ctrl+C to stop.${C.reset}\n`);
 
   let lastLevel = 0;
   let count = 0;
-
-  const LEVEL_LABELS = ['OK', 'WARNING', 'ELEVATED', 'CRITICAL'];
-  const LEVEL_COLORS = [C.green, C.yellow, C.magenta, C.red];
 
   const doCheck = async () => {
     count++;
@@ -323,7 +389,7 @@ async function emergencyMonitor(opts) {
   const id = setInterval(doCheck, intervalMs);
 
   // Handle Ctrl+C
-  const cleanup = () => { clearInterval(id); rl.close(); console.log(`\n  ${C.dim}Monitor stopped after ${count} checks.${C.reset}\n`); };
+  const cleanup = () => { clearInterval(id); rl.close(); console.log(`\n${C.dim}Monitor stopped after ${count} checks.${C.reset}\n`); };
   process.on('SIGINT', cleanup);
 }
 
@@ -402,70 +468,33 @@ async function emergencyCheck(opts) {
 async function emergencyAlert(opts) {
   const { message, rpc } = opts;
   if (!message) {
-    console.log(`\n  ${error('Error: --message is required')}`);
+    console.log(`\n${C.red}Error: --message is required${C.reset}`);
     console.log(`  ${C.dim}Usage: aether emergency alert --message "Network alert text"${C.reset}\n`);
     return;
   }
 
-  console.log(BRANDING.commandBanner('aether emergency alert', 'Issue a governance alert'));
-  console.log(`  ${key('Message:')} ${value(message)}\n`);
+  console.log(`\n${C.bright}🔶 Issuing Governance Alert${C.reset}\n`);
+  console.log(`  ${C.dim}Message:${C.reset} ${message}\n`);
 
-  // Try to submit alert via SDK (governance alert via POST /v1/governance/alert)
-  // Falls back to local logging if the endpoint is not available
+  // Try to submit alert to governance endpoint
   try {
     const identity = getValidatorConfig();
-    const client = createClient(rpc);
-
-    // Use client.sendTransaction for governance calls if available,
-    // otherwise fall back to local storage
-    const alertPayload = {
+    const result = await httpPost(rpc, '/v1/governance/alert', {
       message,
-      validator: identity?.identity ?? identity?.nodeId ?? 'unknown',
+      validator: identity?.identity ?? 'unknown',
       timestamp: new Date().toISOString(),
-    };
-
-    // Attempt governance alert endpoint (POST /v1/governance/alert)
-    const result = await new Promise((resolve) => {
-      // Use the SDK's RPC layer for the governance POST
-      const http = require('http');
-      const url = new URL('/v1/governance/alert', rpc);
-      const bodyStr = JSON.stringify(alertPayload);
-
-      const req = http.request({
-        hostname: url.hostname,
-        port: url.port || 8899,
-        path: url.pathname,
-        method: 'POST',
-        timeout: 5000,
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(bodyStr),
-        },
-      }, (res) => {
-        let data = '';
-        res.on('data', (chunk) => (data += chunk));
-        res.on('end', () => {
-          try { resolve(JSON.parse(data)); }
-          catch { resolve({ raw: data }); }
-        });
-      });
-      req.on('error', () => resolve(null));
-      req.on('timeout', () => resolve(null));
-      req.write(bodyStr);
-      req.end();
     });
 
-    if (result && (result.success || result.alert_id)) {
-      console.log(`  ${success('Alert issued successfully')}`);
+    if (result.success || result.alert_id) {
+      console.log(`  ${C.green}✓ Alert issued successfully${C.reset}`);
       console.log(`  ${C.dim}Alert ID: ${result.alert_id ?? 'unknown'}${C.reset}\n`);
       logEmergency('ELEVATED', `Alert issued: ${message}`, { alertId: result.alert_id });
     } else {
-      console.log(`  ${warning('Alert stored locally (endpoint not available):')}`);
-      console.log(`  ${C.dim}Will submit when governance endpoint is reachable.${C.reset}\n`);
-      logEmergency('ELEVATED', `Local alert: ${message}`, { queued: true });
+      console.log(`  ${C.yellow}⚠ Alert submitted (check response):${C.reset}`);
+      console.log(`  ${JSON.stringify(result)}\n`);
     }
   } catch (err) {
-    console.log(`  ${warning('Could not reach RPC endpoint')}`);
+    console.log(`  ${C.yellow}⚠ Could not reach governance endpoint (network may be down)${C.reset}`);
     console.log(`  ${C.dim}Storing alert locally for later submission...${C.reset}\n`);
     logEmergency('ELEVATED', `Local alert (network unreachable): ${message}`, { error: err.message });
   }

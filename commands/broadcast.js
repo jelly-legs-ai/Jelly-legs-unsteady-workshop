@@ -3,8 +3,6 @@
  * aether-cli broadcast
  *
  * Broadcast a signed transaction to the Aether network.
- * Fully wired to @jellylegsai/aether-sdk — uses AetherClient for all RPC calls.
- *
  * Accepts a base58-encoded transaction signature or a raw JSON payload.
  * Useful for submitting offline-constructed transactions.
  *
@@ -13,23 +11,18 @@
  *   aether broadcast --json <payload>          Broadcast raw JSON tx payload
  *   aether broadcast --file <path>             Read tx from a JSON file
  *   aether broadcast --rpc <url>                Use a specific RPC endpoint
- *   aether broadcast --wait                     Wait for confirmation (max 60s)
- *   aether broadcast --json                    JSON output for scripting
- *
- * SDK Methods Used:
- *   - client.sendTransaction(tx)        → POST /v1/transaction
- *   - client.getSlot()                   → GET /v1/slot
- *   - client.getTransaction(signature)   → GET /v1/transaction/<sig>
+ *   aether broadcast --json-output            Output result as JSON
  *
  * Examples:
  *   aether broadcast --tx 5abcdef...           # Submit pre-signed tx
  *   aether broadcast --json '{"type":"Transfer",...}'
  *   aether broadcast --file ./unsigned_tx.json
- *   aether broadcast --tx <sig> --wait --json
  */
 
 const fs = require('fs');
 const path = require('path');
+const https = require('https');
+const http = require('http');
 
 // ANSI colours
 const C = {
@@ -42,21 +35,14 @@ const C = {
   cyan: '\x1b[36m',
 };
 
-const CLI_VERSION = '1.1.0';
+const CLI_VERSION = '1.0.0';
 
 // ---------------------------------------------------------------------------
-// SDK Import - uses @jellylegsai/aether-sdk for ALL blockchain RPC calls
+// Config
 // ---------------------------------------------------------------------------
-
-const sdkPath = path.join(__dirname, '..', 'sdk', 'index.js');
-const aether = require(sdkPath);
 
 function getDefaultRpc() {
-  return process.env.AETHER_RPC || aether.DEFAULT_RPC_URL || 'http://127.0.0.1:8899';
-}
-
-function createClient(rpcUrl) {
-  return new aether.AetherClient({ rpcUrl });
+  return process.env.AETHER_RPC || 'http://127.0.0.1:8899';
 }
 
 // ---------------------------------------------------------------------------
@@ -71,8 +57,6 @@ function parseArgs() {
     jsonPayload: null,
     filePath: null,
     asJson: false,
-    wait: false,
-    waitTimeoutMs: 60000,
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -84,12 +68,7 @@ function parseArgs() {
       opts.filePath = args[++i];
     } else if (args[i] === '--rpc' || args[i] === '-r') {
       opts.rpc = args[++i];
-    } else if (args[i] === '--wait' || args[i] === '-w') {
-      opts.wait = true;
     } else if (args[i] === '--json-output') {
-      // Backward-compatible alias (used in old code)
-      opts.asJson = true;
-    } else if (args[i] === '--json') {
       opts.asJson = true;
     } else if (args[i] === '--help' || args[i] === '-h') {
       showHelp();
@@ -109,20 +88,55 @@ ${C.bright}Usage:${C.reset}
   aether-cli broadcast --json <payload>        Broadcast inline JSON payload
   aether-cli broadcast --file <path>            Read tx from a JSON file
   aether-cli broadcast --rpc <url>             Override default RPC
-  aether-cli broadcast --wait                  Poll for confirmation (max 60s)
-  aether-cli broadcast --json                  JSON output for scripting
-
-${C.bright}SDK Methods Used:${C.reset}
-  client.sendTransaction(tx)      → POST /v1/transaction
-  client.getTransaction(sig)      → GET /v1/transaction/<sig>
-  client.getSlot()                → GET /v1/slot
+  aether-cli broadcast --json-output          JSON output for scripting
 
 ${C.bright}Examples:${C.reset}
   aether-cli broadcast --tx 5abcdef123456...  # Submit by signature
   aether-cli broadcast --json '{"type":"Transfer","data":{...}}'
-  aether-cli broadcast --file ./my_tx.json
-  aether-cli broadcast --tx <sig> --wait --json  # Broadcast and wait for confirm
+  aether-cli broadcast --file ./my_tx.json    # Read and broadcast from file
 `.trim());
+}
+
+// ---------------------------------------------------------------------------
+// HTTP helpers
+// ---------------------------------------------------------------------------
+
+function httpRequest(rpcUrl, pathStr, method = 'GET', body = null, timeoutMs = 15000) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(pathStr, rpcUrl);
+    const lib = url.protocol === 'https:' ? https : http;
+    const bodyStr = body ? JSON.stringify(body) : null;
+
+    const reqOptions = {
+      hostname: url.hostname,
+      port: url.port || (url.protocol === 'https:' ? 443 : 80),
+      path: url.pathname + url.search,
+      method,
+      timeout: timeoutMs,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(bodyStr ? { 'Content-Length': Buffer.byteLength(bodyStr) } : {}),
+      },
+    };
+
+    const req = lib.request(reqOptions, (res) => {
+      let data = '';
+      res.on('data', (chunk) => (data += chunk));
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch { resolve({ raw: data }); }
+      });
+    });
+
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
+    if (bodyStr) req.write(bodyStr);
+    req.end();
+  });
+}
+
+function httpPost(rpcUrl, pathStr, body, timeoutMs = 15000) {
+  return httpRequest(rpcUrl, pathStr, 'POST', body, timeoutMs);
 }
 
 // ---------------------------------------------------------------------------
@@ -156,47 +170,15 @@ function validateTxPayload(tx) {
 }
 
 // ---------------------------------------------------------------------------
-// Wait for transaction confirmation via SDK
-// Polls getTransaction() until the signature appears on-chain or times out.
+// Broadcast logic
 // ---------------------------------------------------------------------------
 
-async function waitForConfirmation(client, signature, timeoutMs = 60000, pollIntervalMs = 2000) {
-  const start = Date.now();
-  let lastResult = null;
-
-  while (Date.now() - start < timeoutMs) {
-    try {
-      // SDK call: getTransaction → GET /v1/transaction/<signature>
-      const result = await client.getTransaction(signature);
-      lastResult = result;
-
-      // If result has blockTime or slot, tx is confirmed
-      if (result && (result.blockTime !== undefined || result.slot !== undefined)) {
-        return { confirmed: true, result, waitedMs: Date.now() - start };
-      }
-    } catch (err) {
-      // Transaction not yet visible — expected during confirmation
-      lastResult = { error: err.message };
-    }
-
-    await new Promise(r => setTimeout(r, pollIntervalMs));
-  }
-
-  return { confirmed: false, result: lastResult, waitedMs: Date.now() - start };
-}
-
-// ---------------------------------------------------------------------------
-// Broadcast logic - uses SDK for all RPC calls
-// ---------------------------------------------------------------------------
-
-async function broadcast({ rpc, signature, jsonPayload, filePath, asJson, wait }) {
-  const client = createClient(rpc);
-
+async function broadcast({ rpc, signature, jsonPayload, filePath, asJson }) {
   // Build the tx object from inputs (priority: signature > file > inline JSON)
   let tx = null;
 
   if (signature) {
-    // Signature-only broadcast: the SDK's sendTransaction accepts { signature }
+    // Signature-only broadcast: POST /v1/tx with { signature }
     tx = { signature };
   } else if (filePath) {
     // Read from file
@@ -229,7 +211,7 @@ async function broadcast({ rpc, signature, jsonPayload, filePath, asJson, wait }
 
   if (!asJson) {
     console.log(`\n${C.bright}${C.cyan}── Broadcast Transaction ─────────────────────────────────────${C.reset}`);
-    console.log(`  ${C.dim}SDK: AetherClient → ${rpc}${C.reset}`);
+    console.log(`  ${C.dim}RPC: ${rpc}${C.reset}`);
     if (signature) {
       console.log(`  ${C.dim}Signature:${C.reset} ${C.cyan}${signature}${C.reset}`);
     } else {
@@ -241,21 +223,14 @@ async function broadcast({ rpc, signature, jsonPayload, filePath, asJson, wait }
     console.log();
   }
 
-  // Submit the transaction via SDK
+  // Submit the transaction
   let result;
   let latencyMs;
-  let submittedSig = signature || tx.signature || null;
 
   try {
     const start = Date.now();
-    // SDK call: sendTransaction → POST /v1/transaction
-    result = await client.sendTransaction(tx);
+    result = await httpPost(rpc, '/v1/tx', tx);
     latencyMs = Date.now() - start;
-
-    // Capture returned signature if different from input
-    if (result && result.signature && !submittedSig) {
-      submittedSig = result.signature;
-    }
   } catch (err) {
     if (asJson) {
       console.log(JSON.stringify({
@@ -266,9 +241,8 @@ async function broadcast({ rpc, signature, jsonPayload, filePath, asJson, wait }
         timestamp: new Date().toISOString(),
       }, null, 2));
     } else {
-      console.log(`  ${C.red}✗ SDK error:${C.reset} ${err.message}`);
-      console.log(`  ${C.dim}  RPC: ${rpc}${C.reset}`);
-      console.log(`  ${C.dim}  SDK Method: client.sendTransaction() → POST /v1/transaction${C.reset}`);
+      console.log(`  ${C.red}✗ Network error:${C.reset} ${err.message}`);
+      console.log(`  ${C.dim}  Check that your RPC is accessible: ${rpc}${C.reset}`);
     }
     process.exit(1);
   }
@@ -279,65 +253,27 @@ async function broadcast({ rpc, signature, jsonPayload, filePath, asJson, wait }
     console.log(JSON.stringify({
       success,
       accepted: result?.accepted ?? null,
-      signature: result?.signature ?? submittedSig ?? null,
+      signature: result?.signature ?? result?.tx_signature ?? signature ?? null,
       slot: result?.slot ?? null,
       error: result?.error ?? null,
       rpc,
-      sdk_method: 'client.sendTransaction()',
-      rpc_endpoint: 'POST /v1/transaction',
       latency_ms: latencyMs,
       cli_version: CLI_VERSION,
       timestamp: new Date().toISOString(),
     }, null, 2));
-
-    if (wait && submittedSig && success) {
-      process.stdout.write(JSON.stringify({ confirming: true, signature: submittedSig }) + '\n');
-      const confirmResult = await waitForConfirmation(client, submittedSig, 60000);
-      console.log(JSON.stringify({
-        confirmed: confirmResult.confirmed,
-        signature: submittedSig,
-        confirm_waited_ms: confirmResult.waitedMs,
-        slot: confirmResult.result?.slot ?? null,
-        blocktime: confirmResult.result?.blockTime ?? null,
-      }, null, 2));
-    }
     return;
   }
 
   if (success) {
-    const sig = result?.signature ?? submittedSig ?? 'unknown';
+    const sig = result?.signature ?? result?.tx_signature ?? signature ?? 'unknown';
     console.log(`${C.green}✓ Transaction accepted!${C.reset}`);
     console.log(`  ${C.green}★${C.reset} ${C.bright}Signature:${C.reset} ${sig}`);
     if (result?.slot) {
       console.log(`  ${C.dim}  Slot:${C.reset} ${result.slot}`);
     }
     console.log(`  ${C.dim}  Latency:${C.reset} ${latencyMs}ms`);
-    console.log(`  ${C.dim}  SDK Method:${C.reset} client.sendTransaction() → POST /v1/transaction`);
     console.log(`  ${C.dim}  RPC:${C.reset} ${rpc}`);
     console.log();
-
-    // Wait for confirmation if requested
-    if (wait && submittedSig) {
-      console.log(`  ${C.dim}Waiting for confirmation...${C.reset}`);
-      const confirmResult = await waitForConfirmation(client, submittedSig, 60000);
-
-      if (confirmResult.confirmed) {
-        console.log(`  ${C.green}✓ Confirmed!${C.reset}`);
-        console.log(`  ${C.dim}  Waited:${C.reset} ${confirmResult.waitedMs}ms`);
-        if (confirmResult.result?.slot) {
-          console.log(`  ${C.dim}  Slot:${C.reset} ${confirmResult.result.slot}`);
-        }
-        if (confirmResult.result?.blockTime) {
-          const confirmedAt = new Date(confirmResult.result.blockTime * 1000).toISOString();
-          console.log(`  ${C.dim}  Block time:${C.reset} ${confirmedAt}`);
-        }
-      } else {
-        console.log(`  ${C.yellow}⚠ Transaction submitted but not yet confirmed${C.reset}`);
-        console.log(`  ${C.dim}  Signature:${C.reset} ${sig}`);
-        console.log(`  ${C.dim}  Check manually: aether tx ${sig}${C.reset}`);
-      }
-      console.log();
-    }
   } else {
     const errMsg = result?.error || 'Transaction rejected by network';
     console.log(`${C.red}✗ Transaction rejected${C.reset}`);

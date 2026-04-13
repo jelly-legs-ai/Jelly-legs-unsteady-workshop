@@ -1,22 +1,19 @@
 {
-  "name": "@jellylegsai/aether-cli",
-  "version": "2.1.3",
+  "name": "aether-cli",
+  "version": "1.7.1",
   "description": "Aether CLI - Validator Onboarding, Staking, and Blockchain Operations",
   "main": "index.js",
   "bin": {
-    "aether-cli": "index.js",
-    "aether": "index.js"
+    "aether-cli": "./index.js"
   },
   "scripts": {
-    "build": "echo 'CLI package requires no build step'",
-    "test": "cd test && node doctor.test.js && cd ../sdk && node test.js",
+    "test": "node test.js",
     "lint": "echo 'No linting configured'",
     "doctor": "node index.js doctor",
     "init": "node index.js init",
     "monitor": "node index.js monitor",
     "logs": "node index.js logs",
     "sdk": "node index.js sdk",
-    "sdk-test": "node index.js sdk-test",
     "wallet": "node index.js wallet",
     "stake": "node index.js stake",
     "stake-positions": "node index.js stake-positions",
@@ -36,7 +33,6 @@
     "tx-history": "node index.js tx-history",
     "tx": "node index.js tx-history",
     "network": "node index.js network",
-    "network-diagnostics": "node index.js network-diagnostics",
     "epoch": "node index.js epoch",
     "supply": "node index.js supply",
     "status": "node index.js status",
@@ -47,15 +43,7 @@
     "account": "node index.js account",
     "price": "node index.js price",
     "emergency": "node index.js emergency",
-    "snapshot": "node index.js snapshot",
-    "nft": "node index.js nft",
-    "deploy": "node index.js deploy",
-    "call": "node index.js call",
-    "blockheight": "node index.js blockheight",
-    "token-accounts": "node index.js token-accounts",
-    "version": "node index.js version",
-    "prepare-publish": "npm pack && echo 'Package ready for publishing'",
-    "version-bump": "node -e \"const fs=require('fs');let p=JSON.parse(fs.readFileSync('package.json'));let v=p.version.split('.');v[2]=parseInt(v[2])+1;p.version=v.join('.');fs.writeFileSync('package.json',JSON.stringify(p,null,2));console.log('Version bumped to',p.version);\""
+    "snapshot": "node index.js snapshot"
   },
   "keywords": [
     "aether",
@@ -70,7 +58,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop.git"
+    "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop"
   },
   "engines": {
     "node": ">=14.0.0"

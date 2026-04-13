@@ -11,7 +11,6 @@ const walletCommand = require('./wallet');
 const balanceCommand = require('./balance');
 const transferCommand = require('./transfer');
 const txHistoryCommand = require('./tx-history');
-const txCommand = require('./tx');
 const multisigCommand = require('./multisig');
 const claimCommand = require('./claim');
 const unstakeCommand = require('./unstake');
@@ -31,16 +30,11 @@ const blockhashCommand = require('./blockhash');
 const tpsCommand = require('./tps');
 const feesCommand = require('./fees');
 const apyCommand = require('./apy');
-const broadcastCommand = require('./broadcast');
 const accountCommand = require('./account');
 const priceCommand = require('./price');
 const emergencyCommand = require('./emergency');
 const snapshotCommand = require('./snapshot');
 const nftCommand = require('./nft');
-const pingCommand = require('./ping');
-const slotCommand = require('./slot');
-const stakeInfoCommand = require('./stake-info');
-const deployCommand = require('./deploy');
 
 module.exports = {
   doctorCommand,
@@ -55,13 +49,11 @@ module.exports = {
   balanceCommand,
   transferCommand,
   txHistoryCommand,
-  txCommand,
   multisigCommand,
   claimCommand,
   unstakeCommand,
   stakeCommand,
   stakePositionsCommand,
-  stakeInfoCommand,
   networkCommand,
   monitorLoop,
   logsCommand,
@@ -76,13 +68,9 @@ module.exports = {
   tpsCommand,
   feesCommand,
   apyCommand,
-  broadcastCommand,
   accountCommand,
   priceCommand,
   emergencyCommand,
   snapshotCommand,
   nftCommand,
-  pingCommand,
-  slotCommand,
-  deployCommand,
 };
