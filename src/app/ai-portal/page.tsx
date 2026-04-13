@@ -95,7 +95,7 @@ function LaneCard({
 
   return (
     <div
-      className={`bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-6 hover:border-${lane.color.split('-')[1]}-500/40 transition-all`}
+      className={`bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-6 hover:border-red-500/40 transition-all`}
     >
       <div className="flex items-center justify-between mb-4">
         <div className={`text-xl font-bold ${lane.color}`}>{lane.label}</div>
@@ -156,7 +156,7 @@ function LaneCard({
 }
 
 export default function AIPortalPage() {
-  const { connected, publicKey, connecting, signTransaction, signAllTransactions, signMessage } = useWallet();
+  const { connected, publicKey, connecting } = useWallet();
   const { setVisible } = useWalletModal();
 
   const walletAddress = publicKey ? publicKey.toBase58() : "";
@@ -204,7 +204,6 @@ export default function AIPortalPage() {
 
   /**
    * Submit an AI transaction to a priority lane
-   * Wires to POST /v1/ai_priority/submit via the SDK pattern
    */
   const handleSubmitTx = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -233,8 +232,6 @@ export default function AIPortalPage() {
     };
 
     try {
-      // Attempt POST to /v1/ai_priority/submit
-      // This will fail gracefully in demo mode (no real SDK endpoint)
       const response = await fetch("/api/ai_priority/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -261,32 +258,15 @@ export default function AIPortalPage() {
           `Transaction submitted to ${selectedLane.toUpperCase()} lane! TX: ${(data.signature || data.txHash || txId).slice(0, 16)}...`
         );
       } else {
-        // Non-2xx — still record as demo
         const errorData = await response.json().catch(() => ({}));
-        if (response.status === 404) {
-          // Endpoint not implemented yet — record as demo pending
-          setTxHistory((prev) => [{ ...newTx }, ...prev]);
-          setSuccess(
-            `Demo: Transaction queued to ${selectedLane.toUpperCase()} lane (endpoint not yet deployed). Amount: ${amount} ATH`
-          );
-        } else {
-          throw new Error(errorData.error || `Server error ${response.status}`);
-        }
+        throw new Error(errorData.error || `Server error ${response.status}`);
       }
     } catch (err: any) {
-      if (err.message?.includes("fetch failed") || err.message?.includes("404")) {
-        // Network error — record as demo
-        setTxHistory((prev) => [{ ...newTx }, ...prev]);
-        setSuccess(
-          `Demo: Transaction queued to ${selectedLane.toUpperCase()} lane. Amount: ${amount} ATH. Connect to real RPC to submit on-chain.`
-        );
-      } else {
-        setError(err.message || "Transaction submission failed");
-        setTxHistory((prev) => [
-          { ...newTx, status: "failed" as const },
-          ...prev,
-        ]);
-      }
+      setError(err.message || "Transaction submission failed");
+      setTxHistory((prev) => [
+        { ...newTx, status: "failed" as const },
+        ...prev,
+      ]);
     } finally {
       setIsSubmitting(false);
       setTxAmount("");
