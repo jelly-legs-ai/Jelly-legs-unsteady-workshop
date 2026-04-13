@@ -16,7 +16,7 @@ const path = require('path');
 const { BRANDING, C, indicators, success, error, warning, info, code, key, value, formatHelp, drawBox } = require('./lib/ui');
 
 // CLI version
-const VERSION = '2.1.0';
+const VERSION = '2.1.1';
 
 // Command imports
 const { doctorCommand } = require('./commands/doctor');
