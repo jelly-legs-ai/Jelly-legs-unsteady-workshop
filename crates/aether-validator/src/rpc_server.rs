@@ -5,6 +5,7 @@
 
 use crate::block_producer::BlockProducer;
 use crate::state::ValidatorState;
+use crate::metrics::Metrics;
 use aether_ai_priority::fee_distribution::FeeDistributionConfig;
 use bs58;
 use serde::Serialize;
@@ -206,6 +207,17 @@ pub async fn start_rpc_server(
     block_producer: Arc<BlockProducer>,
     shutdown: crate::shutdown::ShutdownSignal,
 ) -> anyhow::Result<()> {
+    start_rpc_server_with_metrics(addr, state, block_producer, shutdown, None).await
+}
+
+/// Start the HTTP RPC server with optional Prometheus metrics
+pub async fn start_rpc_server_with_metrics(
+    addr: &str,
+    state: ValidatorState,
+    block_producer: Arc<BlockProducer>,
+    shutdown: crate::shutdown::ShutdownSignal,
+    metrics: Option<Metrics>,
+) -> anyhow::Result<()> {
     // Rate limiter: 100 requests per 10 seconds per IP
     let rate_limiter = Arc::new(Mutex::new(RateLimiter::new(100, 10)));
     // Cleanup interval for expired rate limit entries
@@ -216,6 +228,7 @@ pub async fn start_rpc_server(
     info!("RPC HTTP server listening on http://0.0.0.0:{}/", port);
     info!("Available endpoints:");
     info!("  GET  /health               - Health check");
+    info!("  GET  /metrics              - Prometheus metrics");
     info!("  GET  /v1/slot              - Current slot info");
     info!("  GET  /v1/block?slot=N      - Get block by slot");
     info!("  GET  /v1/genesis           - Genesis configuration");
@@ -277,6 +290,7 @@ pub async fn start_rpc_server(
                         let bp = block_producer.clone();
                         let rl = rate_limiter.clone();
                         let cc = cleanup_counter.clone();
+                        let m = metrics.clone();
                         tokio::spawn(async move {
                     // Rate limit check
                     {
@@ -297,7 +311,7 @@ pub async fn start_rpc_server(
                             limiter.cleanup();
                         }
                     }
-                    if let Err(e) = handle_http_request(socket, state, bp).await {
+                    if let Err(e) = handle_http_request(socket, state, bp, m.as_ref()).await {
                         warn!("HTTP request error from {}: {}", addr, e);
                     }
                 });
@@ -326,6 +340,7 @@ async fn handle_http_request(
     mut socket: TcpStream,
     state: ValidatorState,
     block_producer: Arc<BlockProducer>,
+    metrics: Option<&Metrics>,
 ) -> anyhow::Result<()> {
     // Read headers first (up to 16KB for headers)
     let mut headers_buf = vec![0u8; 16384];
@@ -432,6 +447,14 @@ async fn handle_http_request(
         ("GET", "/" | "/health") => {
             let resp = HealthResponse { status: "ok".to_string() };
             (200, serde_json::to_string(&resp).unwrap_or_default())
+        }
+        // Prometheus metrics
+        ("GET", "/metrics") => {
+            if let Some(m) = metrics {
+                (200, m.render())
+            } else {
+                (503, "# Metrics not available\n".to_string())
+            }
         }
         // Slot
         ("GET", "/v1/slot") => {

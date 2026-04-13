@@ -399,6 +399,15 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
         ledger_path.clone()
     )?);
 
+    // Initialize Prometheus metrics
+    let metrics = Arc::new(Metrics::new());
+    metrics.set_validator_tier(match validator_tier {
+        ValidatorTier::Full => "full",
+        ValidatorTier::Lite => "lite",
+        ValidatorTier::Observer => "observer",
+    });
+    info!("Prometheus metrics initialized (exposed at /metrics)");
+
     // Start block producer
     let bp_for_rpc = block_producer.clone();
     let bp_handle = {
@@ -415,7 +424,7 @@ async fn run_validator(cli: Cli) -> anyhow::Result<()> {
         let state = validator_state.clone();
         let bp = bp_for_rpc;
         tokio::spawn(async move {
-            if let Err(e) = start_rpc_server(&rpc_addr_for_spawn, state, bp, rpc_shutdown).await {
+            if let Err(e) = start_rpc_server_with_metrics(&rpc_addr_for_spawn, state, bp, rpc_shutdown, Some((*metrics).clone())).await {
                 error!("RPC server error: {}", e);
             }
         })
