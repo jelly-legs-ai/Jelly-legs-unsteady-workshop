@@ -1798,6 +1798,7 @@ module.exports = {
   getBlockHeight,
   getEpoch,
   getAccount,
+  getAccountInfo: getAccount,
   getBalance,
   getTransaction,
   getRecentTransactions,
@@ -1814,6 +1815,14 @@ module.exports = {
   getValidatorAPY,
   getPeers,
   getHealth,
+  getRecentBlockhash: async () => {
+    const client = new AetherClient();
+    try {
+      return await client.getRecentBlockhash();
+    } finally {
+      client.destroy();
+    }
+  },
   
   // NFT queries
   getNFT,

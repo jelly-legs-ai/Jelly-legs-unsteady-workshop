@@ -69,6 +69,8 @@ const { blockheightCommand } = require('./commands/blockheight');
 const { versionCommand } = require('./commands/version');
 const { tokenAccountsCommand } = require('./commands/token-accounts');
 
+// Note: kyc.js exists but is not wired - pending compliance requirements
+
 // Parse args early to support flags on commands
 function getCommandArgs() {
   return process.argv.slice(2);
