@@ -91,6 +91,11 @@ export default function NetworkStatus() {
         <span className="text-sm text-gray-400">
           {stats?.connected ? 'Live from chain' : 'Demo mode (chain unavailable)'}
         </span>
+        {stats?.connected && (
+          <span className="text-[10px] px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded-full border border-green-500/30 ml-1">
+            SYNCED
+          </span>
+        )}
       </div>
 
       {/* Live Stats Grid */}
