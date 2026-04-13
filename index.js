@@ -16,7 +16,7 @@ const path = require('path');
 const { BRANDING, C, indicators, success, error, warning, info, code, key, value, formatHelp, drawBox } = require('./lib/ui');
 
 // CLI version
-const VERSION = '2.0.2';
+const VERSION = '2.1.0';
 
 // Command imports
 const { doctorCommand } = require('./commands/doctor');
@@ -42,6 +42,7 @@ const { priceCommand } = require('./commands/price');
 const { epochCommand } = require('./commands/epoch');
 const { supplyCommand } = require('./commands/supply');
 const { statusCommand } = require('./commands/status');
+const { chainCommand } = require('./commands/chain');
 const { broadcastCommand } = require('./commands/broadcast');
 const { apyCommand } = require('./commands/apy');
 const { statsCommand } = require('./commands/stats');
@@ -248,6 +249,10 @@ const COMMANDS = {
     description: 'Aether network status - slot, height, peers, TPS',
     handler: networkCommand,
   },
+  chain: {
+    description: 'Blockchain chain data - slot, epoch, validators, chain ID',
+    handler: chainCommand,
+  },
   validator: {
     description: 'Validator node management - status, info, start, stop, register, logs',
     handler: () => {
@@ -276,6 +281,10 @@ const COMMANDS = {
   account: {
     description: 'Query on-chain account data - account --address <addr> [--json]',
     handler: accountCommand,
+  },
+  chain: {
+    description: 'Chain status - slot, epoch, validator count, chain ID',
+    handler: () => chainCommand(),
   },
   epoch: {
     description: 'Aether epoch info - current epoch, slot, time remaining, APY',
@@ -417,7 +426,7 @@ function showHelp() {
     'Wallet & Accounts': ['wallet', 'balance', 'transfer', 'tx', 'tx-history', 'account', 'stats', 'token-accounts'],
     'Staking': ['stake', 'unstake', 'stake-positions', 'stake-info', 'delegations', 'rewards', 'claim'],
     'Validator': ['init', 'validator', 'validator-info', 'register', 'validators', 'monitor', 'logs'],
-    'Network': ['network', 'network-diagnostics', 'ping', 'epoch', 'slot', 'blockheight', 'tps', 'fees', 'supply', 'version'],
+    'Network': ['network', 'chain', 'network-diagnostics', 'ping', 'epoch', 'slot', 'blockheight', 'tps', 'fees', 'supply', 'version'],
     'SDK & Tools': ['sdk', 'sdk-test', 'snapshot', 'info', 'status', 'blockhash', 'broadcast', 'price', 'apy', 'deploy'],
     'Advanced': ['nft', 'multisig', 'emergency', 'config', 'doctor', 'install', 'call'],
   };

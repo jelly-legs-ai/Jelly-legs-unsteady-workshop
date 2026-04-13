@@ -1,103 +1,172 @@
-# aether-cli
+# @jellylegsai/aether-cli
 
-AeTHer Validator Command Line Interface for system validation, onboarding, and node management.
+Aether Blockchain Command Line Interface - Validator Onboarding, Staking, and Node Management.
 
 ## Installation
 
 ```bash
 # Install globally via npm
-npm install -g aether-cli
+npm install -g @jellylegsai/aether-cli
 
-# Or install from repo
-git clone https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop.git
-cd Jelly-legs-unsteady-workshop/aether-cli
-npm install
-npm link
+# Or use npx (no install)
+npx @jellylegsai/aether-cli <command>
 ```
 
 ## Quick Start
 
 ```bash
 # Check system requirements
-aether-cli doctor
+aether doctor
 
 # Start onboarding wizard
-aether-cli init
+aether init
 
-# Generate KYC link
-aether-cli kyc generate
+# Create a wallet
+aether wallet create
 
-# Manage validator
-aether-cli validator start
-aether-cli validator status
+# Check network status
+aether network
+
+# Query blockchain data
+aether slot
+aether balance <address>
+aether epoch
 ```
 
 ## Commands
 
+### Wallet & Accounts
 | Command | Description |
 |---------|-------------|
-| `aether-cli doctor` | Run system requirements checks (CPU/RAM/Disk/Network/Firewall) |
-| `aether-cli init` | Start onboarding wizard |
-| `aether-cli kyc generate` | Generate pre-filled KYC link with pubkey, node ID, signature |
-| `aether-cli validator start` | Start validator node |
-| `aether-cli validator stop` | Stop validator node |
-| `aether-cli validator status` | Check validator status |
-| `aether-cli help` | Show help message |
-| `aether-cli --version` | Show version number |
+| `aether wallet` | Wallet management (create, import, list, balance) |
+| `aether balance [address]` | Query account balance |
+| `aether transfer` | Send AETH to another address |
+| `aether account --address <addr>` | Query on-chain account data |
+| `aether stats` | Wallet stats dashboard |
+| `aether tx <signature>` | Look up transaction by signature |
+| `aether tx-history [address]` | Transaction history |
+
+### Staking
+| Command | Description |
+|---------|-------------|
+| `aether stake` | Stake AETH to a validator |
+| `aether unstake` | Unstake AETH from a validator |
+| `aether claim` | Claim staking rewards |
+| `aether stake-positions` | View current stake positions |
+| `aether delegations` | List stake delegations |
+| `aether rewards` | View and claim staking rewards |
+
+### Validator Management
+| Command | Description |
+|---------|-------------|
+| `aether doctor` | System requirements check |
+| `aether init` | Validator onboarding wizard |
+| `aether validator` | Validator lifecycle management |
+| `aether validator start` | Start validator node |
+| `aether validator stop` | Stop validator node |
+| `aether validator status` | Check validator status |
+| `aether validator register` | Register as validator |
+| `aether validators` | List network validators |
+| `aether monitor` | Real-time validator dashboard |
+| `aether logs` | Tail validator logs |
+
+### Network & Blockchain
+| Command | Description |
+|---------|-------------|
+| `aether network` | Network status and health |
+| `aether slot` | Current blockchain slot |
+| `aether blockheight` | Current block height |
+| `aether epoch` | Current epoch info |
+| `aether supply` | Token supply metrics |
+| `aether tps` | Transactions per second |
+| `aether fees` | Network fee estimates |
+| `aether version` | Node version info |
+
+### Advanced
+| Command | Description |
+|---------|-------------|
+| `aether sdk` | SDK tools and direct RPC access |
+| `aether sdk-test` | Test SDK with real RPC calls |
+| `aether deploy` | Deploy smart contracts |
+| `aether call` | Call smart contract functions |
+| `aether nft` | NFT management |
+| `aether multisig` | Multi-signature wallet |
+| `aether emergency` | Emergency response tools |
+
+## Features
+
+- **Real Blockchain RPC**: All commands make actual HTTP calls to Aether nodes
+- **Retry Logic**: Exponential backoff with circuit breaker pattern
+- **Rate Limiting**: Token bucket algorithm for API protection
+- **BIP39 Wallets**: Mnemonic-based wallet generation
+- **ASCII Art Branding**: Cosmic-themed CLI interface
+- **Interactive Mode**: Menu-driven interface when run without args
+
+## Environment Variables
+
+```bash
+AETHER_RPC=http://127.0.0.1:8899  # RPC endpoint
+```
+
+## SDK Integration
+
+All commands use `@jellylegsai/aether-sdk` for blockchain operations:
+
+```javascript
+const { AetherClient } = require('@jellylegsai/aether-sdk');
+const client = new AetherClient({ rpcUrl: 'http://127.0.0.1:8899' });
+
+// Real RPC calls
+const slot = await client.getSlot();
+const balance = await client.getBalance(address);
+const epoch = await client.getEpochInfo();
+```
 
 ## System Requirements
 
-The `doctor` command validates:
-
-- **CPU**: 8+ cores (physical)
-- **RAM**: 32GB+ total, 28GB+ available
-- **Disk**: 512GB+ SSD with 340GB+ free
+For validator nodes:
+- **CPU**: 8+ cores
+- **RAM**: 32GB+ total
+- **Disk**: 512GB+ SSD
 - **Network**: 100Mbps+ connection
-- **Firewall**: Ports 3030 (P2P), 8899 (RPC), 22 (SSH) accessible
+- **Ports**: 3030 (P2P), 8899 (RPC), 22 (SSH)
 
 ## Example Output
 
 ```
-$ aether-cli doctor
+╔══════════════════════════════════════════════════════════════════════════╗
+║                                                                          ║
+║  ╔═╗AETHER╔═╗  BLOCKCHAIN CLI                            v2.1.0          ║
+║  ╠═╣NETWORK╠═╣  ◆ Decentralized Infrastructure for the Future ◆          ║
+║  ╚═╝        ╚═╝                                                          ║
+║                                                                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
 
-███╗   ███╗██╗███████╗███████╗██╗ ██████╗ ███╗   ██╗
-████╗ ████║██║██╔════╝██╔════╝██║██╔═══██╗████╗  ██║
-...
+◆ AETHER CLI v2.1.0 ─ Decentralized Infrastructure ◆
 
-Validator System Check
-  v1.0.0
-  2026-03-24
+Wallet & Accounts
+  slot                Query current slot
+  balance [address]   Query account balance
+  transfer           Send AETH to another address
+  ...
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Running system checks...
-
-CPU
-  Model: Intel Xeon E5-2680 v4
-  Cores: 16 (8 physical)
-  Frequency: 2.4 GHz
-  ✅ PASS (required: 4+ cores minimum)
-
-Memory
-  Total: 32 GB DDR4
-  Available: 28 GB
-  ✅ PASS (required: 8 GB minimum)
-
-...
-
-SUMMARY: All checks passed! ✅
-
-Your system is ready to run an AeTHer validator.
+Run "aether help" for full command list.
 ```
 
 ## Development
 
 ```bash
-# Run doctor command
-npm run doctor
+# Clone repository
+git clone https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop.git
+cd Jelly-legs-unsteady-workshop/aether-cli
 
-# Run tests
-npm test
+# Install dependencies
+npm install
+
+# Test commands
+node index.js doctor
+node index.js network
+node index.js sdk getSlot
 ```
 
 ## License
@@ -107,4 +176,4 @@ MIT - Jelly-legs AI Team
 ## Links
 
 - Repository: https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop
-- Documentation: docs/MINING_VALIDATOR_TOOLS.md
+- Package: https://www.npmjs.com/package/@jellylegsai/aether-cli
