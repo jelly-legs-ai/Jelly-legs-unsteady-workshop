@@ -30,7 +30,7 @@ export default function Nav() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-sm font-bold shadow-lg shadow-red-500/20 group-hover:shadow-red-500/40 transition-shadow">
-              🜰
+              🜁
             </div>
             <span className="text-lg font-bold text-white">Aether</span>
           </Link>
