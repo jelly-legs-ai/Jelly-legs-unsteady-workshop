@@ -16,7 +16,7 @@ const path = require('path');
 const { BRANDING, C, indicators, success, error, warning, info, code, key, value, formatHelp, drawBox } = require('./lib/ui');
 
 // CLI version
-const VERSION = '2.1.2';
+const VERSION = '2.1.3';
 
 // Command imports
 const { doctorCommand } = require('./commands/doctor');
@@ -69,13 +69,24 @@ const { blockheightCommand } = require('./commands/blockheight');
 const { versionCommand } = require('./commands/version');
 const { tokenAccountsCommand } = require('./commands/token-accounts');
 
+<<<<<<< HEAD
 // Note: kyc.js exists but is not wired - pending compliance requirements
+=======
+// CLI version
+const VERSION = '2.0.0';
+>>>>>>> 239519c2d7d5a771b9d8163096b2aadaf79a239f
 
 // Parse args early to support flags on commands
 function getCommandArgs() {
   return process.argv.slice(2);
 }
 
+<<<<<<< HEAD
+=======
+// Import branding and theme
+const { THEME, TIER_COLORS, getLogo, getMenuHeader, getHeader, getSuccessBanner, getErrorBanner } = require('./lib/branding');
+
+>>>>>>> 239519c2d7d5a771b9d8163096b2aadaf79a239f
 /**
  * Display the interactive main menu
  */
@@ -87,7 +98,16 @@ async function showMenu() {
 
   const prompt = (q) => new Promise((res) => rl.question(q, res));
 
+<<<<<<< HEAD
   console.log(BRANDING.header(VERSION));
+=======
+  console.log(getMenuHeader());
+  console.log(
+    THEME.cyan + '\n  ╔═══════════════════════════════════════════════╗\n' +
+    '  ║     AETHER CHAIN — Validator Setup Wizard     ║\n' +
+    '  ╚═══════════════════════════════════════════════╝' + THEME.reset + '\n'
+  );
+>>>>>>> 239519c2d7d5a771b9d8163096b2aadaf79a239f
 
   console.log(`  ${C.dim}Welcome to Aether CLI. What would you like to do?${C.reset}\n`);
   
@@ -419,6 +439,7 @@ const COMMANDS = {
  * Display help message with consistent branding
  */
 function showHelp() {
+<<<<<<< HEAD
   console.log(BRANDING.header(VERSION));
   
   console.log(`\n  ${C.bright}AETHER CLI${C.reset} — ${C.dim}Decentralized Infrastructure for the Future${C.reset}\n`);
@@ -443,6 +464,9 @@ function showHelp() {
     }
     console.log();
   }
+=======
+  const header = getHeader(VERSION);
+>>>>>>> 239519c2d7d5a771b9d8163096b2aadaf79a239f
 
   console.log(`  ${C.cyan}◆ Quick Start${C.reset}\n`);
   console.log(`    ${C.dim}$${C.reset} ${code('aether doctor')}              ${C.dim}# Check system requirements${C.reset}`);
