@@ -10,34 +10,30 @@
       ],
       "id": "jelly-legs",
       "position": {
-        "x": 72.56960463129973,
-        "y": 24.518077290682477
+        "x": 77.33476018049366,
+        "y": 26.429492136754
       },
       "currentTask": {
-        "id": "issue-109",
+        "id": "issue-108",
         "type": "issue",
-        "number": 109,
-        "title": "🌐 Aether Chain Website - Production Development (ONGOING)",
-        "body": "🌐 AeTHer Chain - Continuous Development (ONGOING)\n\n## Status: ALWAYS IMPROVING - Frontend + Backend Both Active\n\n**This is a CONTINUOUS DEVELOPMENT project - NEVER \"done\"**\n\n---\n\n## 🎨 FRONTEND - Alw",
+        "number": 108,
+        "title": "🚀 PHASE 6: Mainnet Preparation - Project AETHER",
+        "body": "## 🚀 PHASE 6: Mainnet Preparation\n\n**Project:** Project AETHER - Mobile-Mining Blockchain  \n**Phase:** 6/6 (Final Phase)  \n**Previous Phase:** Phase 5 - Testnet Deployment ✅\n\n---\n\n## Context\n\nProject",
         "state": "open",
         "stage": "research",
         "agent": "jelly-legs",
         "labels": [
           "code-crafter",
-          "in-progress",
-          "website",
-          "priority-critical",
-          "ongoing",
-          "phase-1"
+          "in-progress"
         ],
-        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/109",
-        "createdAt": "2026-03-22T15:19:07Z",
-        "updatedAt": "2026-04-06T05:11:29Z",
+        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/108",
+        "createdAt": "2026-03-22T02:06:26Z",
+        "updatedAt": "2026-03-22T22:29:45Z",
         "assignee": null,
-        "thought": "Community gravity forming..."
+        "thought": "Growing the legend..."
       },
       "status": "working",
-      "lastActivity": "2026-04-06T05:11:29Z"
+      "lastActivity": "2026-03-22T22:29:45Z"
     },
     "data-diver": {
       "name": "Data-Diver",
@@ -49,8 +45,8 @@
       ],
       "id": "data-diver",
       "position": {
-        "x": 63.97829727080904,
-        "y": 37.10783556888882
+        "x": 53.00123016489234,
+        "y": 57.03541019884253
       },
       "currentTask": null,
       "status": "idle",
@@ -66,12 +62,30 @@
       ],
       "id": "pattern-seeker",
       "position": {
-        "x": 62.32343094364017,
-        "y": 50.067116624622344
+        "x": 21.898148362058492,
+        "y": 27.644967610004624
       },
-      "currentTask": null,
-      "status": "idle",
-      "lastActivity": null
+      "currentTask": {
+        "id": "issue-113",
+        "type": "issue",
+        "number": 113,
+        "title": "Implement Tiered Validator System (Full / Lite / Observer)",
+        "body": "## Tiered Validator System — Spec\n\nIntroduce three validator tiers to open participation to a wide range of hardware — from laptops to enterprise infrastructure.\n\n---\n\n## Validator Tiers\n\n### Tier 1 —",
+        "state": "open",
+        "stage": "research",
+        "agent": "pattern-seeker",
+        "labels": [
+          "code-crafter",
+          "in-progress"
+        ],
+        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/113",
+        "createdAt": "2026-04-04T15:46:33Z",
+        "updatedAt": "2026-04-04T21:33:54Z",
+        "assignee": null,
+        "thought": "Pattern recognition..."
+      },
+      "status": "working",
+      "lastActivity": "2026-04-04T21:33:54Z"
     },
     "sketch-bot": {
       "name": "Sketch-Bot",
@@ -83,8 +97,8 @@
       ],
       "id": "sketch-bot",
       "position": {
-        "x": 40.05366925841357,
-        "y": 39.32531718528073
+        "x": 58.01737414580585,
+        "y": 39.457394010401536
       },
       "currentTask": null,
       "status": "idle",
@@ -100,8 +114,8 @@
       ],
       "id": "voice-weaver",
       "position": {
-        "x": 50.091958748391036,
-        "y": 43.06799230776883
+        "x": 54.574662355391,
+        "y": 39.89819264645897
       },
       "currentTask": null,
       "status": "idle",
@@ -117,8 +131,8 @@
       ],
       "id": "hook-maker",
       "position": {
-        "x": 59.14016052620637,
-        "y": 44.826734612727904
+        "x": 37.92171437957529,
+        "y": 41.84921868250999
       },
       "currentTask": null,
       "status": "idle",
@@ -134,8 +148,8 @@
       ],
       "id": "build-bot",
       "position": {
-        "x": 64.75644945225734,
-        "y": 48.6016490176363
+        "x": 47.47420742283186,
+        "y": 47.786399372195206
       },
       "currentTask": null,
       "status": "idle",
@@ -151,25 +165,8 @@
       ],
       "id": "pipe-layer",
       "position": {
-        "x": 39.45170995754651,
-        "y": 44.17799755992629
-      },
-      "currentTask": null,
-      "status": "idle",
-      "lastActivity": null
-    },
-    "code-crafter": {
-      "name": "Code-Crafter",
-      "emoji": "💻",
-      "role": "Implementation",
-      "color": "#66ff66",
-      "zones": [
-        "build"
-      ],
-      "id": "code-crafter",
-      "position": {
-        "x": 82.84306910250712,
-        "y": 17.198983329082765
+        "x": 83.16994190272985,
+        "y": 22.021463720535376
       },
       "currentTask": {
         "id": "issue-111",
@@ -179,7 +176,7 @@
         "body": "## Aether-Onboard-CLI — Complete ✅\n\n**Superseded by Issue #113 — Tiered Validator System**\n\nThe aether-cli is fully functional as an all-in-one validator onboarding tool. All P0/P1/P2 tasks for this p",
         "state": "open",
         "stage": "build",
-        "agent": "code-crafter",
+        "agent": "pipe-layer",
         "labels": [
           "build",
           "code-crafter",
@@ -192,10 +189,27 @@
         "createdAt": "2026-04-03T11:18:06Z",
         "updatedAt": "2026-04-04T15:46:49Z",
         "assignee": "jelly-legs-ai",
-        "thought": "Code generation..."
+        "thought": "Workflow connecting..."
       },
       "status": "working",
       "lastActivity": "2026-04-04T15:46:49Z"
+    },
+    "code-crafter": {
+      "name": "Code-Crafter",
+      "emoji": "💻",
+      "role": "Implementation",
+      "color": "#66ff66",
+      "zones": [
+        "build"
+      ],
+      "id": "code-crafter",
+      "position": {
+        "x": 52.588135134351624,
+        "y": 36.11482714614283
+      },
+      "currentTask": null,
+      "status": "idle",
+      "lastActivity": null
     },
     "shield-bot": {
       "name": "Shield-Bot",
@@ -207,30 +221,12 @@
       ],
       "id": "shield-bot",
       "position": {
-        "x": 17.371766266588686,
-        "y": 24.567964546784218
+        "x": 37.03074531868943,
+        "y": 38.492660005464934
       },
-      "currentTask": {
-        "id": "issue-108",
-        "type": "issue",
-        "number": 108,
-        "title": "🚀 PHASE 6: Mainnet Preparation - Project AETHER",
-        "body": "## 🚀 PHASE 6: Mainnet Preparation\n\n**Project:** Project AETHER - Mobile-Mining Blockchain  \n**Phase:** 6/6 (Final Phase)  \n**Previous Phase:** Phase 5 - Testnet Deployment ✅\n\n---\n\n## Context\n\nProject",
-        "state": "open",
-        "stage": "research",
-        "agent": "shield-bot",
-        "labels": [
-          "code-crafter",
-          "in-progress"
-        ],
-        "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/108",
-        "createdAt": "2026-03-22T02:06:26Z",
-        "updatedAt": "2026-03-22T22:29:45Z",
-        "assignee": null,
-        "thought": "Guardrail checking..."
-      },
-      "status": "working",
-      "lastActivity": "2026-03-22T22:29:45Z"
+      "currentTask": null,
+      "status": "idle",
+      "lastActivity": null
     },
     "map-maker": {
       "name": "Map-Maker",
@@ -242,8 +238,8 @@
       ],
       "id": "map-maker",
       "position": {
-        "x": 58.967670596976404,
-        "y": 38.124575133002395
+        "x": 37.70506195971216,
+        "y": 59.07543289440778
       },
       "currentTask": null,
       "status": "idle",
@@ -259,8 +255,8 @@
       ],
       "id": "launch-pad",
       "position": {
-        "x": 39.775769650757184,
-        "y": 43.90610045812045
+        "x": 62.5946845146036,
+        "y": 47.64953795442814
       },
       "currentTask": null,
       "status": "idle",
@@ -286,7 +282,7 @@
       "createdAt": "2026-04-05T09:26:48Z",
       "updatedAt": "2026-04-13T20:55:53Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Engineering narrative..."
+      "thought": "Building attention..."
     },
     {
       "id": "issue-115",
@@ -307,7 +303,7 @@
       "createdAt": "2026-04-05T07:51:53Z",
       "updatedAt": "2026-04-13T20:55:53Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Memetics in motion..."
+      "thought": "Building attention..."
     },
     {
       "id": "issue-114",
@@ -327,7 +323,7 @@
       "createdAt": "2026-04-04T21:36:07Z",
       "updatedAt": "2026-04-13T20:24:55Z",
       "assignee": null,
-      "thought": "Growing the legend..."
+      "thought": "Memetics in motion..."
     },
     {
       "id": "issue-113",
@@ -337,7 +333,7 @@
       "body": "## Tiered Validator System — Spec\n\nIntroduce three validator tiers to open participation to a wide range of hardware — from laptops to enterprise infrastructure.\n\n---\n\n## Validator Tiers\n\n### Tier 1 —",
       "state": "open",
       "stage": "research",
-      "agent": "jelly-legs",
+      "agent": "pattern-seeker",
       "labels": [
         "code-crafter",
         "in-progress"
@@ -346,7 +342,7 @@
       "createdAt": "2026-04-04T15:46:33Z",
       "updatedAt": "2026-04-04T21:33:54Z",
       "assignee": null,
-      "thought": "Engineering narrative..."
+      "thought": "Pattern recognition..."
     },
     {
       "id": "issue-112",
@@ -356,13 +352,13 @@
       "body": "## Phase 0 Complete — Testnet Runtime\n\n**What was built:**\n\n| Component | File | Lines | Status |\n|-----------|------|-------|--------|\n| Genesis CLI | genesis.rs | existing | ✅ create-genesis command",
       "state": "closed",
       "stage": "research",
-      "agent": "launch-pad",
+      "agent": "jelly-legs",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/112",
       "createdAt": "2026-04-03T21:27:29Z",
       "updatedAt": "2026-04-03T21:28:00Z",
       "assignee": null,
-      "thought": "Deployment prepared..."
+      "thought": "Building attention..."
     },
     {
       "id": "issue-111",
@@ -372,7 +368,7 @@
       "body": "## Aether-Onboard-CLI — Complete ✅\n\n**Superseded by Issue #113 — Tiered Validator System**\n\nThe aether-cli is fully functional as an all-in-one validator onboarding tool. All P0/P1/P2 tasks for this p",
       "state": "open",
       "stage": "build",
-      "agent": "code-crafter",
+      "agent": "pipe-layer",
       "labels": [
         "build",
         "code-crafter",
@@ -385,7 +381,7 @@
       "createdAt": "2026-04-03T11:18:06Z",
       "updatedAt": "2026-04-04T15:46:49Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Code generation..."
+      "thought": "Workflow connecting..."
     },
     {
       "id": "issue-110",
@@ -395,7 +391,7 @@
       "body": "## Context\n\nWe have ~90K lines of Rust code across 8 crates + 30 smart contracts. It compiles cleanly but **nothing is integrated into a runnable system**. This issue tracks making the testnet actuall",
       "state": "closed",
       "stage": "build",
-      "agent": "build-bot",
+      "agent": "code-crafter",
       "labels": [
         "build",
         "deploy",
@@ -410,7 +406,7 @@
       "createdAt": "2026-04-03T11:16:40Z",
       "updatedAt": "2026-04-03T21:27:57Z",
       "assignee": "jelly-legs-ai",
-      "thought": "Pipeline flowing..."
+      "thought": "Function crafting..."
     },
     {
       "id": "issue-109",
@@ -433,7 +429,7 @@
       "createdAt": "2026-03-22T15:19:07Z",
       "updatedAt": "2026-04-06T05:11:29Z",
       "assignee": null,
-      "thought": "Community gravity forming..."
+      "thought": "Memetics in motion..."
     },
     {
       "id": "issue-108",
@@ -443,7 +439,7 @@
       "body": "## 🚀 PHASE 6: Mainnet Preparation\n\n**Project:** Project AETHER - Mobile-Mining Blockchain  \n**Phase:** 6/6 (Final Phase)  \n**Previous Phase:** Phase 5 - Testnet Deployment ✅\n\n---\n\n## Context\n\nProject",
       "state": "open",
       "stage": "research",
-      "agent": "shield-bot",
+      "agent": "jelly-legs",
       "labels": [
         "code-crafter",
         "in-progress"
@@ -452,7 +448,7 @@
       "createdAt": "2026-03-22T02:06:26Z",
       "updatedAt": "2026-03-22T22:29:45Z",
       "assignee": null,
-      "thought": "Guardrail checking..."
+      "thought": "Growing the legend..."
     },
     {
       "id": "issue-107",
@@ -472,7 +468,7 @@
       "createdAt": "2026-03-21T19:43:50Z",
       "updatedAt": "2026-03-21T19:46:00Z",
       "assignee": null,
-      "thought": "Guardrail checking..."
+      "thought": "Risk assessment..."
     },
     {
       "id": "issue-106",
@@ -512,7 +508,7 @@
       "createdAt": "2026-03-21T19:43:48Z",
       "updatedAt": "2026-03-21T19:46:01Z",
       "assignee": null,
-      "thought": "Security scanning..."
+      "thought": "Risk assessment..."
     },
     {
       "id": "issue-104",
@@ -552,7 +548,7 @@
       "createdAt": "2026-03-21T19:43:46Z",
       "updatedAt": "2026-03-21T19:45:19Z",
       "assignee": null,
-      "thought": "Guardrail checking..."
+      "thought": "Security scanning..."
     },
     {
       "id": "issue-102",
@@ -572,7 +568,7 @@
       "createdAt": "2026-03-21T19:43:44Z",
       "updatedAt": "2026-03-21T19:45:22Z",
       "assignee": null,
-      "thought": "Safety protocols..."
+      "thought": "Risk assessment..."
     },
     {
       "id": "issue-101",
@@ -612,7 +608,7 @@
       "createdAt": "2026-03-21T19:43:42Z",
       "updatedAt": "2026-03-21T19:45:19Z",
       "assignee": null,
-      "thought": "Risk assessment..."
+      "thought": "Guardrail checking..."
     },
     {
       "id": "issue-99",
@@ -632,7 +628,7 @@
       "createdAt": "2026-03-21T19:43:41Z",
       "updatedAt": "2026-03-21T19:45:23Z",
       "assignee": null,
-      "thought": "Security scanning..."
+      "thought": "Risk assessment..."
     },
     {
       "id": "issue-98",
@@ -652,7 +648,7 @@
       "createdAt": "2026-03-21T19:43:40Z",
       "updatedAt": "2026-03-21T19:45:17Z",
       "assignee": null,
-      "thought": "Guardrail checking..."
+      "thought": "Safety protocols..."
     },
     {
       "id": "issue-97",
@@ -672,7 +668,7 @@
       "createdAt": "2026-03-21T19:43:39Z",
       "updatedAt": "2026-03-21T19:45:20Z",
       "assignee": null,
-      "thought": "Risk assessment..."
+      "thought": "Security scanning..."
     },
     {
       "id": "issue-96",
@@ -712,7 +708,7 @@
       "createdAt": "2026-03-21T19:43:37Z",
       "updatedAt": "2026-03-21T19:45:17Z",
       "assignee": null,
-      "thought": "Risk assessment..."
+      "thought": "Guardrail checking..."
     },
     {
       "id": "issue-94",
@@ -732,7 +728,7 @@
       "createdAt": "2026-03-21T19:43:36Z",
       "updatedAt": "2026-03-21T19:45:21Z",
       "assignee": null,
-      "thought": "Security scanning..."
+      "thought": "Guardrail checking..."
     },
     {
       "id": "issue-93",
@@ -752,7 +748,7 @@
       "createdAt": "2026-03-21T19:43:35Z",
       "updatedAt": "2026-03-21T19:45:24Z",
       "assignee": null,
-      "thought": "Threat detection..."
+      "thought": "Risk assessment..."
     },
     {
       "id": "issue-92",
@@ -772,7 +768,7 @@
       "createdAt": "2026-03-21T19:43:34Z",
       "updatedAt": "2026-03-21T19:45:18Z",
       "assignee": null,
-      "thought": "Risk assessment..."
+      "thought": "Security scanning..."
     },
     {
       "id": "issue-91",
@@ -792,7 +788,7 @@
       "createdAt": "2026-03-21T19:43:33Z",
       "updatedAt": "2026-03-21T19:45:21Z",
       "assignee": null,
-      "thought": "Risk assessment..."
+      "thought": "Security scanning..."
     },
     {
       "id": "issue-90",
@@ -812,7 +808,7 @@
       "createdAt": "2026-03-21T19:43:32Z",
       "updatedAt": "2026-03-21T19:45:24Z",
       "assignee": null,
-      "thought": "Safety protocols..."
+      "thought": "Guardrail checking..."
     },
     {
       "id": "issue-89",
@@ -832,7 +828,7 @@
       "createdAt": "2026-03-21T19:43:31Z",
       "updatedAt": "2026-03-21T19:45:18Z",
       "assignee": null,
-      "thought": "Threat detection..."
+      "thought": "Guardrail checking..."
     },
     {
       "id": "issue-88",
@@ -852,7 +848,7 @@
       "createdAt": "2026-03-21T19:43:29Z",
       "updatedAt": "2026-03-21T19:45:22Z",
       "assignee": null,
-      "thought": "Risk assessment..."
+      "thought": "Safety protocols..."
     },
     {
       "id": "issue-87",
@@ -862,7 +858,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "closed",
       "stage": "build",
-      "agent": "build-bot",
+      "agent": "pipe-layer",
       "labels": [
         "build",
         "code-crafter",
@@ -872,7 +868,7 @@
       "createdAt": "2026-03-21T19:38:28Z",
       "updatedAt": "2026-03-21T19:46:02Z",
       "assignee": null,
-      "thought": "Pipeline flowing..."
+      "thought": "Automation layer..."
     },
     {
       "id": "issue-86",
@@ -912,7 +908,7 @@
       "createdAt": "2026-03-21T19:38:24Z",
       "updatedAt": "2026-03-21T19:46:03Z",
       "assignee": null,
-      "thought": "Guardrail checking..."
+      "thought": "Safety protocols..."
     },
     {
       "id": "issue-84",
@@ -922,7 +918,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "closed",
       "stage": "build",
-      "agent": "code-crafter",
+      "agent": "pipe-layer",
       "labels": [
         "build",
         "code-crafter",
@@ -932,7 +928,7 @@
       "createdAt": "2026-03-21T19:33:24Z",
       "updatedAt": "2026-03-21T19:43:31Z",
       "assignee": null,
-      "thought": "Implementation coding..."
+      "thought": "Automation layer..."
     },
     {
       "id": "issue-83",
@@ -952,7 +948,7 @@
       "createdAt": "2026-03-21T19:33:23Z",
       "updatedAt": "2026-03-21T19:43:32Z",
       "assignee": null,
-      "thought": "Guardrail checking..."
+      "thought": "Safety protocols..."
     },
     {
       "id": "issue-82",
@@ -972,7 +968,7 @@
       "createdAt": "2026-03-21T19:33:22Z",
       "updatedAt": "2026-03-21T19:43:33Z",
       "assignee": null,
-      "thought": "Risk assessment..."
+      "thought": "Guardrail checking..."
     },
     {
       "id": "issue-81",
@@ -982,7 +978,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "closed",
       "stage": "build",
-      "agent": "build-bot",
+      "agent": "pipe-layer",
       "labels": [
         "build",
         "code-crafter",
@@ -992,7 +988,7 @@
       "createdAt": "2026-03-21T19:29:18Z",
       "updatedAt": "2026-03-21T19:43:34Z",
       "assignee": null,
-      "thought": "Automation building..."
+      "thought": "Data pipeline active..."
     },
     {
       "id": "issue-80",
@@ -1012,7 +1008,7 @@
       "createdAt": "2026-03-21T19:29:17Z",
       "updatedAt": "2026-03-21T19:43:35Z",
       "assignee": null,
-      "thought": "Safety protocols..."
+      "thought": "Threat detection..."
     },
     {
       "id": "issue-79",
@@ -1042,7 +1038,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "closed",
       "stage": "build",
-      "agent": "build-bot",
+      "agent": "code-crafter",
       "labels": [
         "build",
         "code-crafter",
@@ -1052,7 +1048,7 @@
       "createdAt": "2026-03-21T19:23:25Z",
       "updatedAt": "2026-03-21T19:43:37Z",
       "assignee": null,
-      "thought": "Automation building..."
+      "thought": "Feature building..."
     },
     {
       "id": "issue-77",
@@ -1072,7 +1068,7 @@
       "createdAt": "2026-03-21T19:23:24Z",
       "updatedAt": "2026-03-21T19:43:38Z",
       "assignee": null,
-      "thought": "Security scanning..."
+      "thought": "Guardrail checking..."
     },
     {
       "id": "issue-76",
@@ -1112,7 +1108,7 @@
       "createdAt": "2026-03-21T19:18:26Z",
       "updatedAt": "2026-03-21T19:43:40Z",
       "assignee": null,
-      "thought": "System construction..."
+      "thought": "Automation building..."
     },
     {
       "id": "issue-74",
@@ -1132,7 +1128,7 @@
       "createdAt": "2026-03-21T19:18:25Z",
       "updatedAt": "2026-03-21T19:43:41Z",
       "assignee": null,
-      "thought": "Security scanning..."
+      "thought": "Safety protocols..."
     },
     {
       "id": "issue-73",
@@ -1152,7 +1148,7 @@
       "createdAt": "2026-03-21T19:18:24Z",
       "updatedAt": "2026-03-21T19:43:42Z",
       "assignee": null,
-      "thought": "Guardrail checking..."
+      "thought": "Threat detection..."
     },
     {
       "id": "issue-72",
@@ -1192,7 +1188,7 @@
       "createdAt": "2026-03-21T19:13:24Z",
       "updatedAt": "2026-03-21T19:43:44Z",
       "assignee": null,
-      "thought": "Risk assessment..."
+      "thought": "Safety protocols..."
     },
     {
       "id": "issue-70",
@@ -1212,7 +1208,7 @@
       "createdAt": "2026-03-21T19:13:23Z",
       "updatedAt": "2026-03-21T19:43:45Z",
       "assignee": null,
-      "thought": "Guardrail checking..."
+      "thought": "Security scanning..."
     },
     {
       "id": "issue-69",
@@ -1222,7 +1218,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "closed",
       "stage": "build",
-      "agent": "pipe-layer",
+      "agent": "build-bot",
       "labels": [
         "build",
         "code-crafter",
@@ -1232,7 +1228,7 @@
       "createdAt": "2026-03-21T19:08:28Z",
       "updatedAt": "2026-03-21T19:43:46Z",
       "assignee": null,
-      "thought": "System bridge building..."
+      "thought": "Automation building..."
     },
     {
       "id": "issue-68",
@@ -1252,7 +1248,7 @@
       "createdAt": "2026-03-21T19:08:27Z",
       "updatedAt": "2026-03-21T19:43:47Z",
       "assignee": null,
-      "thought": "Threat detection..."
+      "thought": "Security scanning..."
     },
     {
       "id": "issue-67",
@@ -1272,7 +1268,7 @@
       "createdAt": "2026-03-21T19:08:25Z",
       "updatedAt": "2026-03-21T19:43:48Z",
       "assignee": null,
-      "thought": "Security scanning..."
+      "thought": "Safety protocols..."
     },
     {
       "id": "issue-66",
@@ -1282,7 +1278,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "closed",
       "stage": "build",
-      "agent": "build-bot",
+      "agent": "code-crafter",
       "labels": [
         "build",
         "code-crafter",
@@ -1292,7 +1288,7 @@
       "createdAt": "2026-03-21T19:08:04Z",
       "updatedAt": "2026-03-21T19:43:49Z",
       "assignee": null,
-      "thought": "System construction..."
+      "thought": "Feature building..."
     },
     {
       "id": "issue-65",
@@ -1312,7 +1308,7 @@
       "createdAt": "2026-03-21T19:08:03Z",
       "updatedAt": "2026-03-21T19:43:50Z",
       "assignee": null,
-      "thought": "Threat detection..."
+      "thought": "Security scanning..."
     },
     {
       "id": "issue-64",
@@ -1332,7 +1328,7 @@
       "createdAt": "2026-03-21T19:08:02Z",
       "updatedAt": "2026-03-21T19:43:09Z",
       "assignee": null,
-      "thought": "Safety protocols..."
+      "thought": "Security scanning..."
     },
     {
       "id": "issue-63",
@@ -1392,7 +1388,7 @@
       "createdAt": "2026-03-20T23:07:14Z",
       "updatedAt": "2026-03-21T19:43:10Z",
       "assignee": null,
-      "thought": "Safety protocols..."
+      "thought": "Threat detection..."
     },
     {
       "id": "issue-60",
@@ -1402,7 +1398,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "closed",
       "stage": "build",
-      "agent": "pipe-layer",
+      "agent": "build-bot",
       "labels": [
         "build",
         "code-crafter",
@@ -1412,7 +1408,7 @@
       "createdAt": "2026-03-20T20:53:27Z",
       "updatedAt": "2026-03-21T19:42:47Z",
       "assignee": null,
-      "thought": "Automation layer..."
+      "thought": "Pipeline flowing..."
     },
     {
       "id": "issue-59",
@@ -1432,7 +1428,7 @@
       "createdAt": "2026-03-20T20:53:26Z",
       "updatedAt": "2026-03-21T19:42:59Z",
       "assignee": null,
-      "thought": "Risk assessment..."
+      "thought": "Guardrail checking..."
     },
     {
       "id": "issue-58",
@@ -1452,7 +1448,7 @@
       "createdAt": "2026-03-20T20:53:24Z",
       "updatedAt": "2026-03-21T19:43:10Z",
       "assignee": null,
-      "thought": "Security scanning..."
+      "thought": "Guardrail checking..."
     },
     {
       "id": "issue-57",
@@ -1462,7 +1458,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "closed",
       "stage": "build",
-      "agent": "build-bot",
+      "agent": "code-crafter",
       "labels": [
         "build",
         "code-crafter",
@@ -1472,7 +1468,7 @@
       "createdAt": "2026-03-20T20:48:26Z",
       "updatedAt": "2026-03-21T19:42:47Z",
       "assignee": null,
-      "thought": "System construction..."
+      "thought": "Code generation..."
     },
     {
       "id": "issue-56",
@@ -1492,7 +1488,7 @@
       "createdAt": "2026-03-20T20:48:25Z",
       "updatedAt": "2026-03-21T19:43:00Z",
       "assignee": null,
-      "thought": "Risk assessment..."
+      "thought": "Safety protocols..."
     },
     {
       "id": "issue-55",
@@ -1512,7 +1508,7 @@
       "createdAt": "2026-03-20T20:48:24Z",
       "updatedAt": "2026-03-21T19:43:11Z",
       "assignee": null,
-      "thought": "Guardrail checking..."
+      "thought": "Safety protocols..."
     },
     {
       "id": "issue-54",
@@ -1552,7 +1548,7 @@
       "createdAt": "2026-03-20T20:43:26Z",
       "updatedAt": "2026-03-21T19:43:00Z",
       "assignee": null,
-      "thought": "Guardrail checking..."
+      "thought": "Threat detection..."
     },
     {
       "id": "issue-52",
@@ -1582,7 +1578,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "closed",
       "stage": "build",
-      "agent": "pipe-layer",
+      "agent": "code-crafter",
       "labels": [
         "build",
         "code-crafter",
@@ -1592,7 +1588,7 @@
       "createdAt": "2026-03-20T20:38:27Z",
       "updatedAt": "2026-03-21T19:42:48Z",
       "assignee": null,
-      "thought": "Automation layer..."
+      "thought": "Feature building..."
     },
     {
       "id": "issue-50",
@@ -1632,7 +1628,7 @@
       "createdAt": "2026-03-20T20:38:25Z",
       "updatedAt": "2026-03-21T19:43:12Z",
       "assignee": null,
-      "thought": "Guardrail checking..."
+      "thought": "Safety protocols..."
     },
     {
       "id": "issue-48",
@@ -1642,7 +1638,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "closed",
       "stage": "build",
-      "agent": "build-bot",
+      "agent": "pipe-layer",
       "labels": [
         "build",
         "code-crafter",
@@ -1652,7 +1648,7 @@
       "createdAt": "2026-03-20T20:33:27Z",
       "updatedAt": "2026-03-21T19:42:49Z",
       "assignee": null,
-      "thought": "Infrastructure growing..."
+      "thought": "Data pipeline active..."
     },
     {
       "id": "issue-47",
@@ -1692,7 +1688,7 @@
       "createdAt": "2026-03-20T20:33:25Z",
       "updatedAt": "2026-03-21T19:43:12Z",
       "assignee": null,
-      "thought": "Threat detection..."
+      "thought": "Guardrail checking..."
     },
     {
       "id": "issue-45",
@@ -1702,7 +1698,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "closed",
       "stage": "build",
-      "agent": "code-crafter",
+      "agent": "pipe-layer",
       "labels": [
         "build",
         "code-crafter",
@@ -1712,7 +1708,7 @@
       "createdAt": "2026-03-20T20:28:27Z",
       "updatedAt": "2026-03-21T19:42:49Z",
       "assignee": null,
-      "thought": "Function crafting..."
+      "thought": "System bridge building..."
     },
     {
       "id": "issue-44",
@@ -1732,7 +1728,7 @@
       "createdAt": "2026-03-20T20:28:26Z",
       "updatedAt": "2026-03-21T19:43:02Z",
       "assignee": null,
-      "thought": "Risk assessment..."
+      "thought": "Guardrail checking..."
     },
     {
       "id": "issue-43",
@@ -1772,7 +1768,7 @@
       "createdAt": "2026-03-20T20:23:28Z",
       "updatedAt": "2026-03-21T19:42:50Z",
       "assignee": null,
-      "thought": "Feature building..."
+      "thought": "Implementation coding..."
     },
     {
       "id": "issue-41",
@@ -1792,7 +1788,7 @@
       "createdAt": "2026-03-20T20:23:26Z",
       "updatedAt": "2026-03-21T19:43:02Z",
       "assignee": null,
-      "thought": "Threat detection..."
+      "thought": "Risk assessment..."
     },
     {
       "id": "issue-40",
@@ -1812,7 +1808,7 @@
       "createdAt": "2026-03-20T20:23:25Z",
       "updatedAt": "2026-03-21T19:43:14Z",
       "assignee": null,
-      "thought": "Safety protocols..."
+      "thought": "Guardrail checking..."
     },
     {
       "id": "issue-39",
@@ -1822,7 +1818,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "closed",
       "stage": "build",
-      "agent": "build-bot",
+      "agent": "code-crafter",
       "labels": [
         "build",
         "code-crafter",
@@ -1832,7 +1828,7 @@
       "createdAt": "2026-03-20T20:18:28Z",
       "updatedAt": "2026-03-21T19:42:50Z",
       "assignee": null,
-      "thought": "System construction..."
+      "thought": "Implementation coding..."
     },
     {
       "id": "issue-38",
@@ -1852,7 +1848,7 @@
       "createdAt": "2026-03-20T20:18:26Z",
       "updatedAt": "2026-03-21T19:43:03Z",
       "assignee": null,
-      "thought": "Threat detection..."
+      "thought": "Security scanning..."
     },
     {
       "id": "issue-37",
@@ -1872,7 +1868,7 @@
       "createdAt": "2026-03-20T20:18:24Z",
       "updatedAt": "2026-03-21T19:43:14Z",
       "assignee": null,
-      "thought": "Guardrail checking..."
+      "thought": "Threat detection..."
     },
     {
       "id": "issue-36",
@@ -1892,7 +1888,7 @@
       "createdAt": "2026-03-20T20:08:29Z",
       "updatedAt": "2026-03-21T19:42:51Z",
       "assignee": null,
-      "thought": "Code generation..."
+      "thought": "Implementation coding..."
     },
     {
       "id": "issue-35",
@@ -1912,7 +1908,7 @@
       "createdAt": "2026-03-20T20:08:27Z",
       "updatedAt": "2026-03-21T19:43:03Z",
       "assignee": null,
-      "thought": "Guardrail checking..."
+      "thought": "Security scanning..."
     },
     {
       "id": "issue-34",
@@ -1932,7 +1928,7 @@
       "createdAt": "2026-03-20T20:08:25Z",
       "updatedAt": "2026-03-21T19:43:15Z",
       "assignee": null,
-      "thought": "Guardrail checking..."
+      "thought": "Threat detection..."
     },
     {
       "id": "issue-33",
@@ -1942,7 +1938,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "closed",
       "stage": "build",
-      "agent": "build-bot",
+      "agent": "code-crafter",
       "labels": [
         "build",
         "code-crafter",
@@ -1952,7 +1948,7 @@
       "createdAt": "2026-03-20T20:03:32Z",
       "updatedAt": "2026-03-21T19:42:51Z",
       "assignee": null,
-      "thought": "Pipeline flowing..."
+      "thought": "Implementation coding..."
     },
     {
       "id": "issue-32",
@@ -1972,7 +1968,7 @@
       "createdAt": "2026-03-20T20:03:30Z",
       "updatedAt": "2026-03-21T19:43:04Z",
       "assignee": null,
-      "thought": "Threat detection..."
+      "thought": "Risk assessment..."
     },
     {
       "id": "issue-31",
@@ -1992,7 +1988,7 @@
       "createdAt": "2026-03-20T20:03:29Z",
       "updatedAt": "2026-03-21T19:43:15Z",
       "assignee": null,
-      "thought": "Safety protocols..."
+      "thought": "Threat detection..."
     },
     {
       "id": "issue-30",
@@ -2002,7 +1998,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "closed",
       "stage": "build",
-      "agent": "build-bot",
+      "agent": "code-crafter",
       "labels": [
         "build",
         "code-crafter",
@@ -2012,7 +2008,7 @@
       "createdAt": "2026-03-20T19:58:28Z",
       "updatedAt": "2026-03-21T19:42:52Z",
       "assignee": null,
-      "thought": "Infrastructure growing..."
+      "thought": "Logic weaving..."
     },
     {
       "id": "issue-29",
@@ -2032,7 +2028,7 @@
       "createdAt": "2026-03-20T19:58:27Z",
       "updatedAt": "2026-03-21T19:43:04Z",
       "assignee": null,
-      "thought": "Security scanning..."
+      "thought": "Threat detection..."
     },
     {
       "id": "issue-28",
@@ -2052,7 +2048,7 @@
       "createdAt": "2026-03-20T19:58:25Z",
       "updatedAt": "2026-03-21T19:43:16Z",
       "assignee": null,
-      "thought": "Threat detection..."
+      "thought": "Guardrail checking..."
     },
     {
       "id": "issue-27",
@@ -2062,7 +2058,7 @@
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "closed",
       "stage": "build",
-      "agent": "pipe-layer",
+      "agent": "code-crafter",
       "labels": [
         "build",
         "code-crafter",
@@ -2072,7 +2068,7 @@
       "createdAt": "2026-03-20T19:53:26Z",
       "updatedAt": "2026-03-21T19:42:52Z",
       "assignee": null,
-      "thought": "Workflow connecting..."
+      "thought": "Feature building..."
     },
     {
       "id": "issue-26",
@@ -2092,7 +2088,7 @@
       "createdAt": "2026-03-20T19:53:24Z",
       "updatedAt": "2026-03-21T19:43:05Z",
       "assignee": null,
-      "thought": "Risk assessment..."
+      "thought": "Guardrail checking..."
     },
     {
       "id": "issue-25",
@@ -2112,7 +2108,7 @@
       "createdAt": "2026-03-20T19:48:29Z",
       "updatedAt": "2026-03-21T19:42:53Z",
       "assignee": null,
-      "thought": "Implementation coding..."
+      "thought": "Logic weaving..."
     },
     {
       "id": "issue-24",
@@ -2132,68 +2128,12 @@
       "createdAt": "2026-03-20T19:48:28Z",
       "updatedAt": "2026-03-21T19:43:05Z",
       "assignee": null,
-      "thought": "Guardrail checking..."
+      "thought": "Safety protocols..."
     },
     {
       "id": "issue-23",
       "type": "issue",
       "number": 23,
-      "title": "BUILD: Create pixel art avatar system for all 12 agents - Implementation",
-      "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
-      "state": "closed",
-      "stage": "build",
-      "agent": "code-crafter",
-      "labels": [
-        "build",
-        "code-crafter",
-        "in-progress"
-      ],
-      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/23",
-      "createdAt": "2026-03-20T19:43:31Z",
-      "updatedAt": "2026-03-21T19:42:53Z",
-      "assignee": null,
-      "thought": "Implementation coding..."
-    },
-    {
-      "id": "issue-22",
-      "type": "issue",
-      "number": 22,
-      "title": "feat: Zone Detail Modal - Click zones to expand task details (Issue #3)",
-      "body": "## Summary\n\nThis PR implements the zone detail modal feature for Issue #3, allowing users to click on workshop zones/rooms to see full task breakdown.\n\n## Changes Made\n\n### Zone Detail Modal Enhanceme",
-      "state": "closed",
-      "stage": "research",
-      "agent": "voice-weaver",
-      "labels": [],
-      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/22",
-      "createdAt": "2026-03-20T19:43:21Z",
-      "updatedAt": "2026-03-20T19:43:44Z",
-      "assignee": null,
-      "thought": "Story architecture..."
-    },
-    {
-      "id": "issue-21",
-      "type": "issue",
-      "number": 21,
-      "title": "BUILD: Create pixel art avatar system for all 12 agents - Implementation",
-      "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
-      "state": "closed",
-      "stage": "build",
-      "agent": "build-bot",
-      "labels": [
-        "build",
-        "code-crafter",
-        "in-progress"
-      ],
-      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/21",
-      "createdAt": "2026-03-20T19:38:25Z",
-      "updatedAt": "2026-03-21T19:42:54Z",
-      "assignee": null,
-      "thought": "Pipeline flowing..."
-    },
-    {
-      "id": "issue-20",
-      "type": "issue",
-      "number": 20,
       "title": "BUILD: Create pixel art avatar system for all 12 agents - Implementation",
       "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
       "state": "closed",
@@ -2204,11 +2144,67 @@
         "code-crafter",
         "in-progress"
       ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/23",
+      "createdAt": "2026-03-20T19:43:31Z",
+      "updatedAt": "2026-03-21T19:42:53Z",
+      "assignee": null,
+      "thought": "Workflow connecting..."
+    },
+    {
+      "id": "issue-22",
+      "type": "issue",
+      "number": 22,
+      "title": "feat: Zone Detail Modal - Click zones to expand task details (Issue #3)",
+      "body": "## Summary\n\nThis PR implements the zone detail modal feature for Issue #3, allowing users to click on workshop zones/rooms to see full task breakdown.\n\n## Changes Made\n\n### Zone Detail Modal Enhanceme",
+      "state": "closed",
+      "stage": "research",
+      "agent": "code-crafter",
+      "labels": [],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/22",
+      "createdAt": "2026-03-20T19:43:21Z",
+      "updatedAt": "2026-03-20T19:43:44Z",
+      "assignee": null,
+      "thought": "Logic weaving..."
+    },
+    {
+      "id": "issue-21",
+      "type": "issue",
+      "number": 21,
+      "title": "BUILD: Create pixel art avatar system for all 12 agents - Implementation",
+      "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
+      "state": "closed",
+      "stage": "build",
+      "agent": "pipe-layer",
+      "labels": [
+        "build",
+        "code-crafter",
+        "in-progress"
+      ],
+      "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/21",
+      "createdAt": "2026-03-20T19:38:25Z",
+      "updatedAt": "2026-03-21T19:42:54Z",
+      "assignee": null,
+      "thought": "System bridge building..."
+    },
+    {
+      "id": "issue-20",
+      "type": "issue",
+      "number": 20,
+      "title": "BUILD: Create pixel art avatar system for all 12 agents - Implementation",
+      "body": "## Build Phase\n\n**Previous Design:** #2\n**Design Doc:** See previous issue for details.\n\n### Implementation Tasks\n- [ ] Core implementation\n- [ ] Unit tests\n- [ ] Integration tests\n- [ ] Documentation",
+      "state": "closed",
+      "stage": "build",
+      "agent": "code-crafter",
+      "labels": [
+        "build",
+        "code-crafter",
+        "in-progress"
+      ],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/issues/20",
       "createdAt": "2026-03-20T19:33:27Z",
       "updatedAt": "2026-03-21T19:42:54Z",
       "assignee": null,
-      "thought": "Workflow connecting..."
+      "thought": "Implementation coding..."
     },
     {
       "id": "issue-19",
@@ -2218,13 +2214,13 @@
       "body": "- Replace console.log with actual GitHub API call to create issues\r\n- POST to GitHub API with proper title format: [WORK REQUEST] {title}\r\n- Body includes: requesting agent, target agent, priority, zo",
       "state": "closed",
       "stage": "research",
-      "agent": "hook-maker",
+      "agent": "build-bot",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/19",
       "createdAt": "2026-03-20T17:44:28Z",
       "updatedAt": "2026-03-20T17:44:40Z",
       "assignee": null,
-      "thought": "Attention capture..."
+      "thought": "Infrastructure growing..."
     },
     {
       "id": "issue-18",
@@ -2240,7 +2236,7 @@
       "createdAt": "2026-03-20T16:48:51Z",
       "updatedAt": "2026-03-21T19:46:04Z",
       "assignee": null,
-      "thought": "Growing the legend..."
+      "thought": "Community gravity forming..."
     },
     {
       "id": "issue-17",
@@ -2250,13 +2246,13 @@
       "body": "## Summary\n\nThis PR sets up the initial project structure for the AETHER blockchain fork from Agave (Solana's Rust core).\n\n## Changes\n\n- Created 5-layer modular architecture:\n  - `aether-core`: Core t",
       "state": "closed",
       "stage": "research",
-      "agent": "pipe-layer",
+      "agent": "code-crafter",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/17",
       "createdAt": "2026-03-16T21:46:47Z",
       "updatedAt": "2026-03-16T21:55:45Z",
       "assignee": null,
-      "thought": "System bridge building..."
+      "thought": "Code generation..."
     },
     {
       "id": "pr-112",
@@ -2266,13 +2262,13 @@
       "body": "## Phase 0 Complete — Testnet Runtime\n\n**What was built:**\n\n| Component | File | Lines | Status |\n|-----------|------|-------|--------|\n| Genesis CLI | genesis.rs | existing | ✅ create-genesis command",
       "state": "closed",
       "stage": "deploy",
-      "agent": "build-bot",
+      "agent": "code-crafter",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/112",
       "createdAt": "2026-04-03T21:27:29Z",
       "updatedAt": "2026-04-03T21:28:00Z",
       "draft": false,
-      "thought": "Automation building..."
+      "thought": "Implementation coding..."
     },
     {
       "id": "pr-22",
@@ -2282,13 +2278,13 @@
       "body": "## Summary\n\nThis PR implements the zone detail modal feature for Issue #3, allowing users to click on workshop zones/rooms to see full task breakdown.\n\n## Changes Made\n\n### Zone Detail Modal Enhanceme",
       "state": "closed",
       "stage": "deploy",
-      "agent": "map-maker",
+      "agent": "build-bot",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/22",
       "createdAt": "2026-03-20T19:43:21Z",
       "updatedAt": "2026-03-20T19:43:44Z",
       "draft": false,
-      "thought": "Roadmap drawing..."
+      "thought": "Automation building..."
     },
     {
       "id": "pr-19",
@@ -2298,13 +2294,13 @@
       "body": "- Replace console.log with actual GitHub API call to create issues\r\n- POST to GitHub API with proper title format: [WORK REQUEST] {title}\r\n- Body includes: requesting agent, target agent, priority, zo",
       "state": "closed",
       "stage": "deploy",
-      "agent": "voice-weaver",
+      "agent": "build-bot",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/19",
       "createdAt": "2026-03-20T17:44:28Z",
       "updatedAt": "2026-03-20T17:44:40Z",
       "draft": false,
-      "thought": "Crafting brand voice..."
+      "thought": "Pipeline flowing..."
     },
     {
       "id": "pr-18",
@@ -2320,7 +2316,7 @@
       "createdAt": "2026-03-20T16:48:51Z",
       "updatedAt": "2026-03-21T19:46:04Z",
       "draft": false,
-      "thought": "Community gravity forming..."
+      "thought": "Building attention..."
     },
     {
       "id": "pr-17",
@@ -2330,13 +2326,13 @@
       "body": "## Summary\n\nThis PR sets up the initial project structure for the AETHER blockchain fork from Agave (Solana's Rust core).\n\n## Changes\n\n- Created 5-layer modular architecture:\n  - `aether-core`: Core t",
       "state": "closed",
       "stage": "deploy",
-      "agent": "build-bot",
+      "agent": "code-crafter",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/17",
       "createdAt": "2026-03-16T21:46:47Z",
       "updatedAt": "2026-03-16T21:55:45Z",
       "draft": false,
-      "thought": "Code architecture..."
+      "thought": "Feature building..."
     },
     {
       "id": "pr-16",
@@ -2346,13 +2342,13 @@
       "body": "## Summary\nImplements Issue #3: BUILD: Implement zone detail modal - click zones to expand task details\n\n## Changes Made\n- Added click handlers to zone elements\n- Created modal component with smooth o",
       "state": "closed",
       "stage": "deploy",
-      "agent": "data-diver",
+      "agent": "voice-weaver",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/16",
       "createdAt": "2026-03-16T19:58:49Z",
       "updatedAt": "2026-03-21T19:46:05Z",
       "draft": false,
-      "thought": "Viral mechanics study..."
+      "thought": "Message resonance..."
     },
     {
       "id": "pr-15",
@@ -2362,13 +2358,13 @@
       "body": "## Changes\\n\\n- New orchestrator that spawns OpenClaw sessions with correct models\\n- Researcher ? minimax-m2.5:cloud\\n- Designer ? kimi-k2.5:cloud\\n- Developer ? qwen3:8b\\n- etc.\\n\\nEach agent produc",
       "state": "closed",
       "stage": "deploy",
-      "agent": "hook-maker",
+      "agent": "pipe-layer",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/15",
       "createdAt": "2026-03-16T17:49:57Z",
       "updatedAt": "2026-03-16T17:50:06Z",
       "draft": false,
-      "thought": "Share trigger..."
+      "thought": "Automation layer..."
     },
     {
       "id": "pr-14",
@@ -2378,13 +2374,13 @@
       "body": "## ?? ?? Designer Agent - Enhanced Design Specification\n\n**Issue:** #11 - Project AETHER\n\nThis is an enhanced design specification with comprehensive technical details:\n\n- 5-layer system architecture ",
       "state": "closed",
       "stage": "deploy",
-      "agent": "launch-pad",
+      "agent": "pattern-seeker",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/14",
       "createdAt": "2026-03-15T21:48:38Z",
       "updatedAt": "2026-03-15T22:02:51Z",
       "draft": false,
-      "thought": "Deployment prepared..."
+      "thought": "Pattern recognition..."
     },
     {
       "id": "pr-13",
@@ -2394,13 +2390,13 @@
       "body": "## ?? ?? Designer - Real Work Completed\n\n**Issue:** #11 - EPIC: Project AETHER - Solana-Forked Blockchain for AI Technology\n**Directive:** Look at requirements and ask: what's missing? How could this ",
       "state": "closed",
       "stage": "deploy",
-      "agent": "sketch-bot",
+      "agent": "build-bot",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/13",
       "createdAt": "2026-03-15T21:43:50Z",
       "updatedAt": "2026-03-15T22:02:33Z",
       "draft": false,
-      "thought": "UI components crafting..."
+      "thought": "Infrastructure growing..."
     },
     {
       "id": "pr-12",
@@ -2410,13 +2406,13 @@
       "body": "## ?? ?? Researcher - Real Work Completed\n\n**Issue:** #11 - EPIC: Project AETHER - Solana-Forked Blockchain for AI Technology\n**Directive:** Study the task, research solutions, document findings. Lear",
       "state": "closed",
       "stage": "deploy",
-      "agent": "code-crafter",
+      "agent": "pipe-layer",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/12",
       "createdAt": "2026-03-15T20:17:51Z",
       "updatedAt": "2026-03-15T20:34:05Z",
       "draft": false,
-      "thought": "Feature building..."
+      "thought": "Integration flowing..."
     },
     {
       "id": "pr-10",
@@ -2426,13 +2422,13 @@
       "body": "## Summary\n\nThis PR implements:\n- ? Zone Detail Modal (Issue #3)\n- ? Agent Work Request System (Issue #4)\n- ?? Pixel Art Generation Script (Issue #2 - partial)\n\n## Changes\n\n### Zone Detail Modal\n- Cli",
       "state": "closed",
       "stage": "deploy",
-      "agent": "hook-maker",
+      "agent": "map-maker",
       "labels": [],
       "url": "https://github.com/jelly-legs-ai/Jelly-legs-unsteady-workshop/pull/10",
       "createdAt": "2026-03-15T18:35:41Z",
       "updatedAt": "2026-03-20T19:54:41Z",
       "draft": false,
-      "thought": "Viral hook testing..."
+      "thought": "Strategy planning..."
     }
   ],
   "stats": {
@@ -2443,7 +2439,7 @@
     "recentCommits": 20,
     "recentWorkflows": 10,
     "activeAgents": 3,
-    "lastUpdate": "2026-08-19T10:35:55.780Z"
+    "lastUpdate": "2026-08-19T10:58:16.787Z"
   },
-  "timestamp": "2026-08-19T10:35:55.780Z"
+  "timestamp": "2026-08-19T10:58:16.787Z"
 }
